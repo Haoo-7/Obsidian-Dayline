@@ -13,7 +13,7 @@ const { formatDateInTimeZone } = require('./date-utils');
 const { ThumbnailService } = require('./thumbnail-service');
 const { getDisplayLanguage, moodLabel, t } = require('./i18n');
 const { getMoodColor } = require('./mood');
-const { shouldShowCalendarMood, shouldShowCalendarWeather } = require('./calendar-display');
+const { shouldShowCalendarMood, shouldShowCalendarWeatherCard, shouldShowCalendarWeatherBadge } = require('./calendar-display');
 
 const VIEW_TYPE = 'calendar-sidebar-view';
 const OVERLAY_ATTR = 'data-cal-weather-overlay';
@@ -36,6 +36,9 @@ const DEFAULT_SETTINGS = {
   weatherLanguage: 'zh',  // 'en' | 'zh' — display language for weather labels
   displayLanguage: 'zh',  // global plugin language; migrated from weatherLanguage
   showCalendarMood: true,
+  showCalendarWeatherCard: true,
+  showCalendarWeatherBadge: true,
+  // Legacy combined weather visibility setting; retained for migration/downgrade compatibility.
   showCalendarWeather: true,
   // --- EXIF metadata ---
   showExif: true,         // show EXIF metadata tooltip on image hover
@@ -293,22 +296,32 @@ class DaylinePlugin extends Plugin {
     const path = activeIsJournal
       ? activeFile.path
       : `${this.settings.dailyFolder}/${_formatDate(new Date())}.md`;
-    await this.ensureJournalFile(path, '');
-    this.openMoodPicker(path);
+    this.openMoodPicker(path, { allowDateSelection: true, ensureFile: false });
   }
 
-  async openMoodPicker(path) {
-    await this.ensureJournalFile(path, '');
+  async openMoodPicker(path, options = {}) {
+    if (path && options.ensureFile !== false) await this.ensureJournalFile(path, '');
     const entry = this.journalIndex.getEntries().find((item) => item.path === path);
     new MoodPickerModal(this.app, {
       filePath: path,
       initial: this.moodStore.get(path) || entry?.mood,
       settings: this.settings,
-      onSave: async ({ score, labels }) => {
-        await this.moodStore.set(path, score, labels, this.settings);
-        await this.journalIndex.refreshFile(path, this.settings);
+      allowDateSelection: options.allowDateSelection === true,
+      onDateChange: async (date) => {
+        const nextPath = `${this.settings.dailyFolder}/${date}.md`;
+        const nextEntry = this.journalIndex.getEntries().find((item) => item.path === nextPath);
+        return {
+          filePath: nextPath,
+          initial: this.moodStore.get(nextPath) || nextEntry?.mood,
+        };
+      },
+      onSave: async ({ filePath, score, labels }) => {
+        const targetPath = filePath || path;
+        await this.ensureJournalFile(targetPath, '');
+        await this.moodStore.set(targetPath, score, labels, this.settings);
+        await this.journalIndex.refreshFile(targetPath, this.settings);
         this.refreshJournalViews();
-        new Notice(`${t(this.settings, 'moodSaved')}: ${path}`);
+        new Notice(`${t(this.settings, 'moodSaved')}: ${targetPath}`);
       },
     }).open();
   }
@@ -480,6 +493,9 @@ class DaylinePlugin extends Plugin {
     // Delete stale cache entries to prevent data.json bloat
     this._cleanupWeatherCache();
     this.settings = Object.assign({}, DEFAULT_SETTINGS, data);
+    const legacyWeatherVisible = data.showCalendarWeather !== false;
+    if (data.showCalendarWeatherCard === undefined) this.settings.showCalendarWeatherCard = legacyWeatherVisible;
+    if (data.showCalendarWeatherBadge === undefined) this.settings.showCalendarWeatherBadge = legacyWeatherVisible;
     this.settings.displayLanguage = getDisplayLanguage({ displayLanguage: data.displayLanguage, weatherLanguage: data.weatherLanguage });
     this.settings.weatherLanguage = this.settings.displayLanguage;
     delete this.settings.weatherCache; // settings object shouldn't carry the cache
@@ -488,6 +504,7 @@ class DaylinePlugin extends Plugin {
   async saveSettings() {
     const settings = { ...this.settings };
     settings.weatherLanguage = settings.displayLanguage || settings.weatherLanguage || 'zh';
+    settings.showCalendarWeather = settings.showCalendarWeatherCard !== false || settings.showCalendarWeatherBadge !== false;
     this.moodStore?.configure(settings);
     await this._enqueueDataWrite((data) => {
       Object.assign(data, settings);
@@ -1117,6 +1134,9 @@ button.cal-weather-refresh:hover {
   align-items: center;
   justify-content: center;
 }
+.cal-mood-empty { opacity: 0; }
+.cal-day:hover .cal-mood-empty, .cal-mood-empty:focus-visible { opacity: 1; }
+.cal-mood-empty .cal-mood-dot { width: 8px; height: 8px; border: 1px solid var(--text-faint); background: transparent; }
 .cal-mood-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--journal-mood-color); }
 .cal-mood-button:hover .cal-mood-dot { box-shadow: 0 0 0 2px color-mix(in srgb, var(--journal-mood-color) 35%, transparent); }
 .cal-mood-button.mood-2 { --journal-mood-color: #4b93d1; }
@@ -1172,6 +1192,8 @@ button.cal-weather-refresh:hover {
 .journal-timeline-empty { min-width: 0; padding: 28px 8px; overflow-wrap: anywhere; color: var(--text-muted); text-align: center; }
 .journal-mood-picker-modal .modal-content { min-width: 320px; }
 .journal-mood-picker h3 { margin-bottom: 4px; }
+.journal-mood-date-field { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0 0 14px; color: var(--text-muted); font-size: 12px; }
+.journal-mood-date-field input { min-width: 0; max-width: 150px; }
 .journal-mood-step { color: var(--text-muted); margin: 0 0 16px; }
 .journal-mood-scale { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 7px; }
 .journal-mood-level { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 0; min-height: 76px; gap: 6px; color: var(--journal-mood-color); border: 1px solid var(--background-modifier-border); background: var(--background-secondary); }
@@ -3008,7 +3030,7 @@ class CalendarView extends ItemView {
 
       // Weather badge for dates with cached weather
       if (this.plugin.settings.weatherEnabled
-        && shouldShowCalendarWeather(this.plugin.settings)
+        && shouldShowCalendarWeatherBadge(this.plugin.settings)
         && this.weather.hasCachedSnapshot(dateStr)) {
         const snap = this._readCachedWeather(dateStr);
         if (snap) {
@@ -3027,21 +3049,21 @@ class CalendarView extends ItemView {
         ? this.plugin.moodStore?.get(dailyPath)
           || this.plugin.journalIndex?.getEntries().find((entry) => entry.path === dailyPath)?.mood
         : undefined;
-      if (mood) {
+      if (shouldShowCalendarMood(this.plugin.settings)) {
         const moodButton = cell.createEl('button', {
-          cls: `cal-mood-button mood-${mood.score}`,
+          cls: `cal-mood-button ${mood ? `mood-${mood.score}` : 'cal-mood-empty'}`,
           attr: {
             type: 'button',
             'aria-label': `${t(this.plugin.settings, 'recordMood')}: ${dateStr}`,
-            title: moodLabel(this.plugin.settings, mood.score),
+            title: mood ? moodLabel(this.plugin.settings, mood.score) : `${t(this.plugin.settings, 'recordMood')}: ${dateStr}`,
           },
         });
-        moodButton.style.setProperty('--journal-mood-color', getMoodColor(mood.score));
+        if (mood) moodButton.style.setProperty('--journal-mood-color', getMoodColor(mood.score));
         moodButton.createSpan({ cls: 'cal-mood-dot', attr: { 'aria-hidden': 'true' } });
         moodButton.addEventListener('pointerdown', (event) => {
           event.preventDefault();
           event.stopPropagation();
-          this.plugin.openMoodPicker(dailyPath);
+          this.plugin.openMoodPicker(dailyPath, { allowDateSelection: true, ensureFile: false });
         });
       }
 
@@ -3127,7 +3149,7 @@ class CalendarView extends ItemView {
   /* ----- Render weather card below month header (idempotent) ----- */
   _renderWeatherCard(containerEl) {
     const s = this.plugin.settings;
-    if (!s.weatherEnabled || !shouldShowCalendarWeather(s)) {
+    if (!s.weatherEnabled || !shouldShowCalendarWeatherCard(s)) {
       // Don't show anything when weather is disabled — avoid intrusive UI
       return;
     }
@@ -4039,12 +4061,23 @@ class DaylineSettingsTab extends PluginSettingTab {
         }));
 
     new Setting(containerEl)
-      .setName(t(this.plugin.settings, 'showCalendarWeather'))
-      .setDesc(t(this.plugin.settings, 'showCalendarWeatherDesc'))
+      .setName(t(this.plugin.settings, 'showCalendarWeatherCard'))
+      .setDesc(t(this.plugin.settings, 'showCalendarWeatherCardDesc'))
       .addToggle((toggle) => toggle
-        .setValue(this.plugin.settings.showCalendarWeather !== false)
+        .setValue(this.plugin.settings.showCalendarWeatherCard !== false)
         .onChange(async (value) => {
-          this.plugin.settings.showCalendarWeather = value;
+          this.plugin.settings.showCalendarWeatherCard = value;
+          await this.plugin.saveSettings();
+          await this._refreshViews();
+        }));
+
+    new Setting(containerEl)
+      .setName(t(this.plugin.settings, 'showCalendarWeatherBadge'))
+      .setDesc(t(this.plugin.settings, 'showCalendarWeatherBadgeDesc'))
+      .addToggle((toggle) => toggle
+        .setValue(this.plugin.settings.showCalendarWeatherBadge !== false)
+        .onChange(async (value) => {
+          this.plugin.settings.showCalendarWeatherBadge = value;
           await this.plugin.saveSettings();
           await this._refreshViews();
         }));

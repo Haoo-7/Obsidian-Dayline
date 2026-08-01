@@ -17,7 +17,32 @@ export const MOOD_LABELS = [
   { id: 'hopeful', label: 'Hopeful' },
   { id: 'sad', label: 'Sad' },
   { id: 'focused', label: 'Focused' },
+  { id: 'overwhelmed', label: 'Overwhelmed' },
+  { id: 'lonely', label: 'Lonely' },
+  { id: 'frustrated', label: 'Frustrated' },
+  { id: 'thoughtful', label: 'Thoughtful' },
+  { id: 'content', label: 'Content' },
+  { id: 'joyful', label: 'Joyful' },
+  { id: 'proud', label: 'Proud' },
+  { id: 'inspired', label: 'Inspired' },
 ];
+
+// Apple Journal-style context: the feeling choices narrow with the selected
+// intensity instead of showing the same labels for every color.
+export const MOOD_LABEL_GROUPS: Record<MoodScore, string[]> = {
+  [-2]: ['sad', 'anxious', 'overwhelmed', 'lonely'],
+  [-1]: ['tired', 'frustrated', 'anxious', 'sad'],
+  [0]: ['calm', 'thoughtful', 'content', 'focused'],
+  [1]: ['grateful', 'hopeful', 'energized', 'focused'],
+  [2]: ['joyful', 'proud', 'inspired', 'grateful', 'energized'],
+};
+
+export function moodLabelsForScore(score: MoodScore | null): typeof MOOD_LABELS {
+  const ids = score === null ? MOOD_LABELS.map((label) => label.id) : MOOD_LABEL_GROUPS[score];
+  return ids
+    .map((id) => MOOD_LABELS.find((label) => label.id === id))
+    .filter((label): label is (typeof MOOD_LABELS)[number] => Boolean(label));
+}
 
 export function moveMoodScore(score: MoodScore | null, direction: -1 | 1): MoodScore {
   const current = score === null ? 2 : score;

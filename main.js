@@ -728,10 +728,16 @@ var init_mood_store = __esm({
 var mood_exports = {};
 __export(mood_exports, {
   MOOD_LABELS: () => MOOD_LABELS,
+  MOOD_LABEL_GROUPS: () => MOOD_LABEL_GROUPS,
   MOOD_LEVELS: () => MOOD_LEVELS,
   getMoodColor: () => getMoodColor,
+  moodLabelsForScore: () => moodLabelsForScore,
   moveMoodScore: () => moveMoodScore
 });
+function moodLabelsForScore(score) {
+  const ids = score === null ? MOOD_LABELS.map((label) => label.id) : MOOD_LABEL_GROUPS[score];
+  return ids.map((id) => MOOD_LABELS.find((label) => label.id === id)).filter((label) => Boolean(label));
+}
 function moveMoodScore(score, direction) {
   const current = score === null ? 2 : score;
   const index = MOOD_LEVELS.findIndex((level) => level.score === current);
@@ -740,7 +746,7 @@ function moveMoodScore(score, direction) {
 function getMoodColor(score) {
   return MOOD_LEVELS.find((level) => level.score === score)?.color ?? "var(--background-modifier-border)";
 }
-var MOOD_LEVELS, MOOD_LABELS;
+var MOOD_LEVELS, MOOD_LABELS, MOOD_LABEL_GROUPS;
 var init_mood = __esm({
   "src/mood.ts"() {
     "use strict";
@@ -759,8 +765,23 @@ var init_mood = __esm({
       { id: "energized", label: "Energized" },
       { id: "hopeful", label: "Hopeful" },
       { id: "sad", label: "Sad" },
-      { id: "focused", label: "Focused" }
+      { id: "focused", label: "Focused" },
+      { id: "overwhelmed", label: "Overwhelmed" },
+      { id: "lonely", label: "Lonely" },
+      { id: "frustrated", label: "Frustrated" },
+      { id: "thoughtful", label: "Thoughtful" },
+      { id: "content", label: "Content" },
+      { id: "joyful", label: "Joyful" },
+      { id: "proud", label: "Proud" },
+      { id: "inspired", label: "Inspired" }
     ];
+    MOOD_LABEL_GROUPS = {
+      [-2]: ["sad", "anxious", "overwhelmed", "lonely"],
+      [-1]: ["tired", "frustrated", "anxious", "sad"],
+      [0]: ["calm", "thoughtful", "content", "focused"],
+      [1]: ["grateful", "hopeful", "energized", "focused"],
+      [2]: ["joyful", "proud", "inspired", "grateful", "energized"]
+    };
   }
 });
 
@@ -848,6 +869,16 @@ var init_i18n = __esm({
         hopeful: "\u5145\u6EE1\u5E0C\u671B",
         sad: "\u96BE\u8FC7",
         focused: "\u4E13\u6CE8",
+        overwhelmed: "\u4E0D\u582A\u91CD\u8D1F",
+        lonely: "\u5B64\u72EC",
+        frustrated: "\u6CAE\u4E27",
+        thoughtful: "\u82E5\u6709\u6240\u601D",
+        content: "\u6EE1\u8DB3",
+        joyful: "\u559C\u60A6",
+        proud: "\u81EA\u8C6A",
+        inspired: "\u53D7\u5230\u9F13\u821E",
+        moodDate: "\u8BB0\u5F55\u65E5\u671F",
+        moodDateDesc: "\u53EF\u4EE5\u9009\u62E9\u4EFB\u610F\u65E5\u671F\uFF0C\u6DFB\u52A0\u6216\u4FEE\u6539\u90A3\u4E00\u5929\u7684\u5FC3\u60C5\u3002",
         moodSaved: "\u5FC3\u60C5\u5DF2\u4FDD\u5B58",
         metadataExported: "\u5FC3\u60C5\u5143\u6570\u636E\u5DF2\u5BFC\u51FA\u5230 {path}",
         metadataRestored: "\u5FC3\u60C5\u5143\u6570\u636E\u5907\u4EFD\u5DF2\u6062\u590D",
@@ -875,8 +906,10 @@ var init_i18n = __esm({
         calendarDisplay: "\u65E5\u5386\u663E\u793A",
         showCalendarMood: "\u663E\u793A\u65E5\u5386\u5FC3\u60C5\u6807\u8BB0",
         showCalendarMoodDesc: "\u5728\u65E5\u671F\u683C\u663E\u793A\u5FC3\u60C5\u989C\u8272\u6807\u8BB0\uFF1B\u5173\u95ED\u540E\u4E0D\u4F1A\u5220\u9664\u5FC3\u60C5\u8BB0\u5F55\u3002",
-        showCalendarWeather: "\u663E\u793A\u65E5\u5386\u5929\u6C14",
-        showCalendarWeatherDesc: "\u663E\u793A\u9876\u90E8\u5929\u6C14\u5361\u7247\u548C\u65E5\u671F\u683C\u5929\u6C14\u56FE\u6807\uFF1B\u5173\u95ED\u540E\u4ECD\u4FDD\u7559\u5929\u6C14\u7F13\u5B58\u3002",
+        showCalendarWeatherCard: "\u663E\u793A\u65E5\u5386\u5929\u6C14\u5361\u7247",
+        showCalendarWeatherCardDesc: "\u663E\u793A\u6708\u5386\u9876\u90E8\u5929\u6C14\u5361\u7247\uFF1B\u5173\u95ED\u540E\u4E0D\u5F71\u54CD\u65E5\u671F\u683C\u5929\u6C14\u56FE\u6807\u3002",
+        showCalendarWeatherBadge: "\u663E\u793A\u65E5\u671F\u5929\u6C14\u56FE\u6807",
+        showCalendarWeatherBadgeDesc: "\u663E\u793A\u65E5\u671F\u683C\u53F3\u4E0A\u89D2\u5929\u6C14\u56FE\u6807\uFF1B\u5173\u95ED\u540E\u4E0D\u5F71\u54CD\u9876\u90E8\u5929\u6C14\u5361\u7247\u3002",
         openCalendar: "\u6253\u5F00 Dayline",
         refreshWeather: "\u5237\u65B0\u5F53\u524D\u65E5\u671F\u5929\u6C14",
         openOnThisDay: "\u6253\u5F00\u53BB\u5E74\u4ECA\u65E5",
@@ -930,6 +963,16 @@ var init_i18n = __esm({
         hopeful: "Hopeful",
         sad: "Sad",
         focused: "Focused",
+        overwhelmed: "Overwhelmed",
+        lonely: "Lonely",
+        frustrated: "Frustrated",
+        thoughtful: "Thoughtful",
+        content: "Content",
+        joyful: "Joyful",
+        proud: "Proud",
+        inspired: "Inspired",
+        moodDate: "Mood date",
+        moodDateDesc: "Choose any date to add or update its mood.",
         moodSaved: "Mood saved",
         metadataExported: "Mood metadata exported to {path}",
         metadataRestored: "Mood metadata backup restored",
@@ -957,8 +1000,10 @@ var init_i18n = __esm({
         calendarDisplay: "Calendar display",
         showCalendarMood: "Show mood markers on calendar",
         showCalendarMoodDesc: "Show mood colors on date cells without deleting mood records when disabled.",
-        showCalendarWeather: "Show weather on calendar",
-        showCalendarWeatherDesc: "Show the weather card and date-cell weather icons; weather cache remains available when disabled.",
+        showCalendarWeatherCard: "Show the calendar weather card",
+        showCalendarWeatherCardDesc: "Show the weather card above the calendar; date-cell icons are unaffected.",
+        showCalendarWeatherBadge: "Show date weather icons",
+        showCalendarWeatherBadgeDesc: "Show weather icons in the top-right of date cells; the weather card is unaffected.",
         openCalendar: "Open Dayline",
         refreshWeather: "Refresh weather for active date",
         openOnThisDay: "Open On This Day",
@@ -980,12 +1025,18 @@ var mood_picker_modal_exports = {};
 __export(mood_picker_modal_exports, {
   MoodPickerModal: () => MoodPickerModal
 });
-var Modal, Notice, MOOD_LEVELS2, MOOD_LABELS2, moveMoodScore2, feelingLabel2, moodLabel2, t2, MoodPickerModal;
+function extractDate(filePath) {
+  const match = String(filePath || "").match(/(\d{4}-\d{2}-\d{2})(?:\.md)?$/);
+  if (match) return match[1];
+  const now = /* @__PURE__ */ new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+}
+var Modal, Notice, MOOD_LEVELS2, moodLabelsForScore2, moveMoodScore2, feelingLabel2, moodLabel2, t2, MoodPickerModal;
 var init_mood_picker_modal = __esm({
   "src/mood-picker-modal.ts"() {
     "use strict";
     ({ Modal, Notice } = require("obsidian"));
-    ({ MOOD_LEVELS: MOOD_LEVELS2, MOOD_LABELS: MOOD_LABELS2, moveMoodScore: moveMoodScore2 } = (init_mood(), __toCommonJS(mood_exports)));
+    ({ MOOD_LEVELS: MOOD_LEVELS2, moodLabelsForScore: moodLabelsForScore2, moveMoodScore: moveMoodScore2 } = (init_mood(), __toCommonJS(mood_exports)));
     ({ feelingLabel: feelingLabel2, moodLabel: moodLabel2, t: t2 } = (init_i18n(), __toCommonJS(i18n_exports)));
     MoodPickerModal = class extends Modal {
       constructor(app, options = {}) {
@@ -994,6 +1045,9 @@ var init_mood_picker_modal = __esm({
         this.settings = options.settings || {};
         this.initial = options.initial;
         this.onSave = options.onSave;
+        this.onDateChange = options.onDateChange;
+        this.allowDateSelection = options.allowDateSelection === true;
+        this.date = options.date || extractDate(options.filePath);
         this.score = this.initial?.score ?? null;
         this.labels = new Set(this.initial?.labels ?? []);
       }
@@ -1014,6 +1068,7 @@ var init_mood_picker_modal = __esm({
         this.step = 1;
         this.contentEl.empty();
         this.contentEl.createEl("h3", { text: t2(this.settings, "moodTitle") });
+        if (this.allowDateSelection) this.renderDateField();
         this.contentEl.createEl("p", { cls: "journal-mood-step", text: t2(this.settings, "moodQuestion") });
         const scale = this.contentEl.createDiv({ cls: "journal-mood-scale", attr: { role: "radiogroup", "aria-label": t2(this.settings, "moodQuestion") } });
         MOOD_LEVELS2.forEach((level, index) => {
@@ -1031,7 +1086,7 @@ var init_mood_picker_modal = __esm({
           button.createSpan({ cls: "journal-mood-dot", attr: { "aria-hidden": "true" } });
           button.createSpan({ cls: "journal-mood-level-label", text: moodLabel2(this.settings, level.score) });
           button.addEventListener("click", () => {
-            this.score = level.score;
+            this.selectScore(level.score);
             this.renderLabels();
           });
         });
@@ -1040,13 +1095,51 @@ var init_mood_picker_modal = __esm({
           text: this.score === null ? t2(this.settings, "chooseLevel") : `${t2(this.settings, "selected")}: ${moodLabel2(this.settings, this.score)}`
         });
       }
+      renderDateField() {
+        const field = this.contentEl.createDiv({ cls: "journal-mood-date-field" });
+        const label = field.createEl("label", { text: t2(this.settings, "moodDate") });
+        const input = field.createEl("input", {
+          attr: {
+            type: "date",
+            value: this.date || "",
+            "aria-label": t2(this.settings, "moodDate"),
+            title: t2(this.settings, "moodDateDesc")
+          }
+        });
+        label.htmlFor = input.id = `dayline-mood-date-${Date.now()}`;
+        input.addEventListener("change", () => this.changeDate(input.value, input));
+      }
+      selectScore(score) {
+        this.score = score;
+        const available = new Set(moodLabelsForScore2(score).map((label) => label.id));
+        this.labels = new Set(Array.from(this.labels).filter((id) => available.has(id)));
+      }
+      async changeDate(date, input) {
+        if (!date || date === this.date) return;
+        input.disabled = true;
+        try {
+          const result = await this.onDateChange?.(date);
+          this.date = date;
+          if (result) {
+            this.filePath = result.filePath || this.filePath;
+            this.initial = result.initial;
+            this.score = this.initial?.score ?? null;
+            this.labels = new Set(this.initial?.labels ?? []);
+          }
+          this.renderScale();
+        } catch (error) {
+          input.disabled = false;
+          new Notice(`${t2(this.settings, "moodTitle")}: ${error.message || error}`);
+        }
+      }
       renderLabels() {
         this.step = 2;
         this.contentEl.empty();
         this.contentEl.createEl("h3", { text: t2(this.settings, "addFeelings") });
+        if (this.allowDateSelection) this.renderDateField();
         this.contentEl.createEl("p", { cls: "journal-mood-step", text: t2(this.settings, "chooseFeelings") });
         const group = this.contentEl.createDiv({ cls: "journal-mood-labels", attr: { role: "group", "aria-label": t2(this.settings, "addFeelings") } });
-        for (const item of MOOD_LABELS2) {
+        for (const item of moodLabelsForScore2(this.score)) {
           const button = group.createEl("button", {
             cls: "journal-mood-label",
             text: feelingLabel2(this.settings, item.id),
@@ -1068,7 +1161,7 @@ var init_mood_picker_modal = __esm({
       async save() {
         if (this.score === null) return;
         try {
-          await this.onSave?.({ score: this.score, labels: Array.from(this.labels) });
+          await this.onSave?.({ filePath: this.filePath, score: this.score, labels: Array.from(this.labels) });
           this.close();
         } catch (error) {
           new Notice(`${t2(this.settings, "moodTitle")}: ${error.message || error}`);
@@ -1520,13 +1613,21 @@ var init_thumbnail_service = __esm({
 var calendar_display_exports = {};
 __export(calendar_display_exports, {
   shouldShowCalendarMood: () => shouldShowCalendarMood,
-  shouldShowCalendarWeather: () => shouldShowCalendarWeather
+  shouldShowCalendarWeather: () => shouldShowCalendarWeather,
+  shouldShowCalendarWeatherBadge: () => shouldShowCalendarWeatherBadge,
+  shouldShowCalendarWeatherCard: () => shouldShowCalendarWeatherCard
 });
 function shouldShowCalendarMood(settings = {}) {
   return settings.showCalendarMood !== false;
 }
 function shouldShowCalendarWeather(settings = {}) {
-  return settings.showCalendarWeather !== false;
+  return shouldShowCalendarWeatherCard(settings) || shouldShowCalendarWeatherBadge(settings);
+}
+function shouldShowCalendarWeatherCard(settings = {}) {
+  return settings.showCalendarWeatherCard ?? settings.showCalendarWeather !== false;
+}
+function shouldShowCalendarWeatherBadge(settings = {}) {
+  return settings.showCalendarWeatherBadge ?? settings.showCalendarWeather !== false;
 }
 var init_calendar_display = __esm({
   "src/calendar-display.ts"() {
@@ -1544,7 +1645,7 @@ var { formatDateInTimeZone: formatDateInTimeZone2 } = (init_date_utils(), __toCo
 var { ThumbnailService: ThumbnailService2 } = (init_thumbnail_service(), __toCommonJS(thumbnail_service_exports));
 var { getDisplayLanguage: getDisplayLanguage3, moodLabel: moodLabel4, t: t4 } = (init_i18n(), __toCommonJS(i18n_exports));
 var { getMoodColor: getMoodColor3 } = (init_mood(), __toCommonJS(mood_exports));
-var { shouldShowCalendarMood: shouldShowCalendarMood2, shouldShowCalendarWeather: shouldShowCalendarWeather2 } = (init_calendar_display(), __toCommonJS(calendar_display_exports));
+var { shouldShowCalendarMood: shouldShowCalendarMood2, shouldShowCalendarWeatherCard: shouldShowCalendarWeatherCard2, shouldShowCalendarWeatherBadge: shouldShowCalendarWeatherBadge2 } = (init_calendar_display(), __toCommonJS(calendar_display_exports));
 var VIEW_TYPE = "calendar-sidebar-view";
 var OVERLAY_ATTR = "data-cal-weather-overlay";
 var DEFAULT_SETTINGS = {
@@ -1569,6 +1670,9 @@ var DEFAULT_SETTINGS = {
   displayLanguage: "zh",
   // global plugin language; migrated from weatherLanguage
   showCalendarMood: true,
+  showCalendarWeatherCard: true,
+  showCalendarWeatherBadge: true,
+  // Legacy combined weather visibility setting; retained for migration/downgrade compatibility.
   showCalendarWeather: true,
   // --- EXIF metadata ---
   showExif: true,
@@ -1793,21 +1897,31 @@ var DaylinePlugin = class extends Plugin {
     const sources = this.journalIndex.resolveSources(this.settings);
     const activeIsJournal = activeFile?.extension === "md" && sources.some((source) => activeFile.path === source.path || activeFile.path.startsWith(`${source.path}/`));
     const path = activeIsJournal ? activeFile.path : `${this.settings.dailyFolder}/${_formatDate(/* @__PURE__ */ new Date())}.md`;
-    await this.ensureJournalFile(path, "");
-    this.openMoodPicker(path);
+    this.openMoodPicker(path, { allowDateSelection: true, ensureFile: false });
   }
-  async openMoodPicker(path) {
-    await this.ensureJournalFile(path, "");
+  async openMoodPicker(path, options = {}) {
+    if (path && options.ensureFile !== false) await this.ensureJournalFile(path, "");
     const entry = this.journalIndex.getEntries().find((item) => item.path === path);
     new MoodPickerModal2(this.app, {
       filePath: path,
       initial: this.moodStore.get(path) || entry?.mood,
       settings: this.settings,
-      onSave: async ({ score, labels }) => {
-        await this.moodStore.set(path, score, labels, this.settings);
-        await this.journalIndex.refreshFile(path, this.settings);
+      allowDateSelection: options.allowDateSelection === true,
+      onDateChange: async (date) => {
+        const nextPath = `${this.settings.dailyFolder}/${date}.md`;
+        const nextEntry = this.journalIndex.getEntries().find((item) => item.path === nextPath);
+        return {
+          filePath: nextPath,
+          initial: this.moodStore.get(nextPath) || nextEntry?.mood
+        };
+      },
+      onSave: async ({ filePath, score, labels }) => {
+        const targetPath = filePath || path;
+        await this.ensureJournalFile(targetPath, "");
+        await this.moodStore.set(targetPath, score, labels, this.settings);
+        await this.journalIndex.refreshFile(targetPath, this.settings);
         this.refreshJournalViews();
-        new Notice3(`${t4(this.settings, "moodSaved")}: ${path}`);
+        new Notice3(`${t4(this.settings, "moodSaved")}: ${targetPath}`);
       }
     }).open();
   }
@@ -1959,6 +2073,9 @@ var DaylinePlugin = class extends Plugin {
     this.weatherCache = data.weatherCache || {};
     this._cleanupWeatherCache();
     this.settings = Object.assign({}, DEFAULT_SETTINGS, data);
+    const legacyWeatherVisible = data.showCalendarWeather !== false;
+    if (data.showCalendarWeatherCard === void 0) this.settings.showCalendarWeatherCard = legacyWeatherVisible;
+    if (data.showCalendarWeatherBadge === void 0) this.settings.showCalendarWeatherBadge = legacyWeatherVisible;
     this.settings.displayLanguage = getDisplayLanguage3({ displayLanguage: data.displayLanguage, weatherLanguage: data.weatherLanguage });
     this.settings.weatherLanguage = this.settings.displayLanguage;
     delete this.settings.weatherCache;
@@ -1966,6 +2083,7 @@ var DaylinePlugin = class extends Plugin {
   async saveSettings() {
     const settings = { ...this.settings };
     settings.weatherLanguage = settings.displayLanguage || settings.weatherLanguage || "zh";
+    settings.showCalendarWeather = settings.showCalendarWeatherCard !== false || settings.showCalendarWeatherBadge !== false;
     this.moodStore?.configure(settings);
     await this._enqueueDataWrite((data) => {
       Object.assign(data, settings);
@@ -2588,6 +2706,9 @@ button.cal-weather-refresh:hover {
   align-items: center;
   justify-content: center;
 }
+.cal-mood-empty { opacity: 0; }
+.cal-day:hover .cal-mood-empty, .cal-mood-empty:focus-visible { opacity: 1; }
+.cal-mood-empty .cal-mood-dot { width: 8px; height: 8px; border: 1px solid var(--text-faint); background: transparent; }
 .cal-mood-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--journal-mood-color); }
 .cal-mood-button:hover .cal-mood-dot { box-shadow: 0 0 0 2px color-mix(in srgb, var(--journal-mood-color) 35%, transparent); }
 .cal-mood-button.mood-2 { --journal-mood-color: #4b93d1; }
@@ -2643,6 +2764,8 @@ button.cal-weather-refresh:hover {
 .journal-timeline-empty { min-width: 0; padding: 28px 8px; overflow-wrap: anywhere; color: var(--text-muted); text-align: center; }
 .journal-mood-picker-modal .modal-content { min-width: 320px; }
 .journal-mood-picker h3 { margin-bottom: 4px; }
+.journal-mood-date-field { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0 0 14px; color: var(--text-muted); font-size: 12px; }
+.journal-mood-date-field input { min-width: 0; max-width: 150px; }
 .journal-mood-step { color: var(--text-muted); margin: 0 0 16px; }
 .journal-mood-scale { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 7px; }
 .journal-mood-level { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 0; min-height: 76px; gap: 6px; color: var(--journal-mood-color); border: 1px solid var(--background-modifier-border); background: var(--background-secondary); }
@@ -4163,7 +4286,7 @@ var CalendarView = class extends ItemView2 {
         cell.addEventListener("mouseenter", () => this._onExifEnter(cell, firstImage, dateStr));
         cell.addEventListener("mouseleave", () => this._onExifLeave());
       }
-      if (this.plugin.settings.weatherEnabled && shouldShowCalendarWeather2(this.plugin.settings) && this.weather.hasCachedSnapshot(dateStr)) {
+      if (this.plugin.settings.weatherEnabled && shouldShowCalendarWeatherBadge2(this.plugin.settings) && this.weather.hasCachedSnapshot(dateStr)) {
         const snap = this._readCachedWeather(dateStr);
         if (snap) {
           const badge = cell.createEl("img", { cls: "cal-weather-badge" });
@@ -4175,21 +4298,21 @@ var CalendarView = class extends ItemView2 {
       }
       const dailyPath = `${this.plugin.settings.dailyFolder}/${dateStr}.md`;
       const mood = shouldShowCalendarMood2(this.plugin.settings) ? this.plugin.moodStore?.get(dailyPath) || this.plugin.journalIndex?.getEntries().find((entry) => entry.path === dailyPath)?.mood : void 0;
-      if (mood) {
+      if (shouldShowCalendarMood2(this.plugin.settings)) {
         const moodButton = cell.createEl("button", {
-          cls: `cal-mood-button mood-${mood.score}`,
+          cls: `cal-mood-button ${mood ? `mood-${mood.score}` : "cal-mood-empty"}`,
           attr: {
             type: "button",
             "aria-label": `${t4(this.plugin.settings, "recordMood")}: ${dateStr}`,
-            title: moodLabel4(this.plugin.settings, mood.score)
+            title: mood ? moodLabel4(this.plugin.settings, mood.score) : `${t4(this.plugin.settings, "recordMood")}: ${dateStr}`
           }
         });
-        moodButton.style.setProperty("--journal-mood-color", getMoodColor3(mood.score));
+        if (mood) moodButton.style.setProperty("--journal-mood-color", getMoodColor3(mood.score));
         moodButton.createSpan({ cls: "cal-mood-dot", attr: { "aria-hidden": "true" } });
         moodButton.addEventListener("pointerdown", (event) => {
           event.preventDefault();
           event.stopPropagation();
-          this.plugin.openMoodPicker(dailyPath);
+          this.plugin.openMoodPicker(dailyPath, { allowDateSelection: true, ensureFile: false });
         });
       }
       if (this.plugin.settings.onThisDayDot && this._otdDotCache) {
@@ -4264,7 +4387,7 @@ var CalendarView = class extends ItemView2 {
   /* ----- Render weather card below month header (idempotent) ----- */
   _renderWeatherCard(containerEl) {
     const s = this.plugin.settings;
-    if (!s.weatherEnabled || !shouldShowCalendarWeather2(s)) {
+    if (!s.weatherEnabled || !shouldShowCalendarWeatherCard2(s)) {
       return;
     }
     if (!_validateCoords(s.weatherLatitude, s.weatherLongitude)) {
@@ -4964,8 +5087,13 @@ var DaylineSettingsTab = class extends PluginSettingTab {
       await this.plugin.saveSettings();
       await this._refreshViews();
     }));
-    new Setting(containerEl).setName(t4(this.plugin.settings, "showCalendarWeather")).setDesc(t4(this.plugin.settings, "showCalendarWeatherDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showCalendarWeather !== false).onChange(async (value) => {
-      this.plugin.settings.showCalendarWeather = value;
+    new Setting(containerEl).setName(t4(this.plugin.settings, "showCalendarWeatherCard")).setDesc(t4(this.plugin.settings, "showCalendarWeatherCardDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showCalendarWeatherCard !== false).onChange(async (value) => {
+      this.plugin.settings.showCalendarWeatherCard = value;
+      await this.plugin.saveSettings();
+      await this._refreshViews();
+    }));
+    new Setting(containerEl).setName(t4(this.plugin.settings, "showCalendarWeatherBadge")).setDesc(t4(this.plugin.settings, "showCalendarWeatherBadgeDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showCalendarWeatherBadge !== false).onChange(async (value) => {
+      this.plugin.settings.showCalendarWeatherBadge = value;
       await this.plugin.saveSettings();
       await this._refreshViews();
     }));

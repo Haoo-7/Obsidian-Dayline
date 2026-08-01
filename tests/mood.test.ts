@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MOOD_LABELS, MOOD_LEVELS, moveMoodScore } from '../src/mood';
+import { MOOD_LABELS, MOOD_LEVELS, MOOD_LABEL_GROUPS, moodLabelsForScore, moveMoodScore } from '../src/mood';
 
 describe('mood picker choices', () => {
   it('provides five ordered levels and optional labels', () => {
@@ -14,5 +14,18 @@ describe('mood picker choices', () => {
     expect(moveMoodScore(2, 1)).toBe(2);
     expect(moveMoodScore(-2, -1)).toBe(-2);
     expect(moveMoodScore(0, 1)).toBe(1);
+  });
+
+  it('narrows feeling labels according to the selected mood level', () => {
+    const low = moodLabelsForScore(-2).map((label) => label.id);
+    const neutral = moodLabelsForScore(0).map((label) => label.id);
+    const high = moodLabelsForScore(2).map((label) => label.id);
+
+    expect(low).toEqual(MOOD_LABEL_GROUPS[-2]);
+    expect(neutral).toEqual(MOOD_LABEL_GROUPS[0]);
+    expect(high).toEqual(MOOD_LABEL_GROUPS[2]);
+    expect(low).not.toEqual(neutral);
+    expect(neutral).not.toEqual(high);
+    expect(new Set([...low, ...neutral, ...high]).size).toBeGreaterThan(neutral.length);
   });
 });

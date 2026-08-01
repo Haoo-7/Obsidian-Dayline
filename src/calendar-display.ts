@@ -1,5 +1,8 @@
 export interface CalendarDisplaySettings {
   showCalendarMood?: boolean;
+  showCalendarWeatherCard?: boolean;
+  showCalendarWeatherBadge?: boolean;
+  /** Legacy combined weather visibility setting. */
   showCalendarWeather?: boolean;
 }
 
@@ -9,5 +12,13 @@ export function shouldShowCalendarMood(settings: CalendarDisplaySettings = {}): 
 }
 
 export function shouldShowCalendarWeather(settings: CalendarDisplaySettings = {}): boolean {
-  return settings.showCalendarWeather !== false;
+  return shouldShowCalendarWeatherCard(settings) || shouldShowCalendarWeatherBadge(settings);
+}
+
+export function shouldShowCalendarWeatherCard(settings: CalendarDisplaySettings = {}): boolean {
+  return settings.showCalendarWeatherCard ?? settings.showCalendarWeather !== false;
+}
+
+export function shouldShowCalendarWeatherBadge(settings: CalendarDisplaySettings = {}): boolean {
+  return settings.showCalendarWeatherBadge ?? settings.showCalendarWeather !== false;
 }

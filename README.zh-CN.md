@@ -95,7 +95,8 @@ Day One 或 Apple Journal 导入请先使用专业导入插件，再把输出目
 | **Mirror mood to frontmatter** | 默认关闭的 frontmatter 镜像 |
 | **Daily reminder** | 可关闭的本地记录提醒 |
 | **Show mood markers on calendar** | 显示或隐藏日期格心情颜色标记 |
-| **Show weather on calendar** | 显示或隐藏天气卡片和日期格天气图标 |
+| **Show calendar weather card** | 显示或隐藏月历顶部天气卡片 |
+| **Show date weather icons** | 显示或隐藏日期格右上角天气图标 |
 
 ## 与 Templater 配合
 

@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { shouldShowCalendarMood, shouldShowCalendarWeather } from '../src/calendar-display';
+import {
+  shouldShowCalendarMood,
+  shouldShowCalendarWeather,
+  shouldShowCalendarWeatherBadge,
+  shouldShowCalendarWeatherCard,
+} from '../src/calendar-display';
 
 describe('calendar display settings', () => {
   it('keeps both displays visible for legacy settings without the new fields', () => {
@@ -11,5 +16,13 @@ describe('calendar display settings', () => {
     expect(shouldShowCalendarMood({ showCalendarMood: false, showCalendarWeather: true })).toBe(false);
     expect(shouldShowCalendarWeather({ showCalendarMood: true, showCalendarWeather: false })).toBe(false);
     expect(shouldShowCalendarMood({ showCalendarMood: true, showCalendarWeather: false })).toBe(true);
+  });
+
+  it('controls the weather card and date badges independently', () => {
+    expect(shouldShowCalendarWeatherCard({ showCalendarWeatherCard: false, showCalendarWeatherBadge: true })).toBe(false);
+    expect(shouldShowCalendarWeatherBadge({ showCalendarWeatherCard: false, showCalendarWeatherBadge: true })).toBe(true);
+    expect(shouldShowCalendarWeatherCard({ showCalendarWeatherCard: true, showCalendarWeatherBadge: false })).toBe(true);
+    expect(shouldShowCalendarWeatherBadge({ showCalendarWeatherCard: true, showCalendarWeatherBadge: false })).toBe(false);
+    expect(shouldShowCalendarWeather({ showCalendarWeatherCard: false, showCalendarWeatherBadge: true })).toBe(true);
   });
 });

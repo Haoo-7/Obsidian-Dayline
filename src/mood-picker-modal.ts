@@ -1,6 +1,6 @@
 // @ts-nocheck
 const { Modal, Notice } = require('obsidian');
-const { MOOD_LEVELS, MOOD_LABELS, moveMoodScore } = require('./mood');
+const { MOOD_LEVELS, moodLabelsForScore, moveMoodScore } = require('./mood');
 const { feelingLabel, moodLabel, t } = require('./i18n');
 
 export class MoodPickerModal extends Modal {
@@ -10,6 +10,9 @@ export class MoodPickerModal extends Modal {
     this.settings = options.settings || {};
     this.initial = options.initial;
     this.onSave = options.onSave;
+    this.onDateChange = options.onDateChange;
+    this.allowDateSelection = options.allowDateSelection === true;
+    this.date = options.date || extractDate(options.filePath);
     this.score = this.initial?.score ?? null;
     this.labels = new Set(this.initial?.labels ?? []);
   }
@@ -33,6 +36,7 @@ export class MoodPickerModal extends Modal {
     this.step = 1;
     this.contentEl.empty();
     this.contentEl.createEl('h3', { text: t(this.settings, 'moodTitle') });
+    if (this.allowDateSelection) this.renderDateField();
     this.contentEl.createEl('p', { cls: 'journal-mood-step', text: t(this.settings, 'moodQuestion') });
     const scale = this.contentEl.createDiv({ cls: 'journal-mood-scale', attr: { role: 'radiogroup', 'aria-label': t(this.settings, 'moodQuestion') } });
     MOOD_LEVELS.forEach((level, index) => {
@@ -50,7 +54,7 @@ export class MoodPickerModal extends Modal {
       button.createSpan({ cls: 'journal-mood-dot', attr: { 'aria-hidden': 'true' } });
       button.createSpan({ cls: 'journal-mood-level-label', text: moodLabel(this.settings, level.score) });
       button.addEventListener('click', () => {
-        this.score = level.score;
+        this.selectScore(level.score);
         this.renderLabels();
       });
     });
@@ -60,13 +64,54 @@ export class MoodPickerModal extends Modal {
     });
   }
 
+  renderDateField() {
+    const field = this.contentEl.createDiv({ cls: 'journal-mood-date-field' });
+    const label = field.createEl('label', { text: t(this.settings, 'moodDate') });
+    const input = field.createEl('input', {
+      attr: {
+        type: 'date',
+        value: this.date || '',
+        'aria-label': t(this.settings, 'moodDate'),
+        title: t(this.settings, 'moodDateDesc'),
+      },
+    });
+    label.htmlFor = input.id = `dayline-mood-date-${Date.now()}`;
+    input.addEventListener('change', () => this.changeDate(input.value, input));
+  }
+
+  selectScore(score) {
+    this.score = score;
+    const available = new Set(moodLabelsForScore(score).map((label) => label.id));
+    this.labels = new Set(Array.from(this.labels).filter((id) => available.has(id)));
+  }
+
+  async changeDate(date, input) {
+    if (!date || date === this.date) return;
+    input.disabled = true;
+    try {
+      const result = await this.onDateChange?.(date);
+      this.date = date;
+      if (result) {
+        this.filePath = result.filePath || this.filePath;
+        this.initial = result.initial;
+        this.score = this.initial?.score ?? null;
+        this.labels = new Set(this.initial?.labels ?? []);
+      }
+      this.renderScale();
+    } catch (error) {
+      input.disabled = false;
+      new Notice(`${t(this.settings, 'moodTitle')}: ${error.message || error}`);
+    }
+  }
+
   renderLabels() {
     this.step = 2;
     this.contentEl.empty();
     this.contentEl.createEl('h3', { text: t(this.settings, 'addFeelings') });
+    if (this.allowDateSelection) this.renderDateField();
     this.contentEl.createEl('p', { cls: 'journal-mood-step', text: t(this.settings, 'chooseFeelings') });
     const group = this.contentEl.createDiv({ cls: 'journal-mood-labels', attr: { role: 'group', 'aria-label': t(this.settings, 'addFeelings') } });
-    for (const item of MOOD_LABELS) {
+    for (const item of moodLabelsForScore(this.score)) {
       const button = group.createEl('button', {
         cls: 'journal-mood-label',
         text: feelingLabel(this.settings, item.id),
@@ -89,7 +134,7 @@ export class MoodPickerModal extends Modal {
   async save() {
     if (this.score === null) return;
     try {
-      await this.onSave?.({ score: this.score, labels: Array.from(this.labels) });
+      await this.onSave?.({ filePath: this.filePath, score: this.score, labels: Array.from(this.labels) });
       this.close();
     } catch (error) {
       new Notice(`${t(this.settings, 'moodTitle')}: ${error.message || error}`);
@@ -116,4 +161,11 @@ export class MoodPickerModal extends Modal {
       this.renderLabels();
     }
   }
+}
+
+function extractDate(filePath) {
+  const match = String(filePath || '').match(/(\d{4}-\d{2}-\d{2})(?:\.md)?$/);
+  if (match) return match[1];
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 }
