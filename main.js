@@ -445,7 +445,8 @@ var init_journal_index = __esm({
 // src/mood-store.ts
 var mood_store_exports = {};
 __export(mood_store_exports, {
-  MoodStore: () => MoodStore
+  MoodStore: () => MoodStore,
+  validateMoodMetadata: () => validateMoodMetadata
 });
 function safeVaultPath(path) {
   const normalized = normalizeVaultPath(path);
@@ -460,26 +461,69 @@ function isScore(value) {
 function validRecord(value) {
   if (!value || typeof value !== "object") return false;
   const record = value;
-  return isScore(record.score) && Array.isArray(record.labels) && typeof record.recordedAt === "string" && typeof record.updatedAt === "string";
+  return isScore(record.score) && Array.isArray(record.labels) && record.labels.every((label) => typeof label === "string") && typeof record.recordedAt === "string" && record.recordedAt.trim().length > 0 && typeof record.updatedAt === "string" && record.updatedAt.trim().length > 0;
+}
+function normalizeRecord(record) {
+  return {
+    score: record.score,
+    labels: Array.from(new Set(record.labels.map((label) => label.trim()).filter(Boolean))),
+    recordedAt: record.recordedAt,
+    updatedAt: record.updatedAt
+  };
+}
+function validateMoodMetadata(value) {
+  const invalidRecords = [];
+  const invalidOrphans = [];
+  const invalidMetadata = [];
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    invalidMetadata.push("metadata");
+    return { valid: false, invalidRecords, invalidOrphans, invalidMetadata, missingFiles: [], backupAvailable: false };
+  }
+  const raw = value;
+  if (raw.schemaVersion !== 1) invalidMetadata.push("schemaVersion");
+  if (!raw.entries || typeof raw.entries !== "object" || Array.isArray(raw.entries)) {
+    invalidMetadata.push("entries");
+  } else {
+    const normalizedPaths = /* @__PURE__ */ new Set();
+    for (const [path, record] of Object.entries(raw.entries)) {
+      const normalizedPath = normalizeVaultPath(path);
+      if (!normalizedPath || normalizedPaths.has(normalizedPath)) invalidMetadata.push(`entry-path:${path}`);
+      normalizedPaths.add(normalizedPath);
+      if (!validRecord(record)) invalidRecords.push(path);
+    }
+  }
+  if (raw.orphans !== void 0 && (!raw.orphans || typeof raw.orphans !== "object" || Array.isArray(raw.orphans))) {
+    invalidMetadata.push("orphans");
+  } else if (raw.orphans && typeof raw.orphans === "object") {
+    for (const [path, value2] of Object.entries(raw.orphans)) {
+      const orphan = value2 && typeof value2 === "object" ? value2 : {};
+      if (!normalizeVaultPath(path) || !validRecord(orphan.record) || typeof orphan.orphanedAt !== "string") invalidOrphans.push(path);
+    }
+  }
+  return {
+    valid: invalidRecords.length === 0 && invalidOrphans.length === 0 && invalidMetadata.length === 0,
+    invalidRecords,
+    invalidOrphans,
+    invalidMetadata,
+    missingFiles: [],
+    backupAvailable: false
+  };
 }
 function normalizeMetadata(value) {
   const raw = value && typeof value === "object" ? value : {};
   const entries = {};
   const rawEntries = raw.entries && typeof raw.entries === "object" ? raw.entries : {};
   for (const [path, record] of Object.entries(rawEntries)) {
-    if (validRecord(record)) entries[normalizeVaultPath(path)] = {
-      score: record.score,
-      labels: record.labels.map(String).filter(Boolean),
-      recordedAt: record.recordedAt,
-      updatedAt: record.updatedAt
-    };
+    const normalizedPath = normalizeVaultPath(path);
+    if (normalizedPath && validRecord(record)) entries[normalizedPath] = normalizeRecord(record);
   }
   const orphans = {};
   const rawOrphans = raw.orphans && typeof raw.orphans === "object" ? raw.orphans : {};
   for (const [path, value2] of Object.entries(rawOrphans)) {
     const orphan = value2 && typeof value2 === "object" ? value2 : {};
-    if (validRecord(orphan.record)) {
-      orphans[path] = { record: orphan.record, orphanedAt: String(orphan.orphanedAt ?? (/* @__PURE__ */ new Date()).toISOString()) };
+    const normalizedPath = normalizeVaultPath(path);
+    if (normalizedPath && validRecord(orphan.record)) {
+      orphans[normalizedPath] = { record: normalizeRecord(orphan.record), orphanedAt: String(orphan.orphanedAt ?? (/* @__PURE__ */ new Date()).toISOString()) };
     }
   }
   return { schemaVersion: 1, entries, orphans };
@@ -487,6 +531,14 @@ function normalizeMetadata(value) {
 function parentPath(path) {
   const index = path.lastIndexOf("/");
   return index > 0 ? path.slice(0, index) : "";
+}
+function formatValidation(result) {
+  const parts = [
+    result.invalidMetadata.length ? `metadata: ${result.invalidMetadata.join(", ")}` : "",
+    result.invalidRecords.length ? `records: ${result.invalidRecords.join(", ")}` : "",
+    result.invalidOrphans.length ? `orphans: ${result.invalidOrphans.join(", ")}` : ""
+  ].filter(Boolean);
+  return parts.join("; ") || "unknown validation error";
 }
 var DEFAULT_PATH, MoodStore;
 var init_mood_store = __esm({
@@ -501,17 +553,28 @@ var init_mood_store = __esm({
         __publicField(this, "data", emptyMetadata());
         __publicField(this, "path", DEFAULT_PATH);
         __publicField(this, "loaded", false);
+        __publicField(this, "loadError");
+        __publicField(this, "recoveredFromBackup", false);
         __publicField(this, "writeQueue", Promise.resolve());
         this.app = app;
         this.configure(settings);
       }
       configure(settings) {
-        this.path = safeVaultPath(settings.moodMetadataPath || DEFAULT_PATH);
+        const nextPath = safeVaultPath(settings.moodMetadataPath || DEFAULT_PATH);
+        if (nextPath !== this.path) {
+          this.loaded = false;
+          this.loadError = void 0;
+          this.recoveredFromBackup = false;
+        }
+        this.path = nextPath;
       }
       get metadataPath() {
         return this.path;
       }
       async load() {
+        this.loaded = false;
+        this.loadError = void 0;
+        this.recoveredFromBackup = false;
         const adapter = this.adapter();
         try {
           if (!await adapter.exists(this.path)) {
@@ -519,18 +582,29 @@ var init_mood_store = __esm({
             this.loaded = true;
             return;
           }
-          this.data = normalizeMetadata(JSON.parse(await adapter.read(this.path)));
+          const parsed = JSON.parse(await adapter.read(this.path));
+          const validation = validateMoodMetadata(parsed);
+          if (!validation.valid) throw new Error(`Invalid mood metadata: ${formatValidation(validation)}`);
+          this.data = normalizeMetadata(parsed);
           this.loaded = true;
         } catch (error) {
           const restored = await this.readBackup();
           if (restored) {
             this.data = restored;
             this.loaded = true;
+            this.recoveredFromBackup = true;
+            try {
+              await this.writeJson(this.path, JSON.stringify(this.data, null, 2));
+              this.recoveredFromBackup = false;
+            } catch (repairError) {
+              console.warn("[Dayline] Mood metadata primary file could not be repaired:", repairError);
+            }
             return;
           }
           console.warn("[Dayline] Mood metadata could not be read:", error);
           this.data = emptyMetadata();
           this.loaded = true;
+          this.loadError = error instanceof Error ? error : new Error(String(error));
         }
       }
       get(path) {
@@ -625,41 +699,96 @@ var init_mood_store = __esm({
         return imported;
       }
       async exportTo(destinationPath = `${this.path}.export.json`) {
-        const destination = normalizeVaultPath(destinationPath);
-        await this.writeJson(destination, JSON.stringify(this.data, null, 2));
+        await this.flush();
+        if (this.loadError) throw this.loadError;
+        const destination = safeVaultPath(destinationPath);
+        if (destination === this.path) throw new Error("Export destination must differ from the metadata path");
+        await this.writeJsonAtomically(destination, JSON.stringify(this.data, null, 2));
         return destination;
       }
       async restoreFrom(raw) {
         const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+        const validation = validateMoodMetadata(parsed);
+        if (!validation.valid) throw new Error(`Invalid mood metadata: ${formatValidation(validation)}`);
         const next = normalizeMetadata(parsed);
-        await this.mutate(() => next);
-        for (const path of Object.keys(next.entries)) this.emit(path, next.entries[path]);
+        await this.replaceMetadata(next);
+      }
+      async restoreBackup() {
+        const backupPath = `${this.path}.bak`;
+        if (!await this.adapter().exists(backupPath)) throw new Error(`Backup not found: ${backupPath}`);
+        const parsed = JSON.parse(await this.adapter().read(backupPath));
+        const validation = validateMoodMetadata(parsed);
+        if (!validation.valid) throw new Error(`Invalid mood backup: ${formatValidation(validation)}`);
+        const next = normalizeMetadata(parsed);
+        await this.replaceMetadata(next);
+        return { entries: Object.keys(next.entries).length, orphans: Object.keys(next.orphans ?? {}).length };
       }
       async checkIntegrity() {
         const invalidRecords = [];
+        const invalidOrphans = [];
+        const invalidMetadata = [];
         const missingFiles = [];
+        let backupAvailable = false;
+        let primaryExists = false;
+        const pathsToCheck = new Set(Object.keys(this.data.entries));
         try {
-          if (await this.adapter().exists(this.path)) {
+          primaryExists = await this.adapter().exists(this.path);
+          if (primaryExists) {
             const raw = JSON.parse(await this.adapter().read(this.path));
-            const rawEntries = raw?.entries && typeof raw.entries === "object" ? raw.entries : {};
-            for (const [path, record] of Object.entries(rawEntries)) {
-              if (!validRecord(record)) invalidRecords.push(path);
+            const result = validateMoodMetadata(raw);
+            invalidRecords.push(...result.invalidRecords);
+            invalidOrphans.push(...result.invalidOrphans);
+            invalidMetadata.push(...result.invalidMetadata);
+            if (raw?.entries && typeof raw.entries === "object" && !Array.isArray(raw.entries)) {
+              for (const [path, record] of Object.entries(raw.entries)) {
+                if (validRecord(record)) pathsToCheck.add(normalizeVaultPath(path));
+              }
             }
+          } else if (Object.keys(this.data.entries).length > 0) {
+            invalidMetadata.push("metadata-file-missing");
           }
         } catch (_) {
-          invalidRecords.push(this.path);
+          invalidMetadata.push(this.path);
         }
-        for (const [path, record] of Object.entries(this.data.entries)) {
-          if (!this.app.vault.getAbstractFileByPath(path)) missingFiles.push(path);
+        const backupPath = `${this.path}.bak`;
+        backupAvailable = await this.adapter().exists(backupPath);
+        if (backupAvailable) {
+          try {
+            const backupResult = validateMoodMetadata(JSON.parse(await this.adapter().read(backupPath)));
+            if (!backupResult.valid) {
+              backupAvailable = false;
+              invalidMetadata.push("backup");
+            }
+          } catch (_) {
+            backupAvailable = false;
+            invalidMetadata.push("backup");
+          }
+        } else if (!primaryExists && Object.keys(this.data.entries).length > 0) {
+          invalidMetadata.push("metadata-file-missing");
         }
-        return { valid: invalidRecords.length === 0, invalidRecords, missingFiles };
+        for (const path of pathsToCheck) {
+          if (path && !this.app.vault.getAbstractFileByPath(path)) missingFiles.push(path);
+        }
+        return {
+          valid: invalidRecords.length === 0 && invalidOrphans.length === 0 && invalidMetadata.length === 0 && missingFiles.length === 0,
+          invalidRecords,
+          invalidOrphans,
+          invalidMetadata,
+          missingFiles,
+          backupAvailable
+        };
       }
       async flush() {
         await this.writeQueue;
       }
       async mutate(mutator) {
         if (!this.loaded) await this.load();
+        if (this.loadError) throw this.loadError;
         this.writeQueue = this.writeQueue.catch(() => void 0).then(async () => {
+          if (this.recoveredFromBackup) {
+            await this.writeJson(this.path, JSON.stringify(this.data, null, 2));
+            this.recoveredFromBackup = false;
+          }
           const cloned = normalizeMetadata(JSON.parse(JSON.stringify(this.data)));
           const result = mutator(cloned);
           this.data = result && typeof result === "object" && "entries" in result ? result : cloned;
@@ -678,7 +807,10 @@ var init_mood_store = __esm({
       async readBackup() {
         try {
           const backup = `${this.path}.bak`;
-          if (await this.adapter().exists(backup)) return normalizeMetadata(JSON.parse(await this.adapter().read(backup)));
+          if (!await this.adapter().exists(backup)) return void 0;
+          const parsed = JSON.parse(await this.adapter().read(backup));
+          if (!validateMoodMetadata(parsed).valid) return void 0;
+          return normalizeMetadata(parsed);
         } catch (_) {
           return void 0;
         }
@@ -708,8 +840,21 @@ var init_mood_store = __esm({
             if (!await adapter.exists(path) && await adapter.exists(backup)) await adapter.rename(backup, path);
           } catch (_) {
           }
+          try {
+            if (await adapter.exists(temp)) await adapter.remove(temp);
+          } catch (_) {
+          }
           throw error;
         }
+      }
+      async replaceMetadata(next) {
+        await this.flush();
+        await this.writeJson(this.path, JSON.stringify(next, null, 2));
+        this.data = next;
+        this.loaded = true;
+        this.loadError = void 0;
+        this.recoveredFromBackup = false;
+        for (const path of Object.keys(next.entries)) this.emit(path, next.entries[path]);
       }
       async ensureParent(path) {
         const parent = parentPath(path);
@@ -886,8 +1031,11 @@ var init_i18n = __esm({
         moodDateDesc: "\u53EF\u4EE5\u9009\u62E9\u4EFB\u610F\u65E5\u671F\uFF0C\u6DFB\u52A0\u6216\u4FEE\u6539\u90A3\u4E00\u5929\u7684\u5FC3\u60C5\u3002",
         moodSaved: "\u5FC3\u60C5\u5DF2\u4FDD\u5B58",
         metadataExported: "\u5FC3\u60C5\u5143\u6570\u636E\u5DF2\u5BFC\u51FA\u5230 {path}",
+        metadataExportFailed: "\u5FC3\u60C5\u5143\u6570\u636E\u5BFC\u51FA\u5931\u8D25\uFF1A{error}",
         metadataRestored: "\u5FC3\u60C5\u5143\u6570\u636E\u5907\u4EFD\u5DF2\u6062\u590D",
+        metadataRestoreFailed: "\u5FC3\u60C5\u5143\u6570\u636E\u6062\u590D\u5931\u8D25\uFF1A{error}",
         metadataValid: "\u5FC3\u60C5\u5143\u6570\u636E\u5B8C\u6574",
+        metadataIntegrityIssues: "\u5FC3\u60C5\u5143\u6570\u636E\u5B58\u5728\u95EE\u9898\uFF1A\u7ED3\u6784 {metadata}\uFF0C\u8BB0\u5F55 {records}\uFF0C\u5B64\u7ACB\u8BB0\u5F55 {orphans}\uFF0C\u7F3A\u5C11\u6587\u4EF6 {missing}",
         importedMoods: "\u5DF2\u5BFC\u5165 {count} \u6761\u5FC3\u60C5\u8BB0\u5F55",
         dailyReminder: "\u4ECA\u5929\u8FD8\u6CA1\u6709\u65E5\u8BB0\u8BB0\u5F55",
         language: "\u663E\u793A\u8BED\u8A00",
@@ -980,8 +1128,11 @@ var init_i18n = __esm({
         moodDateDesc: "Choose any date to add or update its mood.",
         moodSaved: "Mood saved",
         metadataExported: "Mood metadata exported to {path}",
+        metadataExportFailed: "Mood metadata export failed: {error}",
         metadataRestored: "Mood metadata backup restored",
+        metadataRestoreFailed: "Mood metadata restore failed: {error}",
         metadataValid: "Mood metadata is valid",
+        metadataIntegrityIssues: "Mood metadata issues: structure {metadata}, records {records}, orphans {orphans}, missing files {missing}",
         importedMoods: "Imported {count} mood records",
         dailyReminder: "No note for today",
         language: "Display language",
@@ -1846,8 +1997,12 @@ var DaylinePlugin = class extends Plugin {
       id: "export-journal-metadata",
       name: t4(this.settings, "exportMetadataCommand"),
       callback: async () => {
-        const path = await this.moodStore.exportTo();
-        new Notice3(t4(this.settings, "metadataExported", { path }));
+        try {
+          const path = await this.moodStore.exportTo();
+          new Notice3(t4(this.settings, "metadataExported", { path }));
+        } catch (error) {
+          new Notice3(t4(this.settings, "metadataExportFailed", { error: error?.message || error }));
+        }
       }
     });
     this.addCommand({
@@ -1855,14 +2010,12 @@ var DaylinePlugin = class extends Plugin {
       name: t4(this.settings, "restoreMetadataCommand"),
       callback: async () => {
         try {
-          const backupPath = `${this.moodStore.metadataPath}.bak`;
-          const raw = await this.app.vault.adapter.read(backupPath);
-          await this.moodStore.restoreFrom(raw);
+          await this.moodStore.restoreBackup();
           await this.journalIndex.refresh(this.settings);
           this.refreshJournalViews();
           new Notice3(t4(this.settings, "metadataRestored"));
         } catch (error) {
-          new Notice3(`Could not restore journal metadata: ${error.message || error}`);
+          new Notice3(t4(this.settings, "metadataRestoreFailed", { error: error?.message || error }));
         }
       }
     });
@@ -1871,7 +2024,12 @@ var DaylinePlugin = class extends Plugin {
       name: t4(this.settings, "integrityCommand"),
       callback: async () => {
         const result = await this.moodStore.checkIntegrity();
-        new Notice3(result.valid && result.missingFiles.length === 0 ? t4(this.settings, "metadataValid") : `Metadata check: ${result.invalidRecords.length} invalid, ${result.missingFiles.length} missing files`);
+        new Notice3(result.valid ? t4(this.settings, "metadataValid") : t4(this.settings, "metadataIntegrityIssues", {
+          metadata: result.invalidMetadata.length,
+          records: result.invalidRecords.length,
+          orphans: result.invalidOrphans.length,
+          missing: result.missingFiles.length
+        }));
       }
     });
     this.addCommand({

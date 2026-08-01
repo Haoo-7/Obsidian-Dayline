@@ -158,8 +158,12 @@ class DaylinePlugin extends Plugin {
       id: 'export-journal-metadata',
       name: t(this.settings, 'exportMetadataCommand'),
       callback: async () => {
-        const path = await this.moodStore.exportTo();
-        new Notice(t(this.settings, 'metadataExported', { path }));
+        try {
+          const path = await this.moodStore.exportTo();
+          new Notice(t(this.settings, 'metadataExported', { path }));
+        } catch (error) {
+          new Notice(t(this.settings, 'metadataExportFailed', { error: error?.message || error }));
+        }
       },
     });
     this.addCommand({
@@ -167,14 +171,12 @@ class DaylinePlugin extends Plugin {
       name: t(this.settings, 'restoreMetadataCommand'),
       callback: async () => {
         try {
-          const backupPath = `${this.moodStore.metadataPath}.bak`;
-          const raw = await this.app.vault.adapter.read(backupPath);
-          await this.moodStore.restoreFrom(raw);
+          await this.moodStore.restoreBackup();
           await this.journalIndex.refresh(this.settings);
           this.refreshJournalViews();
           new Notice(t(this.settings, 'metadataRestored'));
         } catch (error) {
-          new Notice(`Could not restore journal metadata: ${error.message || error}`);
+          new Notice(t(this.settings, 'metadataRestoreFailed', { error: error?.message || error }));
         }
       },
     });
@@ -183,9 +185,14 @@ class DaylinePlugin extends Plugin {
       name: t(this.settings, 'integrityCommand'),
       callback: async () => {
         const result = await this.moodStore.checkIntegrity();
-        new Notice(result.valid && result.missingFiles.length === 0
+        new Notice(result.valid
           ? t(this.settings, 'metadataValid')
-          : `Metadata check: ${result.invalidRecords.length} invalid, ${result.missingFiles.length} missing files`);
+          : t(this.settings, 'metadataIntegrityIssues', {
+            metadata: result.invalidMetadata.length,
+            records: result.invalidRecords.length,
+            orphans: result.invalidOrphans.length,
+            missing: result.missingFiles.length,
+          }));
       },
     });
     this.addCommand({
