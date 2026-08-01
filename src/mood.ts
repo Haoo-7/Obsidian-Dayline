@@ -44,6 +44,11 @@ export function moodLabelsForScore(score: MoodScore | null): typeof MOOD_LABELS 
     .filter((label): label is (typeof MOOD_LABELS)[number] => Boolean(label));
 }
 
+export function filterMoodLabelsForScore(score: MoodScore | null, labels: Iterable<string>): string[] {
+  const available = new Set(moodLabelsForScore(score).map((label) => label.id));
+  return Array.from(new Set(labels)).filter((label) => available.has(label));
+}
+
 export function moveMoodScore(score: MoodScore | null, direction: -1 | 1): MoodScore {
   const current = score === null ? 2 : score;
   const index = MOOD_LEVELS.findIndex((level) => level.score === current);

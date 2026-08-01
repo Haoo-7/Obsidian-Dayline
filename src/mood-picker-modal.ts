@@ -1,6 +1,6 @@
 // @ts-nocheck
 const { Modal, Notice } = require('obsidian');
-const { MOOD_LEVELS, moodLabelsForScore, moveMoodScore } = require('./mood');
+const { MOOD_LEVELS, filterMoodLabelsForScore, moodLabelsForScore, moveMoodScore } = require('./mood');
 const { feelingLabel, moodLabel, t } = require('./i18n');
 
 export class MoodPickerModal extends Modal {
@@ -81,8 +81,7 @@ export class MoodPickerModal extends Modal {
 
   selectScore(score) {
     this.score = score;
-    const available = new Set(moodLabelsForScore(score).map((label) => label.id));
-    this.labels = new Set(Array.from(this.labels).filter((id) => available.has(id)));
+    this.labels = new Set(filterMoodLabelsForScore(score, this.labels));
   }
 
   async changeDate(date, input) {
@@ -96,6 +95,7 @@ export class MoodPickerModal extends Modal {
         this.initial = result.initial;
         this.score = this.initial?.score ?? null;
         this.labels = new Set(this.initial?.labels ?? []);
+        if (this.score !== null) this.selectScore(this.score);
       }
       this.renderScale();
     } catch (error) {
@@ -150,11 +150,11 @@ export class MoodPickerModal extends Modal {
     if (this.step !== 1) return;
     if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
       event.preventDefault();
-      this.score = moveMoodScore(this.score, 1);
+      this.selectScore(moveMoodScore(this.score, 1));
       this.renderScale();
     } else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
       event.preventDefault();
-      this.score = moveMoodScore(this.score, -1);
+      this.selectScore(moveMoodScore(this.score, -1));
       this.renderScale();
     } else if (event.key === 'Enter' && this.score !== null) {
       event.preventDefault();

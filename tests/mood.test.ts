@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MOOD_LABELS, MOOD_LEVELS, MOOD_LABEL_GROUPS, moodLabelsForScore, moveMoodScore } from '../src/mood';
+import { filterMoodLabelsForScore, MOOD_LABELS, MOOD_LEVELS, MOOD_LABEL_GROUPS, moodLabelsForScore, moveMoodScore } from '../src/mood';
 
 describe('mood picker choices', () => {
   it('provides five ordered levels and optional labels', () => {
@@ -27,5 +27,9 @@ describe('mood picker choices', () => {
     expect(low).not.toEqual(neutral);
     expect(neutral).not.toEqual(high);
     expect(new Set([...low, ...neutral, ...high]).size).toBeGreaterThan(neutral.length);
+  });
+
+  it('filters labels when a score changes', () => {
+    expect(filterMoodLabelsForScore(-2, ['joyful', 'sad', 'sad'])).toEqual(['sad']);
   });
 });

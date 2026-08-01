@@ -730,6 +730,7 @@ __export(mood_exports, {
   MOOD_LABELS: () => MOOD_LABELS,
   MOOD_LABEL_GROUPS: () => MOOD_LABEL_GROUPS,
   MOOD_LEVELS: () => MOOD_LEVELS,
+  filterMoodLabelsForScore: () => filterMoodLabelsForScore,
   getMoodColor: () => getMoodColor,
   moodLabelsForScore: () => moodLabelsForScore,
   moveMoodScore: () => moveMoodScore
@@ -737,6 +738,10 @@ __export(mood_exports, {
 function moodLabelsForScore(score) {
   const ids = score === null ? MOOD_LABELS.map((label) => label.id) : MOOD_LABEL_GROUPS[score];
   return ids.map((id) => MOOD_LABELS.find((label) => label.id === id)).filter((label) => Boolean(label));
+}
+function filterMoodLabelsForScore(score, labels) {
+  const available = new Set(moodLabelsForScore(score).map((label) => label.id));
+  return Array.from(new Set(labels)).filter((label) => available.has(label));
 }
 function moveMoodScore(score, direction) {
   const current = score === null ? 2 : score;
@@ -1031,12 +1036,12 @@ function extractDate(filePath) {
   const now = /* @__PURE__ */ new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 }
-var Modal, Notice, MOOD_LEVELS2, moodLabelsForScore2, moveMoodScore2, feelingLabel2, moodLabel2, t2, MoodPickerModal;
+var Modal, Notice, MOOD_LEVELS2, filterMoodLabelsForScore2, moodLabelsForScore2, moveMoodScore2, feelingLabel2, moodLabel2, t2, MoodPickerModal;
 var init_mood_picker_modal = __esm({
   "src/mood-picker-modal.ts"() {
     "use strict";
     ({ Modal, Notice } = require("obsidian"));
-    ({ MOOD_LEVELS: MOOD_LEVELS2, moodLabelsForScore: moodLabelsForScore2, moveMoodScore: moveMoodScore2 } = (init_mood(), __toCommonJS(mood_exports)));
+    ({ MOOD_LEVELS: MOOD_LEVELS2, filterMoodLabelsForScore: filterMoodLabelsForScore2, moodLabelsForScore: moodLabelsForScore2, moveMoodScore: moveMoodScore2 } = (init_mood(), __toCommonJS(mood_exports)));
     ({ feelingLabel: feelingLabel2, moodLabel: moodLabel2, t: t2 } = (init_i18n(), __toCommonJS(i18n_exports)));
     MoodPickerModal = class extends Modal {
       constructor(app, options = {}) {
@@ -1111,8 +1116,7 @@ var init_mood_picker_modal = __esm({
       }
       selectScore(score) {
         this.score = score;
-        const available = new Set(moodLabelsForScore2(score).map((label) => label.id));
-        this.labels = new Set(Array.from(this.labels).filter((id) => available.has(id)));
+        this.labels = new Set(filterMoodLabelsForScore2(score, this.labels));
       }
       async changeDate(date, input) {
         if (!date || date === this.date) return;
@@ -1125,6 +1129,7 @@ var init_mood_picker_modal = __esm({
             this.initial = result.initial;
             this.score = this.initial?.score ?? null;
             this.labels = new Set(this.initial?.labels ?? []);
+            if (this.score !== null) this.selectScore(this.score);
           }
           this.renderScale();
         } catch (error) {
@@ -1176,11 +1181,11 @@ var init_mood_picker_modal = __esm({
         if (this.step !== 1) return;
         if (event.key === "ArrowRight" || event.key === "ArrowDown") {
           event.preventDefault();
-          this.score = moveMoodScore2(this.score, 1);
+          this.selectScore(moveMoodScore2(this.score, 1));
           this.renderScale();
         } else if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
           event.preventDefault();
-          this.score = moveMoodScore2(this.score, -1);
+          this.selectScore(moveMoodScore2(this.score, -1));
           this.renderScale();
         } else if (event.key === "Enter" && this.score !== null) {
           event.preventDefault();
@@ -1609,6 +1614,69 @@ var init_thumbnail_service = __esm({
   }
 });
 
+// src/overlay-registry.ts
+var overlay_registry_exports = {};
+__export(overlay_registry_exports, {
+  OverlayRegistry: () => OverlayRegistry
+});
+var OverlayRegistry;
+var init_overlay_registry = __esm({
+  "src/overlay-registry.ts"() {
+    "use strict";
+    OverlayRegistry = class {
+      constructor() {
+        __publicField(this, "owners", /* @__PURE__ */ new Map());
+      }
+      claim(container, owner) {
+        let owners = this.owners.get(container);
+        if (!owners) {
+          owners = /* @__PURE__ */ new Set();
+          this.owners.set(container, owners);
+        }
+        owners.add(owner);
+      }
+      release(container, owner) {
+        const owners = this.owners.get(container);
+        if (!owners) return true;
+        owners.delete(owner);
+        if (owners.size > 0) return false;
+        this.owners.delete(container);
+        return true;
+      }
+      clear() {
+        const containers = Array.from(this.owners.keys());
+        this.owners.clear();
+        return containers;
+      }
+    };
+  }
+});
+
+// src/task-queue.ts
+var task_queue_exports = {};
+__export(task_queue_exports, {
+  SerialTaskQueue: () => SerialTaskQueue
+});
+var SerialTaskQueue;
+var init_task_queue = __esm({
+  "src/task-queue.ts"() {
+    "use strict";
+    SerialTaskQueue = class {
+      constructor() {
+        __publicField(this, "tail", Promise.resolve());
+      }
+      add(task) {
+        const run = this.tail.then(() => task());
+        this.tail = run.then(() => void 0, () => void 0);
+        return run;
+      }
+      flush() {
+        return this.tail;
+      }
+    };
+  }
+});
+
 // src/calendar-display.ts
 var calendar_display_exports = {};
 __export(calendar_display_exports, {
@@ -1643,6 +1711,8 @@ var { MoodPickerModal: MoodPickerModal2 } = (init_mood_picker_modal(), __toCommo
 var { JournalTimelineView: JournalTimelineView2, JOURNAL_TIMELINE_VIEW: JOURNAL_TIMELINE_VIEW2 } = (init_journal_timeline_view(), __toCommonJS(journal_timeline_view_exports));
 var { formatDateInTimeZone: formatDateInTimeZone2 } = (init_date_utils(), __toCommonJS(date_utils_exports));
 var { ThumbnailService: ThumbnailService2 } = (init_thumbnail_service(), __toCommonJS(thumbnail_service_exports));
+var { OverlayRegistry: OverlayRegistry2 } = (init_overlay_registry(), __toCommonJS(overlay_registry_exports));
+var { SerialTaskQueue: SerialTaskQueue2 } = (init_task_queue(), __toCommonJS(task_queue_exports));
 var { getDisplayLanguage: getDisplayLanguage3, moodLabel: moodLabel4, t: t4 } = (init_i18n(), __toCommonJS(i18n_exports));
 var { getMoodColor: getMoodColor3 } = (init_mood(), __toCommonJS(mood_exports));
 var { shouldShowCalendarMood: shouldShowCalendarMood2, shouldShowCalendarWeatherCard: shouldShowCalendarWeatherCard2, shouldShowCalendarWeatherBadge: shouldShowCalendarWeatherBadge2 } = (init_calendar_display(), __toCommonJS(calendar_display_exports));
@@ -1700,6 +1770,7 @@ var DEFAULT_SETTINGS = {
 var DaylinePlugin = class extends Plugin {
   async onload() {
     this._dataWriteQueue = Promise.resolve();
+    this._journalWriteQueue = new SerialTaskQueue2();
     this._weatherSaveTimer = null;
     this._weatherCleanupTimer = null;
     this._exifHoverToken = 0;
@@ -1727,6 +1798,8 @@ var DaylinePlugin = class extends Plugin {
       this._libheifFactory = null;
     }
     this._hostPositionMarkers = /* @__PURE__ */ new Set();
+    this._overlayRegistry = new OverlayRegistry2();
+    this._overlayOriginalPositions = /* @__PURE__ */ new Map();
     this.registerView(VIEW_TYPE, (leaf) => new CalendarView(leaf, this));
     this.registerView(JOURNAL_TIMELINE_VIEW2, (leaf) => new JournalTimelineView2(leaf, this));
     this.addCommand({
@@ -1853,6 +1926,7 @@ var DaylinePlugin = class extends Plugin {
     clearInterval(this._reminderTimer);
     this._exifHoverToken++;
     await this._flushWeatherCache();
+    await this._journalWriteQueue?.flush();
     await this.moodStore?.flush();
     this.app.workspace.detachLeavesOfType(VIEW_TYPE);
     this.app.workspace.detachLeavesOfType(JOURNAL_TIMELINE_VIEW2);
@@ -1959,28 +2033,37 @@ var DaylinePlugin = class extends Plugin {
   }
   _handleJournalDelete(file) {
     if (!(file instanceof TFile2) || file.extension !== "md") return;
-    this.moodStore.removeToOrphan(file.path).catch(() => {
-    });
+    this._queueJournalWrite("move deleted mood to orphan", () => this.moodStore.removeToOrphan(file.path));
     this.journalIndex.removeFile(file.path);
     this.refreshJournalViews();
   }
   _handleJournalRename(file, oldPath) {
     if (!(file instanceof TFile2) || file.extension !== "md") return;
-    this.moodStore.rename(oldPath, file.path).catch(() => {
-    });
+    this._queueJournalWrite("rename mood metadata", () => this.moodStore.rename(oldPath, file.path));
     this.journalIndex.renameFile(oldPath, file.path);
     this.journalIndex.refreshFile(file.path, this.settings).then(() => this.refreshJournalViews());
+  }
+  _queueJournalWrite(label, task) {
+    return this._journalWriteQueue.add(task).catch((error) => {
+      console.warn(`[Dayline] ${label} failed:`, error?.message || error);
+      new Notice3(`${label}: ${error?.message || error}`);
+    });
   }
   /** Remove all overlay elements from markdown view containers. */
   _removeAllOverlays() {
     document.querySelectorAll(`[${OVERLAY_ATTR}]`).forEach((el) => el.remove());
     this._overlayRefreshHandlers = null;
-    for (const container of this._hostPositionMarkers || []) {
-      if (container.style.position === "relative") {
-        container.style.removeProperty("position");
-      }
-    }
+    this._overlayRegistry?.clear();
+    for (const container of this._overlayOriginalPositions?.keys() || []) this._restoreHostPosition(container);
     this._hostPositionMarkers?.clear();
+  }
+  _restoreHostPosition(container) {
+    const original = this._overlayOriginalPositions?.get(container);
+    if (!original) return;
+    if (original.value) container.style.setProperty("position", original.value, original.priority);
+    else container.style.removeProperty("position");
+    this._overlayOriginalPositions.delete(container);
+    this._hostPositionMarkers?.delete(container);
   }
   /** Plugin-level overlay sync — delegates to each CalendarView instance, then cleans stale ones. */
   _syncAllOverlays() {
@@ -4057,6 +4140,7 @@ var CalendarView = class extends ItemView2 {
     this._overlayInFlight = /* @__PURE__ */ new WeakMap();
     this._overlayVersions = /* @__PURE__ */ new WeakMap();
     this._hostPositionMarkers = /* @__PURE__ */ new Set();
+    this._overlayContainers = /* @__PURE__ */ new Set();
     this.exifCache = plugin.exifCache;
     this._exifNoteImages = /* @__PURE__ */ new WeakSet();
     this._otdProvider = new OnThisDayProvider(plugin);
@@ -4110,10 +4194,6 @@ var CalendarView = class extends ItemView2 {
     for (const observer of this._exifObservers?.values() || []) observer.disconnect();
     this._exifObservers?.clear();
     this._removeAllOverlaysFromViews();
-    for (const container of this._hostPositionMarkers) {
-      if (container.style.position === "relative") container.style.removeProperty("position");
-      this.plugin._hostPositionMarkers?.delete(container);
-    }
     this._hostPositionMarkers.clear();
   }
   /* ----- File change refresh (debounced) ----- */
@@ -4642,10 +4722,7 @@ var CalendarView = class extends ItemView2 {
       const file = leaf.view?.file;
       const path = file ? file.path : null;
       if (path && validDailyFiles.has(path)) continue;
-      const overlay = leaf.containerEl?.querySelector(`[${OVERLAY_ATTR}]`);
-      if (overlay) {
-        overlay.remove();
-      }
+      this._releaseOverlay(leaf.containerEl);
     }
   }
   _invalidateOverlayRequests() {
@@ -4861,6 +4938,7 @@ var CalendarView = class extends ItemView2 {
     if (latestFile !== file || !(latestFile instanceof TFile2)) return;
     if (myVersion < (this._overlayVersions.get(leaf) || 0)) return;
     if (!snap) return;
+    this._claimOverlay(container);
     const oldEl = container.querySelector(`[${OVERLAY_ATTR}]`);
     if (oldEl) oldEl.remove();
     this._ensureHostPosition(container);
@@ -4905,6 +4983,12 @@ var CalendarView = class extends ItemView2 {
     if (this._hostPositionMarkers.has(container)) return;
     const computedStyle = getComputedStyle(container);
     if (computedStyle.position !== "static") return;
+    if (!this.plugin._overlayOriginalPositions.has(container)) {
+      this.plugin._overlayOriginalPositions.set(container, {
+        value: container.style.getPropertyValue("position"),
+        priority: container.style.getPropertyPriority("position")
+      });
+    }
     container.style.position = "relative";
     this._hostPositionMarkers.add(container);
     this.plugin._hostPositionMarkers?.add(container);
@@ -4943,7 +5027,20 @@ var CalendarView = class extends ItemView2 {
   }
   /* ----- Remove all overlays from markdown view containers ----- */
   _removeAllOverlaysFromViews() {
-    document.querySelectorAll(`[${OVERLAY_ATTR}]`).forEach((el) => el.remove());
+    for (const container of Array.from(this._overlayContainers)) this._releaseOverlay(container);
+  }
+  _claimOverlay(container) {
+    if (!container) return;
+    this.plugin._overlayRegistry?.claim(container, this);
+    this._overlayContainers.add(container);
+  }
+  _releaseOverlay(container) {
+    if (!container || !this._overlayContainers.has(container)) return;
+    this._overlayContainers.delete(container);
+    const isLastOwner = this.plugin._overlayRegistry?.release(container, this) ?? true;
+    if (!isLastOwner) return;
+    container.querySelector(`[${OVERLAY_ATTR}]`)?.remove();
+    this.plugin._restoreHostPosition?.(container);
   }
   /* ----- Create daily note from template ----- */
   async _createDailyNote(path, dateStr) {

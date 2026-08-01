@@ -11,6 +11,8 @@ const { MoodPickerModal } = require('./mood-picker-modal');
 const { JournalTimelineView, JOURNAL_TIMELINE_VIEW } = require('./journal-timeline-view');
 const { formatDateInTimeZone } = require('./date-utils');
 const { ThumbnailService } = require('./thumbnail-service');
+const { OverlayRegistry } = require('./overlay-registry');
+const { SerialTaskQueue } = require('./task-queue');
 const { getDisplayLanguage, moodLabel, t } = require('./i18n');
 const { getMoodColor } = require('./mood');
 const { shouldShowCalendarMood, shouldShowCalendarWeatherCard, shouldShowCalendarWeatherBadge } = require('./calendar-display');
@@ -60,6 +62,7 @@ const DEFAULT_SETTINGS = {
 class DaylinePlugin extends Plugin {
   async onload() {
     this._dataWriteQueue = Promise.resolve();
+    this._journalWriteQueue = new SerialTaskQueue();
     this._weatherSaveTimer = null;
     this._weatherCleanupTimer = null;
     this._exifHoverToken = 0;
@@ -98,6 +101,8 @@ class DaylinePlugin extends Plugin {
     }
     // Track containers where we set position:relative so we can revert on unload
     this._hostPositionMarkers = new Set();
+    this._overlayRegistry = new OverlayRegistry();
+    this._overlayOriginalPositions = new Map();
 
     // Register the sidebar view
     this.registerView(VIEW_TYPE, (leaf) => new CalendarView(leaf, this));
@@ -245,6 +250,7 @@ class DaylinePlugin extends Plugin {
     clearInterval(this._reminderTimer);
     this._exifHoverToken++;
     await this._flushWeatherCache();
+    await this._journalWriteQueue?.flush();
     await this.moodStore?.flush();
     this.app.workspace.detachLeavesOfType(VIEW_TYPE);
     this.app.workspace.detachLeavesOfType(JOURNAL_TIMELINE_VIEW);
@@ -362,29 +368,41 @@ class DaylinePlugin extends Plugin {
 
   _handleJournalDelete(file) {
     if (!(file instanceof TFile) || file.extension !== 'md') return;
-    this.moodStore.removeToOrphan(file.path).catch(() => {});
+    this._queueJournalWrite('move deleted mood to orphan', () => this.moodStore.removeToOrphan(file.path));
     this.journalIndex.removeFile(file.path);
     this.refreshJournalViews();
   }
 
   _handleJournalRename(file, oldPath) {
     if (!(file instanceof TFile) || file.extension !== 'md') return;
-    this.moodStore.rename(oldPath, file.path).catch(() => {});
+    this._queueJournalWrite('rename mood metadata', () => this.moodStore.rename(oldPath, file.path));
     this.journalIndex.renameFile(oldPath, file.path);
     this.journalIndex.refreshFile(file.path, this.settings).then(() => this.refreshJournalViews());
+  }
+
+  _queueJournalWrite(label, task) {
+    return this._journalWriteQueue.add(task).catch((error) => {
+      console.warn(`[Dayline] ${label} failed:`, error?.message || error);
+      new Notice(`${label}: ${error?.message || error}`);
+    });
   }
 
   /** Remove all overlay elements from markdown view containers. */
   _removeAllOverlays() {
     document.querySelectorAll(`[${OVERLAY_ATTR}]`).forEach((el) => el.remove());
     this._overlayRefreshHandlers = null;
-    // Revert any position:relative we added to containerEl
-    for (const container of this._hostPositionMarkers || []) {
-      if (container.style.position === 'relative') {
-        container.style.removeProperty('position');
-      }
-    }
+    this._overlayRegistry?.clear();
+    for (const container of this._overlayOriginalPositions?.keys() || []) this._restoreHostPosition(container);
     this._hostPositionMarkers?.clear();
+  }
+
+  _restoreHostPosition(container) {
+    const original = this._overlayOriginalPositions?.get(container);
+    if (!original) return;
+    if (original.value) container.style.setProperty('position', original.value, original.priority);
+    else container.style.removeProperty('position');
+    this._overlayOriginalPositions.delete(container);
+    this._hostPositionMarkers?.delete(container);
   }
 
   /** Plugin-level overlay sync — delegates to each CalendarView instance, then cleans stale ones. */
@@ -2733,6 +2751,8 @@ class CalendarView extends ItemView {
     this._overlayVersions = new WeakMap();
     // Track containers where we set position:relative so we can revert on unload
     this._hostPositionMarkers = new Set();
+    // Containers whose shared overlays are claimed by this view
+    this._overlayContainers = new Set();
     // EXIF metadata cache (shared with plugin)
     this.exifCache = plugin.exifCache;
     // Track processed note-image elements (cleared when view is destroyed)
@@ -2798,10 +2818,6 @@ class CalendarView extends ItemView {
     for (const observer of this._exifObservers?.values() || []) observer.disconnect();
     this._exifObservers?.clear();
     this._removeAllOverlaysFromViews();
-    for (const container of this._hostPositionMarkers) {
-      if (container.style.position === 'relative') container.style.removeProperty('position');
-      this.plugin._hostPositionMarkers?.delete(container);
-    }
     this._hostPositionMarkers.clear();
   }
 
@@ -3471,10 +3487,7 @@ class CalendarView extends ItemView {
 
       // For leaves with no file (blank editor, etc.), still clean up
       // For leaves with a non-daily file (Homepage.md), clean up too
-      const overlay = leaf.containerEl?.querySelector(`[${OVERLAY_ATTR}]`);
-      if (overlay) {
-        overlay.remove();
-      }
+      this._releaseOverlay(leaf.containerEl);
     }
   }
 
@@ -3762,6 +3775,7 @@ class CalendarView extends ItemView {
     if (!snap) return;
 
     // Remove any existing overlay element first (idempotent)
+    this._claimOverlay(container);
     const oldEl = container.querySelector(`[${OVERLAY_ATTR}]`);
     if (oldEl) oldEl.remove();
 
@@ -3821,6 +3835,12 @@ class CalendarView extends ItemView {
     if (this._hostPositionMarkers.has(container)) return;
     const computedStyle = getComputedStyle(container);
     if (computedStyle.position !== 'static') return;
+    if (!this.plugin._overlayOriginalPositions.has(container)) {
+      this.plugin._overlayOriginalPositions.set(container, {
+        value: container.style.getPropertyValue('position'),
+        priority: container.style.getPropertyPriority('position'),
+      });
+    }
     container.style.position = 'relative';
     this._hostPositionMarkers.add(container);
     // Also register with plugin for cleanup on unload
@@ -3865,7 +3885,22 @@ class CalendarView extends ItemView {
 
   /* ----- Remove all overlays from markdown view containers ----- */
   _removeAllOverlaysFromViews() {
-    document.querySelectorAll(`[${OVERLAY_ATTR}]`).forEach((el) => el.remove());
+    for (const container of Array.from(this._overlayContainers)) this._releaseOverlay(container);
+  }
+
+  _claimOverlay(container) {
+    if (!container) return;
+    this.plugin._overlayRegistry?.claim(container, this);
+    this._overlayContainers.add(container);
+  }
+
+  _releaseOverlay(container) {
+    if (!container || !this._overlayContainers.has(container)) return;
+    this._overlayContainers.delete(container);
+    const isLastOwner = this.plugin._overlayRegistry?.release(container, this) ?? true;
+    if (!isLastOwner) return;
+    container.querySelector(`[${OVERLAY_ATTR}]`)?.remove();
+    this.plugin._restoreHostPosition?.(container);
   }
 
   /* ----- Create daily note from template ----- */
