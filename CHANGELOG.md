@@ -1,6 +1,18 @@
 # Changelog
 
-## 2.0.0 (2026-08-02)
+## 2.0.1 (2026-08-02)
+
+### Fixed
+- Fixed weather and note overlays interfering with each other across multiple calendar views.
+- Restored host container positioning when overlays are removed or the plugin unloads.
+- Serialized mood metadata updates for note rename/delete events and waited for pending writes on unload.
+- Filtered incompatible mood labels when changing mood intensity.
+- Hardened metadata export, backup recovery, malformed restore rejection, and integrity diagnostics.
+
+### Changed
+- Added independent calendar display switches for mood markers, the weather card, and date-cell weather icons; all default to visible and do not affect stored data or the timeline.
+
+## 2.0.0 (2026-07-19)
 
 ### Branding
 - Renamed the plugin from Calendar Sidebar to **Dayline**, reflecting its calendar, timeline, mood, memory, weather, and photo workflows.
@@ -25,17 +37,11 @@
 - Fixed weather overlay icons not loading on first render.
 - Fixed stale weather cache reuse after location, unit, or timezone changes.
 - Fixed local-date/weather timezone mismatches and stale async UI updates.
-- Fixed weather and note overlays interfering with each other across multiple calendar views.
-- Restored host container positioning when overlays are removed or the plugin unloads.
-- Serialized mood metadata updates for note rename/delete events and waited for pending writes on unload.
-- Filtered incompatible mood labels when changing mood intensity.
-- Hardened metadata export, backup recovery, malformed restore rejection, and integrity diagnostics.
 
 ### Changed
 - Simplified the timeline to daily notes by default. `Calendar/Entries` is no longer a default source, and external imports appear as ordinary journal notes without a source filter.
 - Replaced timeline mood icons with an accessible five-level color scale and compact seven-day trend cells.
 - Added serialized plugin-data writes and unload flushing for weather cache updates.
-- Added independent calendar display switches for mood markers, the weather card, and date-cell weather icons; all default to visible and do not affect stored data or the timeline.
 - Added an opt-in setting for EXIF GPS reverse geocoding.
 - Added TypeScript core modules, Vitest tests, and an esbuild build facade.
 - The release artifact is now built from `src/` into the root `main.js`; the entry no longer imports the previous JavaScript runtime.
