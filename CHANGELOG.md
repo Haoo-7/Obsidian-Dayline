@@ -1,5 +1,47 @@
 # Changelog
 
+## 2.0.2 (2026-08-05)
+
+### Fixed
+- Guarded journal index refreshes and file mutations against stale asynchronous reads, preserving the newest note state.
+- Kept calendar and timeline view visibility consistent across workspace restore, close, and plugin unload.
+- Added timezone-aware date and reminder handling plus user-facing failure notices for calendar, timeline, and settings operations.
+- Isolated EXIF, HEIC, and reverse-geocoding services behind dedicated modules and caches without changing their existing behavior.
+- Preserved the HEIC embed fallback when Obsidian has already rendered a native image.
+
+### Changed
+- Added a Dayline ribbon menu for independently opening and closing the calendar and timeline views.
+- Added shared localization and date helpers, with regression coverage for async refresh, view state, and media handling.
+- Added Dayline wordmark assets to the documentation.
+
+### Verification
+- 55 automated tests passed.
+- TypeScript check and production build passed.
+- Tested in a real Obsidian vault with `obsidian plugin:reload id=dayline`; no plugin errors or error-level console messages were captured, the calendar DOM rendered, and the media service instances initialized.
+
+---
+
+## 2.0.2（2026-08-05）
+
+### 修复
+- 为日记索引刷新和文件变更加上异步旧读保护，确保最新笔记状态不会被旧结果覆盖。
+- 确保日历和时间线视图的可见性状态在工作区恢复、关闭和插件卸载时保持一致。
+- 增加时区感知的日期与提醒处理，并为日历、时间线和设置操作增加面向用户的失败提示。
+- 将 EXIF、HEIC 和反向地理编码服务隔离到独立模块与缓存中，同时保持原有行为不变。
+- 当 Obsidian 已经渲染原生图片时，保留 HEIC 嵌入的回退处理。
+
+### 变更
+- 新增 Dayline 功能区菜单，可独立打开或关闭日历和时间线视图。
+- 新增共享的本地化和日期辅助函数，并为异步刷新、视图状态和媒体处理增加回归覆盖。
+- 在文档中加入 Dayline 标识资源。
+
+### 验证
+- 55 项自动化测试通过。
+- TypeScript 检查和生产构建通过。
+- 已在真实 Obsidian Vault 中执行 `obsidian plugin:reload id=dayline`；未捕获插件错误或错误级别 console 消息，日历 DOM 正常渲染，媒体服务实例正常初始化。
+
+---
+
 ## 2.0.1 (2026-08-02)
 
 ### Fixed
@@ -11,6 +53,32 @@
 
 ### Changed
 - Added independent calendar display switches for mood markers, the weather card, and date-cell weather icons; all default to visible and do not affect stored data or the timeline.
+
+### Verification
+- 36 automated tests passed.
+- TypeScript check and production build passed.
+- Tested in an Obsidian 1.13.4 sandbox with export, restore, corruption recovery, and integrity checks.
+
+---
+
+## 2.0.1（2026-08-02）
+
+### 修复
+- 修复多个日历视图之间天气浮层和日记浮层互相干扰的问题。
+- 移除浮层或插件卸载时，恢复宿主容器的定位状态。
+- 串行处理日记重命名/删除时的心情元数据更新，并在插件卸载前等待待处理写入完成。
+- 切换心情强度时，自动过滤不兼容的心情标签。
+- 加固心情元数据导出、备份恢复、损坏数据拒绝恢复和完整性诊断流程。
+
+### 变更
+- 新增独立的日历显示开关，可分别控制心情标记、天气卡片和日期格天气图标；默认全部显示，且不会影响已保存的数据或时间线。
+
+### 验证
+- 36 项自动化测试通过。
+- TypeScript 检查和生产构建通过。
+- 已在 Obsidian 1.13.4 沙盒中测试导出、恢复、损坏数据恢复和完整性检查。
+
+---
 
 ## 2.0.0 (2026-07-19)
 

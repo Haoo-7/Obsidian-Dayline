@@ -6,6 +6,10 @@
 
 # Dayline — Obsidian Plugin
 
+<p align="center">
+  <img src="assets/dayline-wordmark.svg" alt="Dayline logo" width="250">
+</p>
+
 Dayline is a visual journal for calendars, timelines, moods, memories, weather, and photos. It includes the monthly calendar, journal timeline, mood metadata, On This Day review, and media thumbnails.
 
 ![Dayline preview](screenshots/calendar-sidebar-preview.png)

@@ -48,6 +48,9 @@ export class JournalTimelineView extends ItemView {
     this.thumbnailVisibilityChecks.clear();
     this.unsubscribe?.();
     this.unsubscribe = null;
+    this.plugin.viewVisibilityController?.viewClosed('timeline')
+      .then(() => this.plugin._syncDaylineRibbon())
+      .catch((error) => console.warn('[Dayline] Timeline close state sync failed:', error?.message || error));
   }
 
   render() {
@@ -265,7 +268,15 @@ export class JournalTimelineView extends ItemView {
 
   async openEntry(path) {
     const file = this.app.vault.getAbstractFileByPath(path);
-    if (!(file instanceof TFile)) { new Notice(`${t(this.plugin.settings, 'timelineTitle')}: ${path}`); return; }
-    await this.app.workspace.getLeaf('split').openFile(file);
+    if (!(file instanceof TFile)) {
+      new Notice(t(this.plugin.settings, 'timelineOpenFailed', { error: path }));
+      return;
+    }
+    try {
+      await this.app.workspace.getLeaf('split').openFile(file);
+    } catch (error) {
+      console.warn('[Dayline] Open timeline entry failed:', error?.message || error);
+      new Notice(t(this.plugin.settings, 'timelineOpenFailed', { error: error?.message || error }));
+    }
   }
 }

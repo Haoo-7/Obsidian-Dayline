@@ -55,4 +55,85 @@ describe('journal index', () => {
     });
     expect(index.getDiagnostics()).toEqual([{ path: 'Imports/no-date.md', reason: 'missing-date' }]);
   });
+
+  it('discards a stale single-file read when a newer refresh wins', async () => {
+    const file = {
+      path: 'Calendar/Daily/2026-07-18.md',
+      name: '2026-07-18.md',
+      frontmatter: {},
+      content: '# first',
+    };
+    let reads = 0;
+    let releaseFirst: (() => void) | undefined;
+    const app = {
+      vault: {
+        getMarkdownFiles: () => [file],
+        getAbstractFileByPath: (path: string) => path === file.path ? file : undefined,
+        cachedRead: async (current: any) => {
+          const content = current.content;
+          reads += 1;
+          if (reads === 1) {
+            await new Promise<void>((resolve) => { releaseFirst = resolve; });
+          }
+          return content;
+        },
+      },
+      metadataCache: {
+        getFileCache: (current: any) => ({ frontmatter: current.frontmatter, embeds: [] }),
+      },
+    };
+    const index = new JournalIndex(app, () => undefined);
+    const settings = { dailyFolder: 'Calendar/Daily' };
+
+    const first = index.refreshFile(file.path, settings);
+    await Promise.resolve();
+    file.content = '# second';
+    const second = index.refreshFile(file.path, settings);
+    await second;
+    releaseFirst?.();
+    await first;
+
+    expect(index.getEntries()[0]?.title).toBe('second');
+  });
+
+  it('keeps the renamed entry generation ahead of an in-flight refresh', async () => {
+    const oldFile = {
+      path: 'Calendar/Daily/2026-07-18.md',
+      name: '2026-07-18.md',
+      frontmatter: {},
+      content: '# original',
+    };
+    const newFile = {
+      path: 'Calendar/Daily/renamed.md',
+      name: 'renamed.md',
+      frontmatter: { date: '2026-07-18' },
+      content: '# renamed',
+    };
+    const files = [oldFile];
+    const byPath = new Map([[oldFile.path, oldFile as any]]);
+    const app = {
+      vault: {
+        getMarkdownFiles: () => files,
+        getAbstractFileByPath: (path: string) => byPath.get(path),
+        cachedRead: async (file: any) => file.content,
+      },
+      metadataCache: {
+        getFileCache: (file: any) => ({ frontmatter: file.frontmatter, embeds: [] }),
+      },
+    };
+    const index = new JournalIndex(app, () => ({
+      score: 2,
+      labels: [],
+      recordedAt: '2026-07-18T00:00:00.000Z',
+      updatedAt: '2026-07-18T00:00:00.000Z',
+    }));
+    await index.refresh({ dailyFolder: 'Calendar/Daily' });
+    files.splice(0, 1, newFile);
+    byPath.delete(oldFile.path);
+    byPath.set(newFile.path, newFile);
+    index.renameFile(oldFile.path, newFile.path);
+    await index.refreshFile(newFile.path, { dailyFolder: 'Calendar/Daily' });
+
+    expect(index.getEntries()[0]).toMatchObject({ path: newFile.path, mood: { score: 2 } });
+  });
 });

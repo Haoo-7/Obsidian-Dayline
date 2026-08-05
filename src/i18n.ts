@@ -4,6 +4,7 @@ export type DisplayLanguage = 'zh' | 'en';
 
 const STRINGS: Record<DisplayLanguage, Record<string, string>> = {
   zh: {
+    calendarTitle: '日历',
     timelineTitle: '日记时间线',
     searchJournal: '搜索日记',
     openFilters: '打开筛选',
@@ -91,6 +92,13 @@ const STRINGS: Record<DisplayLanguage, Record<string, string>> = {
     openCalendar: '打开 Dayline',
     refreshWeather: '刷新当前日期天气',
     openOnThisDay: '打开去年今日',
+    calendarMonthLoadFailed: '加载日历月份失败：{error}',
+    openNoteFailed: '打开笔记失败：{error}',
+    createNoteFailed: '创建日记失败：{error}',
+    timelineOpenFailed: '打开时间线条目失败：{error}',
+    onThisDayLoadFailed: '加载去年今日失败：{error}',
+    settingsSaveFailed: '保存设置失败：{error}',
+    viewRefreshFailed: '刷新视图失败：{error}',
     openTimelineCommand: '打开日记时间线',
     newDailyCommand: '打开或创建今日笔记',
     recordMoodCommand: '记录当前日记心情',
@@ -101,6 +109,7 @@ const STRINGS: Record<DisplayLanguage, Record<string, string>> = {
     detectImportsCommand: '检测日记导入目录',
   },
   en: {
+    calendarTitle: 'Calendar',
     timelineTitle: 'Journal timeline',
     searchJournal: 'Search journal',
     openFilters: 'Open filters',
@@ -188,6 +197,13 @@ const STRINGS: Record<DisplayLanguage, Record<string, string>> = {
     openCalendar: 'Open Dayline',
     refreshWeather: 'Refresh weather for active date',
     openOnThisDay: 'Open On This Day',
+    calendarMonthLoadFailed: 'Failed to load the calendar month: {error}',
+    openNoteFailed: 'Failed to open note: {error}',
+    createNoteFailed: 'Failed to create note: {error}',
+    timelineOpenFailed: 'Failed to open timeline entry: {error}',
+    onThisDayLoadFailed: 'Failed to load On This Day: {error}',
+    settingsSaveFailed: 'Failed to save settings: {error}',
+    viewRefreshFailed: 'Failed to refresh the view: {error}',
     openTimelineCommand: 'Open journal timeline',
     newDailyCommand: "Open or create today's note",
     recordMoodCommand: 'Record current journal mood',
@@ -231,4 +247,28 @@ export function formatJournalDate(date: string, settings: { displayLanguage?: st
   const day = parts.find((part) => part.type === 'day')?.value ?? '';
   const weekday = (parts.find((part) => part.type === 'weekday')?.value ?? '').replace('周', '');
   return `${month}月${day}日 周${weekday}`;
+}
+
+export function formatCalendarMonth(
+  year: number,
+  month: number,
+  settings: { displayLanguage?: string; weatherLanguage?: string },
+): string {
+  const locale = getDisplayLanguage(settings) === 'en' ? 'en-US' : 'zh-CN';
+  return new Intl.DateTimeFormat(locale, {
+    year: 'numeric',
+    month: 'long',
+    timeZone: 'UTC',
+  }).format(new Date(Date.UTC(year, month - 1, 1)));
+}
+
+export function getCalendarWeekdays(
+  settings: { displayLanguage?: string; weatherLanguage?: string },
+): string[] {
+  const locale = getDisplayLanguage(settings) === 'en' ? 'en-US' : 'zh-CN';
+  const formatter = new Intl.DateTimeFormat(locale, { weekday: 'short', timeZone: 'UTC' });
+  return Array.from({ length: 7 }, (_, index) => {
+    const label = formatter.format(new Date(Date.UTC(2021, 7, 1 + index)));
+    return locale === 'zh-CN' ? label.replace(/^(?:星期|周)/, '') : label;
+  });
 }

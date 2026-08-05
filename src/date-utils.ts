@@ -60,6 +60,10 @@ export function formatDate(date: Date): string {
   ].join('-');
 }
 
+export function formatDateParts(year: number, month: number, day: number): string {
+  return `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
 export function formatDateInTimeZone(date: Date, timezone = 'auto'): string {
   if (timezone && timezone !== 'auto') {
     try {
@@ -76,6 +80,31 @@ export function formatDateInTimeZone(date: Date, timezone = 'auto'): string {
     }
   }
   return formatDate(date);
+}
+
+export function getTodayDate(timezone = 'auto', now = new Date()): string {
+  return formatDateInTimeZone(now, timezone);
+}
+
+export function getClockPartsInTimeZone(
+  date: Date,
+  timezone = 'auto',
+): { hour: number; minute: number } {
+  if (!timezone || timezone === 'auto') {
+    return { hour: date.getHours(), minute: date.getMinutes() };
+  }
+  try {
+    const parts = new Intl.DateTimeFormat('en-GB', {
+      timeZone: timezone,
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    }).formatToParts(date);
+    const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+    return { hour: Number(values.hour), minute: Number(values.minute) };
+  } catch (_) {
+    return { hour: date.getHours(), minute: date.getMinutes() };
+  }
 }
 
 export function monthKey(year: number, month: number): string {

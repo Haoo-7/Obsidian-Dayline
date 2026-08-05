@@ -152,6 +152,8 @@ export class JournalIndex {
   private readonly diagnostics: JournalDiagnostic[] = [];
   private readonly listeners = new Set<Listener>();
   private refreshToken = 0;
+  private mutationToken = 0;
+  private readonly fileRefreshTokens = new Map<string, number>();
   private refreshPromise: Promise<void> | null = null;
   private currentSources: JournalSource[] = [];
 
@@ -192,8 +194,9 @@ export class JournalIndex {
 
   async refresh(settings: JournalIndexSettings): Promise<void> {
     const token = ++this.refreshToken;
+    const mutationToken = ++this.mutationToken;
     if (this.refreshPromise) await this.refreshPromise;
-    const promise = this.rebuild(settings, token);
+    const promise = this.rebuild(settings, token, mutationToken);
     this.refreshPromise = promise;
     try {
       await promise;
@@ -204,25 +207,41 @@ export class JournalIndex {
 
   async refreshFile(path: string, settings: JournalIndexSettings): Promise<void> {
     const normalizedPath = normalizeVaultPath(path);
-    this.entries.delete(normalizedPath);
+    ++this.mutationToken;
+    const token = (this.fileRefreshTokens.get(normalizedPath) ?? 0) + 1;
+    this.fileRefreshTokens.set(normalizedPath, token);
+    const refreshToken = this.refreshToken;
+    const sources = this.resolveSources(settings);
     const file = this.app.vault.getAbstractFileByPath(normalizedPath);
+    let entry: JournalEntry | null = null;
     if (file) {
-      const entry = await this.readEntry(file, this.resolveSources(settings));
-      if (entry) this.entries.set(entry.path, entry);
+      entry = await this.readEntry(file, sources);
     }
+    if (refreshToken !== this.refreshToken || this.fileRefreshTokens.get(normalizedPath) !== token) return;
+    this.currentSources = sources;
+    if (entry) this.entries.set(entry.path, entry);
+    else this.entries.delete(normalizedPath);
+    this.fileRefreshTokens.delete(normalizedPath);
     this.emit();
   }
 
   removeFile(path: string): void {
-    this.entries.delete(normalizeVaultPath(path));
+    const normalizedPath = normalizeVaultPath(path);
+    ++this.mutationToken;
+    this.fileRefreshTokens.set(normalizedPath, (this.fileRefreshTokens.get(normalizedPath) ?? 0) + 1);
+    this.entries.delete(normalizedPath);
     this.emit();
   }
 
   renameFile(oldPath: string, newPath: string): void {
     const oldKey = normalizeVaultPath(oldPath);
+    const newKey = normalizeVaultPath(newPath);
+    ++this.mutationToken;
+    this.fileRefreshTokens.set(oldKey, (this.fileRefreshTokens.get(oldKey) ?? 0) + 1);
+    this.fileRefreshTokens.set(newKey, (this.fileRefreshTokens.get(newKey) ?? 0) + 1);
     const entry = this.entries.get(oldKey);
     this.entries.delete(oldKey);
-    if (entry) this.entries.set(normalizeVaultPath(newPath), { ...entry, path: normalizeVaultPath(newPath) });
+    if (entry) this.entries.set(newKey, { ...entry, path: newKey });
     this.emit();
   }
 
@@ -270,20 +289,20 @@ export class JournalIndex {
     return result;
   }
 
-  private async rebuild(settings: JournalIndexSettings, token: number): Promise<void> {
+  private async rebuild(settings: JournalIndexSettings, token: number, mutationToken: number): Promise<void> {
     const sources = this.resolveSources(settings);
-    this.currentSources = sources;
     const next = new Map<string, JournalEntry>();
     this.diagnostics.length = 0;
     const files = this.app.vault.getMarkdownFiles?.() ?? [];
     for (const file of files) {
-      if (token !== this.refreshToken) return;
+      if (token !== this.refreshToken || mutationToken !== this.mutationToken) return;
       const source = sourceForPath(file.path, sources);
       if (!source) continue;
       const entry = await this.readEntry(file, sources);
       if (entry) next.set(entry.path, entry);
     }
-    if (token !== this.refreshToken) return;
+    if (token !== this.refreshToken || mutationToken !== this.mutationToken) return;
+    this.currentSources = sources;
     this.entries.clear();
     for (const [path, entry] of next) this.entries.set(path, entry);
     this.emit();

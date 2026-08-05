@@ -6,6 +6,10 @@
 
 # Dayline — Obsidian 插件
 
+<p align="center">
+  <img src="assets/dayline-wordmark.svg" alt="Dayline 标识" width="250">
+</p>
+
 Dayline 是一个集日历、时间线、心情、回顾、天气和照片于一体的可视化日记工具。月历和时间线共同组成主要工作界面。
 
 ![Dayline 预览](screenshots/calendar-sidebar-preview.png)
