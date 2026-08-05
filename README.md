@@ -6,9 +6,9 @@
 
 ---
 
-# Dayline — Obsidian Plugin / Obsidian 插件
+# Dayline — Obsidian Plugin
 
-Dayline is a visual journal for calendars, timelines, moods, memories, weather, and photos. / Dayline 是一个集日历、时间线、心情、回顾、天气和照片于一体的可视化日记工具。
+Dayline is a visual journal for calendars, timelines, moods, memories, weather, and photos.
 
 - Monthly calendar in the left sidebar
 - Image thumbnails from daily notes as date cell backgrounds
