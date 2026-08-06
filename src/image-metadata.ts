@@ -1,5 +1,9 @@
 // @ts-nocheck
-const { requestUrl } = require('obsidian');
+let requestUrl;
+function getRequestUrl() {
+  if (!requestUrl) requestUrl = require('obsidian').requestUrl;
+  return requestUrl;
+}
 
 /* ============================================================
    Lightweight JPEG EXIF Parser (zero-dependency)
@@ -14,27 +18,35 @@ const { requestUrl } = require('obsidian');
    Takes a DataView positioned at the TIFF header.
    ============================================================ */
 
+const MAX_EXIF_BLOCK_BYTES = 8 * 1024 * 1024;
+export const MAX_HEIC_TIFF_SCAN_BYTES = 16 * 1024 * 1024;
+
 function _parseExifData(exifBytes) {
+  if (!exifBytes || exifBytes.byteLength === 0 || exifBytes.byteLength > MAX_EXIF_BLOCK_BYTES) return null;
   const dv = new DataView(exifBytes);
-  let le = true; // little-endian default
-  const r16 = (o) => dv.getUint16(o, le);
-  const r32 = (o) => dv.getUint32(o, le);
+  let le = true;
+  const valid = (offset, length = 1) => Number.isSafeInteger(offset) && Number.isSafeInteger(length)
+    && offset >= 0 && length >= 0 && offset <= dv.byteLength - length;
+  const r16 = (offset) => valid(offset, 2) ? dv.getUint16(offset, le) : undefined;
+  const r32 = (offset) => valid(offset, 4) ? dv.getUint32(offset, le) : undefined;
+  const ri32 = (offset) => valid(offset, 4) ? dv.getInt32(offset, le) : undefined;
 
   function _parseTiff(offset, depth) {
-    if (depth > 2) return null;
-    const bo = dv.getUint16(offset);
+    if (depth > 2 || !valid(offset, 8)) return null;
+    const bo = r16(offset);
     if (bo === 0x4949) le = true;
     else if (bo === 0x4D4D) le = false;
     else return null;
     if (r16(offset + 2) !== 42) return null;
     const ifdOff = r32(offset + 4);
-    if (ifdOff === 0) return null;
+    if (!ifdOff || ifdOff > MAX_EXIF_BLOCK_BYTES) return null;
     return _readIfd(offset + ifdOff, offset, depth);
   }
 
   function _readIfd(ifdStart, tiffBase, depth) {
+    if (depth > 2) return null;
     const n = r16(ifdStart);
-    if (n === 0 || n > 256) return null;
+    if (!n || n > 256 || !valid(ifdStart + 2, n * 12 + 4)) return null;
     const result = {};
     let gpsOff = null;
     for (let i = 0; i < n; i++) {
@@ -43,16 +55,18 @@ function _parseExifData(exifBytes) {
       const type = r16(eo + 2);
       const count = r32(eo + 4);
       const vo = eo + 8;
-      if (tag === 0x8769) { // EXIF IFD
+      if (tag === undefined || type === undefined || count === undefined) continue;
+      if (tag === 0x8769) {
         const exifIfd = r32(vo);
-        if (exifIfd > 0) {
-          const d = _readIfd(tiffBase + exifIfd, tiffBase, depth + 1);
-          if (d) Object.assign(result, d);
+        if (exifIfd && exifIfd <= MAX_EXIF_BLOCK_BYTES) {
+          const nested = _readIfd(tiffBase + exifIfd, tiffBase, depth + 1);
+          if (nested) Object.assign(result, nested);
         }
         continue;
       }
-      if (tag === 0x8825) { gpsOff = r32(vo); continue; } // GPS IFD
+      if (tag === 0x8825) { gpsOff = r32(vo); continue; }
       const val = _readTag(eo, type, count, tiffBase);
+      if (val === undefined) continue;
       switch (tag) {
         case 0x010F: result.make = val; break;
         case 0x0110: result.model = val; break;
@@ -65,75 +79,86 @@ function _parseExifData(exifBytes) {
         case 0xA434: result.lensModel = val; break;
       }
     }
-    if (gpsOff !== null && gpsOff > 0) {
-      const g = _readGps(tiffBase + gpsOff, tiffBase);
-      if (g) Object.assign(result, g);
+    if (gpsOff && gpsOff <= MAX_EXIF_BLOCK_BYTES) {
+      const gps = _readGps(tiffBase + gpsOff, tiffBase);
+      if (gps) Object.assign(result, gps);
     }
     return Object.keys(result).length > 0 ? result : null;
   }
 
   function _readGps(ifdStart, tiffBase) {
     const n = r16(ifdStart);
-    if (n === 0 || n > 64) return null;
-    const r = {};
+    if (!n || n > 64 || !valid(ifdStart + 2, n * 12 + 4)) return null;
+    const result = {};
     for (let i = 0; i < n; i++) {
       const eo = ifdStart + 2 + i * 12;
       const tag = r16(eo);
-      const val = _readTag(eo, r16(eo + 2), r32(eo + 4), tiffBase);
-      if (tag === 1) r.gpsLatRef = val;
-      if (tag === 2) r.gpsLat = val;
-      if (tag === 3) r.gpsLonRef = val;
-      if (tag === 4) r.gpsLon = val;
+      const type = r16(eo + 2);
+      const count = r32(eo + 4);
+      if (tag === undefined || type === undefined || count === undefined) continue;
+      const val = _readTag(eo, type, count, tiffBase);
+      if (tag === 1) result.gpsLatRef = val;
+      if (tag === 2) result.gpsLat = val;
+      if (tag === 3) result.gpsLonRef = val;
+      if (tag === 4) result.gpsLon = val;
     }
-    if (r.gpsLat && Array.isArray(r.gpsLat) && r.gpsLat.length >= 3) {
-      const lat = r.gpsLat[0] + r.gpsLat[1] / 60 + r.gpsLat[2] / 3600;
-      r.gpsLatDecimal = r.gpsLatRef === 'S' ? -lat : lat;
+    if (Array.isArray(result.gpsLat) && result.gpsLat.length >= 3 && result.gpsLat.every(Number.isFinite)) {
+      const lat = result.gpsLat[0] + result.gpsLat[1] / 60 + result.gpsLat[2] / 3600;
+      if (Number.isFinite(lat)) result.gpsLatDecimal = result.gpsLatRef === 'S' ? -lat : lat;
     }
-    if (r.gpsLon && Array.isArray(r.gpsLon) && r.gpsLon.length >= 3) {
-      const lon = r.gpsLon[0] + r.gpsLon[1] / 60 + r.gpsLon[2] / 3600;
-      r.gpsLonDecimal = r.gpsLonRef === 'W' ? -lon : lon;
+    if (Array.isArray(result.gpsLon) && result.gpsLon.length >= 3 && result.gpsLon.every(Number.isFinite)) {
+      const lon = result.gpsLon[0] + result.gpsLon[1] / 60 + result.gpsLon[2] / 3600;
+      if (Number.isFinite(lon)) result.gpsLonDecimal = result.gpsLonRef === 'W' ? -lon : lon;
     }
-    return r;
+    return result;
   }
 
   function _readTag(entryOffset, type, count, tiffBase) {
-    const dataOff = entryOffset + 8;
-    const sizes = { 1:1, 2:1, 3:2, 4:4, 5:8, 6:1, 7:1, 8:2, 9:4, 10:8, 11:4, 12:8 };
-    const sz = sizes[type] || 1;
-    const total = count * sz;
-    const vo = total <= 4 ? dataOff : (tiffBase + r32(dataOff));
-
+    const sizes = { 1: 1, 2: 1, 3: 2, 4: 4, 5: 8, 6: 1, 7: 1, 8: 2, 9: 4, 10: 8, 11: 4, 12: 8 };
+    const size = sizes[type];
+    if (!size || !Number.isSafeInteger(count) || count < 1 || count > MAX_EXIF_BLOCK_BYTES || count > Math.floor(MAX_EXIF_BLOCK_BYTES / size)) return undefined;
+    const total = count * size;
+    const dataOffset = entryOffset + 8;
+    if (!valid(dataOffset, 4)) return undefined;
+    const pointer = total <= 4 ? dataOffset : r32(dataOffset);
+    if (pointer === undefined) return undefined;
+    const valueOffset = total <= 4 ? pointer : tiffBase + pointer;
+    if (!valid(valueOffset, total)) return undefined;
     switch (type) {
       case 1: case 6: case 7:
-        if (count === 1) return dv.getUint8(vo);
-        const bytes = []; for (let i = 0; i < count; i++) bytes.push(dv.getUint8(vo + i));
-        return bytes;
-      case 2:
-        let s = ''; for (let i = 0; i < count - 1; i++) s += String.fromCharCode(dv.getUint8(vo + i));
-        return s.trim();
+        if (count === 1) return dv.getUint8(valueOffset);
+        return Array.from({ length: count }, (_, i) => dv.getUint8(valueOffset + i));
+      case 2: {
+        let text = '';
+        for (let i = 0; i < Math.max(0, count - 1); i++) text += String.fromCharCode(dv.getUint8(valueOffset + i));
+        return text.trim();
+      }
       case 3:
-        if (count === 1) return r16(vo);
-        const sa = []; for (let i = 0; i < count; i++) sa.push(r16(vo + i * 2));
-        return sa;
+        if (count === 1) return r16(valueOffset);
+        return Array.from({ length: count }, (_, i) => r16(valueOffset + i * 2));
       case 4:
-        if (count === 1) return r32(vo);
-        const la = []; for (let i = 0; i < count; i++) la.push(r32(vo + i * 4));
-        return la;
-      case 5: case 10:
-        if (count === 1) { const n = r32(vo), d = r32(vo + 4); return d === 0 ? n : n / d; }
-        const ra = [];
-        for (let i = 0; i < count; i++) { const n = r32(vo + i * 8), d = r32(vo + i * 8 + 4); ra.push(d === 0 ? n : n / d); }
-        return ra;
+        if (count === 1) return r32(valueOffset);
+        return Array.from({ length: count }, (_, i) => r32(valueOffset + i * 4));
+      case 5: case 10: {
+        const values = [];
+        for (let i = 0; i < count; i++) {
+          const readInteger = type === 10 ? ri32 : r32;
+          const numerator = readInteger(valueOffset + i * 8);
+          const denominator = readInteger(valueOffset + i * 8 + 4);
+          if (numerator === undefined || denominator === undefined) return undefined;
+          values.push(denominator === 0 ? numerator : numerator / denominator);
+        }
+        return count === 1 ? values[0] : values;
+      }
       case 9:
-        if (count === 1) return dv.getInt32(vo, le);
-        const sla = []; for (let i = 0; i < count; i++) sla.push(dv.getInt32(vo + i * 4, le));
-        return sla;
-      default: return dv.getUint8(vo);
+        if (count === 1) return ri32(valueOffset);
+        return Array.from({ length: count }, (_, i) => ri32(valueOffset + i * 4));
+      default:
+        return undefined;
     }
   }
 
-  const result = _parseTiff(0, 0);
-  return result;
+  return _parseTiff(0, 0);
 }
 
 /* ============================================================
@@ -145,16 +170,18 @@ function parseJpegExif(arrayBuffer) {
   const dv = new DataView(arrayBuffer);
   if (dv.byteLength < 4 || dv.getUint16(0) !== 0xFFD8) return null;
   let offset = 2;
-  while (offset < dv.byteLength - 1) {
+  while (offset <= dv.byteLength - 4) {
     const marker = dv.getUint16(offset);
     if (marker === 0xFFE1) {
-      if (dv.getUint32(offset + 4) === 0x45786966) { // "Exif"
-        return _parseExifData(arrayBuffer.slice(offset + 10));
+      const segmentLength = dv.getUint16(offset + 2);
+      if (segmentLength < 8 || offset + 2 + segmentLength > dv.byteLength) return null;
+      if (dv.getUint32(offset + 4) === 0x45786966) {
+        return _parseExifData(arrayBuffer.slice(offset + 10, offset + 2 + segmentLength));
       }
     }
     if (marker < 0xFF00 || marker === 0xFFD8 || marker === 0xFFD9) break;
     const segLen = dv.getUint16(offset + 2);
-    if (segLen < 2) break;
+    if (segLen < 2 || offset + 2 + segLen > dv.byteLength) break;
     offset += 2 + segLen;
   }
   return null;
@@ -167,9 +194,10 @@ function parsePngExif(arrayBuffer) {
   // PNG signature: 137 80 78 71 13 10 26 10
   if (dv.getUint32(0) !== 0x89504E47 || dv.getUint32(4) !== 0x0D0A1A0A) return null;
   let offset = 8;
-  while (offset < dv.byteLength - 8) {
+  while (offset <= dv.byteLength - 12) {
     const len = dv.getUint32(offset); // chunk length (big-endian)
     const type = dv.getUint32(offset + 4); // chunk type (4 ASCII chars)
+    if (len > MAX_EXIF_BLOCK_BYTES || offset + 12 + len > dv.byteLength) break;
     if (type === 0x65495866) { // "eXIf"
       // Chunk data starts at offset + 8, length is `len`
       return _parseExifData(arrayBuffer.slice(offset + 8, offset + 8 + len));
@@ -188,9 +216,10 @@ function parseWebpExif(arrayBuffer) {
   if (dv.getUint32(0) !== 0x52494646) return null; // "RIFF"
   if (dv.getUint32(8) !== 0x57454250) return null; // "WEBP"
   let offset = 12;
-  while (offset < dv.byteLength - 8) {
+  while (offset <= dv.byteLength - 8) {
     const fourCC = dv.getUint32(offset);
     const chunkSize = dv.getUint32(offset + 4, true); // little-endian!
+    if (chunkSize > MAX_EXIF_BLOCK_BYTES || offset + 8 + chunkSize > dv.byteLength) break;
     if (fourCC === 0x45584946) { // "EXIF"
       return _parseExifData(arrayBuffer.slice(offset + 8, offset + 8 + chunkSize));
     }
@@ -208,12 +237,13 @@ function parseHeicExif(arrayBuffer) {
   // We scan for the TIFF byte-order marker (II=0x4949 or MM=0x4D4D)
   // followed by magic 42 (0x002A).
   const dv = new DataView(arrayBuffer);
-  const max = dv.byteLength - 8;
+  const scanEnd = Math.min(dv.byteLength, MAX_HEIC_TIFF_SCAN_BYTES);
+  const max = Math.max(0, scanEnd - 8);
   for (let i = 0; i < max; i++) {
     const bo = dv.getUint16(i);
     if ((bo === 0x4949 || bo === 0x4D4D) && dv.getUint16(i + 2, bo === 0x4949) === 42) {
       // Found TIFF header — extract from here
-      const exifSlice = arrayBuffer.slice(i);
+      const exifSlice = arrayBuffer.slice(i, Math.min(arrayBuffer.byteLength, i + MAX_EXIF_BLOCK_BYTES));
       return _parseExifData(exifSlice);
     }
   }
@@ -349,7 +379,11 @@ export class ImageMetadataCache {
   async get(file) {
     const filePath = file.path;
     const cached = this._cache.get(filePath);
-    if (cached !== undefined) return cached;
+    if (cached !== undefined) {
+      this._cache.delete(filePath);
+      this._cache.set(filePath, cached);
+      return cached;
+    }
 
     const pending = this._pending.get(filePath);
     if (pending) return pending;
@@ -358,10 +392,13 @@ export class ImageMetadataCache {
     this._pending.set(filePath, promise);
     try {
       const result = await promise;
-      this._cache.set(filePath, result);
+      if (this._pending.get(filePath) === promise) {
+        this._cache.set(filePath, result);
+        while (this._cache.size > 128) this._cache.delete(this._cache.keys().next().value);
+      }
       return result;
     } finally {
-      this._pending.delete(filePath);
+      if (this._pending.get(filePath) === promise) this._pending.delete(filePath);
     }
   }
 
@@ -393,10 +430,14 @@ export class ImageMetadataCache {
    ============================================================ */
 
 export const HEIC_EXTS = ['heic', 'heif'];
+export const MAX_HEIC_BYTES = 100 * 1024 * 1024;
+export const MAX_HEIC_PIXELS = 50 * 1000 * 1000;
+export const MAX_HEIC_EDGE = 8192;
 
 export class HeicCache {
-  constructor(app) {
+  constructor(app, capabilities?: any) {
     this.app = app;
+    this.capabilities = capabilities;
     /** @type {Map<string, {dataUrl:string, width:number, height:number}>} */
     this._cache = new Map();
     /** @type {Map<string, Promise>} */
@@ -423,26 +464,42 @@ export class HeicCache {
    * @returns {Promise<{dataUrl:string, width:number, height:number}|null>}
    */
   async getThumbnail(file) {
+    if (this.capabilities?.routes?.heic === 'disabled') return null;
     const key = `${file.path}:${file.stat?.mtime || 0}`;
-    if (this._cache.has(key)) return this._cache.get(key);
+    if (this._cache.has(key)) {
+      const value = this._cache.get(key);
+      this._cache.delete(key);
+      this._cache.set(key, value);
+      return value;
+    }
     if (this._pending.has(key)) return this._pending.get(key);
 
     const promise = this._convert(file);
     this._pending.set(key, promise);
     try {
       const result = await promise;
-      if (result) this._cache.set(key, result);
+      if (result && this._pending.get(key) === promise) {
+        this._cache.delete(key);
+        this._cache.set(key, result);
+        while (this._cache.size > 48) this._cache.delete(this._cache.keys().next().value);
+      }
       return result;
     } finally {
-      this._pending.delete(key);
+      if (this._pending.get(key) === promise) this._pending.delete(key);
     }
   }
 
   async _convert(file) {
     try {
+      // Check the factory before reading a potentially large HEIC file. The
+      // capability route also disables this path on mobile without a factory.
+      if (!this._hasLibheifFactory()) return null;
       const buf = await this.app.vault.readBinary(file);
+      if (!buf || buf.byteLength > MAX_HEIC_BYTES) {
+        console.warn('[Dayline] HEIC conversion skipped: file exceeds 100 MiB limit');
+        return null;
+      }
       const libheif = await this._getLibheif();
-
       const decoder = new libheif.HeifDecoder();
       const images = decoder.decode(new Uint8Array(buf));
       if (!images || !images.length) return null;
@@ -450,6 +507,12 @@ export class HeicCache {
 
       const origW = img.get_width();
       const origH = img.get_height();
+      if (!Number.isSafeInteger(origW) || !Number.isSafeInteger(origH)
+        || origW <= 0 || origH <= 0 || origW > MAX_HEIC_EDGE || origH > MAX_HEIC_EDGE
+        || origW * origH > MAX_HEIC_PIXELS) {
+        console.warn('[Dayline] HEIC conversion skipped: dimensions exceed resource limits');
+        return null;
+      }
 
       // Decode to canvas
       const canvas = document.createElement('canvas');
@@ -491,6 +554,11 @@ export class HeicCache {
     }
   }
 
+  _hasLibheifFactory() {
+    const plugin = this.app.plugins?.plugins?.dayline;
+    return typeof plugin?._libheifFactory === 'function';
+  }
+
   invalidate(filePath) {
     if (filePath) {
       for (const key of this._cache.keys()) if (key.startsWith(`${filePath}:`)) this._cache.delete(key);
@@ -507,56 +575,158 @@ export class HeicCache {
    Reverse Geocoder (Nominatim, free, no API key)
    ============================================================ */
 
+export const GEOCODER_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+export const GEOCODER_CACHE_MAX_ENTRIES = 256;
+
 export class ReverseGeocoder {
-  constructor() {
-    this._cache = new Map();      // "lat,lon" → place name string
-    this._pending = new Map();    // "lat,lon" → Promise (in-flight dedup)
+  constructor(options = {}) {
+    this._cache = new Map();      // "lat,lon|language" -> { name, cachedAt }
+    this._pending = new Map();    // "lat,lon|language" -> Promise (in-flight dedup)
+    this._persistentCache = options.cache && typeof options.cache === 'object' ? options.cache : null;
+    this._onChange = options.onChange;
+    this._now = options.now || (() => Date.now());
+    this._ttlMs = Math.max(1, Number(options.ttlMs ?? GEOCODER_CACHE_TTL_MS));
+    this._maxEntries = Math.max(1, Math.floor(Number(options.maxEntries ?? GEOCODER_CACHE_MAX_ENTRIES)));
+    this._minRequestIntervalMs = Math.max(0, Number(options.minRequestIntervalMs ?? 1000));
+    this._sleep = options.sleep || ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
+    this._request = options.request || ((request) => getRequestUrl()(request));
+    this._getLanguage = options.getLanguage || (() => 'en');
     this._lastRequest = 0;        // rate limit: 1 req/s
     this._requestQueue = Promise.resolve();
+    this._loadPersistentCache();
+  }
+
+  _normalizeLanguage(language) {
+    return String(language || 'en').toLowerCase().startsWith('zh') ? 'zh' : 'en';
+  }
+
+  _normalizeCoordinates(lat, lon) {
+    const latitude = Number(lat);
+    const longitude = Number(lon);
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+    if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) return null;
+    return { latitude, longitude };
+  }
+
+  _key(lat, lon, language) {
+    return `${lat.toFixed(5)},${lon.toFixed(5)}|${this._normalizeLanguage(language)}`;
+  }
+
+  _record(raw, fallbackNow = this._now()) {
+    if (typeof raw === 'string' && raw.trim()) {
+      // A legacy successful-name value gets a bounded timestamp.
+      return { name: raw.trim(), cachedAt: new Date(fallbackNow).toISOString() };
+    }
+    if (!raw || typeof raw !== 'object' || typeof raw.name !== 'string' || !raw.name.trim()) return null;
+    const cachedAt = new Date(raw.cachedAt).getTime();
+    if (!Number.isFinite(cachedAt)) return null;
+    return { name: raw.name.trim(), cachedAt: new Date(cachedAt).toISOString() };
+  }
+
+  _loadPersistentCache() {
+    if (!this._persistentCache) return;
+    const now = this._now();
+    let changed = false;
+    for (const [key, raw] of Object.entries(this._persistentCache)) {
+      // Keys without a language belong to the old memory-only shape and are
+      // ignored rather than guessed into the wrong locale.
+      if (!key.includes('|')) {
+        delete this._persistentCache[key];
+        changed = true;
+        continue;
+      }
+      const record = this._record(raw, now);
+      if (!record || now - Date.parse(record.cachedAt) > this._ttlMs) {
+        delete this._persistentCache[key];
+        changed = true;
+        continue;
+      }
+      this._cache.set(key, record);
+    }
+    changed = this._prune(now, false) || changed;
+    if (changed) this._onChange?.();
+  }
+
+  _prune(now = this._now(), notify = true) {
+    let changed = false;
+    for (const [key, record] of this._cache.entries()) {
+      if (!record?.name || !Number.isFinite(Date.parse(record.cachedAt))
+        || now - Date.parse(record.cachedAt) > this._ttlMs) {
+        this._cache.delete(key);
+        if (this._persistentCache) delete this._persistentCache[key];
+        changed = true;
+      }
+    }
+    const ordered = [...this._cache.entries()]
+      .sort((a, b) => Date.parse(b[1].cachedAt) - Date.parse(a[1].cachedAt));
+    for (const [key] of ordered.slice(this._maxEntries)) {
+      this._cache.delete(key);
+      if (this._persistentCache) delete this._persistentCache[key];
+      changed = true;
+    }
+    if (changed && notify) this._onChange?.();
+    return changed;
   }
 
   /**
    * Look up a human-readable place name for coordinates.
    * Returns null if the lookup fails or has no result.
    */
-  async lookup(lat, lon) {
-    const key = `${lat.toFixed(5)},${lon.toFixed(5)}`;
-    if (this._cache.has(key)) return this._cache.get(key);
+  async lookup(lat, lon, language = this._getLanguage()) {
+    const coordinates = this._normalizeCoordinates(lat, lon);
+    if (!coordinates) return null;
+    const effectiveLanguage = this._normalizeLanguage(language);
+    const key = this._key(coordinates.latitude, coordinates.longitude, effectiveLanguage);
+    this._prune();
+    const cached = this._cache.get(key);
+    if (cached) return cached.name;
     if (this._pending.has(key)) return this._pending.get(key);
 
     this._requestQueue = this._requestQueue
       .catch(() => {})
-      .then(() => this._doLookup(lat, lon, key));
+      .then(() => this._doLookup(coordinates.latitude, coordinates.longitude, effectiveLanguage));
     const promise = this._requestQueue;
     this._pending.set(key, promise);
     try {
       const result = await promise;
-      this._cache.set(key, result);
+      // A failed lookup is never stored as a successful name.
+      if (result) {
+        const record = { name: result, cachedAt: new Date(this._now()).toISOString() };
+        this._cache.set(key, record);
+        if (this._persistentCache) this._persistentCache[key] = record;
+        this._prune(this._now());
+        this._onChange?.();
+      }
       return result;
     } finally {
       this._pending.delete(key);
     }
   }
 
-  async _doLookup(lat, lon, key) {
-    // Respect Nominatim's 1 req/s rate limit
-    const now = Date.now();
+  async _doLookup(lat, lon, language) {
+    // Respect Nominatim's 1 req/s rate limit.
+    const now = this._now();
     const elapsed = now - this._lastRequest;
-    if (elapsed < 1100) {
-      await new Promise(r => setTimeout(r, 1100 - elapsed));
+    if (this._lastRequest > 0 && elapsed < this._minRequestIntervalMs) {
+      await this._sleep(this._minRequestIntervalMs - elapsed);
     }
-    this._lastRequest = Date.now();
+    this._lastRequest = this._now();
 
     try {
-      const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=12&accept-language=zh`;
-      const resp = await requestUrl({ url, headers: { 'User-Agent': 'ObsidianDayline/2.0' } });
+      const params = new URLSearchParams({
+        format: 'json',
+        lat: String(lat),
+        lon: String(lon),
+        zoom: '12',
+        'accept-language': language,
+      });
+      const url = `https://nominatim.openstreetmap.org/reverse?${params.toString()}`;
+      const resp = await this._request({ url, headers: { 'User-Agent': 'ObsidianDayline/2.0' } });
       if (resp.status === 200 && resp.json) {
         const data = resp.json;
-        // Use display_name: e.g. "广州市天河区..."
-        // For cleaner output, prefer `address` sub-fields
+        // Prefer concise address sub-fields over the full display name.
         if (data.address) {
           const a = data.address;
-          // Build a concise label: city + district + suburb
           const parts = [a.city || a.town || a.county, a.district || a.suburb, a.village].filter(Boolean);
           if (parts.length > 0) return parts.join(' · ');
           if (data.display_name) return data.display_name.split(',')[0];
@@ -564,10 +734,17 @@ export class ReverseGeocoder {
         if (data.display_name) return data.display_name.split(',')[0];
       }
     } catch (e) {
-      // Silently fail — just show raw coordinates
+      // Silently fail — just show raw coordinates.
     }
     return null;
   }
 
-  invalidate() { this._cache.clear(); this._pending.clear(); }
+  invalidate() {
+    this._cache.clear();
+    this._pending.clear();
+    if (this._persistentCache) {
+      for (const key of Object.keys(this._persistentCache)) delete this._persistentCache[key];
+      this._onChange?.();
+    }
+  }
 }

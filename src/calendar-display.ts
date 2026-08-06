@@ -2,6 +2,7 @@ export interface CalendarDisplaySettings {
   showCalendarMood?: boolean;
   showCalendarWeatherCard?: boolean;
   showCalendarWeatherBadge?: boolean;
+  showCalendarWeatherLocation?: boolean;
   /** Legacy combined weather visibility setting. */
   showCalendarWeather?: boolean;
 }
@@ -21,4 +22,9 @@ export function shouldShowCalendarWeatherCard(settings: CalendarDisplaySettings 
 
 export function shouldShowCalendarWeatherBadge(settings: CalendarDisplaySettings = {}): boolean {
   return settings.showCalendarWeatherBadge ?? settings.showCalendarWeather !== false;
+}
+
+/** Location is opt-in so existing settings do not add a second weather-card line. */
+export function shouldShowCalendarWeatherLocation(settings: CalendarDisplaySettings = {}): boolean {
+  return settings.showCalendarWeatherLocation === true;
 }

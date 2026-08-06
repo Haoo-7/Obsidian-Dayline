@@ -1,4 +1,6 @@
 import type { JournalEntry } from './types';
+import { buildMoodReports, type MoodLabelTrendSummary, type MoodPeriodReport } from './mood-reports';
+import { resolveWeekStart } from './i18n';
 
 export interface JournalStats {
   currentStreak: number;
@@ -7,6 +9,22 @@ export interface JournalStats {
   moodDistribution: Record<string, number>;
   labelCounts: Record<string, number>;
   trend: Array<{ date: string; score?: number }>;
+  monthly: JournalPeriodStat[];
+  quarterly: JournalPeriodStat[];
+  yearly: JournalPeriodStat[];
+  /** Per-label counts and average score by month. */
+  labelTrends: MoodLabelTrendSummary[];
+  weeklyMood: MoodPeriodReport[];
+  monthlyMood: MoodPeriodReport[];
+  yearlyMood: MoodPeriodReport[];
+}
+
+export interface JournalPeriodStat {
+  key: string;
+  entries: number;
+  recordedDays: number;
+  favoriteCount: number;
+  moodAverage?: number;
 }
 
 function dateOnly(value: Date): string {
@@ -27,7 +45,42 @@ function uniqueDates(entries: JournalEntry[]): string[] {
   return Array.from(new Set(entries.map((entry) => entry.date))).sort();
 }
 
-export function calculateJournalStats(entries: JournalEntry[], today = new Date()): JournalStats {
+function periodKey(date: string, period: 'month' | 'quarter' | 'year'): string {
+  const year = date.slice(0, 4);
+  if (period === 'year') return year;
+  const month = Number(date.slice(5, 7));
+  if (period === 'month') return `${year}-${String(month).padStart(2, '0')}`;
+  return `${year}-Q${Math.floor((month - 1) / 3) + 1}`;
+}
+
+/** Aggregate entries into deterministic month, quarter, and year buckets. */
+export function aggregateJournalPeriods(entries: JournalEntry[], period: 'month' | 'quarter' | 'year'): JournalPeriodStat[] {
+  const buckets = new Map<string, { entries: number; dates: Set<string>; favoriteCount: number; moodTotal: number; moodCount: number }>();
+  for (const entry of entries) {
+    const key = periodKey(entry.date, period);
+    let bucket = buckets.get(key);
+    if (!bucket) {
+      bucket = { entries: 0, dates: new Set<string>(), favoriteCount: 0, moodTotal: 0, moodCount: 0 };
+      buckets.set(key, bucket);
+    }
+    bucket.entries++;
+    bucket.dates.add(entry.date);
+    if (entry.favorite) bucket.favoriteCount++;
+    if (entry.mood) {
+      bucket.moodTotal += entry.mood.score;
+      bucket.moodCount++;
+    }
+  }
+  return Array.from(buckets.entries()).sort(([a], [b]) => a.localeCompare(b)).map(([key, bucket]) => ({
+    key,
+    entries: bucket.entries,
+    recordedDays: bucket.dates.size,
+    favoriteCount: bucket.favoriteCount,
+    moodAverage: bucket.moodCount > 0 ? Math.round((bucket.moodTotal / bucket.moodCount) * 100) / 100 : undefined,
+  }));
+}
+
+export function calculateJournalStats(entries: JournalEntry[], today = new Date(), settings: { weekStart?: string } = {}): JournalStats {
   const dates = uniqueDates(entries);
   const dateSet = new Set(dates);
   let currentStreak = 0;
@@ -60,6 +113,8 @@ export function calculateJournalStats(entries: JournalEntry[], today = new Date(
       for (const label of entry.mood.labels) labelCounts[label] = (labelCounts[label] ?? 0) + 1;
     }
   }
+  const moodInputs = entries.map((entry) => ({ date: entry.date, path: entry.path, mood: entry.mood }));
+  const moodReports = buildMoodReports(moodInputs, { weekStartsOn: resolveWeekStart(settings) });
   return {
     currentStreak,
     longestStreak,
@@ -71,5 +126,12 @@ export function calculateJournalStats(entries: JournalEntry[], today = new Date(
       .sort((a, b) => a.date.localeCompare(b.date))
       .slice(-14)
       .map((entry) => ({ date: entry.date, score: entry.mood?.score })),
+    monthly: aggregateJournalPeriods(entries, 'month'),
+    quarterly: aggregateJournalPeriods(entries, 'quarter'),
+    yearly: aggregateJournalPeriods(entries, 'year'),
+    labelTrends: moodReports.labelTrends,
+    weeklyMood: moodReports.weekly,
+    monthlyMood: moodReports.monthly,
+    yearlyMood: moodReports.yearly,
   };
 }

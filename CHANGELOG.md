@@ -1,5 +1,57 @@
 # Changelog
 
+## 2.1.0 (2026-08-07)
+
+### Added
+- Desktop-only release scope is explicit in the manifest; mobile support and Quick Capture are not part of this release.
+- Reorganized settings into seven focused sections: General; Calendar and journal; Mood; Weather; Media metadata and privacy; On This Day; and Data and maintenance.
+- Calendar dates distinguish journal records from weather-only dates, show a configurable `+n` badge for extra entries, display cover/media, and open the primary journal on click.
+- Added video and audio media metadata with capability-aware cover fallbacks alongside image metadata.
+- Added timeline full-text search and date, source, mood, favorite, location, tag, and media filters.
+- Added mood notes, custom labels, recovery, exports, integrity checks, and local trend reports.
+
+### Changed
+- Weather defaults to feels-like temperature and humidity. Wind, precipitation, sunrise, sunset, and location are optional settings and default off.
+- Weather refresh reliability now retries eligible Open-Meteo failures and keeps compatible stale/offline cache data visible without persisting transient status flags.
+- Added the Mediabunny third-party notice for the bundled video/audio metadata runtime.
+
+### Fixed
+- Fixed a journal-index startup race that could leave the calendar with a stale empty result after vault restore or early file mutations.
+- Removed the dormant calendar filter implementation so calendar behavior matches 2.0.2; filtering remains a timeline feature.
+
+### Verification
+- `npm test`, `npm run typecheck`, and `npm run build` passed.
+- `git diff --check` and the targeted interface detector passed.
+- Desktop Obsidian QA covered settings layout, Dayline logo, calendar covers, `+n` badges, timeline mood entry, and absence of calendar filter UI; plugin reload and error console checks were clean.
+
+---
+
+## 2.1.0（2026-08-07）
+
+### 新增
+- 在 manifest 中明确桌面端专属范围；本版本不支持移动端，也不包含 Quick Capture。
+- 将设置重组为七个清晰区块：通用、日历与日记、心情、天气、媒体元数据与隐私、去年今日、数据与维护。
+- 日历日期区分日记记录和仅有天气的日期；多篇记录显示可配置的 `+n` 徽标，支持封面/媒体显示，点击打开主日记。
+- 在图片元数据之外，增加具备能力降级的视频和音频元数据与封面回退。
+- 时间线新增全文搜索，以及日期、来源、心情、收藏、位置、标签和媒体筛选。
+- 增加心情备注、自定义标签、恢复、导出、完整性检查和本地趋势报告。
+
+### 变更
+- 天气默认显示体感温度和湿度；风速、降水、日出、日落和位置为可选设置，默认关闭。
+- 天气刷新可靠性增强：对可重试的 Open-Meteo 故障重试，并在刷新失败时继续显示兼容的过期/离线缓存，不写入临时状态标记。
+- 为内置视频/音频元数据运行时加入 Mediabunny 第三方许可声明。
+
+### 修复
+- 修复日记索引启动竞争：Vault 恢复或早期文件变更后，不再让过期的空结果覆盖日历。
+- 移除休眠的日历筛选实现，使日历行为恢复到 2.0.2；筛选仍保留在时间线中。
+
+### 验证
+- `npm test`、`npm run typecheck` 和 `npm run build` 均通过。
+- `git diff --check` 和定向界面检测通过。
+- 已完成桌面端 Obsidian 设置布局、Dayline 标识、日历封面、`+n` 徽标、时间线心情条目及无日历筛选 UI 验证；插件重载和错误控制台检查均无异常。
+
+---
+
 ## 2.0.2 (2026-08-05)
 
 ### Fixed

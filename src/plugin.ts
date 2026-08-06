@@ -4,25 +4,48 @@
  * Scans Calendar/Daily/ for notes with images, shows thumbnails in date cells.
  * Click a date to open that day's daily note.
  */
-const { Plugin, ItemView, TFile, Notice, Modal, Menu, setIcon } = require('obsidian');
-const { JournalIndex } = require('./journal-index');
+const { Plugin, ItemView, TFile, Notice, Modal, Menu, setIcon, Platform } = require('obsidian');
+const { JournalIndex, waitForJournalIndexStartup } = require('./journal-index');
 const { MoodStore } = require('./mood-store');
-const { MoodPickerModal } = require('./mood-picker-modal');
+const { MoodPickerModal, MoodRecoveryModal } = require('./mood-picker-modal');
+const { saveMoodExport, serializeMoodCsv, serializeMoodJson } = require('./mood-export');
 const { JournalTimelineView, JOURNAL_TIMELINE_VIEW } = require('./journal-timeline-view');
 const { OnThisDayProvider, OnThisDayModal } = require('./on-this-day');
 const { DaylineSettingsTab } = require('./settings-tab');
 const { WeatherService, lookupWeatherCode, validateWeatherCoordinates } = require('./weather-service');
+const { buildWeatherDetailParts, buildWeatherExtraParts, buildWeatherStatus } = require('./weather-display');
 const { localize: _l } = require('./locale');
 const { formatDateParts, getClockPartsInTimeZone, getTodayDate } = require('./date-utils');
 const { ThumbnailService } = require('./thumbnail-service');
+const { MediaService, formatMediaMetadataForDisplay } = require('./media-service');
+const { aggregateCalendarDays, withWeatherOnlyDays } = require('./calendar-summary');
+const { cachedMonthsReferencingMedia } = require('./calendar-media-refresh');
+const { MEDIA_EXTENSIONS, IMAGE_EXTENSIONS: MEDIA_IMAGE_EXTENSIONS, classifyMediaLink, createMediaAttachment, normalizeMediaLink } = require('./media-links');
 const { OverlayRegistry } = require('./overlay-registry');
 const { SerialTaskQueue } = require('./task-queue');
-const { formatCalendarMonth, getCalendarWeekdays, getDisplayLanguage, moodLabel, t } = require('./i18n');
+const { formatCalendarMonth, getCalendarGridOffset, getCalendarWeekdays, getDisplayLanguage, moodLabel, t } = require('./i18n');
 const { getMoodColor } = require('./mood');
-const { shouldShowCalendarMood, shouldShowCalendarWeatherCard, shouldShowCalendarWeatherBadge } = require('./calendar-display');
+const { shouldHandleCalendarMonthShortcut } = require('./calendar-keyboard');
+const { shouldShowCalendarMood, shouldShowCalendarWeatherCard, shouldShowCalendarWeatherBadge, shouldShowCalendarWeatherLocation } = require('./calendar-display');
 const { ViewVisibilityController, normalizeViewVisibilitySettings } = require('./view-visibility-controller');
 const { hasExistingImage } = require('./heic-embed');
 const { ImageMetadataCache, HeicCache, HEIC_EXTS, ReverseGeocoder } = require('./image-metadata');
+const { detectPlatformCapabilities, resolveCapabilityRoute } = require('./platform-capabilities');
+const {
+  getMediaControlOwner,
+  shouldAddMediaInfoControl,
+  shouldDismissMetadataFromPointer,
+  shouldOpenCalendarDateFromPointer,
+} = require('./media-interaction');
+const { calendarCellTouchRouting } = require('./touch-targets');
+const {
+  MOBILE_DAYLINE_VIEW,
+  bindMobileEmbeddedViewHost,
+  createSerialDaylineModeSwitcher,
+  getMobileDaylineLeaf,
+  getMobileMarkdownLeaf,
+  normalizeDaylineMobileMode,
+} = require('./dayline-mobile');
 
 const VIEW_TYPE = 'calendar-sidebar-view';
 const OVERLAY_ATTR = 'data-cal-weather-overlay';
@@ -43,10 +66,14 @@ const DEFAULT_SETTINGS = {
   weatherTtlHours: 2,     // cache TTL in hours before re-fetch
   weatherTimezone: 'auto', // Open-Meteo timezone mode
   weatherLanguage: 'zh',  // 'en' | 'zh' — display language for weather labels
-  displayLanguage: 'zh',  // global plugin language; migrated from weatherLanguage
+  displayLanguage: 'zh',  // 'system' | 'en' | 'zh'; migrated from weatherLanguage
+  weekStart: 'system', // 'system' | 'monday' | 'sunday'
   showCalendarMood: true,
   showCalendarWeatherCard: true,
   showCalendarWeatherBadge: true,
+  showCalendarWeatherLocation: false,
+  showCalendarEntryCount: true,
+  weatherDisplayFields: ['feels', 'humidity'],
   showCalendarView: true,
   showTimelineView: false,
   // Legacy combined weather visibility setting; retained for migration/downgrade compatibility.
@@ -74,15 +101,31 @@ class DaylinePlugin extends Plugin {
     this._journalWriteQueue = new SerialTaskQueue();
     this._weatherSaveTimer = null;
     this._weatherCleanupTimer = null;
+    this._geocoderSaveTimer = null;
     this._exifHoverToken = 0;
+    this._exifTouchAnchor = null;
+    this._exifDismissHandlers = null;
     this._otdRequestToken = 0;
     await this._migrateLegacyData();
     await this.loadSettings();
+    this.capabilities = detectPlatformCapabilities({ Platform, app: this.app });
+    this._applyCapabilityClasses();
 
     this.moodStore = new MoodStore(this.app, this.settings);
     await this.moodStore.load();
     this.journalIndex = new JournalIndex(this.app, (path) => this.moodStore.get(path));
-    await this.journalIndex.refresh(this.settings);
+    // Desktop indexes eagerly, but only after Obsidian has restored layout and
+    // populated metadata embeds. Mobile remains lazy until Dayline is opened.
+    if (!this.capabilities.isMobile) {
+      this._desktopJournalIndexStartup = waitForJournalIndexStartup(this.app)
+        // A vault mutation may invalidate the first rebuild. ensureReady()
+        // retries until a complete rebuild has committed, while refresh()
+        // intentionally resolves after an invalidated attempt.
+        .then(() => this.journalIndex.ensureReady(this.settings));
+      this._desktopJournalIndexStartup.catch((error) => {
+        console.warn('[Dayline] Initial journal index refresh failed:', error?.message || error);
+      });
+    }
     this._reminderTimer = setInterval(() => this._maybeRemind(), 60 * 1000);
 
     // Load styles (manually installed plugins don't auto-load styles.css)
@@ -93,20 +136,33 @@ class DaylinePlugin extends Plugin {
     // Shared EXIF metadata cache (used by calendar tooltip + note-image tooltip)
     this.exifCache = new ImageMetadataCache(this.app);
     // HEIC thumbnail conversion cache
-    this.heicCache = new HeicCache(this.app);
+    this.heicCache = new HeicCache(this.app, this.capabilities);
     this.thumbnailService = new ThumbnailService(this.app, this.heicCache);
+    // Unified image/video/audio metadata and cover service.
+    this.mediaService = new MediaService(this.app, this.heicCache, {
+      imageMetadata: this.exifCache,
+      capabilities: this.capabilities,
+    });
     // Reverse geocoder for EXIF GPS coordinates (Nominatim, free)
-    this.geocoder = new ReverseGeocoder();
+    this.geocoder = new ReverseGeocoder({
+      cache: this.geocoderCache,
+      getLanguage: () => this.settings.weatherLanguage || getDisplayLanguage(this.settings),
+      onChange: () => this._saveGeocoderCache(),
+    });
 
-    // Preload libheif WASM module eagerly
-    try {
-      const path = require('path');
-      const pluginDir = path.join(this.app.vault.adapter.basePath, '.obsidian', 'plugins', 'dayline');
-      const libheifFactory = require(path.join(pluginDir, 'libheif-bundle.js'));
-      this._libheifFactory = libheifFactory;
-    } catch (e) {
-      console.warn('[Dayline] Failed to load libheif:', e.message);
-      this._libheifFactory = null;
+    // libheif is an optional desktop asset. Mobile and browser-only builds use
+    // the HEIC service's null fallback instead of attempting a Node path load.
+    this._libheifFactory = null;
+    if (this.capabilities.isDesktop && resolveCapabilityRoute(this.capabilities, 'heic') === 'full') {
+      try {
+        const basePath = String(this.app.vault?.adapter?.basePath || '').replace(/[\\/]+$/, '');
+        const dynamicRequire = typeof require === 'function' ? require : null;
+        if (basePath && dynamicRequire) {
+          this._libheifFactory = dynamicRequire(`${basePath}/.obsidian/plugins/dayline/libheif-bundle.js`);
+        }
+      } catch (e) {
+        console.warn('[Dayline] Failed to load optional libheif:', e.message);
+      }
     }
     // Track containers where we set position:relative so we can revert on unload
     this._hostPositionMarkers = new Set();
@@ -116,6 +172,7 @@ class DaylinePlugin extends Plugin {
     // Register the sidebar view
     this.registerView(VIEW_TYPE, (leaf) => new CalendarView(leaf, this));
     this.registerView(JOURNAL_TIMELINE_VIEW, (leaf) => new JournalTimelineView(leaf, this));
+    this.registerView(MOBILE_DAYLINE_VIEW, (leaf) => new MobileDaylineView(leaf, this));
 
     this.viewVisibilityController = new ViewVisibilityController({
       workspace: this.app.workspace,
@@ -126,7 +183,10 @@ class DaylinePlugin extends Plugin {
       },
       onPersist: (kind, visible) => this._persistViewVisibility(kind, visible),
     });
-    this._daylineRibbonEl = this.addRibbonIcon('calendar-range', 'Dayline', (event) => this._showDaylineMenu(event));
+    this._daylineRibbonEl = this.addRibbonIcon('calendar-range', 'Dayline', (event) => {
+      if (this.capabilities?.isMobile) this._activateMobileMode(this._mobileDaylineLastMode || 'calendar');
+      else this._showDaylineMenu(event);
+    });
     this._syncDaylineRibbon();
 
     // Command to open the calendar (in case it gets closed)
@@ -141,9 +201,10 @@ class DaylinePlugin extends Plugin {
       id: 'refresh-weather',
       name: t(this.settings, 'refreshWeather'),
       callback: () => {
-        const leaf = this.app.workspace.getLeavesOfType(VIEW_TYPE)[0];
-        if (leaf?.view) {
-          leaf.view.refreshWeather().catch((err) => {
+        const calendar = this.app.workspace.getLeavesOfType(VIEW_TYPE)[0]?.view
+          || this.app.workspace.getLeavesOfType(MOBILE_DAYLINE_VIEW)[0]?.view?.calendarView;
+        if (calendar) {
+          calendar.refreshWeather().catch((err) => {
             console.warn('[Dayline] Refresh weather failed:', err.message);
           });
         }
@@ -175,69 +236,6 @@ class DaylinePlugin extends Plugin {
       name: t(this.settings, 'recordMoodCommand'),
       callback: () => this.recordCurrentMood(),
     });
-    this.addCommand({
-      id: 'export-journal-metadata',
-      name: t(this.settings, 'exportMetadataCommand'),
-      callback: async () => {
-        try {
-          const path = await this.moodStore.exportTo();
-          new Notice(t(this.settings, 'metadataExported', { path }));
-        } catch (error) {
-          new Notice(t(this.settings, 'metadataExportFailed', { error: error?.message || error }));
-        }
-      },
-    });
-    this.addCommand({
-      id: 'restore-journal-metadata-backup',
-      name: t(this.settings, 'restoreMetadataCommand'),
-      callback: async () => {
-        try {
-          await this.moodStore.restoreBackup();
-          await this.journalIndex.refresh(this.settings);
-          this.refreshJournalViews();
-          new Notice(t(this.settings, 'metadataRestored'));
-        } catch (error) {
-          new Notice(t(this.settings, 'metadataRestoreFailed', { error: error?.message || error }));
-        }
-      },
-    });
-    this.addCommand({
-      id: 'check-journal-metadata-integrity',
-      name: t(this.settings, 'integrityCommand'),
-      callback: async () => {
-        const result = await this.moodStore.checkIntegrity();
-        new Notice(result.valid
-          ? t(this.settings, 'metadataValid')
-          : t(this.settings, 'metadataIntegrityIssues', {
-            metadata: result.invalidMetadata.length,
-            records: result.invalidRecords.length,
-            orphans: result.invalidOrphans.length,
-            missing: result.missingFiles.length,
-          }));
-      },
-    });
-    this.addCommand({
-      id: 'import-frontmatter-mood-metadata',
-      name: t(this.settings, 'importFrontmatterCommand'),
-      callback: async () => {
-        const count = await this.moodStore.importFrontmatter(
-          this.journalIndex.getEntries().map((entry) => entry.path),
-          this.app.metadataCache,
-        );
-        await this.journalIndex.refresh(this.settings);
-        this.refreshJournalViews();
-        new Notice(t(this.settings, 'importedMoods', { count }));
-      },
-    });
-    this.addCommand({
-      id: 'detect-journal-import-directories',
-      name: t(this.settings, 'detectImportsCommand'),
-      callback: async () => {
-        const result = await this.journalIndex.detectSources(this.settings);
-        const fields = Object.entries(result.fields).map(([key, value]) => `${key}: ${value}`).join(', ');
-        new Notice(`${result.files} journal files; ${result.noDate.length} without date. ${fields}`);
-      },
-    });
 
     // Settings tab
     this.addSettingTab(new DaylineSettingsTab(this.app, this));
@@ -246,10 +244,13 @@ class DaylinePlugin extends Plugin {
     this._exifTooltipEl = null;
     this._exifHoverTimer = null;
     this._ensureExifTooltip();
+    this._installExifDismissHandlers();
 
     // Restore view visibility after Obsidian has restored the workspace layout.
     this.app.workspace.onLayoutReady(async () => {
-      await this.viewVisibilityController.restore();
+      if (!this.capabilities.isMobile) {
+        await this.viewVisibilityController.restore();
+      }
       this._syncDaylineRibbon();
       // Trigger initial overlay sync once the layout is stable
       this._syncAllOverlays();
@@ -257,18 +258,26 @@ class DaylinePlugin extends Plugin {
 
     // Plugin-level overlay sync: react to file-open, active-leaf-change, layout-change
     this.registerEvent(
-      this.app.workspace.on('file-open', () => this._syncAllOverlays())
+      this.app.workspace.on('file-open', () => {
+        this._endExifHover();
+        this._syncAllOverlays();
+      })
     );
     this.registerEvent(
       this.app.workspace.on('active-leaf-change', () => {
+        this._endExifHover();
         for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE)) {
           leaf.view?._handleActiveLeafChange?.();
+        }
+        for (const leaf of this.app.workspace.getLeavesOfType(MOBILE_DAYLINE_VIEW)) {
+          leaf.view?.activeView?._handleActiveLeafChange?.();
         }
         this._syncAllOverlays();
       })
     );
     this.registerEvent(
       this.app.workspace.on('layout-change', () => {
+        this._endExifHover();
         this._syncAllOverlays();
         this._syncDaylineRibbon();
       })
@@ -283,14 +292,19 @@ class DaylinePlugin extends Plugin {
   async onunload() {
     clearTimeout(this._weatherSaveTimer);
     clearTimeout(this._weatherCleanupTimer);
+    clearTimeout(this._geocoderSaveTimer);
     clearTimeout(this._exifHoverTimer);
     clearInterval(this._reminderTimer);
-    this._exifHoverToken++;
+    this._removeExifDismissHandlers();
+    this._endExifHover();
     await this._flushWeatherCache();
+    await this._flushGeocoderCache();
     await this._journalWriteQueue?.flush();
     await this.moodStore?.flush();
     await this.viewVisibilityController?.unload();
     this._removeAllOverlays();
+    this._removeCapabilityClasses();
+    this.mediaService?.dispose?.();
     this._exifTooltipEl?.remove();
     this._exifTooltipEl = null;
     document.getElementById('dayline-styles')?.remove();
@@ -329,7 +343,47 @@ class DaylinePlugin extends Plugin {
   _syncDaylineRibbon() {
     const ribbon = this._daylineRibbonEl;
     if (!ribbon || !this.viewVisibilityController) return;
-    ribbon.classList.toggle('is-active', this.viewVisibilityController.isAnyOpen());
+    const open = this.capabilities?.isMobile
+      ? this.app.workspace.getLeavesOfType(MOBILE_DAYLINE_VIEW).length > 0
+      : this.viewVisibilityController.isAnyOpen();
+    ribbon.classList.toggle('is-active', open);
+  }
+
+  _applyCapabilityClasses() {
+    const root = typeof document !== 'undefined' ? document.body : null;
+    root?.classList.toggle('dayline-coarse-pointer', Boolean(this.capabilities?.coarsePointer));
+    root?.classList.toggle('dayline-mobile', Boolean(this.capabilities?.isMobile));
+  }
+
+  _removeCapabilityClasses() {
+    const root = typeof document !== 'undefined' ? document.body : null;
+    root?.classList.remove('dayline-coarse-pointer', 'dayline-mobile');
+  }
+
+  _installExifDismissHandlers() {
+    if (typeof document === 'undefined') return;
+    const pointer = (event) => {
+      const target = event.target;
+      if (!shouldDismissMetadataFromPointer(target, this._exifTooltipEl)) return;
+      this._endExifHover();
+    };
+    const keydown = (event) => {
+      if (event.key === 'Escape') this._endExifHover();
+    };
+    const scroll = () => this._endExifHover();
+    document.addEventListener('pointerdown', pointer, true);
+    document.addEventListener('keydown', keydown, true);
+    window.addEventListener('scroll', scroll, true);
+    this._exifDismissHandlers = { pointer, keydown, scroll };
+  }
+
+  _removeExifDismissHandlers() {
+    const handlers = this._exifDismissHandlers;
+    if (!handlers || typeof document === 'undefined') return;
+    document.removeEventListener('pointerdown', handlers.pointer, true);
+    document.removeEventListener('keydown', handlers.keydown, true);
+    window.removeEventListener('scroll', handlers.scroll, true);
+    this._exifDismissHandlers = null;
   }
 
   async _migrateLegacyData() {
@@ -347,12 +401,83 @@ class DaylinePlugin extends Plugin {
   }
 
   async activateTimeline() {
+    if (this.capabilities?.isMobile) return this._activateMobileMode('timeline');
     const opened = await this.viewVisibilityController.open('timeline');
     this._syncDaylineRibbon();
     return opened;
   }
 
+  async ensureJournalIndexReady() {
+    if (this._desktopJournalIndexStartup) return this._desktopJournalIndexStartup;
+    if (this.journalIndex?.ensureReady) return this.journalIndex.ensureReady(this.settings);
+    if (this.journalIndex && !this.journalIndex.isReady) return this.journalIndex.refresh(this.settings);
+  }
+
+  async _activateMobileMode(mode) {
+    const normalized = normalizeDaylineMobileMode(mode);
+    const opened = await this._openMobileDayline(normalized);
+    if (!opened) return false;
+    this._mobileDaylineLastMode = normalized;
+    this._syncDaylineRibbon();
+    return true;
+  }
+
+  async _openMobileDayline(mode = 'calendar') {
+    if (!this.capabilities?.isMobile) return false;
+    if (this._mobileDaylineOpenPromise) {
+      await this._mobileDaylineOpenPromise;
+      const existing = this.app.workspace.getLeavesOfType(MOBILE_DAYLINE_VIEW)[0];
+      await existing?.view?.setMode?.(mode);
+      return Boolean(existing);
+    }
+    const task = (async () => {
+      const leaf = getMobileDaylineLeaf(this.app.workspace, MOBILE_DAYLINE_VIEW);
+      if (!leaf) throw new Error('could not create Dayline tab');
+      await leaf.setViewState({ type: MOBILE_DAYLINE_VIEW, active: true });
+      await this.app.workspace.revealLeaf?.(leaf);
+      await leaf.view?.setMode?.(mode);
+      return leaf;
+    })();
+    this._mobileDaylineOpenPromise = task;
+    try {
+      return Boolean(await task);
+    } catch (error) {
+      console.warn('[Dayline] Failed to open mobile Dayline:', error?.message || error);
+      new Notice(t(this.settings, 'openNoteFailed', { error: error?.message || error }));
+      return false;
+    } finally {
+      if (this._mobileDaylineOpenPromise === task) this._mobileDaylineOpenPromise = null;
+    }
+  }
+
+  async openTimelineForDate(date) {
+    const opened = await this.activateTimeline();
+    if (!opened) return;
+    const viewType = this.capabilities?.isMobile ? MOBILE_DAYLINE_VIEW : JOURNAL_TIMELINE_VIEW;
+    const leaf = this.app.workspace.getLeavesOfType(viewType)[0];
+    const view = leaf?.view;
+    if (this.capabilities?.isMobile) await view?.setDateFilter?.(date);
+    else view?.setDateFilter?.(date);
+  }
+
+  async openJournalFile(file) {
+    const workspace = this.app.workspace;
+    let leaf;
+    if (this.capabilities?.isMobile) {
+      leaf = getMobileMarkdownLeaf(workspace);
+    } else {
+      leaf = workspace.getLeaf('split');
+    }
+    if (!leaf) throw new Error('No markdown leaf is available');
+    await leaf.openFile(file);
+    return leaf;
+  }
+
   async _openTimelineView() {
+    if (this.capabilities?.isMobile) {
+      await this._openMobileDayline('timeline');
+      return;
+    }
     const leaf = this.app.workspace.getRightLeaf(false) || this.app.workspace.getLeaf(true);
     if (!leaf) throw new Error('could not create timeline leaf');
     await leaf.setViewState({ type: JOURNAL_TIMELINE_VIEW, active: true });
@@ -364,7 +489,7 @@ class DaylinePlugin extends Plugin {
     const path = `${this.settings.dailyFolder}/${date}.md`;
     try {
       const file = await this.ensureJournalFile(path, '');
-      await (this.app.workspace.getLeaf('split')).openFile(file);
+      await this.openJournalFile(file);
       await this.journalIndex.refreshFile(path, this.settings);
     } catch (error) {
       console.warn('[Dayline] Create daily note failed:', error?.message || error);
@@ -389,6 +514,7 @@ class DaylinePlugin extends Plugin {
     new MoodPickerModal(this.app, {
       filePath: path,
       initial: this.moodStore.get(path) || entry?.mood,
+      customLabels: this.moodStore.getCustomLabels(),
       settings: this.settings,
       allowDateSelection: options.allowDateSelection === true,
       onDateChange: async (date) => {
@@ -397,12 +523,13 @@ class DaylinePlugin extends Plugin {
         return {
           filePath: nextPath,
           initial: this.moodStore.get(nextPath) || nextEntry?.mood,
+          customLabels: this.moodStore.getCustomLabels(),
         };
       },
-      onSave: async ({ filePath, score, labels }) => {
+      onSave: async ({ filePath, score, labels, note }) => {
         const targetPath = filePath || path;
         await this.ensureJournalFile(targetPath, '');
-        await this.moodStore.set(targetPath, score, labels, this.settings);
+        await this.moodStore.set(targetPath, score, labels, this.settings, note);
         await this.journalIndex.refreshFile(targetPath, this.settings);
         this.refreshJournalViews();
         new Notice(`${t(this.settings, 'moodSaved')}: ${targetPath}`);
@@ -410,11 +537,57 @@ class DaylinePlugin extends Plugin {
     }).open();
   }
 
+  openMoodRecovery() {
+    new MoodRecoveryModal(this.app, {
+      store: this.moodStore,
+      settings: this.settings,
+      onChanged: async () => {
+        await this.journalIndex.refresh(this.settings);
+        this.refreshJournalViews();
+      },
+    }).open();
+  }
+
+  async deleteMoodRecord(path) {
+    const label = t(this.settings, 'deleteMoodConfirm');
+    if (typeof window !== 'undefined' && !window.confirm(`${label}\n${path}`)) return false;
+    try {
+      const visibleMood = this.journalIndex.getEntries().find((entry) => entry.path === path)?.mood;
+      const deleted = await this.moodStore.deleteRecord(path, true, visibleMood);
+      if (!deleted) return false;
+      await this.journalIndex.refresh(this.settings);
+      this.refreshJournalViews();
+      new Notice(t(this.settings, 'moodDeleted'));
+      return true;
+    } catch (error) {
+      console.warn('[Dayline] Delete mood failed:', error?.message || error);
+      new Notice(t(this.settings, 'moodDeleteFailed', { error: error?.message || error }));
+      return false;
+    }
+  }
+
+  async exportMood(format = 'json') {
+    try {
+      const metadata = this.moodStore.getMetadata();
+      const content = format === 'csv' ? serializeMoodCsv(metadata) : serializeMoodJson(metadata);
+      const stamp = new Date().toISOString().slice(0, 10);
+      const path = await saveMoodExport(this.app, content, `dayline-moods-${stamp}.${format === 'csv' ? 'csv' : 'json'}`);
+      new Notice(t(this.settings, 'moodExported', { path }));
+    } catch (error) {
+      new Notice(t(this.settings, 'moodExportFailed', { error: error?.message || error }));
+    }
+  }
+
   refreshJournalViews() {
     for (const leaf of this.app.workspace.getLeavesOfType(JOURNAL_TIMELINE_VIEW)) leaf.view?.render?.();
     for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE)) {
       const refresh = leaf.view?.refresh?.();
       if (refresh?.catch) refresh.catch((error) => console.warn('[Dayline] Calendar refresh failed:', error?.message || error));
+    }
+    for (const leaf of this.app.workspace.getLeavesOfType(MOBILE_DAYLINE_VIEW)) {
+      const view = leaf.view;
+      const refresh = view?.activeView?.render?.();
+      if (refresh?.catch) refresh.catch((error) => console.warn('[Dayline] Mobile Dayline refresh failed:', error?.message || error));
     }
   }
 
@@ -459,6 +632,9 @@ class DaylinePlugin extends Plugin {
 
   async _handleJournalRename(file, oldPath) {
     this._notifyCalendarImageChange(file);
+    if (oldPath && MEDIA_EXTENSIONS.includes(String(oldPath).split('.').pop()?.toLowerCase())) {
+      this._invalidateMediaCaches(oldPath);
+    }
     if (!(file instanceof TFile) || file.extension !== 'md') return;
 
     // The new file must not be indexed until its authoritative mood key has
@@ -483,10 +659,24 @@ class DaylinePlugin extends Plugin {
   }
 
   _notifyCalendarImageChange(file) {
-    if (!(file instanceof TFile) || !IMAGE_EXTS.includes(file.extension?.toLowerCase())) return;
+    if (!(file instanceof TFile) || !MEDIA_EXTENSIONS.includes(file.extension?.toLowerCase())) return;
+    this._invalidateMediaCaches(file.path);
     for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE)) {
-      leaf.view?._onImageChanged?.(file);
+      leaf.view?._onMediaChanged?.(file);
     }
+    for (const leaf of this.app.workspace.getLeavesOfType(JOURNAL_TIMELINE_VIEW)) {
+      leaf.view?._onMediaChanged?.(file);
+    }
+    for (const leaf of this.app.workspace.getLeavesOfType(MOBILE_DAYLINE_VIEW)) {
+      leaf.view?.activeView?._onMediaChanged?.(file);
+    }
+  }
+
+  _invalidateMediaCaches(path) {
+    if (!path) return;
+    this.exifCache?.invalidate(path);
+    this.heicCache?.invalidate(path);
+    this.mediaService?.invalidate(path);
   }
 
   _queueJournalWrite(label, task) {
@@ -524,12 +714,16 @@ class DaylinePlugin extends Plugin {
         view._syncNoteOverlays();
       }
     }
+    for (const leaf of this.app.workspace.getLeavesOfType(MOBILE_DAYLINE_VIEW)) {
+      leaf.view?.activeView?._syncNoteOverlays?.();
+    }
   }
 
   /* ----- On This Day ----- */
   openOnThisDay(month, day) {
     const calendarLeaf = this.app.workspace.getLeavesOfType(VIEW_TYPE)[0];
-    const provider = calendarLeaf?.view?._otdProvider;
+    const mobileView = this.app.workspace.getLeavesOfType(MOBILE_DAYLINE_VIEW)[0]?.view?.calendarView;
+    const provider = calendarLeaf?.view?._otdProvider || mobileView?._otdProvider;
     if (!provider) return;
     const token = ++this._otdRequestToken;
     provider.getEntries(month, day).then((entries) => {
@@ -551,7 +745,7 @@ class DaylinePlugin extends Plugin {
     this._exifTooltipEl = tip;
   }
 
-  _showExifTooltip(anchorEl, fields, loading) {
+  _showExifTooltip(anchorEl, fields, loading, kind = 'image') {
     const tip = this._exifTooltipEl;
     if (!tip || !anchorEl?.isConnected) return;
     const lang = this.settings.weatherLanguage;
@@ -568,8 +762,10 @@ class DaylinePlugin extends Plugin {
       tip.appendChild(addText('div', 'cal-exif-tooltip-loading', _l(lang, 'exif_loading')));
     } else if (!fields || fields.length === 0) {
       const empty = addText('div', 'cal-exif-tooltip-empty', '');
-      empty.appendChild(addText('div', '', _l(lang, 'exif_noData')));
-      empty.appendChild(addText('div', 'cal-exif-tooltip-description', _l(lang, 'exif_noDataDesc')));
+      const noDataKey = kind === 'media' ? 'media_noData' : 'exif_noData';
+      const noDataDescKey = kind === 'media' ? 'media_noDataDesc' : 'exif_noDataDesc';
+      empty.appendChild(addText('div', '', _l(lang, noDataKey)));
+      empty.appendChild(addText('div', 'cal-exif-tooltip-description', _l(lang, noDataDescKey)));
       tip.appendChild(empty);
     } else {
       for (const f of fields) {
@@ -598,6 +794,15 @@ class DaylinePlugin extends Plugin {
     if (this._exifTooltipEl) this._exifTooltipEl.classList.remove('is-visible');
   }
 
+  _toggleExifTouch(anchorEl) {
+    if (this._exifTouchAnchor === anchorEl && this._exifTooltipEl?.classList.contains('is-visible')) {
+      this._endExifHover();
+      return true;
+    }
+    this._exifTouchAnchor = anchorEl;
+    return false;
+  }
+
   _beginExifHover() {
     clearTimeout(this._exifHoverTimer);
     this._hideExifTooltip();
@@ -611,6 +816,7 @@ class DaylinePlugin extends Plugin {
   _endExifHover() {
     clearTimeout(this._exifHoverTimer);
     this._exifHoverToken++;
+    this._exifTouchAnchor = null;
     this._hideExifTooltip();
   }
 
@@ -618,20 +824,28 @@ class DaylinePlugin extends Plugin {
     const data = await this.loadData() || {};
     // Extract weather cache separately so it doesn't get overwritten by saveSettings
     this.weatherCache = data.weatherCache || {};
+    this.geocoderCache = data.geocoderCache && typeof data.geocoderCache === 'object' ? data.geocoderCache : {};
     // Delete stale cache entries to prevent data.json bloat
     this._cleanupWeatherCache();
     this.settings = Object.assign({}, DEFAULT_SETTINGS, data, normalizeViewVisibilitySettings(data));
     const legacyWeatherVisible = data.showCalendarWeather !== false;
     if (data.showCalendarWeatherCard === undefined) this.settings.showCalendarWeatherCard = legacyWeatherVisible;
     if (data.showCalendarWeatherBadge === undefined) this.settings.showCalendarWeatherBadge = legacyWeatherVisible;
-    this.settings.displayLanguage = getDisplayLanguage({ displayLanguage: data.displayLanguage, weatherLanguage: data.weatherLanguage });
-    this.settings.weatherLanguage = this.settings.displayLanguage;
+    const rawDisplayLanguage = data.displayLanguage;
+    this.settings.displayLanguage = rawDisplayLanguage === 'system' || rawDisplayLanguage === 'en' || rawDisplayLanguage === 'zh'
+      ? rawDisplayLanguage
+      : (data.weatherLanguage === 'en' ? 'en' : 'zh');
+    this.settings.weatherLanguage = getDisplayLanguage({
+      displayLanguage: this.settings.displayLanguage,
+      weatherLanguage: data.weatherLanguage,
+    });
     delete this.settings.weatherCache; // settings object shouldn't carry the cache
+    delete this.settings.geocoderCache;
   }
 
   async saveSettings() {
     const settings = { ...this.settings };
-    settings.weatherLanguage = settings.displayLanguage || settings.weatherLanguage || 'zh';
+    settings.weatherLanguage = getDisplayLanguage(settings);
     settings.showCalendarWeather = settings.showCalendarWeatherCard !== false || settings.showCalendarWeatherBadge !== false;
     settings.showCalendarView = settings.showCalendarView !== false;
     settings.showTimelineView = settings.showTimelineView === true;
@@ -639,6 +853,7 @@ class DaylinePlugin extends Plugin {
     await this._enqueueDataWrite((data) => {
       Object.assign(data, settings);
       data.weatherCache = this.weatherCache || {};
+      data.geocoderCache = this.geocoderCache || {};
     });
   }
 
@@ -671,6 +886,27 @@ class DaylinePlugin extends Plugin {
     }
     return this._enqueueDataWrite((data) => {
       data.weatherCache = this.weatherCache || {};
+    });
+  }
+
+  /** Save reverse-geocoder cache without touching settings. */
+  _saveGeocoderCache() {
+    if (this._geocoderSaveTimer) clearTimeout(this._geocoderSaveTimer);
+    this._geocoderSaveTimer = setTimeout(() => {
+      this._geocoderSaveTimer = null;
+      this._flushGeocoderCache().catch((err) => {
+        console.warn('[Dayline] Geocoder cache save failed:', err.message);
+      });
+    }, 500);
+  }
+
+  _flushGeocoderCache() {
+    if (this._geocoderSaveTimer) {
+      clearTimeout(this._geocoderSaveTimer);
+      this._geocoderSaveTimer = null;
+    }
+    return this._enqueueDataWrite((data) => {
+      data.geocoderCache = this.geocoderCache || {};
     });
   }
 
@@ -712,28 +948,142 @@ class DaylinePlugin extends Plugin {
   user-select: none;
   overflow: hidden;
 }
+.cal-calendar-content:focus-visible,
+.cal-sidebar .view-content:focus-visible,
+.cal-sidebar:focus-visible {
+  outline: 2px solid var(--interactive-accent);
+  outline-offset: -2px;
+}
+.dayline-settings-brand {
+  display: flex;
+  align-items: center;
+  min-height: 32px;
+  margin: -2px 0 14px;
+}
+.dayline-settings-brand svg {
+  display: block;
+  max-width: 132px;
+  height: 32px;
+}
+.dayline-settings-action-row.setting-item {
+  align-items: flex-start;
+  min-width: 0;
+}
+.dayline-settings-action-row .setting-item-info {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.dayline-settings-action-row .setting-item-control {
+  display: flex;
+  flex: 0 1 24rem;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: 6px;
+  min-width: 0;
+}
+.dayline-settings-action-row .setting-item-control > button {
+  min-width: 0;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 560px) {
+  .dayline-settings-action-row .setting-item-control {
+    flex-basis: 100%;
+    justify-content: flex-start;
+  }
+  .dayline-settings-action-row .setting-item-control > button {
+    flex: 1 1 calc(50% - 3px);
+  }
+}
+.dayline-weather-field-options { display: flex; flex-wrap: wrap; gap: 6px 10px; }
+.dayline-weather-field-option { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
 .cal-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 4px;
   padding: 4px 2px 8px;
 }
-.cal-nav {
-  cursor: pointer;
-  font-size: 12px;
-  padding: 2px 6px;
-  border-radius: 4px;
-  color: var(--text-muted);
-  line-height: 1;
+.cal-header > .cal-title {
+  flex: 1;
+  min-width: 0;
 }
-.cal-nav:hover {
+.cal-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.cal-nav {
+  flex: 0 0 auto;
+}
+.cal-icon-button {
+  width: 26px;
+  height: 26px;
+  padding: 3px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.cal-icon-button:hover,
+.cal-icon-button:focus-visible {
   background: var(--background-modifier-hover);
   color: var(--text-normal);
+  outline: none;
+}
+.cal-icon-button.is-active {
+  color: var(--text-accent);
+  background: var(--background-modifier-hover);
 }
 .cal-title {
   font-size: 14px;
   font-weight: 600;
   color: var(--text-normal);
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cal-title-button {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  min-width: 0;
+  padding: 4px 6px;
+}
+.cal-title-button:hover,
+.cal-title-button:focus-visible {
+  color: var(--text-accent);
+  outline: none;
+}
+.cal-jump-panel {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 2px 8px;
+  padding: 8px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  background: var(--background-secondary);
+}
+.cal-filter-field {
+  display: flex;
+  flex: 1 1 90px;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+  color: var(--text-muted);
+  font-size: 10px;
+}
+.cal-filter-field input,
+.cal-filter-field select {
+  min-width: 0;
 }
 .cal-weekdays {
   display: grid;
@@ -805,6 +1155,51 @@ class DaylinePlugin extends Plugin {
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
   line-height: 1;
   pointer-events: none;
+}
+.cal-media-info-button {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  z-index: 5;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 4px;
+  border: 0;
+  border-radius: 5px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+}
+.dayline-note-media-info {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin: 2px 4px;
+  padding: 5px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 5px;
+  color: var(--text-muted);
+  vertical-align: middle;
+}
+.cal-entry-count {
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  z-index: 4;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 3px;
+  border: 0;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.58);
+  color: #fff;
+  font-size: 10px;
+  line-height: 16px;
+  text-align: center;
 }
 .cal-today {
   /* Full accent fill */
@@ -889,7 +1284,7 @@ class DaylinePlugin extends Plugin {
   background: var(--background-secondary);
   border: 1px solid var(--background-modifier-border);
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
   font-size: 12px;
   min-height: 0;
@@ -919,6 +1314,22 @@ class DaylinePlugin extends Plugin {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.cal-weather-location,
+.cal-weather-extra,
+.cal-weather-status {
+  font-size: 10px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cal-weather-location {
+  color: var(--text-normal);
+  font-weight: 500;
+}
+.cal-weather-status {
+  color: var(--text-warning, var(--text-muted));
 }
 button.cal-weather-refresh {
   cursor: pointer;
@@ -1298,32 +1709,49 @@ button.cal-weather-refresh:hover {
 .journal-stat-trend { grid-column: 1 / -1; min-width: 0; }
 .journal-stat-trend-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; margin-top: 4px; }
 .journal-stat-trend-cell { min-width: 0; height: 7px; border-radius: 3px; }
+.journal-stat-periods { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; min-width: 0; }
+.journal-stat-period-group { min-width: 0; overflow: hidden; }
+.journal-stat-period-row { display: flex; justify-content: space-between; gap: 5px; min-width: 0; color: var(--text-muted); font-size: 11px; line-height: 1.6; }
+.journal-stat-period-row span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.journal-stat-period-row span:last-child { flex: 0 0 auto; color: var(--text-faint); }
+.journal-stat-period-empty { color: var(--text-faint); font-size: 11px; }
+.journal-stat-mood-reports { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; min-width: 0; }
+.journal-stat-label-trends { grid-column: 1 / -1; min-width: 0; }
+.journal-stat-label-trend-row { display: flex; justify-content: space-between; gap: 8px; min-width: 0; color: var(--text-muted); font-size: 11px; line-height: 1.6; }
+.journal-stat-label-trend-row span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.journal-stat-label-trend-row span:last-child { flex: 0 0 auto; color: var(--text-faint); }
 .journal-timeline-list { display: grid; grid-template-columns: minmax(0, 1fr); width: 100%; min-width: 0; gap: 8px; }
-.journal-timeline-entry { display: grid; grid-template-columns: minmax(0, 1fr); width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box; overflow: hidden; gap: 10px; padding: 10px; border: 1px solid var(--background-modifier-border); border-left: 4px solid var(--background-modifier-border); border-radius: 7px; cursor: pointer; background: var(--background-primary); }
+.journal-timeline-entry { display: grid; grid-template-columns: minmax(0, 1fr); width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box; overflow: hidden; gap: 10px; padding: 10px; border: 1px solid var(--background-modifier-border); border-radius: 7px; box-shadow: inset 3px 0 0 var(--background-modifier-border); cursor: pointer; background: var(--background-primary); }
 .journal-timeline-entry.has-thumbnail { grid-template-columns: minmax(0, 1fr) 88px; }
-.journal-timeline-entry.mood-score-2 { border-left-color: #4b93d1; }
-.journal-timeline-entry.mood-score-1 { border-left-color: #56a86a; }
-.journal-timeline-entry.mood-score-0 { border-left-color: #d9bd4c; }
-.journal-timeline-entry.mood-score--1 { border-left-color: #e68a3b; }
-.journal-timeline-entry.mood-score--2 { border-left-color: #d84b76; }
+.journal-timeline-entry.mood-score-2 { box-shadow: inset 3px 0 0 #4b93d1; }
+.journal-timeline-entry.mood-score-1 { box-shadow: inset 3px 0 0 #56a86a; }
+.journal-timeline-entry.mood-score-0 { box-shadow: inset 3px 0 0 #d9bd4c; }
+.journal-timeline-entry.mood-score--1 { box-shadow: inset 3px 0 0 #e68a3b; }
+.journal-timeline-entry.mood-score--2 { box-shadow: inset 3px 0 0 #d84b76; }
 .journal-timeline-entry:hover, .journal-timeline-entry:focus-visible { border-right-color: var(--interactive-accent); outline: none; }
 .journal-timeline-entry-body { min-width: 0; overflow: hidden; }
 .journal-timeline-entry-top { flex-wrap: wrap; gap: 4px 7px; min-width: 0; color: var(--text-muted); }
+.journal-timeline-entry-actions { display: inline-flex; align-items: center; gap: 2px; margin-left: auto; }
+.journal-timeline-entry-actions button { width: 24px; height: 24px; padding: 4px; }
 .journal-timeline-entry-date { flex: 0 1 auto; min-width: 0; max-width: 100%; margin: 0; overflow: hidden; color: var(--text-normal); font-size: 14px; font-weight: 600; }
 .journal-timeline-entry-iso { display: none; }
 .journal-timeline-favorite { flex: 0 0 auto; color: var(--text-accent); font-size: 11px; }
 .journal-timeline-title { min-width: 0; margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-normal); font-size: 13px; }
 .journal-timeline-excerpt { min-width: 0; max-width: 100%; margin-top: 4px; overflow: hidden; overflow-wrap: anywhere; color: var(--text-muted); font-size: 12px; line-height: 1.45; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .journal-timeline-meta { flex-wrap: wrap; gap: 5px 10px; min-width: 0; margin-top: 6px; overflow-wrap: anywhere; color: var(--text-faint); font-size: 11px; }
+.journal-timeline-mood-note { margin-top: 6px; overflow-wrap: anywhere; color: var(--text-muted); font-size: 12px; white-space: pre-wrap; }
 .journal-timeline-thumbnail { position: relative; width: 88px; height: 88px; min-width: 88px; overflow: hidden; border-radius: 5px; background: var(--background-secondary); }
 .journal-timeline-thumbnail img { display: block; width: 88px; height: 88px; object-fit: cover; opacity: 0; transition: opacity 0.15s ease; }
 .journal-timeline-thumbnail.is-loaded img { opacity: 1; }
 .journal-timeline-thumbnail-count { position: absolute; right: 4px; bottom: 4px; padding: 1px 4px; border-radius: 4px; background: rgba(0, 0, 0, 0.65); color: #fff; font-size: 10px; }
 .journal-timeline-empty { min-width: 0; padding: 28px 8px; overflow-wrap: anywhere; color: var(--text-muted); text-align: center; }
-.journal-mood-picker-modal .modal-content { min-width: 320px; }
+.journal-mood-picker-modal { width: min(720px, calc(100vw - 32px)); max-width: calc(100vw - 32px); min-width: 0; box-sizing: border-box; }
+.journal-mood-picker-modal .modal-content { width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box; }
+.journal-mood-picker { container-type: inline-size; }
 .journal-mood-picker h3 { margin-bottom: 4px; }
-.journal-mood-date-field { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0 0 14px; color: var(--text-muted); font-size: 12px; }
-.journal-mood-date-field input { min-width: 0; max-width: 150px; }
+.journal-mood-date-field { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 10px; margin: 0 0 14px; color: var(--text-muted); font-size: 12px; }
+.journal-mood-date-field label { flex: 1 1 120px; min-width: 0; }
+.journal-mood-date-field input { flex: 0 1 180px; min-width: min(180px, 100%); max-width: 100%; }
 .journal-mood-step { color: var(--text-muted); margin: 0 0 16px; }
 .journal-mood-scale { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 7px; }
 .journal-mood-level { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 0; min-height: 76px; gap: 6px; color: var(--journal-mood-color); border: 1px solid var(--background-modifier-border); background: var(--background-secondary); }
@@ -1335,14 +1763,83 @@ button.cal-weather-refresh:hover {
 .journal-mood-selected { color: var(--text-muted); text-align: center; font-size: 12px; margin-top: 10px; }
 .journal-mood-labels { display: flex; flex-wrap: wrap; gap: 7px; }
 .journal-mood-label[aria-pressed='true'] { border-color: var(--interactive-accent); color: var(--text-accent); background: var(--background-modifier-hover); }
+.journal-mood-custom-label-field, .journal-mood-note-field { display: flex; gap: 7px; min-width: 0; margin-top: 12px; }
+.journal-mood-custom-label-field input { flex: 1 1 auto; min-width: 0; }
+.journal-mood-custom-label-field button { flex: 0 0 auto; }
+.journal-mood-note-field { flex-direction: column; align-items: stretch; gap: 5px; }
+.journal-mood-note-field textarea { width: 100%; min-height: 56px; resize: vertical; }
+.dayline-mobile-shell .view-content { padding: 0; overflow: hidden; }
+.dayline-mobile-view { display: flex; flex-direction: column; width: 100%; min-width: 0; height: 100%; min-height: 100%; overflow: hidden; }
+.dayline-mobile-header { display: flex; align-items: center; justify-content: flex-end; min-height: 52px; padding: 4px max(8px, env(safe-area-inset-right)) 4px max(8px, env(safe-area-inset-left)); border-bottom: 1px solid var(--background-modifier-border); box-sizing: border-box; }
+.dayline-mobile-mode-controls { display: inline-flex; align-items: center; gap: 4px; min-width: 0; }
+.dayline-mobile-mode-button { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; padding: 10px; border: 0; border-radius: 6px; color: var(--text-muted); background: transparent; }
+.dayline-mobile-mode-button.is-active { color: var(--text-accent); background: var(--background-modifier-hover); }
+.dayline-mobile-mode-button:focus-visible { outline: 2px solid var(--interactive-accent); outline-offset: 2px; }
+.dayline-mobile-mode-host { flex: 1 1 auto; width: 100%; min-width: 0; min-height: 0; max-width: 100%; overflow: hidden; box-sizing: border-box; }
+.dayline-mobile-mode-host.cal-sidebar { padding-top: 8px; overflow-y: auto; }
+.dayline-mobile-mode-host .journal-timeline-view { height: 100%; padding: 8px; }
+.dayline-mobile-loading { display: flex; align-items: center; justify-content: center; min-height: 160px; padding: 24px; color: var(--text-muted); text-align: center; overflow-wrap: anywhere; }
+.dayline-mobile-load-error { color: var(--text-warning, var(--text-muted)); }
+.journal-mood-recovery-modal .modal-content { width: min(560px, calc(100vw - 20px)); max-width: calc(100vw - 20px); min-width: 0; box-sizing: border-box; }
+.journal-mood-recovery-description { color: var(--text-muted); font-size: 12px; }
+.journal-mood-recovery-list { display: grid; gap: 8px; min-width: 0; }
+.journal-mood-recovery-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(140px, 0.8fr) auto; gap: 7px; align-items: center; min-width: 0; padding: 8px; border: 1px solid var(--background-modifier-border); border-radius: 6px; }
+.journal-mood-recovery-details { min-width: 0; overflow: hidden; }
+.journal-mood-recovery-path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-normal); font-size: 12px; }
+.journal-mood-recovery-meta, .journal-mood-recovery-note { overflow-wrap: anywhere; color: var(--text-muted); font-size: 11px; }
+.journal-mood-recovery-note { margin-top: 3px; white-space: pre-wrap; }
+.journal-mood-recovery-empty { padding: 20px 0; color: var(--text-muted); text-align: center; }
 .journal-mood-actions { justify-content: space-between; gap: 8px; margin-top: 22px; }
 @media (max-width: 420px) {
   .journal-timeline-view { padding: 10px; }
   .journal-timeline-entry.has-thumbnail { grid-template-columns: minmax(0, 1fr) 72px; }
   .journal-timeline-thumbnail, .journal-timeline-thumbnail img { width: 72px; height: 72px; min-width: 72px; }
+  .journal-stat-periods { grid-template-columns: minmax(0, 1fr); }
+  .journal-stat-mood-reports { grid-template-columns: minmax(0, 1fr); }
+  .journal-mood-recovery-row { grid-template-columns: minmax(0, 1fr); }
+  .journal-mood-recovery-row button { justify-self: start; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .journal-mood-picker *, .journal-timeline-entry { transition: none !important; animation: none !important; }
+  .journal-mood-picker *, .journal-timeline-entry, .cal-note-overlay, .cal-note-overlay .spin {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+@media (pointer: coarse) {
+  .cal-icon-button, .cal-weather-refresh, .dayline-note-media-info,
+  .cal-otd-button, .cal-filter-field input, .cal-filter-field select,
+  .journal-timeline-actions button, .journal-timeline-filter-row > button,
+  .journal-timeline-view input, .journal-timeline-view select,
+  .journal-timeline-entry-actions button, .journal-mood-picker button,
+  .journal-mood-picker input, .journal-mood-picker textarea,
+  .journal-mood-picker select, .journal-mood-recovery-row button,
+  .cal-jump-apply, .cal-otd-close, .dayline-mobile-mode-button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .cal-day-bg { outline-offset: 2px; }
+  .journal-timeline-entry-actions { gap: 4px; }
+  .journal-timeline-entry-actions button { width: 44px; height: 44px; padding: 10px; }
+  .journal-timeline-actions button, .journal-timeline-filter-row > button { width: 44px; height: 44px; flex-basis: 44px; padding: 10px; }
+  .cal-sidebar { padding-left: max(8px, env(safe-area-inset-left)); padding-right: max(8px, env(safe-area-inset-right)); }
+}
+@media (max-width: 420px) {
+  .journal-mood-recovery-modal .modal-content { width: calc(100vw - 32px); max-width: calc(100vw - 32px); }
+  .journal-mood-actions { flex-wrap: wrap; }
+  .journal-mood-recovery-row { grid-template-columns: minmax(0, 1fr); }
+  .journal-mood-recovery-row button { justify-self: stretch; }
+  .journal-timeline-header { align-items: flex-start; }
+  .journal-timeline-actions { flex-wrap: wrap; justify-content: flex-end; }
+  .dayline-mobile-mode-host .journal-timeline-view { padding-left: 8px; padding-right: 8px; }
+  .dayline-mobile-mode-host .journal-timeline-entry.has-thumbnail { grid-template-columns: minmax(0, 1fr) 76px; }
+  .dayline-mobile-mode-host .journal-timeline-thumbnail,
+  .dayline-mobile-mode-host .journal-timeline-thumbnail img { width: 76px; height: 76px; min-width: 76px; }
+}
+@container (max-width: 420px) {
+  .journal-mood-scale { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@container (max-width: 300px) {
+  .journal-mood-scale { grid-template-columns: minmax(0, 1fr); }
 }
 `;
     if (!style.parentElement) {
@@ -1351,6 +1848,7 @@ button.cal-weather-refresh:hover {
   }
 
   async activateView() {
+    if (this.capabilities?.isMobile) return this._activateMobileMode('calendar');
     const opened = await this.viewVisibilityController.open('calendar');
     this._syncDaylineRibbon();
     return opened;
@@ -1358,6 +1856,11 @@ button.cal-weather-refresh:hover {
 
   async _openCalendarView() {
     const { workspace } = this.app;
+
+    if (this.capabilities?.isMobile) {
+      await this._openMobileDayline('calendar');
+      return;
+    }
 
     // Create a vertical-split leaf in the left sidebar.
     let leaf = workspace.getLeftLeaf(true);
@@ -1410,9 +1913,10 @@ button.cal-weather-refresh:hover {
    Calendar View (ItemView)
    ============================================================ */
 class CalendarView extends ItemView {
-  constructor(leaf, plugin) {
+  constructor(leaf, plugin, options = {}) {
     super(leaf);
     this.plugin = plugin;
+    this.embedded = options.embedded === true;
     this.app = plugin.app;
     // Track the displayed month — derive it from the configured Dayline date
     // context so the calendar cannot lag behind the weather/reminder date.
@@ -1433,6 +1937,7 @@ class CalendarView extends ItemView {
     this._weatherSnapshot = null;
     this._weatherLoading = false;
     this._weatherError = false;
+    this._weatherRevalidation = null;
     // Staleness guard: incremented on each render to discard stale async results
     this._fetchToken = 0;
     // Overlay sync: track which overlays exist per leaf to avoid duplicates
@@ -1447,12 +1952,18 @@ class CalendarView extends ItemView {
     this._overlayContainers = new Set();
     // EXIF metadata cache (shared with plugin)
     this.exifCache = plugin.exifCache;
+    // Unified media metadata and cover cache (shared across calendar/timeline).
+    this.mediaService = plugin.mediaService;
     // Track processed note-image elements (cleared when view is destroyed)
     this._exifNoteImages = new WeakSet();
+    this._exifNoteMediaControls = new WeakSet();
     // On This Day provider
     this._otdProvider = new OnThisDayProvider(plugin);
     // Cache for quick dot-marker lookup: Set<"MM-DD">
     this._otdDotCache = null;
+    // Month-jump state is intentionally view-local.
+    this._calendarJumpOpen = false;
+    this._calendarKeydownHandler = null;
   }
 
   getViewType()   { return VIEW_TYPE; }
@@ -1461,9 +1972,25 @@ class CalendarView extends ItemView {
 
   /* ----- Lifecycle ----- */
   async onOpen() {
+    if (this.plugin.ensureJournalIndexReady) await this.plugin.ensureJournalIndexReady();
     this.containerEl.addClass('cal-sidebar');
-    this._unsubscribeIndex = this.plugin.journalIndex?.subscribe?.(() => {
-      this.refresh().catch((error) => console.warn('[Dayline] Calendar index refresh failed:', error?.message || error));
+    this.contentEl.addClass('cal-calendar-content');
+    this.contentEl.setAttribute('tabindex', '0');
+    this.contentEl.setAttribute('aria-label', t(this.plugin.settings, 'calendarTitle'));
+    this._calendarKeydownHandler = (event) => {
+      if (!shouldHandleCalendarMonthShortcut(event)) return;
+      if (event.key === 'ArrowLeft') {
+        event.preventDefault();
+        this._goToMonth(-1);
+      } else if (event.key === 'ArrowRight') {
+        event.preventDefault();
+        this._goToMonth(1);
+      }
+    };
+    this.contentEl.addEventListener('keydown', this._calendarKeydownHandler);
+    this._unsubscribeIndex = this.plugin.journalIndex?.subscribe?.((_, change) => {
+      this._onJournalIndexChanged(change)
+        .catch((error) => console.warn('[Dayline] Calendar index refresh failed:', error?.message || error));
     });
 
     // Build data for current month
@@ -1491,6 +2018,8 @@ class CalendarView extends ItemView {
   }
 
   onClose() {
+    if (this._calendarKeydownHandler) this.contentEl.removeEventListener('keydown', this._calendarKeydownHandler);
+    this._calendarKeydownHandler = null;
     this._unsubscribeIndex?.();
     this._unsubscribeIndex = null;
     clearTimeout(this._refreshTimer);
@@ -1500,9 +2029,11 @@ class CalendarView extends ItemView {
     this._exifObservers?.clear();
     this._removeAllOverlaysFromViews();
     this._hostPositionMarkers.clear();
-    this.plugin.viewVisibilityController?.viewClosed('calendar')
-      .then(() => this.plugin._syncDaylineRibbon())
-      .catch((error) => console.warn('[Dayline] Calendar close state sync failed:', error?.message || error));
+    if (!this.embedded) {
+      this.plugin.viewVisibilityController?.viewClosed('calendar')
+        .then(() => this.plugin._syncDaylineRibbon())
+        .catch((error) => console.warn('[Dayline] Calendar close state sync failed:', error?.message || error));
+    }
   }
 
   _handleActiveLeafChange() {
@@ -1512,17 +2043,22 @@ class CalendarView extends ItemView {
   }
 
   /* ----- File change refresh (debounced) ----- */
-  _onImageChanged(file) {
+  _onMediaChanged(file) {
     if (!(file instanceof TFile)) return;
 
     const extension = file.extension?.toLowerCase();
-    if (!IMAGE_EXTS.includes(extension)) return;
-    this.exifCache?.invalidate(file.path);
-    this.plugin.heicCache?.invalidate(file.path);
+    if (!MEDIA_EXTENSIONS.includes(extension)) return;
+    const affectedMonths = cachedMonthsReferencingMedia(
+      this.monthCache,
+      file.path,
+      (attachment) => this._resolveMediaAttachmentPath(attachment),
+    );
+    if (!affectedMonths.size) return;
+    for (const monthKey of affectedMonths) this.monthCache.delete(monthKey);
+    if (!affectedMonths.has(this._monthKey(this.displayMonth))) return;
     clearTimeout(this._refreshTimer);
     this._refreshTimer = setTimeout(async () => {
       try {
-        this.monthCache.clear();
         await this.buildMonthCache(this.displayMonth);
         this.render();
       } catch (error) {
@@ -1531,6 +2067,40 @@ class CalendarView extends ItemView {
         new Notice(t(this.plugin.settings, 'calendarMonthLoadFailed', { error: error?.message || error }));
       }
     }, 300);
+  }
+
+  _onImageChanged(file) { this._onMediaChanged(file); }
+
+  _resolveMediaAttachmentPath(attachment) {
+    if (!attachment || attachment.external) return undefined;
+    const resolved = this.app.metadataCache?.getFirstLinkpathDest?.(attachment.normalizedLink, attachment.sourcePath);
+    return resolved?.path;
+  }
+
+  async _onJournalIndexChanged(change) {
+    if (change?.type !== 'file') {
+      await this.refresh();
+      return;
+    }
+
+    const entries = [change.previous, change.entry].filter(Boolean);
+    const dates = Array.from(new Set(entries.map((entry) => entry.date).filter(Boolean)));
+    for (const path of new Set(entries.map((entry) => entry.path).filter(Boolean))) this.mediaService?.invalidate(path);
+    if (!dates.length) return;
+
+    const displayKey = this._monthKey(this.displayMonth);
+    let displayAffected = false;
+    for (const date of dates) {
+      const [year, month] = date.split('-').map(Number);
+      if (!Number.isFinite(year) || !Number.isFinite(month)) continue;
+      const monthKey = this._monthKey(new Date(year, month - 1, 1));
+      this.monthCache.delete(monthKey);
+      displayAffected = displayAffected || monthKey === displayKey;
+      this._otdProvider?.refreshDateIndexFor?.(date.slice(5));
+    }
+    if (!displayAffected) return;
+    await this.buildMonthCache(this.displayMonth);
+    this.render();
   }
 
   /* ----- Public refresh (called from plugin and index updates) ----- */
@@ -1569,32 +2139,28 @@ class CalendarView extends ItemView {
 
     const prefix = `${year}-${String(month + 1).padStart(2, '0')}`;
     const map = new Map();
-
-    for (const entry of this.plugin.journalIndex?.getEntries?.() || []) {
-      const dateStr = entry.date;
+    const cachedWeatherDates = Object.keys(this.plugin.weatherCache || {})
+      .filter((dateStr) => dateStr.startsWith(prefix) && this.weather?.hasCachedSnapshot?.(dateStr));
+    const recordSummaries = aggregateCalendarDays(
+      (this.plugin.journalIndex?.getEntries?.() || []).filter((entry) => entry.date.startsWith(prefix)),
+    );
+    const summaries = withWeatherOnlyDays(recordSummaries, cachedWeatherDates, this.plugin.settings.dailyFolder);
+    for (const [dateStr, summary] of summaries) {
       if (!dateStr.startsWith(prefix)) continue;
-
-      const current = map.get(dateStr) || {
-        path: entry.path,
-        mood: entry.mood,
-        images: [],
-      };
-      if (!current.path || entry.sourceType === 'daily') current.path = entry.path;
-      if (!current.mood && entry.mood) current.mood = entry.mood;
-
-      let images = (entry.attachments || []).filter(_isImageLink);
       if (this.plugin.settings.thumbnailFilter === 'date-prefixed') {
-        images = images.filter((link) => {
-          const fileName = String(link).split(/[\\/]/).pop()?.split('|', 1)[0] || '';
+        summary.media = summary.media.filter((item) => {
+          const fileName = item.normalizedLink.split(/[\\/]/).pop() || '';
           return fileName.startsWith(dateStr);
         });
-      }
-      for (const link of images) {
-        if (!current.images.some((item) => item.link === link && item.sourcePath === entry.path)) {
-          current.images.push({ link, sourcePath: entry.path });
+        summary.images = summary.media.filter((item) => item.kind === 'image');
+        if (summary.cover && !summary.media.some((item) => item.normalizedLink === summary.cover.normalizedLink)) {
+          summary.cover = summary.media[0];
         }
       }
-      map.set(dateStr, current);
+      if (summary.entries?.some((entry) => this.weather?.hasCachedSnapshot?.(dateStr, entry.path))) {
+        summary.hasWeather = true;
+      }
+      map.set(dateStr, summary);
     }
 
     this.monthCache.set(key, map);
@@ -1607,6 +2173,7 @@ class CalendarView extends ItemView {
 
     const el = this.contentEl;
     el.empty();
+    el.setAttribute('aria-label', t(this.plugin.settings, 'calendarTitle'));
 
     // Ensure EXIF tooltip element exists (reused across renders)
     this._ensureExifTooltip();
@@ -1616,24 +2183,56 @@ class CalendarView extends ItemView {
     const key = this._monthKey(this.displayMonth);
     const imageMap = this.monthCache.get(key) || new Map();
 
-    // --- Header: month navigation ---
+    // --- Header: month navigation and view-local controls ---
     const header = el.createDiv({ cls: 'cal-header' });
-    const prevBtn = header.createEl('span', { cls: 'cal-nav' });
-    prevBtn.setText('◀');
+    const prevBtn = header.createEl('button', {
+      cls: 'cal-nav cal-icon-button',
+      attr: { type: 'button', 'aria-label': t(this.plugin.settings, 'previousMonth'), title: t(this.plugin.settings, 'previousMonth') },
+    });
+    setIcon(prevBtn, 'chevron-left');
     prevBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       this._goToMonth(-1);
     });
 
-    const title = header.createEl('span', { cls: 'cal-title' });
+    const title = header.createEl('button', {
+      cls: 'cal-title cal-title-button',
+      attr: {
+        type: 'button',
+        'aria-label': t(this.plugin.settings, 'jumpToMonth'),
+        title: t(this.plugin.settings, 'jumpToMonth'),
+        'aria-expanded': String(this._calendarJumpOpen),
+      },
+    });
     title.setText(formatCalendarMonth(year, month + 1, this.plugin.settings));
+    title.addEventListener('click', (event) => {
+      event.stopPropagation();
+      this._calendarJumpOpen = !this._calendarJumpOpen;
+      this.render();
+    });
 
-    const nextBtn = header.createEl('span', { cls: 'cal-nav' });
-    nextBtn.setText('▶');
+    const nextBtn = header.createEl('button', {
+      cls: 'cal-nav cal-icon-button',
+      attr: { type: 'button', 'aria-label': t(this.plugin.settings, 'nextMonth'), title: t(this.plugin.settings, 'nextMonth') },
+    });
+    setIcon(nextBtn, 'chevron-right');
     nextBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       this._goToMonth(1);
     });
+
+    const headerActions = header.createDiv({ cls: 'cal-header-actions' });
+    const todayBtn = headerActions.createEl('button', {
+      cls: 'cal-icon-button cal-today-button',
+      attr: { type: 'button', 'aria-label': t(this.plugin.settings, 'today'), title: t(this.plugin.settings, 'today') },
+    });
+    setIcon(todayBtn, 'calendar-check');
+    todayBtn.addEventListener('click', (event) => {
+      event.stopPropagation();
+      this._goToToday();
+    });
+    if (this._calendarJumpOpen) this._renderMonthJump(el);
+    // Calendar records are intentionally unfiltered; the timeline owns filtering.
 
     // --- Weather card (below header, above weekdays) ---
     this._renderWeatherCard(el);
@@ -1660,8 +2259,9 @@ class CalendarView extends ItemView {
 
     // --- Grid ---
     const grid = el.createDiv({ cls: 'cal-grid' });
+    const touchRouting = calendarCellTouchRouting(Boolean(this.plugin.capabilities?.coarsePointer));
 
-    const firstDay = new Date(Date.UTC(year, month, 1)).getUTCDay(); // 0=Sunday
+    const firstDay = getCalendarGridOffset(year, month, this.plugin.settings);
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     const todayStr = _daylineDate(this.plugin.settings);
 
@@ -1673,33 +2273,60 @@ class CalendarView extends ItemView {
     // Day cells
     for (let d = 1; d <= daysInMonth; d++) {
       const dateStr = formatDateParts(year, month + 1, d);
-      const dateEntry = imageMap.get(dateStr) || { path: null, mood: undefined, images: [] };
-      const images = dateEntry.images;
+      const dateEntry = imageMap.get(dateStr) || {
+        date: dateStr, entries: [], entryCount: 0, sourceIds: [], hasRecord: false, hasWeather: false,
+        path: null, primaryEntryPath: undefined, mood: undefined, media: [], images: [], cover: undefined,
+      };
+      const media = dateEntry.media || [];
+      const images = dateEntry.images || media.filter((item) => item.kind === 'image');
+      const cover = dateEntry.cover || media[0];
       const isToday = dateStr === todayStr;
 
       const cell = grid.createDiv({ cls: 'cal-day' });
-      if (images.length > 0) cell.addClass('cal-has-image');
+      if (cover) cell.addClass('cal-has-image');
       else cell.addClass('cal-no-image');
+      if (dateEntry.hasRecord) cell.addClass('cal-has-record');
+      if (dateEntry.hasWeather) cell.addClass('cal-has-weather');
+      cell.setAttribute('aria-label', `${dateStr}${dateEntry.entryCount ? `, ${dateEntry.entryCount} entries` : ''}${dateEntry.hasWeather ? ', weather available' : ''}`);
       if (isToday) cell.addClass('cal-today');
       if (dateStr === this.activeDate && !isToday) cell.addClass('cal-active');
 
       // Background image (first image as thumbnail)
-      if (images.length > 0) {
+      if (cover) {
         const bg = cell.createDiv({ cls: 'cal-day-bg' });
+        bg.setAttribute('aria-label', `${dateStr} ${t(this.plugin.settings, 'mediaMetadata')}`);
         const overlay = cell.createDiv({ cls: 'cal-day-overlay' });
-        this._setBackground(bg, images[0].link, dateStr, images[0].sourcePath);
+        this._setBackground(bg, dateEntry);
 
-        // EXIF tooltip on hover
-        const firstImage = images[0];
-        cell.addEventListener('mouseenter', () => this._onExifEnter(cell, firstImage.link, dateStr, firstImage.sourcePath));
-        cell.addEventListener('mouseleave', () => this._onExifLeave());
+        // Unified media metadata tooltip on hover. Images retain the legacy EXIF path.
+        const firstMedia = cover;
+        cell.addEventListener('mouseenter', () => this._onMediaEnter(cell, firstMedia));
+        cell.addEventListener('mouseleave', () => this._onExifLeave(cell));
+        if (touchRouting.focusMediaBackground) {
+          bg.tabIndex = 0;
+          bg.addEventListener('focusin', () => {
+            this._onMediaEnter(cell, firstMedia, true);
+          });
+        }
+      }
+
+      if (this.plugin.settings.showCalendarEntryCount !== false && dateEntry.entryCount > 1) {
+        cell.createEl('span', {
+          cls: 'cal-entry-count',
+          text: `+${dateEntry.entryCount - 1}`,
+          attr: {
+            'aria-label': `${dateEntry.entryCount} entries on ${dateStr}`,
+          },
+        });
       }
 
       // Weather badge for dates with cached weather
+      const weatherEntry = dateEntry.entries?.find((entry) => this.weather.hasCachedSnapshot(dateStr, entry.path));
+      const weatherPath = weatherEntry?.path || dateEntry.path;
       if (this.plugin.settings.weatherEnabled
         && shouldShowCalendarWeatherBadge(this.plugin.settings)
-        && this.weather.hasCachedSnapshot(dateStr, dateEntry.path)) {
-        const snap = this._readCachedWeather(dateStr, dateEntry.path);
+        && this.weather.hasCachedSnapshot(dateStr, weatherPath)) {
+        const snap = this._readCachedWeather(dateStr, weatherPath);
         if (snap) {
         const badge = cell.createEl('img', { cls: 'cal-weather-badge' });
         badge.src = _iconUrl(snap.icon) || '';
@@ -1716,8 +2343,8 @@ class CalendarView extends ItemView {
         ? this.plugin.moodStore?.get(dailyPath)
           || dateEntry.mood
         : undefined;
-      const moodPath = dateEntry.path || dailyPath;
-      if (shouldShowCalendarMood(this.plugin.settings)) {
+      const moodPath = dateEntry.primaryEntryPath || dateEntry.path || dailyPath;
+      if (touchRouting.showMoodControl && shouldShowCalendarMood(this.plugin.settings)) {
         const moodButton = cell.createEl('button', {
           cls: `cal-mood-button ${mood ? `mood-${mood.score}` : 'cal-mood-empty'}`,
           attr: {
@@ -1749,16 +2376,69 @@ class CalendarView extends ItemView {
       // Click to open daily note — use pointerdown (fires before leaf activation)
       // so the first click after sidebar focus loss is not absorbed by Obsidian.
       cell.addEventListener('pointerdown', (e) => {
+        if (!shouldOpenCalendarDateFromPointer(e.target)) return;
         e.stopPropagation();
-        this._openNote(dateStr, dateEntry.path);
+        this._openNote(dateStr, dateEntry.primaryEntryPath || dateEntry.path);
       });
     }
+  }
+
+  _renderMonthJump(containerEl) {
+    const panel = containerEl.createDiv({ cls: 'cal-jump-panel' });
+    panel.setAttribute('aria-label', t(this.plugin.settings, 'jumpToMonth'));
+
+    const yearLabel = panel.createEl('label', { cls: 'cal-filter-field' });
+    yearLabel.createSpan({ text: t(this.plugin.settings, 'year') });
+    const yearInput = yearLabel.createEl('input', {
+      attr: { type: 'number', min: '1', max: '9999', inputmode: 'numeric', 'aria-label': t(this.plugin.settings, 'year') },
+    });
+    yearInput.value = String(this.displayMonth.getFullYear());
+
+    const monthLabel = panel.createEl('label', { cls: 'cal-filter-field' });
+    monthLabel.createSpan({ text: t(this.plugin.settings, 'month') });
+    const monthSelect = monthLabel.createEl('select', { attr: { 'aria-label': t(this.plugin.settings, 'month') } });
+    const locale = getDisplayLanguage(this.plugin.settings) === 'en' ? 'en-US' : 'zh-CN';
+    const monthFormatter = new Intl.DateTimeFormat(locale, { month: 'long', timeZone: 'UTC' });
+    for (let index = 0; index < 12; index++) {
+      const option = monthSelect.createEl('option', {
+        value: String(index),
+        text: monthFormatter.format(new Date(Date.UTC(2020, index, 1))),
+      });
+      if (index === this.displayMonth.getMonth()) option.selected = true;
+    }
+
+    const apply = panel.createEl('button', {
+      cls: 'cal-icon-button cal-jump-apply',
+      attr: { type: 'button', 'aria-label': t(this.plugin.settings, 'apply'), title: t(this.plugin.settings, 'apply') },
+    });
+    setIcon(apply, 'check');
+    apply.addEventListener('click', (event) => {
+      event.stopPropagation();
+      const nextYear = Math.max(1, Math.min(9999, Number.parseInt(yearInput.value, 10) || this.displayMonth.getFullYear()));
+      const nextMonth = Math.max(0, Math.min(11, Number.parseInt(monthSelect.value, 10) || 0));
+      this._jumpToMonth(nextYear, nextMonth);
+    });
+  }
+
+  _goToToday() {
+    const [year, month] = _daylineDate(this.plugin.settings).split('-').map(Number);
+    this._jumpToMonth(year, month - 1);
+  }
+
+  _jumpToMonth(year, monthIndex) {
+    this.displayMonth = new Date(year, monthIndex, 1);
+    this._calendarJumpOpen = false;
+    this.buildMonthCache(this.displayMonth).then(() => this.render()).catch((error) => {
+      console.warn('[Dayline] Calendar month jump failed:', error?.message || error);
+      this.monthCache.delete(this._monthKey(this.displayMonth));
+      new Notice(t(this.plugin.settings, 'calendarMonthLoadFailed', { error: error?.message || error }));
+    });
   }
 
   /* ----- EXIF Tooltip (delegates to plugin) ----- */
 
   _ensureExifTooltip() { this.plugin._ensureExifTooltip(); }
-  _showExifTooltip(el, fields, loading) { this.plugin._showExifTooltip(el, fields, loading); }
+  _showExifTooltip(el, fields, loading, kind) { this.plugin._showExifTooltip(el, fields, loading, kind); }
   _hideExifTooltip() { this.plugin._hideExifTooltip(); }
 
   /** Mouse entered a day cell with an image — start the hover timer. */
@@ -1797,7 +2477,26 @@ class CalendarView extends ItemView {
     }, 500);
   }
 
-  _onExifLeave() {
+  _onMediaEnter(cell, attachment, immediate = false) {
+    if (!this.plugin.settings.showExif || !attachment) return;
+    if (immediate && this.plugin._toggleExifTouch(cell)) return;
+    const hoverToken = this.plugin._beginExifHover();
+    this.plugin._exifHoverTimer = setTimeout(async () => {
+      try {
+        if (!this.plugin._isCurrentExifHover(hoverToken)) return;
+        this.plugin._showExifTooltip(cell, null, true, 'media');
+        const metadata = await this.mediaService?.getMetadata?.(attachment);
+        const fields = formatMediaMetadataForDisplay(metadata);
+        if (!this.plugin._isCurrentExifHover(hoverToken)) return;
+        this.plugin._showExifTooltip(cell, fields, false, 'media');
+      } catch (_) {
+        this.plugin._hideExifTooltip();
+      }
+    }, immediate ? 0 : 500);
+  }
+
+  _onExifLeave(anchor) {
+    if (this.plugin._exifTouchAnchor && (!anchor || this.plugin._exifTouchAnchor === anchor)) return;
     this.plugin._endExifHover();
   }
 
@@ -1832,9 +2531,11 @@ class CalendarView extends ItemView {
     // Use activeDate or today for the card
     const cardDate = this.activeDate || _daylineDate(this.plugin.settings);
 
-    // Idempotency guard: if a card already exists for this date and has valid data, reuse it
+    // Keep the connected card in place, but still ask WeatherService to
+    // revalidate this date. Its cache/TTL and in-flight map make fresh checks
+    // cheap and stale refreshes deduplicated.
     if (this._weatherCardDate === cardDate && this._weatherCardEl && this._weatherCardEl.isConnected) {
-      // Card already exists for this date — just update badge rendering via full render
+      this._revalidateConnectedWeatherCard(cardDate);
       return;
     }
 
@@ -1865,14 +2566,19 @@ class CalendarView extends ItemView {
 
     const infoEl = card.createDiv({ cls: 'cal-weather-info' });
     const tempEl = infoEl.createDiv({ cls: 'cal-weather-temp' });
+    const locationEl = shouldShowCalendarWeatherLocation(s)
+      ? infoEl.createDiv({ cls: 'cal-weather-location' })
+      : null;
     const detailEl = infoEl.createDiv({ cls: 'cal-weather-detail' });
+    const extraEl = infoEl.createDiv({ cls: 'cal-weather-extra' });
+    const statusEl = infoEl.createDiv({ cls: 'cal-weather-status' });
     tempEl.setText(_l(s.weatherLanguage, 'loading'));
-    detailEl.setText(cardDate);
+    if (locationEl) locationEl.setText(`${_l(s.weatherLanguage, 'weatherLocation')}: ${s.weatherLocationName || `${parseFloat(s.weatherLatitude).toFixed(2)}, ${parseFloat(s.weatherLongitude).toFixed(2)}`}`);
 
     // Native Obsidian refresh icon button
     const refreshBtn = card.createEl('button', {
       cls: 'cal-weather-refresh',
-      attr: { 'aria-label': 'Refresh weather', title: 'Refresh weather' },
+      attr: { 'aria-label': _l(s.weatherLanguage, 'refresh'), title: _l(s.weatherLanguage, 'refresh') },
     });
     setIcon(refreshBtn, 'refresh-cw');
     refreshBtn.addEventListener('click', (e) => {
@@ -1890,6 +2596,38 @@ class CalendarView extends ItemView {
     }
   }
 
+  _revalidateConnectedWeatherCard(dateStr) {
+    if (this._weatherRevalidation?.date === dateStr) return this._weatherRevalidation.promise;
+
+    const request = Promise.resolve()
+      .then(() => this.weather.getSnapshot(dateStr))
+      .then((snap) => {
+        if (this._weatherCardDate !== dateStr || !this._weatherCardEl?.isConnected) return snap;
+        const compatible = snap && this.weather.isSnapshotCompatible(snap) ? snap : null;
+        this._weatherSnapshot = compatible;
+        this._weatherError = !compatible;
+        this._weatherLoading = false;
+        this._updateWeatherCardUI();
+        return compatible;
+      })
+      .catch((err) => {
+        if (this._weatherCardDate === dateStr && this._weatherCardEl?.isConnected) {
+          this._weatherError = true;
+          this._weatherLoading = false;
+          this._updateWeatherCardUI();
+        }
+        console.warn('[Dayline] Same-date weather revalidation failed:', err?.message || err);
+        return null;
+      });
+
+    let tracked;
+    tracked = request.finally(() => {
+      if (this._weatherRevalidation?.promise === tracked) this._weatherRevalidation = null;
+    });
+    this._weatherRevalidation = { date: dateStr, promise: tracked };
+    return tracked;
+  }
+
   /* ----- Update weather card UI after async data arrives ----- */
   _updateWeatherCardUI() {
     const card = this._weatherCardEl;
@@ -1897,13 +2635,21 @@ class CalendarView extends ItemView {
     const lang = this.plugin.settings.weatherLanguage;
 
     card.removeClass('cal-weather-loading');
+    card.removeClass('cal-weather-error');
 
+    const locationEl = card.querySelector('.cal-weather-location');
+    const detailEl = card.querySelector('.cal-weather-detail');
+    const extraEl = card.querySelector('.cal-weather-extra');
+    const statusEl = card.querySelector('.cal-weather-status');
     if (this._weatherError) {
       card.addClass('cal-weather-error');
       const iconEl = card.querySelector('.cal-weather-icon');
       if (iconEl) { iconEl.src = ''; iconEl.alt = '⚠️'; }
       card.querySelector('.cal-weather-temp').setText(_l(lang, 'unavailable'));
-      card.querySelector('.cal-weather-detail').setText(_l(lang, 'checkSettings'));
+      if (locationEl) locationEl.setText(`${_l(lang, 'weatherLocation')}: ${this.plugin.settings.weatherLocationName || ''}`);
+      if (detailEl) detailEl.setText(_l(lang, 'checkSettings'));
+      if (extraEl) extraEl.setText('');
+      if (statusEl) statusEl.setText('');
       return;
     }
 
@@ -1912,7 +2658,10 @@ class CalendarView extends ItemView {
       const iconEl = card.querySelector('.cal-weather-icon');
       if (iconEl) iconEl.src = _iconUrl('overcast.svg');
       card.querySelector('.cal-weather-temp').setText('—');
-      card.querySelector('.cal-weather-detail').setText(_l(lang, 'noData'));
+      if (locationEl) locationEl.setText(`${_l(lang, 'weatherLocation')}: ${this.plugin.settings.weatherLocationName || ''}`);
+      if (detailEl) detailEl.setText(_l(lang, 'noData'));
+      if (extraEl) extraEl.setText('');
+      if (statusEl) statusEl.setText('');
       return;
     }
 
@@ -1929,13 +2678,55 @@ class CalendarView extends ItemView {
     const label = _l(lang, labelKey);
     tempEl.setText(`${label} ${snap.temperature ?? '?'}${unitSym}`);
 
-    const detailEl = card.querySelector('.cal-weather-detail');
-    const parts = [];
-    if (snap.feelsLike != null) parts.push(`${_l(lang, 'feels')} ${snap.feelsLike}${unitSym}`);
-    if (snap.humidity != null) parts.push(`${_l(lang, 'humidity')} ${snap.humidity}%`);
-    if (snap.low != null) parts.push(`${_l(lang, 'low')} ${snap.low}${unitSym}`);
-    detailEl.setText(parts.join(' · ') || snap.location);
-    detailEl.title = snap.location;
+    const labels = {
+      feels: _l(lang, 'feels'),
+      humidity: _l(lang, 'humidity'),
+      low: _l(lang, 'low'),
+      precipitation: _l(lang, 'precipitation'),
+      wind: _l(lang, 'wind'),
+      sunrise: _l(lang, 'sunrise'),
+      sunset: _l(lang, 'sunset'),
+      cached: _l(lang, 'cached'),
+      stale: _l(lang, 'stale'),
+      offline: _l(lang, 'offline'),
+    };
+    if (locationEl) {
+      locationEl.setText(`${_l(lang, 'weatherLocation')}: ${snap.location || ''}`);
+      locationEl.title = snap.location || '';
+    }
+    const displayFields = Array.isArray(this.plugin.settings.weatherDisplayFields)
+      ? this.plugin.settings.weatherDisplayFields
+      : ['feels', 'humidity'];
+    if (detailEl) {
+      detailEl.setText(buildWeatherDetailParts(snap, labels)
+        .filter((part) => part.startsWith(`${labels.feels} `)
+          ? displayFields.includes('feels')
+          : displayFields.includes('humidity'))
+        .join(' · ') || '');
+      detailEl.title = snap.location || '';
+    }
+    if (extraEl) {
+      const displayFields = Array.isArray(this.plugin.settings.weatherDisplayFields)
+        ? this.plugin.settings.weatherDisplayFields
+        : ['feels', 'humidity'];
+      const extraParts = buildWeatherExtraParts(
+        snap,
+        { ...labels, low: _l(lang, 'low') },
+        lang,
+        this.plugin.settings.weatherTimezone || 'auto',
+      ).filter((part) => {
+        if (part.startsWith(`${labels.feels} `)) return displayFields.includes('feels');
+        if (part.startsWith(`${labels.humidity} `)) return displayFields.includes('humidity');
+        if (part.startsWith(`${labels.low} `)) return displayFields.includes('low');
+        if (part.startsWith(`${labels.precipitation} `)) return displayFields.includes('precipitation');
+        if (part.startsWith(`${labels.wind} `)) return displayFields.includes('wind');
+        if (part.startsWith(`${labels.sunrise} `)) return displayFields.includes('sunrise');
+        if (part.startsWith(`${labels.sunset} `)) return displayFields.includes('sunset');
+        return false;
+      });
+      extraEl.setText(extraParts.join(' · '));
+    }
+    if (statusEl) statusEl.setText(buildWeatherStatus(snap, labels).join(' · '));
 
     card.removeAttribute('aria-live');
   }
@@ -2019,11 +2810,12 @@ class CalendarView extends ItemView {
   }
 
   /* ----- Resolve and set background image ----- */
-  async _setBackground(bgEl, link, dateStr, sourcePath) {
+  async _setBackground(bgEl, summary) {
     try {
-      const notePath = sourcePath || `${this.plugin.settings.dailyFolder}/${dateStr}.md`;
-      const result = await this.plugin.thumbnailService.load(link, notePath);
-      if (result && bgEl.isConnected) bgEl.style.backgroundImage = `url("${result.url}")`;
+      const result = await this.mediaService?.loadFirstCover?.(summary.media || [], summary.cover);
+      if (result && bgEl.isConnected) {
+        bgEl.style.backgroundImage = `url("${result.url}")`;
+      }
     } catch (_) {
       // silent
     }
@@ -2056,7 +2848,11 @@ class CalendarView extends ItemView {
       const mdLeaves = this.app.workspace.getLeavesOfType('markdown');
       const leaf = isMarkdown
         ? activeLeaf                        // use active tab if it's a markdown view
-        : (mdLeaves.length > 0 ? mdLeaves[0] : this.app.workspace.getLeaf(true));
+        : (mdLeaves.length > 0
+          ? mdLeaves[0]
+          : (this.plugin.capabilities?.isMobile
+            ? (this.app.workspace.getLeaf('tab') || this.app.workspace.getLeaf(true))
+            : this.app.workspace.getLeaf(true)));
       if (!leaf) {
         const error = 'No markdown leaf is available';
         console.warn('[Dayline] Open note failed:', error);
@@ -2243,45 +3039,68 @@ class CalendarView extends ItemView {
     for (const img of images) {
       if (this._exifNoteImages.has(img)) continue;
       this._exifNoteImages.add(img);
+      img.tabIndex = 0;
+      img.setAttribute('aria-label', t(this.plugin.settings, 'mediaMetadata'));
       img.addEventListener('mouseenter', (e) => this._onNoteImageEnter(e, img));
-      img.addEventListener('mouseleave', () => this._onExifLeave());
+      img.addEventListener('mouseleave', () => this._onExifLeave(img));
+      img.addEventListener('focusin', (e) => this._onNoteImageEnter(e, img, true));
+      // Let the outer embed own the single touch affordance when Obsidian
+      // renders an image inside an interactive embed wrapper.
+      if (getMediaControlOwner(img) === img) {
+        this._addNoteMediaInfoControl(img, () => this._onNoteImageEnter(null, img, true));
+      }
     }
   }
 
   _processEmbedEls(embeds) {
     for (const el of embeds) {
       if (this._exifNoteImages.has(el)) continue;
-      // Only attach if it references an image-like file
+      // Media Extended and Obsidian both render embeds through this outer
+      // element. Resolve the owning Markdown leaf instead of activeLeaf so
+      // split panes never borrow another note's relative path.
       const src = el.getAttribute('src') || '';
-      const ext = src.split('.').pop()?.toLowerCase();
-      if (!ext || !IMAGE_EXTS.includes(ext)) continue;
+      const normalizedSrc = normalizeMediaLink(src);
+      const classified = classifyMediaLink(normalizedSrc);
+      const ext = classified.extension;
+      if (!ext || !MEDIA_EXTENSIONS.includes(ext)) continue;
       this._exifNoteImages.add(el);
-      el.addEventListener('mouseenter', (e) => this._onNoteImageEnter(e, el));
-      el.addEventListener('mouseleave', () => this._onExifLeave());
+      el.tabIndex = 0;
+      el.setAttribute('aria-label', t(this.plugin.settings, 'mediaMetadata'));
+      el.addEventListener('mouseenter', (e) => MEDIA_IMAGE_EXTENSIONS.includes(ext)
+        ? this._onNoteImageEnter(e, el)
+        : this._onNoteMediaEnter(e, el));
+      el.addEventListener('mouseleave', () => this._onExifLeave(el));
+      el.addEventListener('focusin', (e) => MEDIA_IMAGE_EXTENSIONS.includes(ext)
+        ? this._onNoteImageEnter(e, el, true)
+        : this._onNoteMediaEnter(e, el, true));
+      this._addNoteMediaInfoControl(el, () => MEDIA_IMAGE_EXTENSIONS.includes(ext)
+        ? this._onNoteImageEnter(null, el, true)
+        : this._onNoteMediaEnter(null, el, true));
 
       // For HEIC, also try to convert and display the image
       if (HEIC_EXTS.includes(ext) && !hasExistingImage(el) && !el.querySelector('.cal-heic-preview')) {
-        this._convertHeicEmbed(el, src);
+        this._convertHeicEmbed(el, normalizedSrc);
       }
     }
   }
 
   async _convertHeicEmbed(el, src) {
+    if (resolveCapabilityRoute(this.plugin.capabilities, 'heic') === 'disabled') return;
     // Show loading indicator
     const loader = document.createElement('div');
     loader.className = 'cal-heic-preview';
     loader.style.cssText = 'display:flex;align-items:center;justify-content:center;min-height:60px;color:var(--text-muted);font-size:12px;';
-    loader.textContent = 'Converting HEIC...';
+    loader.textContent = t(this.plugin.settings, 'heicConverting');
     el.appendChild(loader);
 
     try {
-      const notePath = this.app.workspace.activeLeaf?.view?.file?.path || '';
+      const notePath = this._notePathForElement(el);
       const file = this.app.metadataCache.getFirstLinkpathDest(src, notePath);
       if (!(file instanceof TFile)) return;
 
       const thumb = await this.plugin.heicCache.getThumbnail(file);
       if (!thumb) {
-        loader.textContent = 'HEIC conversion failed';
+        loader.textContent = t(this.plugin.settings, 'heicConversionFailed');
         return;
       }
 
@@ -2297,16 +3116,22 @@ class CalendarView extends ItemView {
       img.style.cssText = 'max-width:100%;height:auto;display:block;';
       img.setAttribute('data-cal-exif', '1');
       this._exifNoteImages.add(img);
+      img.tabIndex = 0;
+      img.setAttribute('aria-label', t(this.plugin.settings, 'mediaMetadata'));
       img.addEventListener('mouseenter', (e) => this._onNoteImageEnter(e, img));
-      img.addEventListener('mouseleave', () => this._onExifLeave());
+      img.addEventListener('mouseleave', () => this._onExifLeave(img));
+      img.addEventListener('focusin', (e) => this._onNoteImageEnter(e, img, true));
+      this._addNoteMediaInfoControl(img, () => this._onNoteImageEnter(null, img, true));
       loader.replaceWith(img);
     } catch (_) {
-      loader.textContent = 'HEIC error';
+      loader.textContent = t(this.plugin.settings, 'heicError');
     }
   }
 
-  async _onNoteImageEnter(e, img) {
+  async _onNoteImageEnter(e, img, immediate = false) {
     if (!this.plugin.settings.showExif) return;
+    if (immediate && this.plugin._toggleExifTouch(img)) return;
+    if (!immediate) this.plugin._exifTouchAnchor = null;
     const hoverToken = this.plugin._beginExifHover();
 
     this.plugin._exifHoverTimer = setTimeout(async () => {
@@ -2322,12 +3147,67 @@ class CalendarView extends ItemView {
       } catch (_) {
         this.plugin._hideExifTooltip();
       }
-    }, 500);
+    }, immediate ? 0 : 500);
+  }
+
+  async _onNoteMediaEnter(e, el, immediate = false) {
+    if (!this.plugin.settings.showExif) return;
+    if (immediate && this.plugin._toggleExifTouch(el)) return;
+    if (!immediate) this.plugin._exifTouchAnchor = null;
+    const hoverToken = this.plugin._beginExifHover();
+    this.plugin._exifHoverTimer = setTimeout(async () => {
+      try {
+        const src = el.getAttribute('src') || '';
+        const attachment = createMediaAttachment(src, this._notePathForElement(el));
+        if (!attachment) return;
+        if (!this.plugin._isCurrentExifHover(hoverToken)) return;
+        this.plugin._showExifTooltip(el, null, true, 'media');
+        const metadata = await this.mediaService?.getMetadata?.(attachment);
+        if (!this.plugin._isCurrentExifHover(hoverToken)) return;
+        this.plugin._showExifTooltip(el, formatMediaMetadataForDisplay(metadata), false, 'media');
+      } catch (_) {
+        this.plugin._hideExifTooltip();
+      }
+    }, immediate ? 0 : 500);
+  }
+
+  _addNoteMediaInfoControl(el, open) {
+    const owner = getMediaControlOwner(el);
+    if (!this.plugin.capabilities?.coarsePointer || !shouldAddMediaInfoControl(owner, this._exifNoteMediaControls)) return;
+    const link = owner?.closest?.('a');
+    const reference = link || owner;
+    const parent = reference?.parentElement;
+    if (!parent) return;
+    const button = document.createElement('button');
+    button.className = 'dayline-note-media-info';
+    button.type = 'button';
+    button.setAttribute('aria-label', t(this.plugin.settings, 'mediaMetadata'));
+    button.title = t(this.plugin.settings, 'mediaMetadata');
+    setIcon(button, 'info');
+    button.addEventListener('pointerdown', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      open();
+    });
+    button.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+    });
+    parent.insertBefore(button, reference.nextSibling);
+    this._exifNoteMediaControls.add(owner);
+  }
+
+  _notePathForElement(el) {
+    const leaves = this.app.workspace.getLeavesOfType('markdown') || [];
+    for (const leaf of leaves) {
+      const container = leaf.containerEl || leaf.view?.containerEl;
+      if (container?.contains?.(el)) return leaf.view?.file?.path || '';
+    }
+    return '';
   }
 
   _resolveImageFile(el) {
-    const leaf = this.app.workspace.activeLeaf;
-    const notePath = leaf?.view?.file?.path || '';
+    const notePath = this._notePathForElement(el);
 
     // If the element itself is an .internal-embed (HEIC etc.), resolve from its src
     if (el.classList && el.classList.contains('internal-embed')) {
@@ -2356,7 +3236,7 @@ class CalendarView extends ItemView {
     const src = el.getAttribute('src');
     if (!src) return null;
 
-    let path = decodeURIComponent(src);
+    let path = normalizeMediaLink(src);
     const qIdx = path.indexOf('?');
     if (qIdx > 0) path = path.substring(0, qIdx);
 
@@ -2674,6 +3554,141 @@ class CalendarView extends ItemView {
     });
     new Notice(_l(lang, 's_backfillDone', missingDates.length));
     this.render();
+  }
+}
+
+/* ============================================================
+   Mobile Dayline View
+   ============================================================ */
+class MobileDaylineView extends ItemView {
+  constructor(leaf, plugin) {
+    super(leaf);
+    this.plugin = plugin;
+    this.mode = 'calendar';
+    this.activeView = null;
+    this.calendarView = null;
+    this.timelineView = null;
+    this.modeHost = null;
+    this.modeButtons = new Map();
+    this.opening = false;
+    this.closed = false;
+    this._queueMode = createSerialDaylineModeSwitcher((mode) => this._applyMode(mode));
+  }
+
+  getViewType() { return MOBILE_DAYLINE_VIEW; }
+  getDisplayText() { return 'Dayline'; }
+  getIcon() { return 'calendar-range'; }
+
+  async onOpen() {
+    this.closed = false;
+    this.containerEl.addClass('dayline-mobile-shell');
+    const root = this.contentEl;
+    root.empty();
+    root.addClass('dayline-mobile-view');
+    const header = root.createDiv({ cls: 'dayline-mobile-header' });
+    const controls = header.createDiv({
+      cls: 'dayline-mobile-mode-controls',
+      attr: { role: 'group', 'aria-label': 'Dayline view' },
+    });
+    this._addModeButton(controls, 'calendar', 'calendar-days', t(this.plugin.settings, 'calendarTitle'));
+    this._addModeButton(controls, 'timeline', 'list', t(this.plugin.settings, 'timelineTitle'));
+    this.modeHost = root.createDiv({ cls: 'dayline-mobile-mode-host' });
+    this.opening = true;
+    this._renderLoading();
+    try {
+      await this.plugin.ensureJournalIndexReady();
+      await this._showMode(this.mode);
+    } catch (error) {
+      console.warn('[Dayline] Mobile journal index load failed:', error?.message || error);
+      this._renderLoadError(error);
+    } finally {
+      this.opening = false;
+    }
+  }
+
+  async onClose() {
+    this.closed = true;
+    await this.activeView?.onClose?.();
+    this.activeView = null;
+    this.modeButtons.clear();
+    this.plugin._syncDaylineRibbon();
+  }
+
+  async setMode(mode) {
+    this.mode = normalizeDaylineMobileMode(mode);
+    this._syncModeButtons();
+    if (!this.opening && this.modeHost) await this._queueMode(this.mode);
+  }
+
+  async setDateFilter(date) {
+    await this.setMode('timeline');
+    this.timelineView?.setDateFilter?.(date);
+  }
+
+  async _applyMode(mode) {
+    if (this.closed || this.opening || !this.modeHost) return;
+    try {
+      await this._showMode(mode);
+    } catch (error) {
+      console.warn('[Dayline] Mobile journal index reload failed:', error?.message || error);
+      this._renderLoadError(error);
+    }
+  }
+
+  _addModeButton(parent, mode, icon, label) {
+    const button = parent.createEl('button', {
+      cls: 'dayline-mobile-mode-button',
+      attr: { type: 'button', 'aria-label': label, title: label, 'aria-pressed': String(this.mode === mode) },
+    });
+    setIcon(button, icon);
+    button.addEventListener('click', () => this.setMode(mode));
+    this.modeButtons.set(mode, button);
+  }
+
+  _syncModeButtons() {
+    for (const [mode, button] of this.modeButtons) {
+      const active = mode === this.mode;
+      button.toggleClass('is-active', active);
+      button.setAttribute('aria-pressed', String(active));
+    }
+  }
+
+  _renderLoading() {
+    if (!this.modeHost) return;
+    this.modeHost.empty();
+    this.modeHost.createDiv({ cls: 'dayline-mobile-loading', text: t(this.plugin.settings, 'journalIndexLoading') });
+  }
+
+  _renderLoadError(error) {
+    if (!this.modeHost) return;
+    this.modeHost.empty();
+    this.modeHost.createDiv({
+      cls: 'dayline-mobile-loading dayline-mobile-load-error',
+      text: t(this.plugin.settings, 'journalIndexLoadFailed', { error: error?.message || error }),
+    });
+  }
+
+  _embeddedView(mode) {
+    if (mode === 'timeline') {
+      this.timelineView ??= new JournalTimelineView(this.leaf, this.plugin, { embedded: true });
+      return this.timelineView;
+    }
+    this.calendarView ??= new CalendarView(this.leaf, this.plugin, { embedded: true });
+    return this.calendarView;
+  }
+
+  async _showMode(mode) {
+    if (this.closed || !this.modeHost) return;
+    const next = this._embeddedView(mode);
+    if (this.activeView === next) return;
+    await this.activeView?.onClose?.();
+    this.activeView = null;
+    this.modeHost.empty();
+    this.modeHost.classList.remove('cal-sidebar', 'cal-calendar-content', 'journal-timeline-view');
+    bindMobileEmbeddedViewHost(next, this.modeHost);
+    this.activeView = next;
+    this._syncModeButtons();
+    await next.onOpen();
   }
 }
 

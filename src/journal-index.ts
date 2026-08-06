@@ -12,6 +12,13 @@ import type {
   JournalSource,
   MoodRecord,
 } from './types';
+import {
+  dedupeMediaLinks,
+  mediaAttachmentsFromLinks,
+  mediaLinksFromValue,
+} from './media-links';
+import { buildJournalSearchText, parseJournalTags } from './journal-search';
+import { filterJournalEntries } from './journal-timeline-filters';
 
 export const DEFAULT_JOURNAL_SOURCES: JournalSource[] = [
   { id: 'daily', path: 'Calendar/Daily', type: 'daily', label: 'Daily notes' },
@@ -22,7 +29,40 @@ export interface JournalIndexSettings {
   journalSources?: JournalSource[];
 }
 
-type Listener = (entries: JournalEntry[]) => void;
+export interface JournalIndexChange {
+  type: 'full' | 'file';
+  previous?: JournalEntry;
+  entry?: JournalEntry;
+}
+
+type Listener = (entries: JournalEntry[], change: JournalIndexChange) => void;
+
+/**
+ * Desktop startup must not build the initial index until Obsidian has both
+ * restored the workspace and populated metadata embeds for the vault.
+ */
+export function waitForJournalIndexStartup(app: any): Promise<void> {
+  const metadataCache = app?.metadataCache;
+  const workspace = app?.workspace;
+  const metadataReady = metadataCache?.initialized === true || typeof metadataCache?.on !== 'function'
+    ? Promise.resolve()
+    : new Promise<void>((resolve) => {
+      let completed = false;
+      let eventRef: any;
+      const finish = () => {
+        if (completed) return;
+        completed = true;
+        if (eventRef) metadataCache.offref?.(eventRef);
+        resolve();
+      };
+      eventRef = metadataCache.on('resolved', finish);
+      if (metadataCache.initialized === true) finish();
+    });
+  const layoutReady = typeof workspace?.onLayoutReady === 'function'
+    ? new Promise<void>((resolve) => workspace.onLayoutReady(resolve))
+    : Promise.resolve();
+  return Promise.all([metadataReady, layoutReady]).then(() => undefined);
+}
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' ? value as Record<string, unknown> : {};
@@ -94,20 +134,25 @@ function parseNumber(value: unknown): number | undefined {
 
 export function normalizeLocation(frontmatter: Record<string, unknown>): JournalEntry['location'] {
   const raw = readField(frontmatter, 'location');
-  const location = typeof raw === 'string' ? { name: raw.trim() } : asRecord(raw);
+  const location = typeof raw === 'string'
+    ? { name: raw.trim() }
+    : Array.isArray(raw)
+      ? { name: firstString(raw.find((item) => typeof item === 'string')),
+          coordinates: raw.filter((item) => typeof item === 'number' || typeof item === 'string') }
+      : asRecord(raw);
   const coordinates = readField(frontmatter, 'coordinates') ?? location.coordinates;
-  let latitude = parseNumber(readField(frontmatter, 'latitude') ?? location.latitude);
-  let longitude = parseNumber(readField(frontmatter, 'longitude') ?? location.longitude);
+  let latitude = parseNumber(readField(frontmatter, 'latitude') ?? readField(frontmatter, 'lat') ?? location.latitude ?? location.lat);
+  let longitude = parseNumber(readField(frontmatter, 'longitude') ?? readField(frontmatter, 'lng') ?? location.longitude ?? location.lon ?? location.lng);
 
-  if ((latitude === undefined || longitude === undefined) && typeof coordinates === 'string') {
-    const values = coordinates.split(/[;,\s]+/).map((value) => parseNumber(value));
+  if ((latitude === undefined || longitude === undefined) && (typeof coordinates === 'string' || Array.isArray(coordinates))) {
+    const values = (Array.isArray(coordinates) ? coordinates : coordinates.split(/[;,\s]+/)).map((value) => parseNumber(value));
     if (values.length >= 2 && values[0] !== undefined && values[1] !== undefined) {
       latitude = values[0];
       longitude = values[1];
     }
   }
 
-  const name = firstString(location.name ?? raw);
+  const name = firstString(location.name ?? location.label ?? location.city ?? location.place ?? raw);
   if (!name && latitude === undefined && longitude === undefined) return undefined;
   return { name, latitude, longitude };
 }
@@ -132,17 +177,15 @@ function moodFromFrontmatter(frontmatter: Record<string, unknown>): MoodRecord |
     : typeof rawLabels === 'string'
       ? rawLabels.split(',').map((value) => value.trim()).filter(Boolean)
       : [];
+  const rawNote = readField(frontmatter, 'mood_note') ?? readField(frontmatter, 'mood_comment');
   const now = new Date().toISOString();
-  return { score, labels, recordedAt: now, updatedAt: now };
-}
-
-function mediaLinks(value: unknown): string[] {
-  if (!Array.isArray(value)) return typeof value === 'string' ? [value] : [];
-  return value.flatMap((item) => {
-    if (typeof item === 'string') return [item];
-    const record = asRecord(item);
-    return [record.link, record.url, record.path].filter((candidate): candidate is string => typeof candidate === 'string');
-  });
+  return {
+    score,
+    labels,
+    ...(rawNote === null || rawNote === undefined || String(rawNote).trim() === '' ? {} : { note: String(rawNote) }),
+    recordedAt: now,
+    updatedAt: now,
+  };
 }
 
 export class JournalIndex {
@@ -154,7 +197,9 @@ export class JournalIndex {
   private refreshToken = 0;
   private mutationToken = 0;
   private readonly fileRefreshTokens = new Map<string, number>();
-  private refreshPromise: Promise<void> | null = null;
+  private refreshQueue: Promise<void> = Promise.resolve();
+  private initializationPromise: Promise<void> | null = null;
+  private initialized = false;
   private currentSources: JournalSource[] = [];
 
   constructor(app: any, getMood: (path: string) => MoodRecord | undefined = () => undefined) {
@@ -170,6 +215,10 @@ export class JournalIndex {
     return this.diagnostics.slice();
   }
 
+  get isReady(): boolean {
+    return this.initialized;
+  }
+
   subscribe(listener: Listener): () => void {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
@@ -180,33 +229,46 @@ export class JournalIndex {
   }
 
   filter(filter: JournalFilter = {}): JournalEntry[] {
-    const query = filter.query?.trim().toLowerCase();
-    return this.getEntries().filter((entry) => {
-      if (filter.from && entry.date < filter.from) return false;
-      if (filter.to && entry.date > filter.to) return false;
-      if (filter.sourceId && entry.sourceId !== filter.sourceId) return false;
-      if (filter.moodScore !== undefined && entry.mood?.score !== filter.moodScore) return false;
-      if (filter.favoriteOnly && !entry.favorite) return false;
-      if (query && !`${entry.title} ${entry.excerpt} ${entry.path} ${entry.searchText || ''}`.toLowerCase().includes(query)) return false;
-      return true;
-    });
+    return filterJournalEntries(this.getEntries(), filter);
+  }
+
+  /**
+   * The mobile Dayline view waits for this once, while desktop keeps its eager
+   * startup refresh. Concurrent open/render requests intentionally share it.
+   */
+  async ensureReady(settings: JournalIndexSettings): Promise<void> {
+    if (this.initialized) return;
+    if (!this.initializationPromise) {
+      const initialize = async () => {
+        // Do not report ready until a complete rebuild has committed.
+        while (!this.initialized) await this.refresh(settings);
+      };
+      const promise = initialize();
+      this.initializationPromise = promise;
+      promise.finally(() => {
+        if (this.initializationPromise === promise) this.initializationPromise = null;
+      }).catch(() => undefined);
+    }
+    await this.initializationPromise;
   }
 
   async refresh(settings: JournalIndexSettings): Promise<void> {
-    const token = ++this.refreshToken;
-    const mutationToken = ++this.mutationToken;
-    if (this.refreshPromise) await this.refreshPromise;
-    const promise = this.rebuild(settings, token, mutationToken);
-    this.refreshPromise = promise;
-    try {
-      await promise;
-    } finally {
-      if (this.refreshPromise === promise) this.refreshPromise = null;
-    }
+    // Explicit settings refreshes must run in call order. Coalescing an
+    // in-flight request would silently discard the newest configuration.
+    const run = async () => {
+      const token = ++this.refreshToken;
+      const mutationToken = ++this.mutationToken;
+      const completed = await this.rebuild(settings, token, mutationToken);
+      if (completed) this.initialized = true;
+    };
+    const task = this.refreshQueue.then(run, run);
+    this.refreshQueue = task.catch(() => undefined);
+    await task;
   }
 
   async refreshFile(path: string, settings: JournalIndexSettings): Promise<void> {
     const normalizedPath = normalizeVaultPath(path);
+    const previous = this.entries.get(normalizedPath);
     ++this.mutationToken;
     const token = (this.fileRefreshTokens.get(normalizedPath) ?? 0) + 1;
     this.fileRefreshTokens.set(normalizedPath, token);
@@ -222,15 +284,18 @@ export class JournalIndex {
     if (entry) this.entries.set(entry.path, entry);
     else this.entries.delete(normalizedPath);
     this.fileRefreshTokens.delete(normalizedPath);
-    this.emit();
+    // Ignore Markdown changes outside configured journal sources. They never
+    // affect indexed views and should not trigger a calendar/timeline redraw.
+    if (entry || previous) this.emit({ type: 'file', previous, entry: entry || undefined });
   }
 
   removeFile(path: string): void {
     const normalizedPath = normalizeVaultPath(path);
+    const previous = this.entries.get(normalizedPath);
     ++this.mutationToken;
     this.fileRefreshTokens.set(normalizedPath, (this.fileRefreshTokens.get(normalizedPath) ?? 0) + 1);
     this.entries.delete(normalizedPath);
-    this.emit();
+    if (previous) this.emit({ type: 'file', previous });
   }
 
   renameFile(oldPath: string, newPath: string): void {
@@ -239,10 +304,11 @@ export class JournalIndex {
     ++this.mutationToken;
     this.fileRefreshTokens.set(oldKey, (this.fileRefreshTokens.get(oldKey) ?? 0) + 1);
     this.fileRefreshTokens.set(newKey, (this.fileRefreshTokens.get(newKey) ?? 0) + 1);
-    const entry = this.entries.get(oldKey);
+    const previous = this.entries.get(oldKey);
     this.entries.delete(oldKey);
-    if (entry) this.entries.set(newKey, { ...entry, path: newKey });
-    this.emit();
+    const entry = previous ? { ...previous, path: newKey } : undefined;
+    if (entry) this.entries.set(newKey, entry);
+    if (previous) this.emit({ type: 'file', previous, entry });
   }
 
   async detectSources(settings: JournalIndexSettings): Promise<{ files: number; noDate: string[]; fields: Record<string, number> }> {
@@ -289,23 +355,24 @@ export class JournalIndex {
     return result;
   }
 
-  private async rebuild(settings: JournalIndexSettings, token: number, mutationToken: number): Promise<void> {
+  private async rebuild(settings: JournalIndexSettings, token: number, mutationToken: number): Promise<boolean> {
     const sources = this.resolveSources(settings);
     const next = new Map<string, JournalEntry>();
     this.diagnostics.length = 0;
     const files = this.app.vault.getMarkdownFiles?.() ?? [];
     for (const file of files) {
-      if (token !== this.refreshToken || mutationToken !== this.mutationToken) return;
+      if (token !== this.refreshToken || mutationToken !== this.mutationToken) return false;
       const source = sourceForPath(file.path, sources);
       if (!source) continue;
       const entry = await this.readEntry(file, sources);
       if (entry) next.set(entry.path, entry);
     }
-    if (token !== this.refreshToken || mutationToken !== this.mutationToken) return;
+    if (token !== this.refreshToken || mutationToken !== this.mutationToken) return false;
     this.currentSources = sources;
     this.entries.clear();
     for (const [path, entry] of next) this.entries.set(path, entry);
-    this.emit();
+    this.emit({ type: 'full' });
+    return true;
   }
 
   private async readEntry(file: any, sources: JournalSource[]): Promise<JournalEntry | null> {
@@ -326,11 +393,15 @@ export class JournalIndex {
     } catch (error) {
       this.diagnostics.push({ path, reason: 'read-failed', detail: String(error) });
     }
-    const attachments = Array.isArray(cache?.embeds)
+    const embeddedLinks = Array.isArray(cache?.embeds)
       ? cache.embeds.map((embed: any) => String(embed.link ?? '')).filter(Boolean)
       : [];
-    attachments.push(...mediaLinks(readField(frontmatter, 'media')));
-    attachments.push(...mediaLinks(readField(frontmatter, 'photos')));
+    const attachments = dedupeMediaLinks([
+      ...embeddedLinks,
+      ...mediaLinksFromValue(readField(frontmatter, 'media')),
+      ...mediaLinksFromValue(readField(frontmatter, 'photos')),
+    ]);
+    const cover = mediaLinksFromValue(readField(frontmatter, 'cover'))[0];
     const favorite = asBoolean(readField(frontmatter, 'favorite'))
       || asBoolean(readField(frontmatter, 'starred'))
       || asBoolean(readField(frontmatter, 'pinned'));
@@ -339,21 +410,46 @@ export class JournalIndex {
     const modifiedDate = firstString(readField(frontmatter, 'modifiedDate'));
     const weather = asRecord(readField(frontmatter, '_calendar_weather'));
     const mood = this.getMood(path) ?? moodFromFrontmatter(frontmatter);
+    const tags = parseJournalTags(frontmatter, content, Array.isArray(cache?.tags) ? cache.tags : []);
+    const title = titleFromContent(file.name, content, frontmatter);
+    const excerpt = extractExcerpt(content) ?? '';
+    const searchText = buildJournalSearchText({
+      path,
+      title,
+      excerpt,
+      body: content,
+      sourceId: source.id,
+      sourcePath: source.path,
+      sourceType: source.type,
+      sourceLabel: source.label,
+      location: normalizeLocation(frontmatter),
+      tags,
+      activity: readField(frontmatter, 'activity'),
+      weather: Object.keys(weather).length > 0 ? weather : undefined,
+      uuid,
+      frontmatter,
+    });
     return {
       path,
       date: resolved.date,
-      title: titleFromContent(file.name, content, frontmatter),
-      excerpt: extractExcerpt(content) ?? '',
+      title,
+      excerpt,
+      // Preserve the historical raw Markdown body for On This Day templates.
       searchText: content,
       sourceId: source.id,
       sourcePath: source.path,
       sourceType: source.type,
+      sourceLabel: source.label,
       favorite,
       uuid,
       createdAt: creationDate,
       modifiedAt: modifiedDate ?? (file.stat?.mtime ? new Date(file.stat.mtime).toISOString() : undefined),
       location: normalizeLocation(frontmatter),
       attachments,
+      media: mediaAttachmentsFromLinks(attachments, path),
+      cover,
+      tags,
+      normalizedSearchText: searchText,
       activity: readField(frontmatter, 'activity'),
       weather: Object.keys(weather).length > 0 ? weather : undefined,
       mood,
@@ -361,8 +457,8 @@ export class JournalIndex {
     };
   }
 
-  private emit(): void {
+  private emit(change: JournalIndexChange): void {
     const entries = this.getEntries();
-    for (const listener of this.listeners) listener(entries);
+    for (const listener of this.listeners) listener(entries, change);
   }
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { JournalIndex, resolveJournalDate } from '../src/journal-index';
+import { JournalIndex, resolveJournalDate, waitForJournalIndexStartup } from '../src/journal-index';
 
 function makeApp(files: any[]) {
   const byPath = new Map(files.map((file) => [file.path, file]));
@@ -10,12 +10,56 @@ function makeApp(files: any[]) {
       cachedRead: async (file: any) => file.content,
     },
     metadataCache: {
-      getFileCache: (file: any) => ({ frontmatter: file.frontmatter, embeds: file.embeds ?? [] }),
+      getFileCache: (file: any) => ({ frontmatter: file.frontmatter, embeds: file.embeds ?? [], tags: file.tags ?? [] }),
     },
   };
 }
 
 describe('journal index', () => {
+  it('does not wait for a resolved event after Obsidian has already initialized metadata', async () => {
+    const app: any = makeApp([]);
+    app.metadataCache.initialized = true;
+    app.metadataCache.on = () => {
+      throw new Error('an initialized metadata cache must not subscribe again');
+    };
+    app.workspace = {
+      onLayoutReady: (callback: () => void) => callback(),
+    };
+
+    await expect(waitForJournalIndexStartup(app)).resolves.toBeUndefined();
+  });
+
+  it('waits for metadata and layout before the desktop startup rebuild reads embeds', async () => {
+    const file: any = {
+      path: 'Calendar/Daily/2026-07-23.md',
+      name: '2026-07-23.md',
+      frontmatter: {},
+      content: '# July 23',
+      embeds: [],
+    };
+    let resolveMetadata: (() => void) | undefined;
+    let resolveLayout: (() => void) | undefined;
+    const app: any = makeApp([file]);
+    app.metadataCache.initialized = false;
+    app.metadataCache.on = (_event: string, callback: () => void) => { resolveMetadata = callback; return { id: 'metadata-ready' }; };
+    app.metadataCache.offref = () => undefined;
+    app.workspace = { onLayoutReady: (callback: () => void) => { resolveLayout = callback; } };
+    const index = new JournalIndex(app, () => undefined);
+
+    const startup = waitForJournalIndexStartup(app).then(() => index.refresh({ dailyFolder: 'Calendar/Daily' }));
+    await Promise.resolve();
+    expect(index.getEntries()).toEqual([]);
+
+    file.embeds = [{ link: '039A0033.jpg' }, { link: '039A0094.jpg' }];
+    resolveMetadata?.();
+    await Promise.resolve();
+    expect(index.getEntries()).toEqual([]);
+
+    resolveLayout?.();
+    await startup;
+    expect(index.getEntries()[0]?.attachments).toEqual(['039A0033.jpg', '039A0094.jpg']);
+  });
+
   it('uses configured date fields before aliases and filename dates', () => {
     expect(resolveJournalDate('random.md', { importedAt: '2026-07-18T08:00:00+08:00', date: '2020-01-01' }, 'importedAt').date).toBe('2026-07-18');
     expect(resolveJournalDate('2026-07-18 note.md', {}).date).toBe('2026-07-18');
@@ -32,8 +76,9 @@ describe('journal index', () => {
           starred: true,
           uuid: 'abc',
           coordinates: '31.23, 121.47',
+          tags: ['#Imported', 'travel'],
         },
-        content: '# Imported day\nA useful memory.',
+        content: '# Imported day\nA useful memory. #Memory',
         embeds: [{ link: 'media/photo.jpg' }],
       },
       { path: 'Imports/no-date.md', name: 'no-date.md', frontmatter: {}, content: 'No date' },
@@ -52,7 +97,11 @@ describe('journal index', () => {
       date: '2025-02-28', favorite: true, uuid: 'abc',
       location: { latitude: 31.23, longitude: 121.47 },
       sourceType: 'external',
+      tags: ['imported', 'travel', 'memory'],
     });
+    const imported = entries.find((entry) => entry.path === 'Imports/day.md');
+    expect(imported?.searchText).toBe('# Imported day\nA useful memory. #Memory');
+    expect(imported?.normalizedSearchText).toContain('imported day a useful memory. #memory');
     expect(index.getDiagnostics()).toEqual([{ path: 'Imports/no-date.md', reason: 'missing-date' }]);
   });
 
@@ -94,6 +143,104 @@ describe('journal index', () => {
     await first;
 
     expect(index.getEntries()[0]?.title).toBe('second');
+  });
+
+  it('emits a file-scoped change with the previous and refreshed entries', async () => {
+    const file = {
+      path: 'Calendar/Daily/2026-07-18.md',
+      name: '2026-07-18.md',
+      frontmatter: {},
+      content: '# first',
+    };
+    const index = new JournalIndex(makeApp([file]), () => undefined);
+    const changes: any[] = [];
+    index.subscribe((_, change) => changes.push(change));
+
+    await index.refresh({ dailyFolder: 'Calendar/Daily' });
+    file.content = '# second';
+    await index.refreshFile(file.path, { dailyFolder: 'Calendar/Daily' });
+
+    expect(changes).toMatchObject([
+      { type: 'full' },
+      { type: 'file', previous: { title: 'first' }, entry: { title: 'second', date: '2026-07-18' } },
+    ]);
+  });
+
+  it('deduplicates concurrent initial refreshes for mobile activation', async () => {
+    const file = {
+      path: 'Calendar/Daily/2026-07-18.md',
+      name: '2026-07-18.md',
+      frontmatter: {},
+      content: '# day',
+    };
+    let reads = 0;
+    const app = makeApp([file]);
+    app.vault.cachedRead = async (current: any) => {
+      reads += 1;
+      await Promise.resolve();
+      return current.content;
+    };
+    const index = new JournalIndex(app, () => undefined);
+    const settings = { dailyFolder: 'Calendar/Daily' };
+
+    await Promise.all([index.ensureReady(settings), index.ensureReady(settings)]);
+
+    expect(reads).toBe(1);
+    expect(index.isReady).toBe(true);
+    expect(index.getEntries()).toHaveLength(1);
+  });
+
+  it('retries initial readiness after a file mutation invalidates the first rebuild', async () => {
+    const file = {
+      path: 'Calendar/Daily/2026-07-18.md',
+      name: '2026-07-18.md',
+      frontmatter: {},
+      content: '# updated during startup',
+    };
+    let reads = 0;
+    let releaseFirstRead: (() => void) | undefined;
+    const app = makeApp([file]);
+    app.vault.cachedRead = async (current: any) => {
+      reads += 1;
+      if (reads === 1) await new Promise<void>((resolve) => { releaseFirstRead = resolve; });
+      return current.content;
+    };
+    const index = new JournalIndex(app, () => undefined);
+    const settings = { dailyFolder: 'Calendar/Daily' };
+
+    const ready = index.ensureReady(settings);
+    await Promise.resolve();
+    const mutation = index.refreshFile(file.path, settings);
+    releaseFirstRead?.();
+    await Promise.all([ready, mutation]);
+
+    expect(index.isReady).toBe(true);
+    expect(index.getEntries()).toMatchObject([{ path: file.path, title: 'updated during startup' }]);
+    expect(reads).toBeGreaterThanOrEqual(3);
+  });
+
+  it('waits for initial readiness and then applies the newest explicit settings refresh', async () => {
+    const daily = { path: 'Calendar/Daily/2026-07-18.md', name: '2026-07-18.md', frontmatter: {}, content: '# daily' };
+    const imported = { path: 'Imports/2026-07-19.md', name: '2026-07-19.md', frontmatter: {}, content: '# imported' };
+    let releaseFirstRead: (() => void) | undefined;
+    let reads = 0;
+    const app = makeApp([daily, imported]);
+    app.vault.cachedRead = async (file: any) => {
+      reads += 1;
+      if (reads === 1) await new Promise<void>((resolve) => { releaseFirstRead = resolve; });
+      return file.content;
+    };
+    const index = new JournalIndex(app, () => undefined);
+    const initial = index.ensureReady({ dailyFolder: 'Calendar/Daily' });
+    await Promise.resolve();
+    expect(index.isReady).toBe(false);
+    const latest = index.refresh({ dailyFolder: 'Imports' });
+    releaseFirstRead?.();
+    await Promise.all([initial, latest]);
+
+    expect(index.isReady).toBe(true);
+    expect(index.sources).toMatchObject([{ path: 'Imports' }]);
+    expect(index.getEntries()).toMatchObject([{ path: 'Imports/2026-07-19.md' }]);
   });
 
   it('keeps the renamed entry generation ahead of an in-flight refresh', async () => {

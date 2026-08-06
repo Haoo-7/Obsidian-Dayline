@@ -1,9 +1,58 @@
 // @ts-nocheck
-const { PluginSettingTab, Setting, Notice, SuggestModal, TFolder } = require('obsidian');
-const { t } = require('./i18n');
-const { localize: _l } = require('./locale');
+import { Notice, PluginSettingTab, Setting, SuggestModal, TFolder } from 'obsidian';
+import { getDisplayLanguage, t } from './i18n';
+import { localize as _l } from './locale';
+import compactWordmarkSvg from '../assets/dayline-wordmark-compact.svg';
 
 const VIEW_TYPE = 'calendar-sidebar-view';
+
+export const SETTINGS_SECTION_IDS = [
+  'general',
+  'calendar-journal',
+  'mood',
+  'weather',
+  'media-privacy',
+  'on-this-day',
+  'data-maintenance',
+];
+
+export const SETTINGS_SECTION_LABEL_KEYS = {
+  general: 'settingsGeneral',
+  'calendar-journal': 'settingsCalendarJournal',
+  mood: 'settingsMood',
+  weather: 'settingsWeather',
+  'media-privacy': 'settingsMediaPrivacy',
+  'on-this-day': 'settingsOnThisDay',
+  'data-maintenance': 'settingsDataMaintenance',
+};
+
+export const SETTINGS_ACTION_ROWS = {
+  journalTools: ['openTimeline', 'detectImports'],
+  moodExport: ['exportMoodCsvCommand', 'exportMoodJsonCommand'],
+  metadataBackup: ['exportMetadataCommand', 'restoreMetadataCommand'],
+  dataMaintenance: ['integrityCommand', 'importFrontmatterCommand'],
+};
+
+export function shouldShowWeatherSettings(settings) {
+  return settings.weatherEnabled === true;
+}
+
+export function shouldShowCalendarWeatherOptions(settings) {
+  return shouldShowWeatherSettings(settings);
+}
+
+export function shouldShowWeatherLocationOption(settings) {
+  return shouldShowCalendarWeatherOptions(settings) && settings.showCalendarWeatherCard !== false;
+}
+
+export function shouldShowOnThisDayExcerptSettings(settings) {
+  // The sidebar control is only one entry point; commands can always open On This Day.
+  return true;
+}
+
+export function shouldShowExifGeocoding(settings) {
+  return settings.showExif === true;
+}
 
 /* ============================================================
    Settings Tab
@@ -33,9 +82,13 @@ export class DaylineSettingsTab extends PluginSettingTab {
   }
 
   _refreshCalendarView() {
-    const leaf = this.app.workspace.getLeavesOfType(VIEW_TYPE)[0];
-    const refresh = leaf?.view?.refresh?.();
-    if (refresh?.catch) refresh.catch((error) => this._notifyViewRefreshFailure(error));
+    for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE)) {
+      const view = leaf.view;
+      if (!view) continue;
+      view._syncNoteOverlays?.();
+      const refresh = view.refresh?.();
+      if (refresh?.catch) refresh.catch((error) => this._notifyViewRefreshFailure(error));
+    }
   }
 
   async _refreshViews({ resetSource = false } = {}) {
@@ -58,17 +111,78 @@ export class DaylineSettingsTab extends PluginSettingTab {
     }
   }
 
+  _addSection(containerEl, id) {
+    const heading = containerEl.createEl('h3', { text: t(this.plugin.settings, SETTINGS_SECTION_LABEL_KEYS[id]) });
+    heading.dataset.daylineSettingsSection = id;
+  }
+
+  _addActionRow(setting, id) {
+    setting.settingEl.addClass('dayline-settings-action-row');
+    setting.settingEl.dataset.daylineSettingsActionRow = id;
+    return setting;
+  }
+
   display() {
     const { containerEl } = this;
     containerEl.empty();
     const _s = (key, ...args) => _l(this.plugin.settings.weatherLanguage, key, ...args);
 
-    containerEl.createEl('h2', { text: 'Dayline' });
+    const brand = containerEl.createDiv({ cls: 'dayline-settings-brand', attr: { 'aria-label': 'Dayline' } });
+    try {
+      const parsed = new DOMParser().parseFromString(compactWordmarkSvg, 'image/svg+xml');
+      const svg = parsed.documentElement;
+      if (svg?.tagName?.toLowerCase() === 'svg' && !parsed.querySelector('parsererror')) {
+        parsed.querySelectorAll('script').forEach((script) => script.remove());
+        parsed.querySelectorAll('*').forEach((node) => {
+          for (const attribute of Array.from(node.attributes)) {
+            if (attribute.name.toLowerCase().startsWith('on')) node.removeAttribute(attribute.name);
+          }
+        });
+        const clone = document.importNode(svg, true);
+        clone.setAttribute('role', 'img');
+        clone.setAttribute('aria-label', 'Dayline');
+        clone.setAttribute('width', '132');
+        clone.setAttribute('height', '32');
+        brand.appendChild(clone);
+      }
+    } catch (_) {
+      brand.setText('Dayline');
+    }
 
-    /* ======================
-       Section: Diary 日记
-       ====================== */
-    containerEl.createEl('h3', { text: '📓 ' + _s('s_dailyFolder') });
+    this._addSection(containerEl, 'general');
+
+    new Setting(containerEl)
+      .setName(t(this.plugin.settings, 'language'))
+      .setDesc(t(this.plugin.settings, 'languageDesc'))
+      .addDropdown((dd) => dd
+        .addOption('system', t(this.plugin.settings, 'system'))
+        .addOption('en', t(this.plugin.settings, 'english'))
+        .addOption('zh', t(this.plugin.settings, 'chinese'))
+        .setValue(this.plugin.settings.displayLanguage)
+        .onChange(async (value) => {
+          this.plugin.settings.displayLanguage = value;
+          this.plugin.settings.weatherLanguage = getDisplayLanguage({ displayLanguage: value });
+          if (!(await this._saveSettings())) return;
+          this.display();
+          this._refreshCalendarView();
+          this.plugin.refreshJournalViews();
+        }));
+
+    new Setting(containerEl)
+      .setName(t(this.plugin.settings, 'weekStart'))
+      .setDesc(t(this.plugin.settings, 'weekStartDesc'))
+      .addDropdown((dd) => dd
+        .addOption('system', t(this.plugin.settings, 'weekStartSystem'))
+        .addOption('monday', t(this.plugin.settings, 'weekStartMonday'))
+        .addOption('sunday', t(this.plugin.settings, 'weekStartSunday'))
+        .setValue(this.plugin.settings.weekStart || 'system')
+        .onChange(async (value) => {
+          this.plugin.settings.weekStart = value;
+          if (!(await this._saveSettings())) return;
+          this._refreshCalendarView();
+        }));
+
+    this._addSection(containerEl, 'calendar-journal');
 
     new Setting(containerEl)
       .setName(_s('s_dailyFolder'))
@@ -83,77 +197,31 @@ export class DaylineSettingsTab extends PluginSettingTab {
             await this._refreshViews({ resetSource: true });
           });
       })
-      .addExtraButton((btn) => {
-        btn.setIcon('folder-search')
-          .setTooltip(_s('s_browseFolders'))
-          .onClick(() => {
-            new FolderSuggestModal(this.app, (path) => {
-              this.plugin.settings.dailyFolder = path;
-              void this._saveSettings().then((saved) => {
-                if (saved) return this._refreshViews({ resetSource: true });
-              }).catch((error) => {
-                const message = error?.message || String(error);
-                this._notifyViewRefreshFailure({ message });
-              });
-              this.folderInput.setValue(path);
-            }).open();
-          });
-      });
+      .addExtraButton((btn) => btn
+        .setIcon('folder-search')
+        .setTooltip(_s('s_browseFolders'))
+        .onClick(() => {
+          new FolderSuggestModal(this.app, (path) => {
+            this.plugin.settings.dailyFolder = path;
+            void this._saveSettings().then((saved) => {
+              if (saved) return this._refreshViews({ resetSource: true });
+            }).catch((error) => this._notifyViewRefreshFailure(error));
+            this.folderInput.setValue(path);
+          }).open();
+        }));
 
     new Setting(containerEl)
       .setName(_s('s_thumbnailFilter'))
       .setDesc(_s('s_thumbnailFilterDesc'))
-      .addDropdown((dd) =>
-        dd
-          .addOption('all', _s('s_thumbnailAll'))
-          .addOption('date-prefixed', _s('s_thumbnailDate'))
-          .setValue(this.plugin.settings.thumbnailFilter)
-          .onChange(async (value) => {
-            this.plugin.settings.thumbnailFilter = value;
-            if (!(await this._saveSettings())) return;
-            this._refreshCalendarView();
-          })
-      );
-
-    containerEl.createEl('h3', { text: t(this.plugin.settings, 'calendarDisplay') });
-
-    new Setting(containerEl)
-      .setName(t(this.plugin.settings, 'showCalendarMood'))
-      .setDesc(t(this.plugin.settings, 'showCalendarMoodDesc'))
-      .addToggle((toggle) => toggle
-        .setValue(this.plugin.settings.showCalendarMood !== false)
+      .addDropdown((dd) => dd
+        .addOption('all', _s('s_thumbnailAll'))
+        .addOption('date-prefixed', _s('s_thumbnailDate'))
+        .setValue(this.plugin.settings.thumbnailFilter)
         .onChange(async (value) => {
-          this.plugin.settings.showCalendarMood = value;
+          this.plugin.settings.thumbnailFilter = value;
           if (!(await this._saveSettings())) return;
-          await this._refreshViews();
+          this._refreshCalendarView();
         }));
-
-    new Setting(containerEl)
-      .setName(t(this.plugin.settings, 'showCalendarWeatherCard'))
-      .setDesc(t(this.plugin.settings, 'showCalendarWeatherCardDesc'))
-      .addToggle((toggle) => toggle
-        .setValue(this.plugin.settings.showCalendarWeatherCard !== false)
-        .onChange(async (value) => {
-          this.plugin.settings.showCalendarWeatherCard = value;
-          if (!(await this._saveSettings())) return;
-          await this._refreshViews();
-        }));
-
-    new Setting(containerEl)
-      .setName(t(this.plugin.settings, 'showCalendarWeatherBadge'))
-      .setDesc(t(this.plugin.settings, 'showCalendarWeatherBadgeDesc'))
-      .addToggle((toggle) => toggle
-        .setValue(this.plugin.settings.showCalendarWeatherBadge !== false)
-        .onChange(async (value) => {
-          this.plugin.settings.showCalendarWeatherBadge = value;
-          if (!(await this._saveSettings())) return;
-          await this._refreshViews();
-        }));
-
-    /* ======================
-       Section: Journal and mood
-       ====================== */
-    containerEl.createEl('h3', { text: t(this.plugin.settings, 'journalSources') });
 
     new Setting(containerEl)
       .setName(t(this.plugin.settings, 'journalSources'))
@@ -171,26 +239,85 @@ export class DaylineSettingsTab extends PluginSettingTab {
             await this.plugin.journalIndex.refresh(this.plugin.settings);
             this.plugin.refreshJournalViews();
           } catch (_) {
-            new Notice('Journal sources must be a valid JSON array');
+            new Notice(t(this.plugin.settings, 'invalidJournalSources'));
           }
         });
       });
 
-    new Setting(containerEl)
-      .setName(t(this.plugin.settings, 'moodMetadataPath'))
-      .setDesc(t(this.plugin.settings, 'moodMetadataPathDesc'))
-      .addText((text) => text
-        .setValue(this.plugin.settings.moodMetadataPath)
-        .setPlaceholder('Calendar/journal-metadata.json')
-        .onChange(async (value) => {
-          const next = value.trim() || 'Calendar/journal-metadata.json';
-          this.plugin.settings.moodMetadataPath = next;
-          if (!(await this._saveSettings())) return;
-          this.plugin.moodStore.configure(this.plugin.settings);
-          await this.plugin.moodStore.load();
-          await this.plugin.journalIndex.refresh(this.plugin.settings);
-          this.plugin.refreshJournalViews();
+    this._addActionRow(new Setting(containerEl)
+      .setName(t(this.plugin.settings, 'journalTools'))
+      .setDesc(t(this.plugin.settings, 'journalToolsDesc')), 'journalTools')
+      .addButton((button) => button
+        .setButtonText(t(this.plugin.settings, 'openTimeline'))
+        .onClick(() => this.plugin.activateTimeline()))
+      .addButton((button) => button
+        .setButtonText(t(this.plugin.settings, 'detectImports'))
+        .onClick(async () => {
+          const result = await this.plugin.journalIndex.detectSources(this.plugin.settings);
+          new Notice(t(this.plugin.settings, 'detectImportsResult', result));
         }));
+
+    new Setting(containerEl)
+      .setName(t(this.plugin.settings, 'showCalendarMood'))
+      .setDesc(t(this.plugin.settings, 'showCalendarMoodDesc'))
+      .addToggle((toggle) => toggle
+        .setValue(this.plugin.settings.showCalendarMood !== false)
+        .onChange(async (value) => {
+          this.plugin.settings.showCalendarMood = value;
+          if (!(await this._saveSettings())) return;
+          await this._refreshViews();
+        }));
+
+    new Setting(containerEl)
+      .setName(t(this.plugin.settings, 'showCalendarEntryCount'))
+      .setDesc(t(this.plugin.settings, 'showCalendarEntryCountDesc'))
+      .addToggle((toggle) => toggle
+        .setValue(this.plugin.settings.showCalendarEntryCount !== false)
+        .onChange(async (value) => {
+          this.plugin.settings.showCalendarEntryCount = value;
+          if (!(await this._saveSettings())) return;
+          await this._refreshViews();
+        }));
+
+    if (shouldShowCalendarWeatherOptions(this.plugin.settings)) {
+      new Setting(containerEl)
+        .setName(t(this.plugin.settings, 'showCalendarWeatherCard'))
+        .setDesc(t(this.plugin.settings, 'showCalendarWeatherCardDesc'))
+        .addToggle((toggle) => toggle
+          .setValue(this.plugin.settings.showCalendarWeatherCard !== false)
+          .onChange(async (value) => {
+            this.plugin.settings.showCalendarWeatherCard = value;
+            if (!(await this._saveSettings())) return;
+            this.display();
+            await this._refreshViews();
+          }));
+
+      if (shouldShowWeatherLocationOption(this.plugin.settings)) {
+        new Setting(containerEl)
+          .setName(t(this.plugin.settings, 'showCalendarWeatherLocation'))
+          .setDesc(t(this.plugin.settings, 'showCalendarWeatherLocationDesc'))
+          .addToggle((toggle) => toggle
+            .setValue(this.plugin.settings.showCalendarWeatherLocation === true)
+            .onChange(async (value) => {
+              this.plugin.settings.showCalendarWeatherLocation = value;
+              if (!(await this._saveSettings())) return;
+              await this._refreshViews();
+            }));
+      }
+
+      new Setting(containerEl)
+        .setName(t(this.plugin.settings, 'showCalendarWeatherBadge'))
+        .setDesc(t(this.plugin.settings, 'showCalendarWeatherBadgeDesc'))
+        .addToggle((toggle) => toggle
+          .setValue(this.plugin.settings.showCalendarWeatherBadge !== false)
+          .onChange(async (value) => {
+            this.plugin.settings.showCalendarWeatherBadge = value;
+            if (!(await this._saveSettings())) return;
+            await this._refreshViews();
+          }));
+    }
+
+    this._addSection(containerEl, 'mood');
 
     new Setting(containerEl)
       .setName(t(this.plugin.settings, 'mirrorMood'))
@@ -213,9 +340,9 @@ export class DaylineSettingsTab extends PluginSettingTab {
         }))
       .addExtraButton((button) => button
         .setIcon('clock-3')
-        .setTooltip('Reminder hour')
+        .setTooltip(t(this.plugin.settings, 'reminderHour'))
         .onClick(() => {
-          const value = window.prompt('Reminder hour (0-23)', String(this.plugin.settings.reminderHour ?? 21));
+          const value = window.prompt(t(this.plugin.settings, 'reminderHourPrompt'), String(this.plugin.settings.reminderHour ?? 21));
           const hour = Number(value);
           if (Number.isInteger(hour) && hour >= 0 && hour <= 23) {
             this.plugin.settings.reminderHour = hour;
@@ -223,23 +350,7 @@ export class DaylineSettingsTab extends PluginSettingTab {
           }
         }));
 
-    new Setting(containerEl)
-      .setName(t(this.plugin.settings, 'journalTools'))
-      .setDesc(t(this.plugin.settings, 'journalToolsDesc'))
-      .addButton((button) => button
-        .setButtonText(t(this.plugin.settings, 'openTimeline'))
-        .onClick(() => this.plugin.activateTimeline()))
-      .addButton((button) => button
-        .setButtonText(t(this.plugin.settings, 'detectImports'))
-        .onClick(async () => {
-          const result = await this.plugin.journalIndex.detectSources(this.plugin.settings);
-          new Notice(`${result.files} files, ${result.noDate.length} without a date`);
-        }));
-
-    /* ======================
-       Section: Weather 天气
-       ====================== */
-    containerEl.createEl('h3', { text: '🌤️ ' + _s('s_weather') });
+    this._addSection(containerEl, 'weather');
 
     new Setting(containerEl)
       .setName(_s('s_weatherEnable'))
@@ -250,9 +361,12 @@ export class DaylineSettingsTab extends PluginSettingTab {
           .onChange(async (value) => {
             this.plugin.settings.weatherEnabled = value;
             if (!(await this._saveSettings())) return;
+            this.display();
             await this._refreshViews();
           })
       );
+
+    if (shouldShowWeatherSettings(this.plugin.settings)) {
 
     new Setting(containerEl)
       .setName(_s('s_latitude'))
@@ -311,6 +425,37 @@ export class DaylineSettingsTab extends PluginSettingTab {
           })
       );
 
+    const weatherFieldsSetting = new Setting(containerEl)
+      .setName(t(this.plugin.settings, 'weatherExtraFields'))
+      .setDesc(t(this.plugin.settings, 'weatherExtraFieldsDesc'));
+    {
+        const control = weatherFieldsSetting.controlEl.createDiv({ cls: 'dayline-weather-field-options' });
+        const fields = [
+          ['feels', 'weatherFieldFeels'],
+          ['humidity', 'weatherFieldHumidity'],
+          ['low', 'weatherFieldLow'],
+          ['precipitation', 'weatherFieldPrecipitation'],
+          ['wind', 'weatherFieldWind'],
+          ['sunrise', 'weatherFieldSunrise'],
+          ['sunset', 'weatherFieldSunset'],
+        ];
+        const selected = new Set(Array.isArray(this.plugin.settings.weatherDisplayFields)
+          ? this.plugin.settings.weatherDisplayFields
+          : ['feels', 'humidity']);
+        for (const [value, labelKey] of fields) {
+          const label = control.createEl('label', { cls: 'dayline-weather-field-option' });
+          const input = label.createEl('input', { attr: { type: 'checkbox', value } });
+          input.checked = selected.has(value);
+          label.createSpan({ text: t(this.plugin.settings, labelKey) });
+          input.addEventListener('change', async () => {
+            if (input.checked) selected.add(value); else selected.delete(value);
+            this.plugin.settings.weatherDisplayFields = fields.map(([key]) => key).filter((key) => selected.has(key));
+            if (!(await this._saveSettings())) return;
+            await this._refreshViews();
+          });
+        }
+    }
+
     new Setting(containerEl)
       .setName(t(this.plugin.settings, 'weatherTimezone'))
       .setDesc(t(this.plugin.settings, 'weatherTimezoneDesc'))
@@ -350,42 +495,34 @@ export class DaylineSettingsTab extends PluginSettingTab {
           })
       );
 
+    }
+
+    this._addSection(containerEl, 'media-privacy');
+
     new Setting(containerEl)
-      .setName(t(this.plugin.settings, 'language'))
-      .setDesc(t(this.plugin.settings, 'languageDesc'))
-      .addDropdown((dd) =>
-        dd
-          .addOption('en', t(this.plugin.settings, 'english'))
-          .addOption('zh', t(this.plugin.settings, 'chinese'))
-          .setValue(this.plugin.settings.displayLanguage)
+      .setName(_s('s_exifEnable'))
+      .setDesc(_s('s_exifEnableDesc'))
+      .addToggle((toggle) => toggle
+        .setValue(this.plugin.settings.showExif)
+        .onChange(async (value) => {
+          this.plugin.settings.showExif = value;
+          if (!(await this._saveSettings())) return;
+          this.display();
+        }));
+
+    if (shouldShowExifGeocoding(this.plugin.settings)) {
+      new Setting(containerEl)
+        .setName(_s('s_exifGeocode'))
+        .setDesc(_s('s_exifGeocodeDesc'))
+        .addToggle((toggle) => toggle
+          .setValue(this.plugin.settings.exifReverseGeocode)
           .onChange(async (value) => {
-            this.plugin.settings.displayLanguage = value;
-            this.plugin.settings.weatherLanguage = value;
-            if (!(await this._saveSettings())) return;
-            this.display();
-            const leaf = this.app.workspace.getLeavesOfType(VIEW_TYPE)[0];
-            if (leaf?.view) leaf.view._syncNoteOverlays();
-            this._refreshCalendarView();
-            this.plugin.refreshJournalViews();
-          })
-      );
+            this.plugin.settings.exifReverseGeocode = value;
+            await this._saveSettings();
+          }));
+    }
 
-    // Backfill weather button
-    new Setting(containerEl)
-      .setName(_s('s_backfill'))
-      .setDesc(_s('s_backfillDesc'))
-      .addButton((btn) => btn
-        .setButtonText(_s('s_backfillBtn'))
-        .onClick(async () => {
-          const leaf = this.app.workspace.getLeavesOfType(VIEW_TYPE)[0];
-          if (leaf?.view) leaf.view.startWeatherBackfill();
-        })
-      );
-
-    /* ======================
-       Section: On This Day 去年今日
-       ====================== */
-    containerEl.createEl('h3', { text: '📅 ' + _s('s_otd') });
+    this._addSection(containerEl, 'on-this-day');
 
     new Setting(containerEl)
       .setName(_s('s_otdButton'))
@@ -396,6 +533,7 @@ export class DaylineSettingsTab extends PluginSettingTab {
           .onChange(async (value) => {
             this.plugin.settings.onThisDayButton = value;
             if (!(await this._saveSettings())) return;
+            this.display();
             const leaf = this.app.workspace.getLeavesOfType(VIEW_TYPE)[0];
             if (leaf?.view) leaf.view.render();
           })
@@ -414,89 +552,156 @@ export class DaylineSettingsTab extends PluginSettingTab {
           })
       );
 
-    new Setting(containerEl)
-      .setName(_s('s_otdExcerptMode'))
-      .setDesc(_s('s_otdExcerptModeDesc'))
-      .addDropdown((dropdown) =>
-        dropdown
+    if (shouldShowOnThisDayExcerptSettings(this.plugin.settings)) {
+      new Setting(containerEl)
+        .setName(_s('s_otdExcerptMode'))
+        .setDesc(_s('s_otdExcerptModeDesc'))
+        .addDropdown((dropdown) => dropdown
           .addOptions({
-            'auto': _s('s_otdExcerptAuto'),
-            'frontmatter': _s('s_otdExcerptFrontmatter'),
-            'template': _s('s_otdExcerptTemplate'),
-            'none': _s('s_otdExcerptNone'),
+            auto: _s('s_otdExcerptAuto'),
+            frontmatter: _s('s_otdExcerptFrontmatter'),
+            template: _s('s_otdExcerptTemplate'),
+            none: _s('s_otdExcerptNone'),
           })
           .setValue(this.plugin.settings.onThisDayExcerptMode)
           .onChange(async (value) => {
             this.plugin.settings.onThisDayExcerptMode = value;
             if (!(await this._saveSettings())) return;
             const leaf = this.app.workspace.getLeavesOfType(VIEW_TYPE)[0];
-            if (leaf?.view?._otdProvider) leaf.view._otdProvider.invalidate();
-            this.display(); // re-render to show/hide conditional fields
-          })
-      );
+            leaf?.view?._otdProvider?.invalidate();
+            this.display();
+          }));
 
-    // Conditional: only show when 'frontmatter' is selected
-    if (this.plugin.settings.onThisDayExcerptMode === 'frontmatter') {
-      new Setting(containerEl)
-        .setName(_s('s_otdExcerptKey'))
-        .setDesc(_s('s_otdExcerptKeyDesc'))
-        .addText((text) =>
-          text
+      if (this.plugin.settings.onThisDayExcerptMode === 'frontmatter') {
+        new Setting(containerEl)
+          .setName(_s('s_otdExcerptKey'))
+          .setDesc(_s('s_otdExcerptKeyDesc'))
+          .addText((text) => text
             .setValue(this.plugin.settings.onThisDayExcerptKey || 'excerpt')
             .onChange(async (value) => {
-            this.plugin.settings.onThisDayExcerptKey = value;
+              this.plugin.settings.onThisDayExcerptKey = value;
               if (!(await this._saveSettings())) return;
-              const leaf = this.app.workspace.getLeavesOfType(VIEW_TYPE)[0];
-              if (leaf?.view?._otdProvider) leaf.view._otdProvider.invalidate();
-            })
-        );
-    }
+              this.app.workspace.getLeavesOfType(VIEW_TYPE)[0]?.view?._otdProvider?.invalidate();
+            }));
+      }
 
-    // Conditional: only show when 'template' is selected
-    if (this.plugin.settings.onThisDayExcerptMode === 'template') {
-      new Setting(containerEl)
-        .setName(_s('s_otdTemplate'))
-        .setDesc(_s('s_otdTemplateDesc'))
-        .addText((text) =>
-          text
+      if (this.plugin.settings.onThisDayExcerptMode === 'template') {
+        new Setting(containerEl)
+          .setName(_s('s_otdTemplate'))
+          .setDesc(_s('s_otdTemplateDesc'))
+          .addText((text) => text
             .setValue(this.plugin.settings.onThisDayExcerptTemplate || '{body}')
             .onChange(async (value) => {
               this.plugin.settings.onThisDayExcerptTemplate = value;
               if (!(await this._saveSettings())) return;
-              const leaf = this.app.workspace.getLeavesOfType(VIEW_TYPE)[0];
-              if (leaf?.view?._otdProvider) leaf.view._otdProvider.invalidate();
-            })
-        );
+              this.app.workspace.getLeavesOfType(VIEW_TYPE)[0]?.view?._otdProvider?.invalidate();
+            }));
+      }
     }
 
-    /* ======================
-       Section: Other 其他
-       ====================== */
-    containerEl.createEl('h3', { text: '⚙️ ' + _s('s_exif') });
+    this._addSection(containerEl, 'data-maintenance');
 
     new Setting(containerEl)
-      .setName(_s('s_exifEnable'))
-      .setDesc(_s('s_exifEnableDesc'))
-      .addToggle((toggle) =>
-        toggle
-          .setValue(this.plugin.settings.showExif)
-          .onChange(async (value) => {
-            this.plugin.settings.showExif = value;
-            await this._saveSettings();
-          })
-      );
+      .setName(t(this.plugin.settings, 'moodMetadataPath'))
+      .setDesc(t(this.plugin.settings, 'moodMetadataPathDesc'))
+      .addText((text) => text
+        .setValue(this.plugin.settings.moodMetadataPath)
+        .setPlaceholder('Calendar/journal-metadata.json')
+        .onChange(async (value) => {
+          const next = value.trim() || 'Calendar/journal-metadata.json';
+          this.plugin.settings.moodMetadataPath = next;
+          if (!(await this._saveSettings())) return;
+          this.plugin.moodStore.configure(this.plugin.settings);
+          await this.plugin.moodStore.load();
+          await this.plugin.journalIndex.refresh(this.plugin.settings);
+          this.plugin.refreshJournalViews();
+        }));
 
-    new Setting(containerEl)
-      .setName(_s('s_exifGeocode'))
-      .setDesc(_s('s_exifGeocodeDesc'))
-      .addToggle((toggle) =>
-        toggle
-          .setValue(this.plugin.settings.exifReverseGeocode)
-          .onChange(async (value) => {
-            this.plugin.settings.exifReverseGeocode = value;
-            await this._saveSettings();
-          })
-      );
+    this._addActionRow(new Setting(containerEl)
+      .setName(t(this.plugin.settings, 'moodExport'))
+      .setDesc(t(this.plugin.settings, 'moodExportDesc')), 'moodExport')
+      .addButton((button) => button
+        .setButtonText(t(this.plugin.settings, 'exportMoodCsvCommand'))
+        .onClick(() => this.plugin.exportMood('csv')))
+      .addButton((button) => button
+        .setButtonText(t(this.plugin.settings, 'exportMoodJsonCommand'))
+        .onClick(() => this.plugin.exportMood('json')));
+
+    this._addActionRow(new Setting(containerEl)
+      .setName(t(this.plugin.settings, 'metadataBackup'))
+      .setDesc(t(this.plugin.settings, 'metadataBackupDesc')), 'metadataBackup')
+      .addButton((button) => button
+        .setButtonText(t(this.plugin.settings, 'exportMetadataCommand'))
+        .onClick(async () => {
+          try {
+            const path = await this.plugin.moodStore.exportTo();
+            new Notice(t(this.plugin.settings, 'metadataExported', { path }));
+          } catch (error) {
+            new Notice(t(this.plugin.settings, 'metadataExportFailed', { error: error?.message || error }));
+          }
+        }))
+      .addButton((button) => button
+        .setButtonText(t(this.plugin.settings, 'restoreMetadataCommand'))
+        .onClick(async () => {
+          try {
+            await this.plugin.moodStore.restoreBackup();
+            await this.plugin.journalIndex.refresh(this.plugin.settings);
+            this.plugin.refreshJournalViews();
+            new Notice(t(this.plugin.settings, 'metadataRestored'));
+          } catch (error) {
+            new Notice(t(this.plugin.settings, 'metadataRestoreFailed', { error: error?.message || error }));
+          }
+        }));
+
+    this._addActionRow(new Setting(containerEl)
+      .setName(t(this.plugin.settings, 'dataMaintenance'))
+      .setDesc(t(this.plugin.settings, 'dataMaintenanceDesc')), 'dataMaintenance')
+      .addButton((button) => button
+        .setButtonText(t(this.plugin.settings, 'integrityCommand'))
+        .onClick(async () => {
+          const result = await this.plugin.moodStore.checkIntegrity();
+          new Notice(result.valid
+            ? t(this.plugin.settings, 'metadataValid')
+            : t(this.plugin.settings, 'metadataIntegrityIssues', {
+              metadata: result.invalidMetadata.length,
+              records: result.invalidRecords.length,
+              orphans: result.invalidOrphans.length,
+              missing: result.missingFiles.length,
+            }));
+        }))
+      .addButton((button) => button
+        .setButtonText(t(this.plugin.settings, 'importFrontmatterCommand'))
+        .onClick(async () => {
+          const count = await this.plugin.moodStore.importFrontmatter(
+            this.plugin.journalIndex.getEntries().map((entry) => entry.path),
+            this.app.metadataCache,
+          );
+          await this.plugin.journalIndex.refresh(this.plugin.settings);
+          this.plugin.refreshJournalViews();
+          new Notice(t(this.plugin.settings, 'importedMoods', { count }));
+        }));
+
+    const orphanCount = Object.keys(this.plugin.moodStore?.getOrphans?.() || {}).length;
+    if (orphanCount > 0) {
+      new Setting(containerEl)
+        .setName(t(this.plugin.settings, 'moodRecoveryTitle'))
+        .setDesc(t(this.plugin.settings, 'moodRecoveryDescription'))
+        .addButton((button) => button
+          .setButtonText(t(this.plugin.settings, 'moodRecoveryCommand'))
+          .onClick(() => this.plugin.openMoodRecovery()));
+    }
+
+    if (shouldShowWeatherSettings(this.plugin.settings)) {
+      new Setting(containerEl)
+        .setName(_s('s_backfill'))
+        .setDesc(_s('s_backfillDesc'))
+        .addButton((btn) => btn
+          .setButtonText(_s('s_backfillBtn'))
+          .onClick(async () => {
+            const leaf = this.app.workspace.getLeavesOfType(VIEW_TYPE)[0];
+            if (leaf?.view) leaf.view.startWeatherBackfill();
+          }));
+    }
   }
 }
 /* ============================================================

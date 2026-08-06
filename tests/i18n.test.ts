@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   formatCalendarMonth,
   formatJournalDate,
+  getCalendarGridOffset,
   getCalendarWeekdays,
   getDisplayLanguage,
   moodLabel,
@@ -20,6 +21,11 @@ describe('display language', () => {
     expect(formatCalendarMonth(2026, 8, { displayLanguage: 'en' })).toBe('August 2026');
     expect(getCalendarWeekdays({ displayLanguage: 'zh' })).toEqual(['日', '一', '二', '三', '四', '五', '六']);
     expect(getCalendarWeekdays({ displayLanguage: 'en' })).toEqual(['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']);
+    expect(getCalendarWeekdays({ displayLanguage: 'en', weekStart: 'monday' })).toEqual(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']);
+    expect(getCalendarWeekdays({ displayLanguage: 'zh', weekStart: 'sunday' })).toEqual(['日', '一', '二', '三', '四', '五', '六']);
+    expect(getCalendarGridOffset(2026, 7, { weekStart: 'sunday' })).toBe(6);
+    expect(getCalendarGridOffset(2026, 7, { weekStart: 'monday' })).toBe(5);
+    expect(['zh', 'en']).toContain(getDisplayLanguage({ displayLanguage: 'system' }));
   });
 
   it('localizes Dayline view menu titles', () => {

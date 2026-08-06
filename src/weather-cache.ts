@@ -47,3 +47,33 @@ export function isSnapshotStale(
   if (!Number.isFinite(timestamp)) return true;
   return now - timestamp > ttlHours * 60 * 60 * 1000;
 }
+
+/** Clone a usable cache entry with status that is safe for the UI only. */
+export function cloneStaleOfflineSnapshot(
+  snapshot: WeatherSnapshot | null | undefined,
+): WeatherSnapshot | null {
+  return cloneStaleSnapshot(snapshot, true);
+}
+
+/** Clone a stale cache entry, optionally marking transport-level offline state. */
+export function cloneStaleSnapshot(
+  snapshot: WeatherSnapshot | null | undefined,
+  offline = false,
+): WeatherSnapshot | null {
+  if (!snapshot || typeof snapshot !== 'object') return null;
+  const clone = { ...snapshot };
+  delete clone.stale;
+  delete clone.offline;
+  return offline ? { ...clone, stale: true, offline: true } : { ...clone, stale: true };
+}
+
+/** Remove transient status before writing a snapshot to plugin data. */
+export function toCanonicalWeatherSnapshot(
+  snapshot: WeatherSnapshot | null | undefined,
+): WeatherSnapshot | null {
+  if (!snapshot || typeof snapshot !== 'object') return null;
+  const canonical = { ...snapshot };
+  delete canonical.stale;
+  delete canonical.offline;
+  return canonical;
+}

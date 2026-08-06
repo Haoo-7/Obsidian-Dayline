@@ -1,4 +1,6 @@
-export const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'avif', 'heic', 'heif'];
+import { classifyMediaLink, IMAGE_EXTENSIONS as IMAGE_TYPES, normalizeMediaLink } from './media-links';
+
+export const IMAGE_EXTENSIONS = IMAGE_TYPES;
 export const HEIC_EXTENSIONS = ['heic', 'heif'];
 
 export interface ThumbnailResult {
@@ -21,17 +23,22 @@ export class ThumbnailService {
   }
 
   isImageLink(link: string): boolean {
-    const clean = String(link || '').split('|', 1)[0].split(/[\\/]/).pop() || '';
-    return IMAGE_EXTENSIONS.includes(clean.split('.').pop()?.toLowerCase() || '');
+    return classifyMediaLink(link).kind === 'image';
   }
 
   resolve(link: string, sourcePath: string): any | null {
-    const file = this.app.metadataCache.getFirstLinkpathDest(String(link).split('|', 1)[0], sourcePath);
+    const normalized = normalizeMediaLink(link);
+    if (normalized.toLowerCase().startsWith('http://') || normalized.toLowerCase().startsWith('https://')) return null;
+    const file = this.app.metadataCache.getFirstLinkpathDest(normalized, sourcePath);
     return this.isImageFile(file) ? file : null;
   }
 
   async load(link: string, sourcePath: string, index = 0): Promise<ThumbnailResult | null> {
-    const file = this.resolve(link, sourcePath);
+    const normalized = normalizeMediaLink(link);
+    if (normalized.toLowerCase().startsWith('http://') || normalized.toLowerCase().startsWith('https://')) {
+      return this.isImageLink(normalized) ? { url: normalized, path: normalized, index } : null;
+    }
+    const file = this.resolve(normalized, sourcePath);
     if (!file) return null;
     try {
       const ext = String(file.extension).toLowerCase();

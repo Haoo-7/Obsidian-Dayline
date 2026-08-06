@@ -135,6 +135,18 @@ export class OnThisDayProvider {
     this.dateIndex = null;
   }
 
+  /** Refresh one MM-DD marker without rebuilding the complete date index. */
+  refreshDateIndexFor(mmdd: string): void {
+    this.entryCache.delete(mmdd);
+    if (!this.dateIndex) return;
+    const thisYear = this.currentYear();
+    const hasHistoricalEntry = (this.plugin.journalIndex?.getEntries?.() || []).some((entry: any) => (
+      entry.date.slice(5) === mmdd && Number(entry.date.slice(0, 4)) < thisYear
+    ));
+    if (hasHistoricalEntry) this.dateIndex.add(mmdd);
+    else this.dateIndex.delete(mmdd);
+  }
+
   get dateIndexSnapshot(): Set<string> | null {
     return this.dateIndex;
   }

@@ -4,6 +4,7 @@ import {
   shouldShowCalendarWeather,
   shouldShowCalendarWeatherBadge,
   shouldShowCalendarWeatherCard,
+  shouldShowCalendarWeatherLocation,
 } from '../src/calendar-display';
 
 describe('calendar display settings', () => {
@@ -24,5 +25,11 @@ describe('calendar display settings', () => {
     expect(shouldShowCalendarWeatherCard({ showCalendarWeatherCard: true, showCalendarWeatherBadge: false })).toBe(true);
     expect(shouldShowCalendarWeatherBadge({ showCalendarWeatherCard: true, showCalendarWeatherBadge: false })).toBe(false);
     expect(shouldShowCalendarWeather({ showCalendarWeatherCard: false, showCalendarWeatherBadge: true })).toBe(true);
+  });
+
+  it('keeps the weather location hidden unless explicitly enabled', () => {
+    expect(shouldShowCalendarWeatherLocation({})).toBe(false);
+    expect(shouldShowCalendarWeatherLocation({ showCalendarWeatherLocation: false })).toBe(false);
+    expect(shouldShowCalendarWeatherLocation({ showCalendarWeatherLocation: true })).toBe(true);
   });
 });

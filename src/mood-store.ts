@@ -1,9 +1,27 @@
 import { normalizeVaultPath } from './date-utils';
 import type { MoodMetadata, MoodRecord } from './types';
+import { MOOD_LABELS } from './mood';
+import { serializeMoodCsv, serializeMoodJson } from './mood-export';
+
+/** Current on-disk mood metadata contract. v1 remains readable and is migrated on load. */
+export const MOOD_SCHEMA_VERSION = 2 as const;
+export const LEGACY_MOOD_SCHEMA_VERSION = 1 as const;
 
 export interface MoodStoreSettings {
   moodMetadataPath?: string;
   mirrorMoodToFrontmatter?: boolean;
+}
+
+export interface MoodRestoreOptions {
+  /** Explicitly allow replacing a live record at the restore destination. */
+  replace?: boolean;
+}
+
+export interface MoodMigrationResult {
+  metadata: MoodMetadata;
+  migrated: boolean;
+  fromVersion: number;
+  warnings: string[];
 }
 
 export interface MoodIntegrityReport {
@@ -18,6 +36,8 @@ export interface MoodIntegrityReport {
 type MoodListener = (path: string, record: MoodRecord | undefined) => void;
 
 const DEFAULT_PATH = 'Calendar/journal-metadata.json';
+const BUILT_IN_LABEL_IDS = new Set(MOOD_LABELS.map((item) => item.id));
+const MOOD_FRONTMATTER_KEYS = new Set(['mood', 'mood_labels', 'mood_note', 'mood_comment']);
 
 function safeVaultPath(path: string): string {
   const normalized = normalizeVaultPath(path);
@@ -25,14 +45,29 @@ function safeVaultPath(path: string): string {
 }
 
 function emptyMetadata(): MoodMetadata {
-  return { schemaVersion: 1, entries: {}, orphans: {} };
+  return { schemaVersion: MOOD_SCHEMA_VERSION, entries: {}, orphans: {}, customLabels: [] };
 }
 
 function isScore(value: unknown): value is MoodRecord['score'] {
   return value === -2 || value === -1 || value === 0 || value === 1 || value === 2;
 }
 
-function validRecord(value: unknown): value is MoodRecord {
+export function normalizeMoodLabels(value: unknown): string[] {
+  return Array.from(new Set(
+    (Array.isArray(value) ? value : []).map(String).map((label) => label.trim()).filter(Boolean),
+  ));
+}
+
+export function normalizeCustomLabels(value: unknown): string[] {
+  return Array.from(new Set(
+    (Array.isArray(value) ? value : [])
+      .map(String)
+      .map((label) => label.trim())
+      .filter((label) => label && !BUILT_IN_LABEL_IDS.has(label)),
+  )).sort((a, b) => a.localeCompare(b));
+}
+
+export function validMoodRecord(value: unknown): value is MoodRecord {
   if (!value || typeof value !== 'object') return false;
   const record = value as Record<string, unknown>;
   return isScore(record.score)
@@ -41,15 +76,98 @@ function validRecord(value: unknown): value is MoodRecord {
     && typeof record.recordedAt === 'string'
     && record.recordedAt.trim().length > 0
     && typeof record.updatedAt === 'string'
-    && record.updatedAt.trim().length > 0;
+    && record.updatedAt.trim().length > 0
+    && (record.note === undefined || record.note === null || typeof record.note === 'string');
 }
 
 function normalizeRecord(record: MoodRecord): MoodRecord {
+  const legacyNote = (record as MoodRecord & { comment?: unknown }).comment;
+  const note = record.note === undefined && typeof legacyNote === 'string' ? legacyNote : record.note;
   return {
+    ...record,
     score: record.score,
-    labels: Array.from(new Set(record.labels.map((label) => label.trim()).filter(Boolean))),
+    labels: normalizeMoodLabels(record.labels),
+    ...(note === undefined ? {} : { note: note === null ? null : String(note) }),
     recordedAt: record.recordedAt,
     updatedAt: record.updatedAt,
+  };
+}
+
+function cloneUnknown<T>(value: T): T {
+  if (value === undefined) return value;
+  try { return JSON.parse(JSON.stringify(value)) as T; } catch (_) { return value; }
+}
+
+function customLabelsFrom(entries: Record<string, MoodRecord>, orphans: MoodMetadata['orphans']): string[] {
+  const values: string[] = [];
+  for (const record of Object.values(entries)) {
+    values.push(...record.labels);
+  }
+  for (const orphan of Object.values(orphans ?? {})) {
+    values.push(...orphan.record.labels);
+  }
+  return normalizeCustomLabels(values);
+}
+
+/**
+ * Convert schema-v1 metadata to schema-v2 without dropping unknown fields.
+ * The transformation is pure, deterministic, and idempotent.
+ */
+export function migrateMoodMetadata(value: unknown): MoodMigrationResult {
+  const raw = value && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
+  const rawVersion = Number(raw.schemaVersion ?? LEGACY_MOOD_SCHEMA_VERSION);
+  const fromVersion = Number.isFinite(rawVersion) ? rawVersion : LEGACY_MOOD_SCHEMA_VERSION;
+  const warnings: string[] = [];
+  const entries: Record<string, MoodRecord> = {};
+  const rawEntries = raw.entries && typeof raw.entries === 'object' && !Array.isArray(raw.entries)
+    ? raw.entries as Record<string, unknown>
+    : {};
+  for (const [path, value] of Object.entries(rawEntries)) {
+    const normalizedPath = normalizeVaultPath(path);
+    if (!normalizedPath || !validMoodRecord(value)) continue;
+    entries[normalizedPath] = normalizeRecord(cloneUnknown(value));
+  }
+  const orphans: MoodMetadata['orphans'] = {};
+  const rawOrphans = raw.orphans && typeof raw.orphans === 'object' && !Array.isArray(raw.orphans)
+    ? raw.orphans as Record<string, unknown>
+    : {};
+  for (const [path, value] of Object.entries(rawOrphans)) {
+    const orphan = value && typeof value === 'object' && !Array.isArray(value)
+      ? value as Record<string, unknown>
+      : {};
+    const normalizedPath = normalizeVaultPath(path);
+    if (!normalizedPath || !validMoodRecord(orphan.record)) continue;
+    const record = normalizeRecord(cloneUnknown(orphan.record));
+    const orphanedAt = typeof orphan.orphanedAt === 'string' && orphan.orphanedAt.trim()
+      ? orphan.orphanedAt
+      : record.updatedAt || record.recordedAt;
+    orphans[normalizedPath] = {
+      ...cloneUnknown(orphan),
+      record,
+      orphanedAt,
+    };
+  }
+  const customLabels = normalizeCustomLabels([
+    ...(Array.isArray(raw.customLabels) ? raw.customLabels.map(String) : []),
+    ...customLabelsFrom(entries, orphans),
+  ]);
+  const metadata: MoodMetadata = {
+    ...cloneUnknown(raw),
+    schemaVersion: MOOD_SCHEMA_VERSION,
+    entries,
+    orphans,
+    customLabels,
+  };
+  if (fromVersion !== LEGACY_MOOD_SCHEMA_VERSION && fromVersion !== MOOD_SCHEMA_VERSION) {
+    warnings.push(`Unknown mood metadata schema ${fromVersion}; normalized as schema ${MOOD_SCHEMA_VERSION}`);
+  }
+  return {
+    metadata,
+    migrated: fromVersion !== MOOD_SCHEMA_VERSION,
+    fromVersion,
+    warnings,
   };
 }
 
@@ -63,7 +181,7 @@ export function validateMoodMetadata(value: unknown): MoodIntegrityReport {
   }
 
   const raw = value as Record<string, unknown>;
-  if (raw.schemaVersion !== 1) invalidMetadata.push('schemaVersion');
+  if (raw.schemaVersion !== undefined && raw.schemaVersion !== 1 && raw.schemaVersion !== MOOD_SCHEMA_VERSION) invalidMetadata.push('schemaVersion');
   if (!raw.entries || typeof raw.entries !== 'object' || Array.isArray(raw.entries)) {
     invalidMetadata.push('entries');
   } else {
@@ -72,7 +190,7 @@ export function validateMoodMetadata(value: unknown): MoodIntegrityReport {
       const normalizedPath = normalizeVaultPath(path);
       if (!normalizedPath || normalizedPaths.has(normalizedPath)) invalidMetadata.push(`entry-path:${path}`);
       normalizedPaths.add(normalizedPath);
-      if (!validRecord(record)) invalidRecords.push(path);
+      if (!validMoodRecord(record)) invalidRecords.push(path);
     }
   }
   if (raw.orphans !== undefined && (!raw.orphans || typeof raw.orphans !== 'object' || Array.isArray(raw.orphans))) {
@@ -80,7 +198,7 @@ export function validateMoodMetadata(value: unknown): MoodIntegrityReport {
   } else if (raw.orphans && typeof raw.orphans === 'object') {
     for (const [path, value] of Object.entries(raw.orphans)) {
       const orphan = value && typeof value === 'object' ? value as Record<string, unknown> : {};
-      if (!normalizeVaultPath(path) || !validRecord(orphan.record) || typeof orphan.orphanedAt !== 'string') invalidOrphans.push(path);
+      if (!normalizeVaultPath(path) || !validMoodRecord(orphan.record) || typeof orphan.orphanedAt !== 'string') invalidOrphans.push(path);
     }
   }
   return {
@@ -94,23 +212,7 @@ export function validateMoodMetadata(value: unknown): MoodIntegrityReport {
 }
 
 function normalizeMetadata(value: unknown): MoodMetadata {
-  const raw = value && typeof value === 'object' ? value as Record<string, unknown> : {};
-  const entries: Record<string, MoodRecord> = {};
-  const rawEntries = raw.entries && typeof raw.entries === 'object' ? raw.entries as Record<string, unknown> : {};
-  for (const [path, record] of Object.entries(rawEntries)) {
-    const normalizedPath = normalizeVaultPath(path);
-    if (normalizedPath && validRecord(record)) entries[normalizedPath] = normalizeRecord(record);
-  }
-  const orphans: MoodMetadata['orphans'] = {};
-  const rawOrphans = raw.orphans && typeof raw.orphans === 'object' ? raw.orphans as Record<string, unknown> : {};
-  for (const [path, value] of Object.entries(rawOrphans)) {
-    const orphan = value && typeof value === 'object' ? value as Record<string, unknown> : {};
-    const normalizedPath = normalizeVaultPath(path);
-    if (normalizedPath && validRecord(orphan.record)) {
-      orphans[normalizedPath] = { record: normalizeRecord(orphan.record), orphanedAt: String(orphan.orphanedAt ?? new Date().toISOString()) };
-    }
-  }
-  return { schemaVersion: 1, entries, orphans };
+  return migrateMoodMetadata(value).metadata;
 }
 
 function parentPath(path: string): string {
@@ -161,8 +263,14 @@ export class MoodStore {
       const parsed = JSON.parse(await adapter.read(this.path));
       const validation = validateMoodMetadata(parsed);
       if (!validation.valid) throw new Error(`Invalid mood metadata: ${formatValidation(validation)}`);
-      this.data = normalizeMetadata(parsed);
+      const migration = migrateMoodMetadata(parsed);
+      this.data = migration.metadata;
       this.loaded = true;
+      const serialized = JSON.stringify(this.data, null, 2);
+      if (migration.migrated || serialized !== JSON.stringify(parsed, null, 2)) {
+        // Keep the prior primary in .bak while atomically replacing it with the normalized data.
+        await this.writeJsonAtomically(this.path, serialized);
+      }
     } catch (error) {
       const restored = await this.readBackup();
       if (restored) {
@@ -193,8 +301,16 @@ export class MoodStore {
     return { ...this.data.entries };
   }
 
-  getOrphans(): MoodMetadata['orphans'] {
+  getOrphans(): NonNullable<MoodMetadata['orphans']> {
     return { ...(this.data.orphans ?? {}) };
+  }
+
+  getCustomLabels(): string[] {
+    return normalizeCustomLabels(this.data.customLabels);
+  }
+
+  getMetadata(): MoodMetadata {
+    return cloneUnknown(this.data);
   }
 
   subscribe(listener: MoodListener): () => void {
@@ -202,18 +318,27 @@ export class MoodStore {
     return () => this.listeners.delete(listener);
   }
 
-  async set(path: string, score: MoodRecord['score'], labels: string[], settings: MoodStoreSettings = {}): Promise<MoodRecord> {
+  async set(path: string, score: MoodRecord['score'], labels: string[], settingsOrNote: MoodStoreSettings | string | null = {}, note?: string | null): Promise<MoodRecord> {
+    const settings: MoodStoreSettings = settingsOrNote && typeof settingsOrNote === 'object' ? settingsOrNote : {};
+    if (typeof settingsOrNote === 'string' || settingsOrNote === null) note = settingsOrNote;
+    if (note === undefined && settingsOrNote && typeof settingsOrNote === 'object' && 'note' in settingsOrNote) {
+      note = (settingsOrNote as MoodStoreSettings & { note?: string | null }).note;
+    }
     const normalizedPath = normalizeVaultPath(path);
-    const now = new Date().toISOString();
-    const previous = this.data.entries[normalizedPath];
-    const record: MoodRecord = {
-      score,
-      labels: Array.from(new Set(labels.map((label) => label.trim()).filter(Boolean))),
-      recordedAt: previous?.recordedAt ?? now,
-      updatedAt: now,
-    };
+    let record!: MoodRecord;
     await this.mutate((data) => {
+      const previous = data.entries[normalizedPath];
+      const now = new Date().toISOString();
+      record = normalizeRecord({
+        ...(previous ? cloneUnknown(previous) : {}),
+        score,
+        labels: normalizeMoodLabels(labels),
+        ...(note === undefined ? (previous?.note === undefined ? {} : { note: previous.note }) : { note: note === null ? null : String(note) }),
+        recordedAt: previous?.recordedAt ?? now,
+        updatedAt: now,
+      });
       data.entries[normalizedPath] = record;
+      data.customLabels = normalizeCustomLabels([...(data.customLabels ?? []), ...record.labels]);
       if (data.orphans) delete data.orphans[normalizedPath];
     });
     if (settings.mirrorMoodToFrontmatter) await this.mirrorToFrontmatter(normalizedPath, record);
@@ -253,13 +378,48 @@ export class MoodStore {
     this.emit(key, undefined);
   }
 
-  async restoreOrphan(orphanKey: string, destinationPath = orphanKey): Promise<MoodRecord | undefined> {
-    const source = this.data.orphans?.[orphanKey];
+  /** Delete a single mood while retaining it in the recovery list by default. */
+  async deleteRecord(path: string, preserveRecovery = true, fallbackRecord?: MoodRecord): Promise<MoodRecord | undefined> {
+    const key = normalizeVaultPath(path);
+    if (!this.loaded) await this.load();
+    if (this.loadError) throw this.loadError;
+    const record = this.data.entries[key]
+      || (fallbackRecord && validMoodRecord(fallbackRecord) ? normalizeRecord(cloneUnknown(fallbackRecord)) : undefined);
+    if (!record) return undefined;
+    await this.mutate((data) => {
+      if (preserveRecovery) {
+        data.orphans ??= {};
+        data.orphans[key] = { record: cloneUnknown(record), orphanedAt: new Date().toISOString() };
+      } else if (data.orphans) {
+        delete data.orphans[key];
+      }
+      delete data.entries[key];
+    });
+    await this.removeMoodFromFrontmatter(key);
+    this.emit(key, undefined);
+    return record;
+  }
+
+  async remove(path: string, options: { preserveRecovery?: boolean } = {}): Promise<MoodRecord | undefined> {
+    return this.deleteRecord(path, options.preserveRecovery !== false);
+  }
+
+  async delete(path: string, preserveRecovery = true): Promise<MoodRecord | undefined> {
+    return this.deleteRecord(path, preserveRecovery);
+  }
+
+  async restoreOrphan(orphanKey: string, destinationPath = orphanKey, options: MoodRestoreOptions = {}): Promise<MoodRecord | undefined> {
+    const sourceKey = normalizeVaultPath(orphanKey);
+    const source = this.data.orphans?.[sourceKey];
     if (!source) return undefined;
     const destination = safeVaultPath(destinationPath);
+    const existing = this.data.entries[destination];
+    if (existing && !options.replace) {
+      throw new Error(`Mood restore target already has a record: ${destination}`);
+    }
     await this.mutate((data) => {
       data.entries[destination] = source.record;
-      delete data.orphans?.[orphanKey];
+      delete data.orphans?.[sourceKey];
     });
     this.emit(destination, source.record);
     return source.record;
@@ -275,13 +435,21 @@ export class MoodStore {
         const frontmatter = metadataCache.getFileCache(file)?.frontmatter ?? {};
         const score = Number(frontmatter.mood);
         if (!isScore(score)) continue;
-        const labels = Array.isArray(frontmatter.mood_labels)
-          ? frontmatter.mood_labels.map(String)
+        const labels = normalizeMoodLabels(Array.isArray(frontmatter.mood_labels)
+          ? frontmatter.mood_labels
           : typeof frontmatter.mood_labels === 'string'
             ? frontmatter.mood_labels.split(',')
-            : [];
+            : []);
+        const rawNote = frontmatter.mood_note ?? frontmatter.mood_comment;
         const now = new Date().toISOString();
-        data.entries[path] = { score, labels, recordedAt: now, updatedAt: now };
+        data.entries[path] = normalizeRecord({
+          score,
+          labels,
+          ...(rawNote === null || rawNote === undefined || String(rawNote).trim() === '' ? {} : { note: String(rawNote).trim() }),
+          recordedAt: now,
+          updatedAt: now,
+        });
+        data.customLabels = normalizeCustomLabels([...(data.customLabels ?? []), ...labels]);
         imported++;
       }
     });
@@ -294,15 +462,33 @@ export class MoodStore {
     if (this.loadError) throw this.loadError;
     const destination = safeVaultPath(destinationPath);
     if (destination === this.path) throw new Error('Export destination must differ from the metadata path');
-    await this.writeJsonAtomically(destination, JSON.stringify(this.data, null, 2));
+    await this.writeJsonAtomically(destination, `${JSON.stringify(this.data, null, 2)}\n`);
     return destination;
   }
 
-  async restoreFrom(raw: string | MoodMetadata): Promise<void> {
+  async exportCsv(destinationPath = `${this.path}.export.csv`): Promise<string> {
+    await this.flush();
+    if (this.loadError) throw this.loadError;
+    const destination = safeVaultPath(destinationPath);
+    if (destination === this.path) throw new Error('Export destination must differ from the metadata path');
+    await this.writeJsonAtomically(destination, serializeMoodCsv(this.data));
+    return destination;
+  }
+
+  async exportJson(destinationPath = `${this.path}.moods.json`): Promise<string> {
+    await this.flush();
+    if (this.loadError) throw this.loadError;
+    const destination = safeVaultPath(destinationPath);
+    if (destination === this.path) throw new Error('Export destination must differ from the metadata path');
+    await this.writeJsonAtomically(destination, serializeMoodJson(this.data));
+    return destination;
+  }
+
+  async restoreFrom(raw: string | MoodMetadata | unknown): Promise<void> {
     const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
     const validation = validateMoodMetadata(parsed);
     if (!validation.valid) throw new Error(`Invalid mood metadata: ${formatValidation(validation)}`);
-    const next = normalizeMetadata(parsed);
+    const next = migrateMoodMetadata(parsed).metadata;
     await this.replaceMetadata(next);
   }
 
@@ -312,7 +498,7 @@ export class MoodStore {
     const parsed = JSON.parse(await this.adapter().read(backupPath));
     const validation = validateMoodMetadata(parsed);
     if (!validation.valid) throw new Error(`Invalid mood backup: ${formatValidation(validation)}`);
-    const next = normalizeMetadata(parsed);
+    const next = migrateMoodMetadata(parsed).metadata;
     await this.replaceMetadata(next);
     return { entries: Object.keys(next.entries).length, orphans: Object.keys(next.orphans ?? {}).length };
   }
@@ -335,7 +521,7 @@ export class MoodStore {
         invalidMetadata.push(...result.invalidMetadata);
         if (raw?.entries && typeof raw.entries === 'object' && !Array.isArray(raw.entries)) {
           for (const [path, record] of Object.entries(raw.entries)) {
-            if (validRecord(record)) pathsToCheck.add(normalizeVaultPath(path));
+            if (validMoodRecord(record)) pathsToCheck.add(normalizeVaultPath(path));
           }
         }
       } else if (Object.keys(this.data.entries).length > 0) {
@@ -399,6 +585,18 @@ export class MoodStore {
     await this.app.fileManager.processFrontMatter(file, (frontmatter: Record<string, unknown>) => {
       frontmatter.mood = record.score;
       frontmatter.mood_labels = record.labels;
+      if (record.note === null || record.note === undefined || record.note === '') delete frontmatter.mood_note;
+      else frontmatter.mood_note = record.note;
+    });
+  }
+
+  private async removeMoodFromFrontmatter(path: string): Promise<void> {
+    const file = this.app.vault.getAbstractFileByPath(path);
+    if (!file || !this.app.fileManager?.processFrontMatter) return;
+    await this.app.fileManager.processFrontMatter(file, (frontmatter: Record<string, unknown>) => {
+      for (const key of Object.keys(frontmatter)) {
+        if (MOOD_FRONTMATTER_KEYS.has(key.toLowerCase())) delete frontmatter[key];
+      }
     });
   }
 
@@ -408,7 +606,7 @@ export class MoodStore {
       if (!(await this.adapter().exists(backup))) return undefined;
       const parsed = JSON.parse(await this.adapter().read(backup));
       if (!validateMoodMetadata(parsed).valid) return undefined;
-      return normalizeMetadata(parsed);
+      return migrateMoodMetadata(parsed).metadata;
     } catch (_) {
       return undefined;
     }
