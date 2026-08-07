@@ -22881,23 +22881,28 @@ ${path}`)) return false;
 }
 .cal-entry-count {
   position: absolute;
-  right: 3px;
-  bottom: 3px;
+  right: 4px;
+  bottom: 4px;
   z-index: 4;
   min-width: 0;
-  height: 13px;
-  padding: 0 3px;
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 4px;
-  background: color-mix(in srgb, var(--background-primary) 88%, transparent);
-  color: var(--text-muted);
-  font-size: 9px;
+  height: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #fff;
+  font-size: 10px;
   font-weight: 600;
-  line-height: 11px;
+  line-height: 1;
   text-align: center;
   pointer-events: none;
   box-shadow: none;
   font-variant-numeric: tabular-nums;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.75);
+}
+.cal-no-image .cal-entry-count {
+  color: var(--text-muted);
+  text-shadow: none;
 }
 .cal-today {
   /* Full accent fill */
@@ -23538,13 +23543,13 @@ button.cal-weather-refresh:hover {
 }
 @container (max-width: 240px) {
   .cal-entry-count {
-    right: 1px;
-    bottom: 1px;
-    height: 11px;
-    padding: 0 2px;
-    border-radius: 3px;
+    right: 2px;
+    bottom: 2px;
+    height: auto;
+    padding: 0;
+    border-radius: 0;
     font-size: 8px;
-    line-height: 9px;
+    line-height: 1;
   }
 }
 @container (max-width: 300px) {
