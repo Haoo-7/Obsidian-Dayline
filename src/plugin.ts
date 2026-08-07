@@ -26,7 +26,7 @@ const { SerialTaskQueue } = require('./task-queue');
 const { formatCalendarMonth, getCalendarGridOffset, getCalendarWeekdays, getDisplayLanguage, moodLabel, t } = require('./i18n');
 const { getMoodColor } = require('./mood');
 const { shouldHandleCalendarMonthShortcut } = require('./calendar-keyboard');
-const { shouldShowCalendarMood, shouldShowCalendarWeatherCard, shouldShowCalendarWeatherBadge, shouldShowCalendarWeatherLocation } = require('./calendar-display');
+const { calendarMediaAccessibilityLabel, shouldShowCalendarMood, shouldShowCalendarWeatherCard, shouldShowCalendarWeatherBadge, shouldShowCalendarWeatherLocation } = require('./calendar-display');
 const { ViewVisibilityController, normalizeViewVisibilitySettings } = require('./view-visibility-controller');
 const { hasExistingImage } = require('./heic-embed');
 const { ImageMetadataCache, HeicCache, HEIC_EXTS, ReverseGeocoder } = require('./image-metadata');
@@ -947,6 +947,7 @@ class DaylinePlugin extends Plugin {
   padding: 8px 6px;
   user-select: none;
   overflow: hidden;
+  container-type: inline-size;
 }
 .cal-calendar-content:focus-visible,
 .cal-sidebar .view-content:focus-visible,
@@ -1187,19 +1188,23 @@ class DaylinePlugin extends Plugin {
 }
 .cal-entry-count {
   position: absolute;
-  right: 2px;
-  bottom: 2px;
+  right: 3px;
+  bottom: 3px;
   z-index: 4;
-  min-width: 16px;
-  height: 16px;
+  min-width: 0;
+  height: 13px;
   padding: 0 3px;
-  border: 0;
-  border-radius: 8px;
-  background: rgba(0, 0, 0, 0.58);
-  color: #fff;
-  font-size: 10px;
-  line-height: 16px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--background-primary) 88%, transparent);
+  color: var(--text-muted);
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 11px;
   text-align: center;
+  pointer-events: none;
+  box-shadow: none;
+  font-variant-numeric: tabular-nums;
 }
 .cal-today {
   /* Full accent fill */
@@ -1838,6 +1843,17 @@ button.cal-weather-refresh:hover {
 @container (max-width: 420px) {
   .journal-mood-scale { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+@container (max-width: 240px) {
+  .cal-entry-count {
+    right: 1px;
+    bottom: 1px;
+    height: 11px;
+    padding: 0 2px;
+    border-radius: 3px;
+    font-size: 8px;
+    line-height: 9px;
+  }
+}
 @container (max-width: 300px) {
   .journal-mood-scale { grid-template-columns: minmax(0, 1fr); }
 }
@@ -2294,23 +2310,37 @@ class CalendarView extends ItemView {
       // Background image (first image as thumbnail)
       if (cover) {
         const bg = cell.createDiv({ cls: 'cal-day-bg' });
-        bg.setAttribute('aria-label', `${dateStr} ${t(this.plugin.settings, 'mediaMetadata')}`);
         const overlay = cell.createDiv({ cls: 'cal-day-overlay' });
         this._setBackground(bg, dateEntry);
 
         // Unified media metadata tooltip on hover. Images retain the legacy EXIF path.
         const firstMedia = cover;
-        cell.addEventListener('mouseenter', () => this._onMediaEnter(cell, firstMedia));
+        const mediaLabel = t(this.plugin.settings, 'mediaMetadata');
+        cell.addEventListener('mouseenter', () => {
+          // Never leave the keyboard-only name on the element while the pointer is over it.
+          bg.removeAttribute('aria-label');
+          this._onMediaEnter(cell, firstMedia);
+        });
         cell.addEventListener('mouseleave', () => this._onExifLeave(cell));
         if (touchRouting.focusMediaBackground) {
           bg.tabIndex = 0;
+          bg.setAttribute('role', 'img');
           bg.addEventListener('focusin', () => {
+            const label = calendarMediaAccessibilityLabel(dateStr, mediaLabel, true);
+            if (label) bg.setAttribute('aria-label', label);
             this._onMediaEnter(cell, firstMedia, true);
+          });
+          bg.addEventListener('focusout', () => {
+            const label = calendarMediaAccessibilityLabel(dateStr, mediaLabel, false);
+            if (label) bg.setAttribute('aria-label', label);
+            else bg.removeAttribute('aria-label');
           });
         }
       }
 
-      if (this.plugin.settings.showCalendarEntryCount !== false && dateEntry.entryCount > 1) {
+      if (touchRouting.showEntryCountControl
+        && this.plugin.settings.showCalendarEntryCount !== false
+        && dateEntry.entryCount > 1) {
         cell.createEl('span', {
           cls: 'cal-entry-count',
           text: `+${dateEntry.entryCount - 1}`,

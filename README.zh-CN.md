@@ -12,6 +12,18 @@
 
 Dayline 是一个集日历、时间线、心情、回顾、天气和照片于一体的可视化日记工具。月历和时间线共同组成主要工作界面；设置页也会显示 Dayline 标识，保持一致的品牌入口。
 
+## 公开展示
+
+仓库内附带一份与真实日记隔离的合成展示数据，可在 Obsidian Sandbox 中复现完整的日历和时间线。7 月 1 日至 21 日共 21 个记录日期，每天都有图片和心情；7 月 22 日之后保持空白：
+
+![Dayline 公开展示](screenshots/dayline-showcase.png)
+
+时间线的全文搜索和多维筛选状态：
+
+![Dayline 时间线筛选](screenshots/dayline-showcase-filters.png)
+
+截图只使用虚构条目、虚构地点、合成音频/视频和裁剪后的公开图片，不包含真实日记、真实坐标、EXIF 或下载目录中的个人素材。请查看 [`showcase/README.md`](showcase/README.md) 了解 Sandbox 设置，查看 [`showcase/MEDIA_ATTRIBUTIONS.md`](showcase/MEDIA_ATTRIBUTIONS.md) 了解图片来源。
+
 ![Dayline 预览](screenshots/calendar-sidebar-preview.png)
 
 ## 功能

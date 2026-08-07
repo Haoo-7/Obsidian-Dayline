@@ -12,6 +12,18 @@
 
 Dayline is a visual journal for calendars, timelines, moods, memories, weather, and photos. It includes the monthly calendar, journal timeline, mood metadata, On This Day review, and media thumbnails. The Dayline wordmark is also shown in the plugin settings for a consistent branded entry point.
 
+## Public showcase
+
+The repository includes a synthetic, privacy-safe showcase vault with a populated calendar and journal timeline. The July 1-21 sample has 21 image-backed dates with mood markers; July 22 onward is intentionally empty:
+
+![Dayline public showcase](screenshots/dayline-showcase.png)
+
+Search and multi-dimensional timeline filters are shown in a second state:
+
+![Dayline timeline filters](screenshots/dayline-showcase-filters.png)
+
+The screenshots use fictional entries, a fictional location, generated audio/video, and resized public photographs. See [`showcase/README.md`](showcase/README.md) for the sandbox setup and [`showcase/MEDIA_ATTRIBUTIONS.md`](showcase/MEDIA_ATTRIBUTIONS.md) for media sources.
+
 ![Dayline preview](screenshots/calendar-sidebar-preview.png)
 
 ## Features

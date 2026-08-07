@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  calendarMediaAccessibilityLabel,
   shouldShowCalendarMood,
   shouldShowCalendarWeather,
   shouldShowCalendarWeatherBadge,
@@ -8,6 +9,11 @@ import {
 } from '../src/calendar-display';
 
 describe('calendar display settings', () => {
+  it('keeps the media label out of mouse hover while exposing it on focus', () => {
+    expect(calendarMediaAccessibilityLabel('2026-08-05', '媒体信息', false)).toBeNull();
+    expect(calendarMediaAccessibilityLabel('2026-08-05', '媒体信息', true)).toBe('2026-08-05 媒体信息');
+  });
+
   it('keeps both displays visible for legacy settings without the new fields', () => {
     expect(shouldShowCalendarMood({})).toBe(true);
     expect(shouldShowCalendarWeather({})).toBe(true);
