@@ -20739,12 +20739,16 @@ var init_calendar_keyboard = __esm({
 // src/calendar-display.ts
 var calendar_display_exports = {};
 __export(calendar_display_exports, {
+  calendarMediaAccessibilityLabel: () => calendarMediaAccessibilityLabel,
   shouldShowCalendarMood: () => shouldShowCalendarMood,
   shouldShowCalendarWeather: () => shouldShowCalendarWeather,
   shouldShowCalendarWeatherBadge: () => shouldShowCalendarWeatherBadge,
   shouldShowCalendarWeatherCard: () => shouldShowCalendarWeatherCard,
   shouldShowCalendarWeatherLocation: () => shouldShowCalendarWeatherLocation
 });
+function calendarMediaAccessibilityLabel(dateStr, mediaLabel, focused) {
+  return focused ? `${dateStr} ${mediaLabel}` : null;
+}
 function shouldShowCalendarMood(settings = {}) {
   return settings.showCalendarMood !== false;
 }
@@ -21829,7 +21833,7 @@ var { SerialTaskQueue: SerialTaskQueue2 } = (init_task_queue(), __toCommonJS(tas
 var { formatCalendarMonth: formatCalendarMonth2, getCalendarGridOffset: getCalendarGridOffset2, getCalendarWeekdays: getCalendarWeekdays2, getDisplayLanguage: getDisplayLanguage3, moodLabel: moodLabel4, t: t4 } = (init_i18n(), __toCommonJS(i18n_exports));
 var { getMoodColor: getMoodColor2 } = (init_mood(), __toCommonJS(mood_exports));
 var { shouldHandleCalendarMonthShortcut: shouldHandleCalendarMonthShortcut2 } = (init_calendar_keyboard(), __toCommonJS(calendar_keyboard_exports));
-var { shouldShowCalendarMood: shouldShowCalendarMood2, shouldShowCalendarWeatherCard: shouldShowCalendarWeatherCard2, shouldShowCalendarWeatherBadge: shouldShowCalendarWeatherBadge2, shouldShowCalendarWeatherLocation: shouldShowCalendarWeatherLocation2 } = (init_calendar_display(), __toCommonJS(calendar_display_exports));
+var { calendarMediaAccessibilityLabel: calendarMediaAccessibilityLabel2, shouldShowCalendarMood: shouldShowCalendarMood2, shouldShowCalendarWeatherCard: shouldShowCalendarWeatherCard2, shouldShowCalendarWeatherBadge: shouldShowCalendarWeatherBadge2, shouldShowCalendarWeatherLocation: shouldShowCalendarWeatherLocation2 } = (init_calendar_display(), __toCommonJS(calendar_display_exports));
 var { ViewVisibilityController: ViewVisibilityController2, normalizeViewVisibilitySettings: normalizeViewVisibilitySettings2 } = (init_view_visibility_controller(), __toCommonJS(view_visibility_controller_exports));
 var { hasExistingImage: hasExistingImage2 } = (init_heic_embed(), __toCommonJS(heic_embed_exports));
 var { ImageMetadataCache: ImageMetadataCache2, HeicCache: HeicCache2, HEIC_EXTS: HEIC_EXTS2, ReverseGeocoder: ReverseGeocoder2 } = (init_image_metadata(), __toCommonJS(image_metadata_exports));
@@ -22636,6 +22640,7 @@ ${path}`)) return false;
   padding: 8px 6px;
   user-select: none;
   overflow: hidden;
+  container-type: inline-size;
 }
 .cal-calendar-content:focus-visible,
 .cal-sidebar .view-content:focus-visible,
@@ -22876,19 +22881,28 @@ ${path}`)) return false;
 }
 .cal-entry-count {
   position: absolute;
-  right: 2px;
-  bottom: 2px;
+  right: 4px;
+  bottom: 4px;
   z-index: 4;
-  min-width: 16px;
-  height: 16px;
-  padding: 0 3px;
+  min-width: 0;
+  height: auto;
+  padding: 0;
   border: 0;
-  border-radius: 8px;
-  background: rgba(0, 0, 0, 0.58);
+  border-radius: 0;
+  background: transparent;
   color: #fff;
   font-size: 10px;
-  line-height: 16px;
+  font-weight: 600;
+  line-height: 1;
   text-align: center;
+  pointer-events: none;
+  box-shadow: none;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.75);
+}
+.cal-no-image .cal-entry-count {
+  color: var(--text-muted);
+  text-shadow: none;
 }
 .cal-today {
   /* Full accent fill */
@@ -23527,6 +23541,17 @@ button.cal-weather-refresh:hover {
 @container (max-width: 420px) {
   .journal-mood-scale { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+@container (max-width: 240px) {
+  .cal-entry-count {
+    right: 2px;
+    bottom: 2px;
+    height: auto;
+    padding: 0;
+    border-radius: 0;
+    font-size: 8px;
+    line-height: 1;
+  }
+}
 @container (max-width: 300px) {
   .journal-mood-scale { grid-template-columns: minmax(0, 1fr); }
 }
@@ -23907,20 +23932,31 @@ var CalendarView = class extends ItemView2 {
       if (dateStr === this.activeDate && !isToday) cell.addClass("cal-active");
       if (cover) {
         const bg = cell.createDiv({ cls: "cal-day-bg" });
-        bg.setAttribute("aria-label", `${dateStr} ${t4(this.plugin.settings, "mediaMetadata")}`);
         const overlay = cell.createDiv({ cls: "cal-day-overlay" });
         this._setBackground(bg, dateEntry);
         const firstMedia = cover;
-        cell.addEventListener("mouseenter", () => this._onMediaEnter(cell, firstMedia));
+        const mediaLabel = t4(this.plugin.settings, "mediaMetadata");
+        cell.addEventListener("mouseenter", () => {
+          bg.removeAttribute("aria-label");
+          this._onMediaEnter(cell, firstMedia);
+        });
         cell.addEventListener("mouseleave", () => this._onExifLeave(cell));
         if (touchRouting.focusMediaBackground) {
           bg.tabIndex = 0;
+          bg.setAttribute("role", "img");
           bg.addEventListener("focusin", () => {
+            const label = calendarMediaAccessibilityLabel2(dateStr, mediaLabel, true);
+            if (label) bg.setAttribute("aria-label", label);
             this._onMediaEnter(cell, firstMedia, true);
+          });
+          bg.addEventListener("focusout", () => {
+            const label = calendarMediaAccessibilityLabel2(dateStr, mediaLabel, false);
+            if (label) bg.setAttribute("aria-label", label);
+            else bg.removeAttribute("aria-label");
           });
         }
       }
-      if (this.plugin.settings.showCalendarEntryCount !== false && dateEntry.entryCount > 1) {
+      if (touchRouting.showEntryCountControl && this.plugin.settings.showCalendarEntryCount !== false && dateEntry.entryCount > 1) {
         cell.createEl("span", {
           cls: "cal-entry-count",
           text: `+${dateEntry.entryCount - 1}`,
