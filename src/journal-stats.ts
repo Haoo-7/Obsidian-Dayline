@@ -27,6 +27,11 @@ export interface JournalPeriodStat {
   moodAverage?: number;
 }
 
+export interface JournalMoodTrendPoint {
+  date: string;
+  score?: number;
+}
+
 function dateOnly(value: Date): string {
   return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`;
 }
@@ -51,6 +56,24 @@ function periodKey(date: string, period: 'month' | 'quarter' | 'year'): string {
   const month = Number(date.slice(5, 7));
   if (period === 'month') return `${year}-${String(month).padStart(2, '0')}`;
   return `${year}-Q${Math.floor((month - 1) / 3) + 1}`;
+}
+
+/** Build one mood slot for each natural day in the recent seven-day window. */
+export function buildRecentMoodTrend(entries: JournalEntry[], today = new Date(), days = 7): JournalMoodTrendPoint[] {
+  const count = Math.max(0, Math.floor(days));
+  const moodByDate = new Map<string, number>();
+  const moodEntries = entries
+    .filter((entry) => Boolean(entry.mood))
+    .slice()
+    .sort((a, b) => a.date.localeCompare(b.date)
+      || String(a.mood?.updatedAt || '').localeCompare(String(b.mood?.updatedAt || ''))
+      || a.path.localeCompare(b.path));
+  for (const entry of moodEntries) moodByDate.set(entry.date, entry.mood!.score);
+  const start = shiftDate(dateOnly(today), -(count - 1));
+  return Array.from({ length: count }, (_, index) => {
+    const date = shiftDate(start, index);
+    return { date, score: moodByDate.get(date) };
+  });
 }
 
 /** Aggregate entries into deterministic month, quarter, and year buckets. */

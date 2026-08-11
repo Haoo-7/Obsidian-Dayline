@@ -2720,6 +2720,7 @@ var init_mood_reports = __esm({
 var journal_stats_exports = {};
 __export(journal_stats_exports, {
   aggregateJournalPeriods: () => aggregateJournalPeriods,
+  buildRecentMoodTrend: () => buildRecentMoodTrend,
   calculateJournalStats: () => calculateJournalStats
 });
 function dateOnly(value) {
@@ -2742,6 +2743,17 @@ function periodKey(date, period) {
   const month = Number(date.slice(5, 7));
   if (period === "month") return `${year}-${String(month).padStart(2, "0")}`;
   return `${year}-Q${Math.floor((month - 1) / 3) + 1}`;
+}
+function buildRecentMoodTrend(entries, today = /* @__PURE__ */ new Date(), days = 7) {
+  const count = Math.max(0, Math.floor(days));
+  const moodByDate = /* @__PURE__ */ new Map();
+  const moodEntries = entries.filter((entry) => Boolean(entry.mood)).slice().sort((a, b) => a.date.localeCompare(b.date) || String(a.mood?.updatedAt || "").localeCompare(String(b.mood?.updatedAt || "")) || a.path.localeCompare(b.path));
+  for (const entry of moodEntries) moodByDate.set(entry.date, entry.mood.score);
+  const start = shiftDate(dateOnly(today), -(count - 1));
+  return Array.from({ length: count }, (_, index) => {
+    const date = shiftDate(start, index);
+    return { date, score: moodByDate.get(date) };
+  });
 }
 function aggregateJournalPeriods(entries, period) {
   const buckets = /* @__PURE__ */ new Map();
@@ -2831,7 +2843,7 @@ __export(journal_timeline_view_exports, {
   JOURNAL_TIMELINE_VIEW: () => JOURNAL_TIMELINE_VIEW,
   JournalTimelineView: () => JournalTimelineView
 });
-var ItemView, Notice2, TFile, setIcon, MOOD_LEVELS3, getMoodColor2, calculateJournalStats2, formatJournalDate2, getDisplayLanguage2, moodLabel3, t3, isGenericJournalTitle2, JOURNAL_TIMELINE_VIEW, JournalTimelineView;
+var ItemView, Notice2, TFile, setIcon, MOOD_LEVELS3, getMoodColor2, buildRecentMoodTrend2, calculateJournalStats2, formatJournalDate2, getDisplayLanguage2, moodLabel3, t3, isGenericJournalTitle2, JOURNAL_TIMELINE_VIEW, JournalTimelineView;
 var init_journal_timeline_view = __esm({
   "src/journal-timeline-view.ts"() {
     "use strict";
@@ -2841,7 +2853,7 @@ var init_journal_timeline_view = __esm({
     init_journal_timeline_interaction();
     ({ ItemView, Notice: Notice2, TFile, setIcon } = require("obsidian"));
     ({ MOOD_LEVELS: MOOD_LEVELS3, getMoodColor: getMoodColor2 } = (init_mood(), __toCommonJS(mood_exports)));
-    ({ calculateJournalStats: calculateJournalStats2 } = (init_journal_stats(), __toCommonJS(journal_stats_exports)));
+    ({ buildRecentMoodTrend: buildRecentMoodTrend2, calculateJournalStats: calculateJournalStats2 } = (init_journal_stats(), __toCommonJS(journal_stats_exports)));
     ({ formatJournalDate: formatJournalDate2, getDisplayLanguage: getDisplayLanguage2, moodLabel: moodLabel3, t: t3 } = (init_i18n(), __toCommonJS(i18n_exports)));
     ({ isGenericJournalTitle: isGenericJournalTitle2 } = (init_excerpt(), __toCommonJS(excerpt_exports)));
     JOURNAL_TIMELINE_VIEW = "journal-timeline-view";
@@ -2944,7 +2956,7 @@ var init_journal_timeline_view = __esm({
         const trend = section.createDiv({ cls: "journal-stat-trend" });
         trend.createDiv({ cls: "journal-stat-label", text: t3(this.plugin.settings, "moodTrend") });
         const grid = trend.createDiv({ cls: "journal-stat-trend-grid" });
-        for (const item of stats.trend.slice(-7)) {
+        for (const item of buildRecentMoodTrend2(this.index.getEntries())) {
           const cell = grid.createDiv({ cls: "journal-stat-trend-cell" });
           cell.style.backgroundColor = getMoodColor2(item.score);
           cell.setAttribute("aria-label", `${item.date}: ${item.score === void 0 ? t3(this.plugin.settings, "noMood") : moodLabel3(this.plugin.settings, item.score)}`);

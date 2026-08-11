@@ -1,7 +1,7 @@
 // @ts-nocheck
 const { ItemView, Notice, TFile, setIcon } = require('obsidian');
 const { MOOD_LEVELS, getMoodColor } = require('./mood');
-const { calculateJournalStats } = require('./journal-stats');
+const { buildRecentMoodTrend, calculateJournalStats } = require('./journal-stats');
 const { formatJournalDate, getDisplayLanguage, moodLabel, t } = require('./i18n');
 const { isGenericJournalTitle } = require('./excerpt');
 import { createMediaAttachment } from './media-links';
@@ -119,7 +119,7 @@ export class JournalTimelineView extends ItemView {
     const trend = section.createDiv({ cls: 'journal-stat-trend' });
     trend.createDiv({ cls: 'journal-stat-label', text: t(this.plugin.settings, 'moodTrend') });
     const grid = trend.createDiv({ cls: 'journal-stat-trend-grid' });
-    for (const item of stats.trend.slice(-7)) {
+    for (const item of buildRecentMoodTrend(this.index.getEntries())) {
       const cell = grid.createDiv({ cls: 'journal-stat-trend-cell' });
       cell.style.backgroundColor = getMoodColor(item.score);
       cell.setAttribute('aria-label', `${item.date}: ${item.score === undefined ? t(this.plugin.settings, 'noMood') : moodLabel(this.plugin.settings, item.score)}`);

@@ -1,5 +1,27 @@
 # Changelog
 
+## 2.1.2 (2026-08-11)
+
+### Fixed
+- Fixed the seven-day mood trend to render one slot per calendar day, preserving empty days instead of compressing the latest seven mood records.
+
+### Verification
+- `npm test` passed: 35 test files and 168 tests.
+- `npm run typecheck`, `npm run build`, and `git diff --check` passed.
+
+---
+
+## 2.1.2（2026-08-11）
+
+### 修复
+- 修复近七天心情趋势按最近七条记录压缩显示的问题；现在每天对应一个固定位置，缺少记录的日期会保留为空槽。
+
+### 验证
+- `npm test` 通过：35 个测试文件、168 个测试。
+- `npm run typecheck`、`npm run build` 和 `git diff --check` 通过。
+
+---
+
 ## 2.1.1 (2026-08-11)
 
 ### Added

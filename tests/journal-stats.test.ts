@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { aggregateJournalPeriods, calculateJournalStats } from '../src/journal-stats';
+import { aggregateJournalPeriods, buildRecentMoodTrend, calculateJournalStats } from '../src/journal-stats';
 import type { JournalEntry } from '../src/types';
 
 function entry(date: string, score?: -2 | -1 | 0 | 1 | 2): JournalEntry {
@@ -37,5 +37,20 @@ describe('journal stats', () => {
       entry('2026-01-05', 2),
     ], new Date(2026, 0, 5, 12), { weekStart: 'sunday' });
     expect(stats.weeklyMood.map((item) => item.key)).toEqual(['2026-01-04']);
+  });
+
+  it('keeps missing calendar days as empty slots in the seven-day mood trend', () => {
+    expect(buildRecentMoodTrend([
+      entry('2026-08-05', 1),
+      entry('2026-08-08', -1),
+    ], new Date(2026, 7, 11, 12))).toEqual([
+      { date: '2026-08-05', score: 1 },
+      { date: '2026-08-06', score: undefined },
+      { date: '2026-08-07', score: undefined },
+      { date: '2026-08-08', score: -1 },
+      { date: '2026-08-09', score: undefined },
+      { date: '2026-08-10', score: undefined },
+      { date: '2026-08-11', score: undefined },
+    ]);
   });
 });
