@@ -157,7 +157,12 @@ function imageMetadataFromFields(fields: Array<{ key: string; value: string }> |
     result.make = parts[0];
     result.model = parts.slice(1).join(' ') || parts[0];
   }
+  result.lens = fieldValue(fields, 'exif_lens');
   result.capturedAt = fieldValue(fields, 'exif_date');
+  result.aperture = fieldValue(fields, 'exif_aperture');
+  result.shutter = fieldValue(fields, 'exif_shutter');
+  result.iso = fieldValue(fields, 'exif_iso');
+  result.focalLength = fieldValue(fields, 'exif_focal');
   result.software = fieldValue(fields, 'exif_software');
   const gps = parseGps(fieldValue(fields, 'exif_gps'));
   if (gps) { result.latitude = gps[0]; result.longitude = gps[1]; }
@@ -192,10 +197,15 @@ export function formatMediaMetadataForDisplay(metadata: MediaMetadata | null): A
     add('media_sampleRate', metadata.sampleRate !== undefined ? `${metadata.sampleRate} Hz` : undefined);
     add('media_channels', metadata.channels);
   } else {
-    add('exif_date', metadata.capturedAt);
     if (metadata.make || metadata.model) add('exif_camera', [metadata.make, metadata.model].filter(Boolean).join(' '));
-    add('exif_software', metadata.software);
+    add('exif_lens', metadata.lens);
+    add('exif_date', metadata.capturedAt);
+    add('exif_aperture', metadata.aperture);
+    add('exif_shutter', metadata.shutter);
+    add('exif_iso', metadata.iso);
+    add('exif_focal', metadata.focalLength);
     if (metadata.latitude !== undefined && metadata.longitude !== undefined) add('exif_gps', `${metadata.latitude.toFixed(4)}, ${metadata.longitude.toFixed(4)}`);
+    add('exif_software', metadata.software);
   }
   return fields.length ? fields : null;
 }

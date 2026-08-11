@@ -60,6 +60,11 @@ export interface MediaMetadata {
   capturedAt?: string;
   make?: string;
   model?: string;
+  lens?: string;
+  aperture?: string;
+  shutter?: string;
+  iso?: string;
+  focalLength?: string;
   software?: string;
   latitude?: number;
   longitude?: number;

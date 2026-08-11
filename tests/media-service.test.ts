@@ -354,6 +354,33 @@ describe('media service', () => {
     expect(formatMediaMetadataForDisplay(metadata)).toContainEqual({ key: 'exif_camera', value: 'Apple iPhone 13 mini' });
   });
 
+  it('preserves complete image EXIF fields for calendar tooltips', async () => {
+    const file = { path: 'IMG_9011.JPG', extension: 'jpg' };
+    const app = {
+      metadataCache: { getFirstLinkpathDest: () => file },
+      vault: { getResourcePath: () => 'resource://image' },
+    };
+    const fields = [
+      { key: 'exif_camera', value: 'Apple iPhone 13 mini' },
+      { key: 'exif_lens', value: 'iPhone 13 mini back dual wide camera' },
+      { key: 'exif_date', value: '2026:08:08 08:53:31' },
+      { key: 'exif_aperture', value: 'f/1.6' },
+      { key: 'exif_shutter', value: '1/122s' },
+      { key: 'exif_iso', value: '100' },
+      { key: 'exif_focal', value: '5mm' },
+      { key: 'exif_gps', value: '23.5479, 116.3436' },
+      { key: 'exif_software', value: '26.5.2' },
+    ];
+    const service = new MediaService(app, undefined, {
+      imageMetadata: { get: async () => fields },
+    });
+    const attachment = createMediaAttachment('IMG_9011.JPG', 'Calendar/Daily/2026-08-08.md')!;
+
+    const metadata = await service.getMetadata(attachment);
+
+    expect(formatMediaMetadataForDisplay(metadata)).toEqual(fields);
+  });
+
   it('scales only finite, positive video dimensions to the cover edge', () => {
     expect(scaleVideoCoverDimensions(1_920, 1_080)).toEqual({ width: 1_024, height: 576 });
     expect(scaleVideoCoverDimensions(640, 480)).toEqual({ width: 640, height: 480 });

@@ -1975,6 +1975,8 @@ var init_i18n = __esm({
         openTimeline: "\u6253\u5F00\u65F6\u95F4\u7EBF",
         detectImports: "\u68C0\u6D4B\u5BFC\u5165",
         detectImportsResult: "\u627E\u5230 {files} \u4E2A\u6587\u4EF6\uFF0C\u5176\u4E2D {noDate} \u4E2A\u6CA1\u6709\u65E5\u671F\u3002",
+        showTimelineMoodTrend: "\u663E\u793A\u65F6\u95F4\u7EBF\u5FC3\u60C5\u8D8B\u52BF",
+        showTimelineMoodTrendDesc: "\u5728\u65E5\u8BB0\u65F6\u95F4\u7EBF\u9876\u90E8\u663E\u793A\u8FD1\u4E03\u5929\u7684\u5FC3\u60C5\u8F68\u8FF9\u3002",
         moodExport: "\u5FC3\u60C5\u5BFC\u51FA",
         moodExportDesc: "\u5BFC\u51FA\u5FC3\u60C5\u8BB0\u5F55\u4E3A CSV \u6216 JSON\u3002",
         metadataBackup: "\u5143\u6570\u636E\u5907\u4EFD",
@@ -2180,6 +2182,8 @@ var init_i18n = __esm({
         openTimeline: "Open timeline",
         detectImports: "Detect imports",
         detectImportsResult: "Found {files} files; {noDate} have no date.",
+        showTimelineMoodTrend: "Show timeline mood trend",
+        showTimelineMoodTrendDesc: "Show the recent seven-day mood trajectory at the top of the journal timeline.",
         moodExport: "Mood export",
         moodExportDesc: "Export mood records as CSV or JSON.",
         metadataBackup: "Metadata backup",
@@ -2533,6 +2537,16 @@ var init_mood_picker_modal = __esm({
   }
 });
 
+// src/journal-timeline-display.ts
+function shouldShowTimelineMoodTrend(settings = {}) {
+  return settings.showTimelineMoodTrend !== false;
+}
+var init_journal_timeline_display = __esm({
+  "src/journal-timeline-display.ts"() {
+    "use strict";
+  }
+});
+
 // src/journal-timeline-interaction.ts
 function isInteractiveTimelineTarget(target) {
   return Boolean(target?.closest?.(INTERACTIVE_TIMELINE_TARGETS));
@@ -2549,21 +2563,285 @@ var init_journal_timeline_interaction = __esm({
   }
 });
 
+// src/mood-reports.ts
+function dateValue(date) {
+  return /* @__PURE__ */ new Date(`${date}T12:00:00Z`);
+}
+function dateString(date) {
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(date.getUTCDate()).padStart(2, "0")}`;
+}
+function shiftDays(date, days) {
+  const value = dateValue(date);
+  value.setUTCDate(value.getUTCDate() + days);
+  return dateString(value);
+}
+function startOfWeek(date, weekStartsOn = 1) {
+  const value = dateValue(date);
+  const day = value.getUTCDay();
+  value.setUTCDate(value.getUTCDate() - (day - weekStartsOn + 7) % 7);
+  return dateString(value);
+}
+function periodInfo(date, period, weekStartsOn = 1) {
+  if (period === "year") {
+    const key = date.slice(0, 4);
+    return { key, startDate: `${key}-01-01`, endDate: `${key}-12-31` };
+  }
+  if (period === "month") {
+    const key = date.slice(0, 7);
+    const value = dateValue(`${key}-01`);
+    value.setUTCMonth(value.getUTCMonth() + 1, 0);
+    return { key, startDate: `${key}-01`, endDate: dateString(value) };
+  }
+  const startDate = startOfWeek(date, weekStartsOn);
+  return { key: startDate, startDate, endDate: shiftDays(startDate, 6) };
+}
+function emptyScoreCounts() {
+  return { "-2": 0, "-1": 0, "0": 0, "1": 0, "2": 0 };
+}
+function normalizeEntries(input) {
+  if (Array.isArray(input)) {
+    return input.map((value, index) => {
+      if ("date" in value) {
+        const item = value;
+        return { ...item, mood: item.mood || item.record };
+      }
+      const record = value;
+      const date = String(record.date || record.recordedAt || "").slice(0, 10);
+      return { date, path: String(index), mood: record };
+    }).filter((item) => /^\d{4}-\d{2}-\d{2}$/u.test(item.date) && Boolean(item.mood));
+  }
+  return Object.entries(input || {}).map(([path, mood]) => ({
+    path,
+    date: String(mood.date || mood.recordedAt || "").slice(0, 10),
+    mood
+  })).filter((item) => /^\d{4}-\d{2}-\d{2}$/u.test(item.date));
+}
+function makeReport(info, entries) {
+  const scoreCounts = emptyScoreCounts();
+  const labelCounts = {};
+  let total = 0;
+  let minScore = null;
+  let maxScore = null;
+  for (const entry of entries) {
+    const score = entry.mood?.score;
+    if (score === void 0 || score === null) continue;
+    scoreCounts[String(score)]++;
+    total += score;
+    minScore = minScore === null ? score : Math.min(minScore, score);
+    maxScore = maxScore === null ? score : Math.max(maxScore, score);
+    for (const label of entry.mood?.labels || []) labelCounts[label] = (labelCounts[label] || 0) + 1;
+  }
+  const recordCount = entries.filter((entry) => entry.mood).length;
+  return {
+    ...info,
+    recordCount,
+    averageScore: recordCount ? Math.round(total / recordCount * 100) / 100 : null,
+    minScore,
+    maxScore,
+    scoreCounts,
+    labelCounts: Object.fromEntries(Object.entries(labelCounts).sort(([a], [b]) => a.localeCompare(b)))
+  };
+}
+function expandPeriodKeys(from, to, period, weekStartsOn) {
+  const result = [];
+  let cursor = period === "week" ? startOfWeek(from, weekStartsOn) : period === "month" ? `${from.slice(0, 7)}-01` : `${from.slice(0, 4)}-01-01`;
+  const end = period === "week" ? startOfWeek(to, weekStartsOn) : period === "month" ? `${to.slice(0, 7)}-01` : `${to.slice(0, 4)}-01-01`;
+  while (cursor <= end) {
+    result.push(periodInfo(cursor, period, weekStartsOn));
+    cursor = period === "week" ? shiftDays(cursor, 7) : period === "month" ? dateString(new Date(Date.UTC(Number(cursor.slice(0, 4)), Number(cursor.slice(5, 7)), 1))) : `${Number(cursor.slice(0, 4)) + 1}-01-01`;
+  }
+  return result;
+}
+function buildMoodPeriodReport(input, period, options = {}) {
+  const entries = normalizeEntries(input).sort((a, b) => a.date.localeCompare(b.date) || String(a.path || "").localeCompare(String(b.path || "")));
+  const grouped = /* @__PURE__ */ new Map();
+  for (const entry of entries) {
+    if (options.from && entry.date < options.from) continue;
+    if (options.to && entry.date > options.to) continue;
+    const info = periodInfo(entry.date, period, options.weekStartsOn ?? 1);
+    const list = grouped.get(info.key) || [];
+    list.push(entry);
+    grouped.set(info.key, list);
+  }
+  let infos = Array.from(grouped.keys()).sort((a, b) => a.localeCompare(b)).map((key) => periodInfo(key.length === 4 ? `${key}-01-01` : key.length === 7 ? `${key}-01` : key, period, options.weekStartsOn ?? 1));
+  if (options.includeEmpty && options.from && options.to) infos = expandPeriodKeys(options.from, options.to, period, options.weekStartsOn ?? 1);
+  return infos.map((info) => makeReport(info, grouped.get(info.key) || []));
+}
+function summarizeMoodLabelTrends(input, period = "month", options = {}) {
+  const entries = normalizeEntries(input);
+  const labels = /* @__PURE__ */ new Set();
+  const totals = /* @__PURE__ */ new Map();
+  for (const entry of entries) {
+    if (options.from && entry.date < options.from) continue;
+    if (options.to && entry.date > options.to) continue;
+    for (const label of entry.mood?.labels || []) {
+      labels.add(label);
+      const current = totals.get(label) || { count: 0, score: 0 };
+      current.count++;
+      current.score += entry.mood?.score ?? 0;
+      totals.set(label, current);
+    }
+  }
+  return Array.from(labels).sort((a, b) => a.localeCompare(b)).map((label) => {
+    const total = totals.get(label);
+    const trendMap = /* @__PURE__ */ new Map();
+    for (const entry of entries) {
+      if (options.from && entry.date < options.from) continue;
+      if (options.to && entry.date > options.to) continue;
+      if (!entry.mood?.labels.includes(label)) continue;
+      const key = periodInfo(entry.date, period, options.weekStartsOn ?? 1).key;
+      const group = trendMap.get(key) || [];
+      group.push(entry);
+      trendMap.set(key, group);
+    }
+    const trend = Array.from(trendMap.entries()).sort(([a], [b]) => a.localeCompare(b)).map(([key, group]) => ({
+      key,
+      count: group.length,
+      averageScore: group.length ? Math.round(group.reduce((sum, entry) => sum + (entry.mood?.score || 0), 0) / group.length * 100) / 100 : null
+    }));
+    return { label, count: total.count, averageScore: Math.round(total.score / total.count * 100) / 100, trend };
+  });
+}
+function buildMoodReports(input, options = {}) {
+  return {
+    weekly: buildMoodPeriodReport(input, "week", options),
+    monthly: buildMoodPeriodReport(input, "month", options),
+    yearly: buildMoodPeriodReport(input, "year", options),
+    labelTrends: summarizeMoodLabelTrends(input, "month", options)
+  };
+}
+var init_mood_reports = __esm({
+  "src/mood-reports.ts"() {
+    "use strict";
+  }
+});
+
+// src/journal-stats.ts
+var journal_stats_exports = {};
+__export(journal_stats_exports, {
+  aggregateJournalPeriods: () => aggregateJournalPeriods,
+  calculateJournalStats: () => calculateJournalStats
+});
+function dateOnly(value) {
+  return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
+}
+function shiftDate(date, days) {
+  const value = /* @__PURE__ */ new Date(`${date}T12:00:00`);
+  value.setDate(value.getDate() + days);
+  return dateOnly(value);
+}
+function daysInMonth(date) {
+  return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+}
+function uniqueDates(entries) {
+  return Array.from(new Set(entries.map((entry) => entry.date))).sort();
+}
+function periodKey(date, period) {
+  const year = date.slice(0, 4);
+  if (period === "year") return year;
+  const month = Number(date.slice(5, 7));
+  if (period === "month") return `${year}-${String(month).padStart(2, "0")}`;
+  return `${year}-Q${Math.floor((month - 1) / 3) + 1}`;
+}
+function aggregateJournalPeriods(entries, period) {
+  const buckets = /* @__PURE__ */ new Map();
+  for (const entry of entries) {
+    const key = periodKey(entry.date, period);
+    let bucket = buckets.get(key);
+    if (!bucket) {
+      bucket = { entries: 0, dates: /* @__PURE__ */ new Set(), favoriteCount: 0, moodTotal: 0, moodCount: 0 };
+      buckets.set(key, bucket);
+    }
+    bucket.entries++;
+    bucket.dates.add(entry.date);
+    if (entry.favorite) bucket.favoriteCount++;
+    if (entry.mood) {
+      bucket.moodTotal += entry.mood.score;
+      bucket.moodCount++;
+    }
+  }
+  return Array.from(buckets.entries()).sort(([a], [b]) => a.localeCompare(b)).map(([key, bucket]) => ({
+    key,
+    entries: bucket.entries,
+    recordedDays: bucket.dates.size,
+    favoriteCount: bucket.favoriteCount,
+    moodAverage: bucket.moodCount > 0 ? Math.round(bucket.moodTotal / bucket.moodCount * 100) / 100 : void 0
+  }));
+}
+function calculateJournalStats(entries, today = /* @__PURE__ */ new Date(), settings = {}) {
+  const dates = uniqueDates(entries);
+  const dateSet = new Set(dates);
+  let currentStreak = 0;
+  let cursor = dateOnly(today);
+  if (!dateSet.has(cursor)) cursor = shiftDate(cursor, -1);
+  while (dateSet.has(cursor)) {
+    currentStreak++;
+    cursor = shiftDate(cursor, -1);
+  }
+  let longestStreak = 0;
+  let run = 0;
+  let previous;
+  for (const date of dates) {
+    run = previous && shiftDate(previous, 1) === date ? run + 1 : 1;
+    longestStreak = Math.max(longestStreak, run);
+    previous = date;
+  }
+  const monthPrefix = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
+  const todayString = dateOnly(today);
+  const recordedThisMonth = dates.filter((date) => date.startsWith(monthPrefix) && date <= todayString).length;
+  const monthCompletionRate = Math.round(recordedThisMonth / daysInMonth(today) * 100);
+  const moodDistribution = {};
+  const labelCounts = {};
+  for (const entry of entries) {
+    if (entry.mood) {
+      const key = String(entry.mood.score);
+      moodDistribution[key] = (moodDistribution[key] ?? 0) + 1;
+      for (const label of entry.mood.labels) labelCounts[label] = (labelCounts[label] ?? 0) + 1;
+    }
+  }
+  const moodInputs = entries.map((entry) => ({ date: entry.date, path: entry.path, mood: entry.mood }));
+  const moodReports = buildMoodReports(moodInputs, { weekStartsOn: resolveWeekStart(settings) });
+  return {
+    currentStreak,
+    longestStreak,
+    monthCompletionRate,
+    moodDistribution,
+    labelCounts,
+    trend: entries.slice().sort((a, b) => a.date.localeCompare(b.date)).slice(-14).map((entry) => ({ date: entry.date, score: entry.mood?.score })),
+    monthly: aggregateJournalPeriods(entries, "month"),
+    quarterly: aggregateJournalPeriods(entries, "quarter"),
+    yearly: aggregateJournalPeriods(entries, "year"),
+    labelTrends: moodReports.labelTrends,
+    weeklyMood: moodReports.weekly,
+    monthlyMood: moodReports.monthly,
+    yearlyMood: moodReports.yearly
+  };
+}
+var init_journal_stats = __esm({
+  "src/journal-stats.ts"() {
+    "use strict";
+    init_mood_reports();
+    init_i18n();
+  }
+});
+
 // src/journal-timeline-view.ts
 var journal_timeline_view_exports = {};
 __export(journal_timeline_view_exports, {
   JOURNAL_TIMELINE_VIEW: () => JOURNAL_TIMELINE_VIEW,
   JournalTimelineView: () => JournalTimelineView
 });
-var ItemView, Notice2, TFile, setIcon, MOOD_LEVELS3, formatJournalDate2, getDisplayLanguage2, moodLabel3, t3, isGenericJournalTitle2, JOURNAL_TIMELINE_VIEW, JournalTimelineView;
+var ItemView, Notice2, TFile, setIcon, MOOD_LEVELS3, getMoodColor2, calculateJournalStats2, formatJournalDate2, getDisplayLanguage2, moodLabel3, t3, isGenericJournalTitle2, JOURNAL_TIMELINE_VIEW, JournalTimelineView;
 var init_journal_timeline_view = __esm({
   "src/journal-timeline-view.ts"() {
     "use strict";
     init_media_links();
+    init_journal_timeline_display();
     init_journal_timeline_filters();
     init_journal_timeline_interaction();
     ({ ItemView, Notice: Notice2, TFile, setIcon } = require("obsidian"));
-    ({ MOOD_LEVELS: MOOD_LEVELS3 } = (init_mood(), __toCommonJS(mood_exports)));
+    ({ MOOD_LEVELS: MOOD_LEVELS3, getMoodColor: getMoodColor2 } = (init_mood(), __toCommonJS(mood_exports)));
+    ({ calculateJournalStats: calculateJournalStats2 } = (init_journal_stats(), __toCommonJS(journal_stats_exports)));
     ({ formatJournalDate: formatJournalDate2, getDisplayLanguage: getDisplayLanguage2, moodLabel: moodLabel3, t: t3 } = (init_i18n(), __toCommonJS(i18n_exports)));
     ({ isGenericJournalTitle: isGenericJournalTitle2 } = (init_excerpt(), __toCommonJS(excerpt_exports)));
     JOURNAL_TIMELINE_VIEW = "journal-timeline-view";
@@ -2646,7 +2924,32 @@ var init_journal_timeline_view = __esm({
         setIcon(newButton, "file-plus-2");
         newButton.addEventListener("click", () => this.plugin.createDailyNoteForToday());
         this.renderFilters(root);
+        this.renderStats(root);
         this.renderList(root.createDiv({ cls: "journal-timeline-list" }), entries);
+      }
+      renderStats(root) {
+        const stats = calculateJournalStats2(this.index.getEntries());
+        const section = root.createDiv({ cls: "journal-timeline-stats", attr: { "aria-label": t3(this.plugin.settings, "moodTrend") } });
+        const values = [
+          [t3(this.plugin.settings, "currentStreak"), `${stats.currentStreak}`],
+          [t3(this.plugin.settings, "longestStreak"), `${stats.longestStreak}`],
+          [t3(this.plugin.settings, "thisMonth"), `${stats.monthCompletionRate}%`]
+        ];
+        for (const [label, value] of values) {
+          const item = section.createDiv({ cls: "journal-stat" });
+          item.createDiv({ cls: "journal-stat-value", text: value });
+          item.createDiv({ cls: "journal-stat-label", text: label });
+        }
+        if (!shouldShowTimelineMoodTrend(this.plugin.settings)) return;
+        const trend = section.createDiv({ cls: "journal-stat-trend" });
+        trend.createDiv({ cls: "journal-stat-label", text: t3(this.plugin.settings, "moodTrend") });
+        const grid = trend.createDiv({ cls: "journal-stat-trend-grid" });
+        for (const item of stats.trend.slice(-7)) {
+          const cell = grid.createDiv({ cls: "journal-stat-trend-cell" });
+          cell.style.backgroundColor = getMoodColor2(item.score);
+          cell.setAttribute("aria-label", `${item.date}: ${item.score === void 0 ? t3(this.plugin.settings, "noMood") : moodLabel3(this.plugin.settings, item.score)}`);
+          cell.title = cell.getAttribute("aria-label");
+        }
       }
       /** Media changes do not alter index data, but visible thumbnail URLs may. */
       _onMediaChanged() {
@@ -3567,6 +3870,7 @@ var init_settings_tab = __esm({
     init_i18n();
     init_locale();
     init_dayline_wordmark_compact();
+    init_journal_timeline_display();
     VIEW_TYPE = "calendar-sidebar-view";
     SETTINGS_SECTION_IDS = [
       "general",
@@ -3731,6 +4035,11 @@ var init_settings_tab = __esm({
         this._addActionRow(new import_obsidian.Setting(containerEl).setName(t(this.plugin.settings, "journalTools")).setDesc(t(this.plugin.settings, "journalToolsDesc")), "journalTools").addButton((button) => button.setButtonText(t(this.plugin.settings, "openTimeline")).onClick(() => this.plugin.activateTimeline())).addButton((button) => button.setButtonText(t(this.plugin.settings, "detectImports")).onClick(async () => {
           const result = await this.plugin.journalIndex.detectSources(this.plugin.settings);
           new import_obsidian.Notice(t(this.plugin.settings, "detectImportsResult", result));
+        }));
+        new import_obsidian.Setting(containerEl).setName(t(this.plugin.settings, "showTimelineMoodTrend")).setDesc(t(this.plugin.settings, "showTimelineMoodTrendDesc")).addToggle((toggle) => toggle.setValue(shouldShowTimelineMoodTrend(this.plugin.settings)).onChange(async (value) => {
+          this.plugin.settings.showTimelineMoodTrend = value;
+          if (!await this._saveSettings()) return;
+          this.plugin.refreshJournalViews();
         }));
         new import_obsidian.Setting(containerEl).setName(t(this.plugin.settings, "showCalendarMood")).setDesc(t(this.plugin.settings, "showCalendarMoodDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showCalendarMood !== false).onChange(async (value) => {
           this.plugin.settings.showCalendarMood = value;
@@ -19995,7 +20304,12 @@ function imageMetadataFromFields(fields) {
     result.make = parts[0];
     result.model = parts.slice(1).join(" ") || parts[0];
   }
+  result.lens = fieldValue(fields, "exif_lens");
   result.capturedAt = fieldValue(fields, "exif_date");
+  result.aperture = fieldValue(fields, "exif_aperture");
+  result.shutter = fieldValue(fields, "exif_shutter");
+  result.iso = fieldValue(fields, "exif_iso");
+  result.focalLength = fieldValue(fields, "exif_focal");
   result.software = fieldValue(fields, "exif_software");
   const gps = parseGps(fieldValue(fields, "exif_gps"));
   if (gps) {
@@ -20032,10 +20346,15 @@ function formatMediaMetadataForDisplay(metadata) {
     add("media_sampleRate", metadata.sampleRate !== void 0 ? `${metadata.sampleRate} Hz` : void 0);
     add("media_channels", metadata.channels);
   } else {
-    add("exif_date", metadata.capturedAt);
     if (metadata.make || metadata.model) add("exif_camera", [metadata.make, metadata.model].filter(Boolean).join(" "));
-    add("exif_software", metadata.software);
+    add("exif_lens", metadata.lens);
+    add("exif_date", metadata.capturedAt);
+    add("exif_aperture", metadata.aperture);
+    add("exif_shutter", metadata.shutter);
+    add("exif_iso", metadata.iso);
+    add("exif_focal", metadata.focalLength);
     if (metadata.latitude !== void 0 && metadata.longitude !== void 0) add("exif_gps", `${metadata.latitude.toFixed(4)}, ${metadata.longitude.toFixed(4)}`);
+    add("exif_software", metadata.software);
   }
   return fields.length ? fields : null;
 }
@@ -21831,7 +22150,7 @@ var { MEDIA_EXTENSIONS: MEDIA_EXTENSIONS2, IMAGE_EXTENSIONS: MEDIA_IMAGE_EXTENSI
 var { OverlayRegistry: OverlayRegistry2 } = (init_overlay_registry(), __toCommonJS(overlay_registry_exports));
 var { SerialTaskQueue: SerialTaskQueue2 } = (init_task_queue(), __toCommonJS(task_queue_exports));
 var { formatCalendarMonth: formatCalendarMonth2, getCalendarGridOffset: getCalendarGridOffset2, getCalendarWeekdays: getCalendarWeekdays2, getDisplayLanguage: getDisplayLanguage3, moodLabel: moodLabel4, t: t4 } = (init_i18n(), __toCommonJS(i18n_exports));
-var { getMoodColor: getMoodColor2 } = (init_mood(), __toCommonJS(mood_exports));
+var { getMoodColor: getMoodColor3 } = (init_mood(), __toCommonJS(mood_exports));
 var { shouldHandleCalendarMonthShortcut: shouldHandleCalendarMonthShortcut2 } = (init_calendar_keyboard(), __toCommonJS(calendar_keyboard_exports));
 var { calendarMediaAccessibilityLabel: calendarMediaAccessibilityLabel2, shouldShowCalendarMood: shouldShowCalendarMood2, shouldShowCalendarWeatherCard: shouldShowCalendarWeatherCard2, shouldShowCalendarWeatherBadge: shouldShowCalendarWeatherBadge2, shouldShowCalendarWeatherLocation: shouldShowCalendarWeatherLocation2 } = (init_calendar_display(), __toCommonJS(calendar_display_exports));
 var { ViewVisibilityController: ViewVisibilityController2, normalizeViewVisibilitySettings: normalizeViewVisibilitySettings2 } = (init_view_visibility_controller(), __toCommonJS(view_visibility_controller_exports));
@@ -21886,6 +22205,7 @@ var DEFAULT_SETTINGS = {
   weatherDisplayFields: ["feels", "humidity"],
   showCalendarView: true,
   showTimelineView: false,
+  showTimelineMoodTrend: true,
   // Legacy combined weather visibility setting; retained for migration/downgrade compatibility.
   showCalendarWeather: true,
   // --- EXIF metadata ---
@@ -23897,12 +24217,12 @@ var CalendarView = class extends ItemView2 {
     const grid = el.createDiv({ cls: "cal-grid" });
     const touchRouting = calendarCellTouchRouting2(Boolean(this.plugin.capabilities?.coarsePointer));
     const firstDay = getCalendarGridOffset2(year, month, this.plugin.settings);
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const daysInMonth2 = new Date(year, month + 1, 0).getDate();
     const todayStr = _daylineDate(this.plugin.settings);
     for (let i = 0; i < firstDay; i++) {
       grid.createDiv({ cls: "cal-day cal-day-empty" });
     }
-    for (let d = 1; d <= daysInMonth; d++) {
+    for (let d = 1; d <= daysInMonth2; d++) {
       const dateStr = formatDateParts2(year, month + 1, d);
       const dateEntry = imageMap.get(dateStr) || {
         date: dateStr,
@@ -23989,7 +24309,7 @@ var CalendarView = class extends ItemView2 {
             title: mood ? moodLabel4(this.plugin.settings, mood.score) : `${t4(this.plugin.settings, "recordMood")}: ${dateStr}`
           }
         });
-        if (mood) moodButton.style.setProperty("--journal-mood-color", getMoodColor2(mood.score));
+        if (mood) moodButton.style.setProperty("--journal-mood-color", getMoodColor3(mood.score));
         moodButton.createSpan({ cls: "cal-mood-dot", attr: { "aria-hidden": "true" } });
         moodButton.addEventListener("pointerdown", (event) => {
           event.preventDefault();

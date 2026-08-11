@@ -1,9 +1,11 @@
 // @ts-nocheck
 const { ItemView, Notice, TFile, setIcon } = require('obsidian');
-const { MOOD_LEVELS } = require('./mood');
+const { MOOD_LEVELS, getMoodColor } = require('./mood');
+const { calculateJournalStats } = require('./journal-stats');
 const { formatJournalDate, getDisplayLanguage, moodLabel, t } = require('./i18n');
 const { isGenericJournalTitle } = require('./excerpt');
 import { createMediaAttachment } from './media-links';
+import { shouldShowTimelineMoodTrend } from './journal-timeline-display';
 import {
   buildJournalLocationOptions,
   buildJournalTagOptions,
@@ -96,7 +98,33 @@ export class JournalTimelineView extends ItemView {
     setIcon(newButton, 'file-plus-2');
     newButton.addEventListener('click', () => this.plugin.createDailyNoteForToday());
     this.renderFilters(root);
+    this.renderStats(root);
     this.renderList(root.createDiv({ cls: 'journal-timeline-list' }), entries);
+  }
+
+  renderStats(root) {
+    const stats = calculateJournalStats(this.index.getEntries());
+    const section = root.createDiv({ cls: 'journal-timeline-stats', attr: { 'aria-label': t(this.plugin.settings, 'moodTrend') } });
+    const values = [
+      [t(this.plugin.settings, 'currentStreak'), `${stats.currentStreak}`],
+      [t(this.plugin.settings, 'longestStreak'), `${stats.longestStreak}`],
+      [t(this.plugin.settings, 'thisMonth'), `${stats.monthCompletionRate}%`],
+    ];
+    for (const [label, value] of values) {
+      const item = section.createDiv({ cls: 'journal-stat' });
+      item.createDiv({ cls: 'journal-stat-value', text: value });
+      item.createDiv({ cls: 'journal-stat-label', text: label });
+    }
+    if (!shouldShowTimelineMoodTrend(this.plugin.settings)) return;
+    const trend = section.createDiv({ cls: 'journal-stat-trend' });
+    trend.createDiv({ cls: 'journal-stat-label', text: t(this.plugin.settings, 'moodTrend') });
+    const grid = trend.createDiv({ cls: 'journal-stat-trend-grid' });
+    for (const item of stats.trend.slice(-7)) {
+      const cell = grid.createDiv({ cls: 'journal-stat-trend-cell' });
+      cell.style.backgroundColor = getMoodColor(item.score);
+      cell.setAttribute('aria-label', `${item.date}: ${item.score === undefined ? t(this.plugin.settings, 'noMood') : moodLabel(this.plugin.settings, item.score)}`);
+      cell.title = cell.getAttribute('aria-label');
+    }
   }
 
   /** Media changes do not alter index data, but visible thumbnail URLs may. */

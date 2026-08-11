@@ -19,6 +19,7 @@ import {
   shouldShowWeatherSettings,
 } from '../src/settings-tab';
 import { t } from '../src/i18n';
+import { shouldShowTimelineMoodTrend } from '../src/journal-timeline-display';
 
 describe('Dayline settings information architecture', () => {
   it('keeps sections in task and maintenance order with localized labels', () => {
@@ -57,5 +58,12 @@ describe('Dayline settings information architecture', () => {
     expect(shouldShowOnThisDayExcerptSettings({ onThisDayButton: true })).toBe(true);
     expect(shouldShowExifGeocoding({ showExif: false })).toBe(false);
     expect(shouldShowExifGeocoding({ showExif: true })).toBe(true);
+  });
+
+  it('localizes and defaults the timeline mood trend setting', () => {
+    expect(shouldShowTimelineMoodTrend({})).toBe(true);
+    expect(shouldShowTimelineMoodTrend({ showTimelineMoodTrend: false })).toBe(false);
+    expect(t({ displayLanguage: 'zh' }, 'showTimelineMoodTrend')).toBe('显示时间线心情趋势');
+    expect(t({ displayLanguage: 'en' }, 'showTimelineMoodTrend')).toBe('Show timeline mood trend');
   });
 });

@@ -1,7 +1,7 @@
 {
   "name": "dayline",
   "private": true,
-  "version": "2.1.0",
+  "version": "2.1.1",
   "description": "Dayline Obsidian plugin source and test tooling",
   "scripts": {
     "build": "node build.mjs",

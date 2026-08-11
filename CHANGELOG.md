@@ -1,5 +1,41 @@
 # Changelog
 
+## 2.1.1 (2026-08-11)
+
+### Added
+- Added the `showTimelineMoodTrend` setting under Calendar and journal; it controls the recent seven-day mood trajectory in the journal timeline and stays enabled for existing configurations by default.
+
+### Changed
+- Restored the timeline summary area with streak statistics and compact mood trend cells.
+- Calendar and journal image metadata now keep the complete image EXIF field set in the shared media tooltip.
+
+### Fixed
+- Fixed the journal timeline losing its seven-day mood trajectory after the timeline layout simplification.
+
+### Verification
+- `npm test` passed: 35 test files and 167 tests.
+- `npm run typecheck`, `npm run build`, and `git diff --check` passed.
+
+---
+
+## 2.1.1（2026-08-11）
+
+### 新增
+- 在“日历和日记”设置中增加 `showTimelineMoodTrend`，可控制日记时间线中的近七天心情轨迹；旧配置默认保持开启。
+
+### 变更
+- 恢复时间线顶部的连续记录统计和紧凑心情趋势色块。
+- 日历和日记中的图片元数据现在在共享媒体浮窗中保留完整的图片 EXIF 字段。
+
+### 修复
+- 修复时间线布局简化后七天心情轨迹消失的问题。
+
+### 验证
+- `npm test` 通过：35 个测试文件、167 个测试。
+- `npm run typecheck`、`npm run build` 和 `git diff --check` 通过。
+
+---
+
 ## 2.1.0 (2026-08-07)
 
 ### Added

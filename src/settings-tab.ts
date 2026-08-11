@@ -3,6 +3,7 @@ import { Notice, PluginSettingTab, Setting, SuggestModal, TFolder } from 'obsidi
 import { getDisplayLanguage, t } from './i18n';
 import { localize as _l } from './locale';
 import compactWordmarkSvg from '../assets/dayline-wordmark-compact.svg';
+import { shouldShowTimelineMoodTrend } from './journal-timeline-display';
 
 const VIEW_TYPE = 'calendar-sidebar-view';
 
@@ -255,6 +256,17 @@ export class DaylineSettingsTab extends PluginSettingTab {
         .onClick(async () => {
           const result = await this.plugin.journalIndex.detectSources(this.plugin.settings);
           new Notice(t(this.plugin.settings, 'detectImportsResult', result));
+        }));
+
+    new Setting(containerEl)
+      .setName(t(this.plugin.settings, 'showTimelineMoodTrend'))
+      .setDesc(t(this.plugin.settings, 'showTimelineMoodTrendDesc'))
+      .addToggle((toggle) => toggle
+        .setValue(shouldShowTimelineMoodTrend(this.plugin.settings))
+        .onChange(async (value) => {
+          this.plugin.settings.showTimelineMoodTrend = value;
+          if (!(await this._saveSettings())) return;
+          this.plugin.refreshJournalViews();
         }));
 
     new Setting(containerEl)

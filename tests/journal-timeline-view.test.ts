@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { feelingLabel } from '../src/i18n';
 import { shouldOpenTimelineEntryFromKey } from '../src/journal-timeline-interaction';
+import { shouldShowTimelineMoodTrend } from '../src/journal-timeline-display';
 
 describe('timeline interaction boundaries', () => {
   it('does not open an entry from Enter or Space inside interactive descendants', () => {
@@ -17,5 +18,16 @@ describe('timeline interaction boundaries', () => {
   it('keeps built-in label localization separate from custom labels', () => {
     expect(feelingLabel({ displayLanguage: 'zh' }, 'calm')).toBe('平静');
     expect(feelingLabel({ displayLanguage: 'en' }, 'custom label')).toBe('custom label');
+  });
+});
+
+describe('timeline mood trend display', () => {
+  it('shows the seven-day mood trend by default', () => {
+    expect(shouldShowTimelineMoodTrend({})).toBe(true);
+    expect(shouldShowTimelineMoodTrend({ showTimelineMoodTrend: true })).toBe(true);
+  });
+
+  it('hides the mood trend area when the setting is disabled', () => {
+    expect(shouldShowTimelineMoodTrend({ showTimelineMoodTrend: false })).toBe(false);
   });
 });

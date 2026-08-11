@@ -76,6 +76,7 @@ const DEFAULT_SETTINGS = {
   weatherDisplayFields: ['feels', 'humidity'],
   showCalendarView: true,
   showTimelineView: false,
+  showTimelineMoodTrend: true,
   // Legacy combined weather visibility setting; retained for migration/downgrade compatibility.
   showCalendarWeather: true,
   // --- EXIF metadata ---
