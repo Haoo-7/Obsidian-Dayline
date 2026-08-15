@@ -64,6 +64,17 @@ export function waitForJournalIndexStartup(app: any): Promise<void> {
   return Promise.all([metadataReady, layoutReady]).then(() => undefined);
 }
 
+/** Start the initial index work without making a workspace view await it. */
+export function startJournalIndexLoad(
+  load: () => Promise<void>,
+  onReady: () => void,
+  onError: (error: unknown) => void,
+): void {
+  void Promise.resolve()
+    .then(load)
+    .then(onReady, onError);
+}
+
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' ? value as Record<string, unknown> : {};
 }

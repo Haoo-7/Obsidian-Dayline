@@ -530,6 +530,7 @@ __export(journal_index_exports, {
   JournalIndex: () => JournalIndex,
   normalizeLocation: () => normalizeLocation,
   resolveJournalDate: () => resolveJournalDate,
+  startJournalIndexLoad: () => startJournalIndexLoad,
   waitForJournalIndexStartup: () => waitForJournalIndexStartup
 });
 function waitForJournalIndexStartup(app) {
@@ -549,6 +550,9 @@ function waitForJournalIndexStartup(app) {
   });
   const layoutReady = typeof workspace?.onLayoutReady === "function" ? new Promise((resolve) => workspace.onLayoutReady(resolve)) : Promise.resolve();
   return Promise.all([metadataReady, layoutReady]).then(() => void 0);
+}
+function startJournalIndexLoad(load, onReady, onError) {
+  void Promise.resolve().then(load).then(onReady, onError);
 }
 function asRecord(value) {
   return value && typeof value === "object" ? value : {};
@@ -892,6 +896,35 @@ var init_journal_index = __esm({
         for (const listener of this.listeners) listener(entries, change);
       }
     };
+  }
+});
+
+// src/journal-metadata-refresh.ts
+var journal_metadata_refresh_exports = {};
+__export(journal_metadata_refresh_exports, {
+  subscribeJournalMetadataRefresh: () => subscribeJournalMetadataRefresh
+});
+function subscribeJournalMetadataRefresh({
+  metadataCache,
+  registerEvent,
+  journalIndex,
+  getSettings,
+  onError
+}) {
+  if (typeof metadataCache?.on !== "function") return;
+  const eventRef = metadataCache.on("changed", async (file) => {
+    if (!file?.path || String(file.extension).toLowerCase() !== "md") return;
+    try {
+      await journalIndex.refreshFile(file.path, getSettings());
+    } catch (error) {
+      onError(error, file);
+    }
+  });
+  if (eventRef) registerEvent(eventRef);
+}
+var init_journal_metadata_refresh = __esm({
+  "src/journal-metadata-refresh.ts"() {
+    "use strict";
   }
 });
 
@@ -2851,6 +2884,7 @@ var init_journal_timeline_view = __esm({
     init_journal_timeline_display();
     init_journal_timeline_filters();
     init_journal_timeline_interaction();
+    init_journal_index();
     ({ ItemView, Notice: Notice2, TFile, setIcon } = require("obsidian"));
     ({ MOOD_LEVELS: MOOD_LEVELS3, getMoodColor: getMoodColor2 } = (init_mood(), __toCommonJS(mood_exports)));
     ({ buildRecentMoodTrend: buildRecentMoodTrend2, calculateJournalStats: calculateJournalStats2 } = (init_journal_stats(), __toCommonJS(journal_stats_exports)));
@@ -2866,6 +2900,8 @@ var init_journal_timeline_view = __esm({
         this.filter = {};
         this.filterMenuOpen = false;
         this.renderToken = 0;
+        this.closed = false;
+        this.journalIndexError = null;
         this.thumbnailObserver = null;
         this.thumbnailVisibilityChecks = /* @__PURE__ */ new Map();
         this.thumbnailScrollTimer = null;
@@ -2892,13 +2928,28 @@ var init_journal_timeline_view = __esm({
         this.render();
       }
       async onOpen() {
+        this.closed = false;
+        this.journalIndexError = null;
         this.contentEl.addEventListener("scroll", this.thumbnailScrollHandler, { passive: true });
         this.unsubscribe = this.index.subscribe(() => this.render());
-        if (this.plugin.ensureJournalIndexReady) await this.plugin.ensureJournalIndexReady();
-        else await this.index.refresh(this.plugin.settings);
         this.render();
+        startJournalIndexLoad(
+          () => this.plugin.ensureJournalIndexReady ? this.plugin.ensureJournalIndexReady() : this.index.refresh(this.plugin.settings),
+          () => {
+            if (this.closed) return;
+            this.journalIndexError = null;
+            this.render();
+          },
+          (error) => {
+            if (this.closed) return;
+            this.journalIndexError = error;
+            console.warn("[Dayline] Timeline journal index load failed:", error?.message || error);
+            this.render();
+          }
+        );
       }
       onClose() {
+        this.closed = true;
         this.renderToken++;
         this.thumbnailObserver?.disconnect();
         this.thumbnailObserver = null;
@@ -2919,6 +2970,14 @@ var init_journal_timeline_view = __esm({
         root.empty();
         root.addClass("journal-timeline-view");
         this.renderToken++;
+        if (this.journalIndexError) {
+          root.createDiv({ cls: "journal-index-loading journal-index-load-error", text: t3(this.plugin.settings, "journalIndexLoadFailed", { error: this.journalIndexError?.message || this.journalIndexError }) });
+          return;
+        }
+        if (!this.index.isReady) {
+          root.createDiv({ cls: "journal-index-loading", text: t3(this.plugin.settings, "journalIndexLoading") });
+          return;
+        }
         const entries = this.index.filter(this.filter);
         const header = root.createDiv({ cls: "journal-timeline-header" });
         const heading = header.createDiv({ cls: "journal-timeline-heading" });
@@ -22143,7 +22202,8 @@ var init_dayline_mobile = __esm({
 
 // src/plugin.ts
 var { Plugin, ItemView: ItemView2, TFile: TFile2, Notice: Notice4, Modal: Modal2, Menu, setIcon: setIcon2, Platform } = require("obsidian");
-var { JournalIndex: JournalIndex2, waitForJournalIndexStartup: waitForJournalIndexStartup2 } = (init_journal_index(), __toCommonJS(journal_index_exports));
+var { JournalIndex: JournalIndex2, startJournalIndexLoad: startJournalIndexLoad2, waitForJournalIndexStartup: waitForJournalIndexStartup2 } = (init_journal_index(), __toCommonJS(journal_index_exports));
+var { subscribeJournalMetadataRefresh: subscribeJournalMetadataRefresh2 } = (init_journal_metadata_refresh(), __toCommonJS(journal_metadata_refresh_exports));
 var { MoodStore: MoodStore2 } = (init_mood_store(), __toCommonJS(mood_store_exports));
 var { MoodPickerModal: MoodPickerModal2, MoodRecoveryModal: MoodRecoveryModal2 } = (init_mood_picker_modal(), __toCommonJS(mood_picker_modal_exports));
 var { saveMoodExport: saveMoodExport2, serializeMoodCsv: serializeMoodCsv2, serializeMoodJson: serializeMoodJson2 } = (init_mood_export(), __toCommonJS(mood_export_exports));
@@ -22395,6 +22455,13 @@ var DaylinePlugin = class extends Plugin {
     this.registerEvent(this.app.vault.on("modify", (file) => this._handleJournalCreateOrModify(file)));
     this.registerEvent(this.app.vault.on("delete", (file) => this._handleJournalDelete(file)));
     this.registerEvent(this.app.vault.on("rename", (file, oldPath) => this._handleJournalRename(file, oldPath)));
+    subscribeJournalMetadataRefresh2({
+      metadataCache: this.app.metadataCache,
+      registerEvent: (eventRef) => this.registerEvent(eventRef),
+      journalIndex: this.journalIndex,
+      getSettings: () => this.settings,
+      onError: (error, file) => console.warn("[Dayline] Journal metadata refresh failed:", file?.path, error?.message || error)
+    });
   }
   /** Remove all note overlays and clear state on unload. */
   async onunload() {
@@ -23721,6 +23788,8 @@ button.cal-weather-refresh:hover {
 .cal-mood-button.mood--1 { --journal-mood-color: #e68a3b; }
 .cal-mood-button.mood--2 { --journal-mood-color: #d84b76; }
 .journal-timeline-view { box-sizing: border-box; width: 100%; min-width: 0; padding: 14px; overflow-x: hidden; overflow-y: auto; }
+.journal-index-loading { display: flex; align-items: center; justify-content: center; min-height: 160px; padding: 24px; color: var(--text-muted); text-align: center; overflow-wrap: anywhere; }
+.journal-index-load-error { color: var(--text-error); }
 .journal-timeline-header, .journal-timeline-entry-top, .journal-timeline-meta, .journal-timeline-actions, .journal-timeline-filter-row, .journal-timeline-filter-menu, .journal-mood-actions { display: flex; align-items: center; min-width: 0; }
 .journal-timeline-header { justify-content: space-between; gap: 8px; margin-bottom: 10px; }
 .journal-timeline-heading { display: flex; align-items: baseline; gap: 7px; min-width: 0; overflow: hidden; }
@@ -23974,6 +24043,8 @@ var CalendarView = class extends ItemView2 {
     this._otdDotCache = null;
     this._calendarJumpOpen = false;
     this._calendarKeydownHandler = null;
+    this.closed = false;
+    this.journalIndexError = null;
   }
   getViewType() {
     return VIEW_TYPE2;
@@ -23986,7 +24057,8 @@ var CalendarView = class extends ItemView2 {
   }
   /* ----- Lifecycle ----- */
   async onOpen() {
-    if (this.plugin.ensureJournalIndexReady) await this.plugin.ensureJournalIndexReady();
+    this.closed = false;
+    this.journalIndexError = null;
     this.containerEl.addClass("cal-sidebar");
     this.contentEl.addClass("cal-calendar-content");
     this.contentEl.setAttribute("tabindex", "0");
@@ -24005,24 +24077,31 @@ var CalendarView = class extends ItemView2 {
     this._unsubscribeIndex = this.plugin.journalIndex?.subscribe?.((_, change) => {
       this._onJournalIndexChanged(change).catch((error) => console.warn("[Dayline] Calendar index refresh failed:", error?.message || error));
     });
-    try {
-      await this.buildMonthCache(this.displayMonth);
-    } catch (error) {
-      console.warn("[Dayline] Initial calendar month load failed:", error?.message || error);
-      this.monthCache.delete(this._monthKey(this.displayMonth));
-      new Notice4(t4(this.plugin.settings, "calendarMonthLoadFailed", { error: error?.message || error }));
-    }
-    this._otdProvider.ensureDateIndex().then(() => {
-      this._otdDotCache = this._otdProvider.dateIndexSnapshot;
-      if (this.plugin.settings.onThisDayDot) this.render();
-    }).catch((error) => {
-      console.warn("[Dayline] On This Day index load failed:", error?.message || error);
-      new Notice4(t4(this.plugin.settings, "onThisDayLoadFailed", { error: error?.message || error }));
-    });
     this._syncActiveDate();
     this.render();
+    const indexWasReady = Boolean(this.plugin.journalIndex?.isReady);
+    startJournalIndexLoad2(
+      () => this.plugin.ensureJournalIndexReady ? this.plugin.ensureJournalIndexReady() : this.plugin.journalIndex.refresh(this.plugin.settings),
+      () => {
+        if (this.closed) return;
+        this.journalIndexError = null;
+        const refresh = indexWasReady ? this.refresh() : Promise.resolve();
+        refresh.catch((error) => {
+          console.warn("[Dayline] Initial calendar month load failed:", error?.message || error);
+          this.monthCache.delete(this._monthKey(this.displayMonth));
+          new Notice4(t4(this.plugin.settings, "calendarMonthLoadFailed", { error: error?.message || error }));
+        });
+      },
+      (error) => {
+        if (this.closed) return;
+        this.journalIndexError = error;
+        console.warn("[Dayline] Calendar journal index load failed:", error?.message || error);
+        this.render();
+      }
+    );
   }
   onClose() {
+    this.closed = true;
     if (this._calendarKeydownHandler) this.contentEl.removeEventListener("keydown", this._calendarKeydownHandler);
     this._calendarKeydownHandler = null;
     this._unsubscribeIndex?.();
@@ -24159,6 +24238,14 @@ var CalendarView = class extends ItemView2 {
     const el = this.contentEl;
     el.empty();
     el.setAttribute("aria-label", t4(this.plugin.settings, "calendarTitle"));
+    if (this.journalIndexError) {
+      el.createDiv({ cls: "journal-index-loading journal-index-load-error", text: t4(this.plugin.settings, "journalIndexLoadFailed", { error: this.journalIndexError?.message || this.journalIndexError }) });
+      return;
+    }
+    if (!this.plugin.journalIndex?.isReady) {
+      el.createDiv({ cls: "journal-index-loading", text: t4(this.plugin.settings, "journalIndexLoading") });
+      return;
+    }
     this._ensureExifTooltip();
     const year = this.displayMonth.getFullYear();
     const month = this.displayMonth.getMonth();

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { JournalIndex, resolveJournalDate, waitForJournalIndexStartup } from '../src/journal-index';
+import { JournalIndex, resolveJournalDate, startJournalIndexLoad, waitForJournalIndexStartup } from '../src/journal-index';
 
 function makeApp(files: any[]) {
   const byPath = new Map(files.map((file) => [file.path, file]));
@@ -16,6 +16,23 @@ function makeApp(files: any[]) {
 }
 
 describe('journal index', () => {
+  it('starts the initial rebuild in the background and reports completion later', async () => {
+    let resolveLoad: (() => void) | undefined;
+    let completed = false;
+    let failed = false;
+    const load = new Promise<void>((resolve) => { resolveLoad = resolve; });
+
+    expect(startJournalIndexLoad(() => load, () => { completed = true; }, () => { failed = true; })).toBeUndefined();
+    expect(completed).toBe(false);
+    expect(failed).toBe(false);
+
+    resolveLoad?.();
+    await load;
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    expect(completed).toBe(true);
+    expect(failed).toBe(false);
+  });
+
   it('does not wait for a resolved event after Obsidian has already initialized metadata', async () => {
     const app: any = makeApp([]);
     app.metadataCache.initialized = true;
