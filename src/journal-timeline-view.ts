@@ -13,6 +13,7 @@ import {
   MISSING_LOCATION_FILTER,
 } from './journal-timeline-filters';
 import { isInteractiveTimelineTarget, shouldOpenTimelineEntryFromKey } from './journal-timeline-interaction';
+import { startJournalIndexLoad } from './journal-index';
 
 export const JOURNAL_TIMELINE_VIEW = 'journal-timeline-view';
 
@@ -25,6 +26,8 @@ export class JournalTimelineView extends ItemView {
     this.filter = {};
     this.filterMenuOpen = false;
     this.renderToken = 0;
+    this.closed = false;
+    this.journalIndexError = null;
     this.thumbnailObserver = null;
     this.thumbnailVisibilityChecks = new Map();
     this.thumbnailScrollTimer = null;
@@ -48,14 +51,31 @@ export class JournalTimelineView extends ItemView {
   }
 
   async onOpen() {
+    this.closed = false;
+    this.journalIndexError = null;
     this.contentEl.addEventListener('scroll', this.thumbnailScrollHandler, { passive: true });
     this.unsubscribe = this.index.subscribe(() => this.render());
-    if (this.plugin.ensureJournalIndexReady) await this.plugin.ensureJournalIndexReady();
-    else await this.index.refresh(this.plugin.settings);
     this.render();
+    startJournalIndexLoad(
+      () => this.plugin.ensureJournalIndexReady
+        ? this.plugin.ensureJournalIndexReady()
+        : this.index.refresh(this.plugin.settings),
+      () => {
+        if (this.closed) return;
+        this.journalIndexError = null;
+        this.render();
+      },
+      (error) => {
+        if (this.closed) return;
+        this.journalIndexError = error;
+        console.warn('[Dayline] Timeline journal index load failed:', error?.message || error);
+        this.render();
+      },
+    );
   }
 
   onClose() {
+    this.closed = true;
     this.renderToken++;
     this.thumbnailObserver?.disconnect();
     this.thumbnailObserver = null;
@@ -79,6 +99,14 @@ export class JournalTimelineView extends ItemView {
     root.empty();
     root.addClass('journal-timeline-view');
     this.renderToken++;
+    if (this.journalIndexError) {
+      root.createDiv({ cls: 'journal-index-loading journal-index-load-error', text: t(this.plugin.settings, 'journalIndexLoadFailed', { error: this.journalIndexError?.message || this.journalIndexError }) });
+      return;
+    }
+    if (!this.index.isReady) {
+      root.createDiv({ cls: 'journal-index-loading', text: t(this.plugin.settings, 'journalIndexLoading') });
+      return;
+    }
     const entries = this.index.filter(this.filter);
 
     const header = root.createDiv({ cls: 'journal-timeline-header' });

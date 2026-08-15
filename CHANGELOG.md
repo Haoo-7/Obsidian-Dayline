@@ -1,5 +1,37 @@
 # Changelog
 
+## 2.1.3 (2026-08-15)
+
+### Changed
+- Journal index initialization now runs in the background, so calendar and timeline views do not block workspace restoration in larger vaults.
+- Calendar and timeline views now show an explicit loading state while the journal index is being built.
+
+### Fixed
+- Re-indexed journal entries after Obsidian metadata-cache updates, so newly parsed image embeds appear without requiring a plugin or vault reload.
+
+### Verification
+- `npm test` passed: 36 test files and 170 tests.
+- `npm run typecheck`, `npm run build`, and `git diff --check` passed.
+- Verified in the Main_Topic vault: Dayline reloaded cleanly, the journal index reached 305 entries, and no runtime errors were captured.
+
+---
+
+## 2.1.3（2026-08-15）
+
+### 变更
+- 日记索引初始化改为后台运行，日历和时间线不再阻塞较大 Vault 的工作区恢复。
+- 日历和时间线在日记索引构建期间显示明确的加载状态。
+
+### 修复
+- 在 Obsidian 元数据缓存更新后重新索引日记，使新解析出的图片嵌入无需插件或 Vault 重载即可显示。
+
+### 验证
+- `npm test` 通过：36 个测试文件、170 个测试。
+- `npm run typecheck`、`npm run build` 和 `git diff --check` 通过。
+- 已在 Main_Topic Vault 中验证：Dayline 重载正常，日记索引达到 305 条，未捕获运行时错误。
+
+---
+
 ## 2.1.2 (2026-08-11)
 
 ### Fixed

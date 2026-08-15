@@ -5,7 +5,8 @@
  * Click a date to open that day's daily note.
  */
 const { Plugin, ItemView, TFile, Notice, Modal, Menu, setIcon, Platform } = require('obsidian');
-const { JournalIndex, waitForJournalIndexStartup } = require('./journal-index');
+const { JournalIndex, startJournalIndexLoad, waitForJournalIndexStartup } = require('./journal-index');
+const { subscribeJournalMetadataRefresh } = require('./journal-metadata-refresh');
 const { MoodStore } = require('./mood-store');
 const { MoodPickerModal, MoodRecoveryModal } = require('./mood-picker-modal');
 const { saveMoodExport, serializeMoodCsv, serializeMoodJson } = require('./mood-export');
@@ -287,6 +288,13 @@ class DaylinePlugin extends Plugin {
     this.registerEvent(this.app.vault.on('modify', (file) => this._handleJournalCreateOrModify(file)));
     this.registerEvent(this.app.vault.on('delete', (file) => this._handleJournalDelete(file)));
     this.registerEvent(this.app.vault.on('rename', (file, oldPath) => this._handleJournalRename(file, oldPath)));
+    subscribeJournalMetadataRefresh({
+      metadataCache: this.app.metadataCache,
+      registerEvent: (eventRef) => this.registerEvent(eventRef),
+      journalIndex: this.journalIndex,
+      getSettings: () => this.settings,
+      onError: (error, file) => console.warn('[Dayline] Journal metadata refresh failed:', file?.path, error?.message || error),
+    });
   }
 
   /** Remove all note overlays and clear state on unload. */
@@ -1697,6 +1705,8 @@ button.cal-weather-refresh:hover {
 .cal-mood-button.mood--1 { --journal-mood-color: #e68a3b; }
 .cal-mood-button.mood--2 { --journal-mood-color: #d84b76; }
 .journal-timeline-view { box-sizing: border-box; width: 100%; min-width: 0; padding: 14px; overflow-x: hidden; overflow-y: auto; }
+.journal-index-loading { display: flex; align-items: center; justify-content: center; min-height: 160px; padding: 24px; color: var(--text-muted); text-align: center; overflow-wrap: anywhere; }
+.journal-index-load-error { color: var(--text-error); }
 .journal-timeline-header, .journal-timeline-entry-top, .journal-timeline-meta, .journal-timeline-actions, .journal-timeline-filter-row, .journal-timeline-filter-menu, .journal-mood-actions { display: flex; align-items: center; min-width: 0; }
 .journal-timeline-header { justify-content: space-between; gap: 8px; margin-bottom: 10px; }
 .journal-timeline-heading { display: flex; align-items: baseline; gap: 7px; min-width: 0; overflow: hidden; }
@@ -1986,6 +1996,8 @@ class CalendarView extends ItemView {
     // Month-jump state is intentionally view-local.
     this._calendarJumpOpen = false;
     this._calendarKeydownHandler = null;
+    this.closed = false;
+    this.journalIndexError = null;
   }
 
   getViewType()   { return VIEW_TYPE; }
@@ -1994,7 +2006,8 @@ class CalendarView extends ItemView {
 
   /* ----- Lifecycle ----- */
   async onOpen() {
-    if (this.plugin.ensureJournalIndexReady) await this.plugin.ensureJournalIndexReady();
+    this.closed = false;
+    this.journalIndexError = null;
     this.containerEl.addClass('cal-sidebar');
     this.contentEl.addClass('cal-calendar-content');
     this.contentEl.setAttribute('tabindex', '0');
@@ -2015,31 +2028,37 @@ class CalendarView extends ItemView {
         .catch((error) => console.warn('[Dayline] Calendar index refresh failed:', error?.message || error));
     });
 
-    // Build data for current month
-    try {
-      await this.buildMonthCache(this.displayMonth);
-    } catch (error) {
-      console.warn('[Dayline] Initial calendar month load failed:', error?.message || error);
-      this.monthCache.delete(this._monthKey(this.displayMonth));
-      new Notice(t(this.plugin.settings, 'calendarMonthLoadFailed', { error: error?.message || error }));
-    }
-
-    // Preload On This Day date index for dot markers
-    this._otdProvider.ensureDateIndex().then(() => {
-      this._otdDotCache = this._otdProvider.dateIndexSnapshot;
-      if (this.plugin.settings.onThisDayDot) this.render(); // re-render to show dots
-    }).catch((error) => {
-      console.warn('[Dayline] On This Day index load failed:', error?.message || error);
-      new Notice(t(this.plugin.settings, 'onThisDayLoadFailed', { error: error?.message || error }));
-    });
-
     // Detect which date the user is currently viewing
     this._syncActiveDate();
     this.render();
 
+    const indexWasReady = Boolean(this.plugin.journalIndex?.isReady);
+    startJournalIndexLoad(
+      () => this.plugin.ensureJournalIndexReady
+        ? this.plugin.ensureJournalIndexReady()
+        : this.plugin.journalIndex.refresh(this.plugin.settings),
+      () => {
+        if (this.closed) return;
+        this.journalIndexError = null;
+        const refresh = indexWasReady ? this.refresh() : Promise.resolve();
+        refresh.catch((error) => {
+          console.warn('[Dayline] Initial calendar month load failed:', error?.message || error);
+          this.monthCache.delete(this._monthKey(this.displayMonth));
+          new Notice(t(this.plugin.settings, 'calendarMonthLoadFailed', { error: error?.message || error }));
+        });
+      },
+      (error) => {
+        if (this.closed) return;
+        this.journalIndexError = error;
+        console.warn('[Dayline] Calendar journal index load failed:', error?.message || error);
+        this.render();
+      },
+    );
+
   }
 
   onClose() {
+    this.closed = true;
     if (this._calendarKeydownHandler) this.contentEl.removeEventListener('keydown', this._calendarKeydownHandler);
     this._calendarKeydownHandler = null;
     this._unsubscribeIndex?.();
@@ -2196,6 +2215,15 @@ class CalendarView extends ItemView {
     const el = this.contentEl;
     el.empty();
     el.setAttribute('aria-label', t(this.plugin.settings, 'calendarTitle'));
+
+    if (this.journalIndexError) {
+      el.createDiv({ cls: 'journal-index-loading journal-index-load-error', text: t(this.plugin.settings, 'journalIndexLoadFailed', { error: this.journalIndexError?.message || this.journalIndexError }) });
+      return;
+    }
+    if (!this.plugin.journalIndex?.isReady) {
+      el.createDiv({ cls: 'journal-index-loading', text: t(this.plugin.settings, 'journalIndexLoading') });
+      return;
+    }
 
     // Ensure EXIF tooltip element exists (reused across renders)
     this._ensureExifTooltip();
