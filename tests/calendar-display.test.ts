@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  calendarEntryAffectsDisplay,
   calendarMediaAccessibilityLabel,
   shouldShowCalendarMood,
   shouldShowCalendarWeather,
@@ -9,6 +10,39 @@ import {
 } from '../src/calendar-display';
 
 describe('calendar display settings', () => {
+  it('does not rebuild the calendar for a journal body-only update', () => {
+    const previous = {
+      path: 'Calendar/Daily/2026-08-15.md',
+      date: '2026-08-15',
+      title: 'Daily Note',
+      excerpt: 'before',
+      searchText: 'before',
+      sourceId: 'daily',
+      sourceType: 'daily',
+      media: [],
+    } as any;
+    const entry = { ...previous, excerpt: 'after', searchText: 'after' };
+
+    expect(calendarEntryAffectsDisplay(previous, entry)).toBe(false);
+  });
+
+  it('rebuilds the calendar when a date entry changes its visible media or date', () => {
+    const previous = {
+      path: 'Calendar/Daily/2026-08-15.md',
+      date: '2026-08-15',
+      sourceId: 'daily',
+      sourceType: 'daily',
+      media: [],
+    } as any;
+    const withPhoto = {
+      ...previous,
+      media: [{ link: 'photo.jpg', normalizedLink: 'photo.jpg', sourcePath: previous.path, kind: 'image', external: false }],
+    };
+
+    expect(calendarEntryAffectsDisplay(previous, withPhoto)).toBe(true);
+    expect(calendarEntryAffectsDisplay(previous, { ...previous, date: '2026-08-16' })).toBe(true);
+  });
+
   it('keeps the media label out of mouse hover while exposing it on focus', () => {
     expect(calendarMediaAccessibilityLabel('2026-08-05', '媒体信息', false)).toBeNull();
     expect(calendarMediaAccessibilityLabel('2026-08-05', '媒体信息', true)).toBe('2026-08-05 媒体信息');

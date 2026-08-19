@@ -21129,6 +21129,7 @@ var init_calendar_keyboard = __esm({
 // src/calendar-display.ts
 var calendar_display_exports = {};
 __export(calendar_display_exports, {
+  calendarEntryAffectsDisplay: () => calendarEntryAffectsDisplay,
   calendarMediaAccessibilityLabel: () => calendarMediaAccessibilityLabel,
   shouldShowCalendarMood: () => shouldShowCalendarMood,
   shouldShowCalendarWeather: () => shouldShowCalendarWeather,
@@ -21136,6 +21137,21 @@ __export(calendar_display_exports, {
   shouldShowCalendarWeatherCard: () => shouldShowCalendarWeatherCard,
   shouldShowCalendarWeatherLocation: () => shouldShowCalendarWeatherLocation
 });
+function calendarEntryAffectsDisplay(previous, entry) {
+  if (!previous || !entry) return previous !== entry;
+  const projection = (value) => JSON.stringify({
+    path: value.path,
+    date: value.date,
+    sourceId: value.sourceId,
+    sourceType: value.sourceType,
+    createdAt: value.createdAt,
+    media: value.media,
+    cover: value.cover,
+    weather: value.weather,
+    mood: value.mood ? { score: value.mood.score } : void 0
+  });
+  return projection(previous) !== projection(entry);
+}
 function calendarMediaAccessibilityLabel(dateStr, mediaLabel, focused) {
   return focused ? `${dateStr} ${mediaLabel}` : null;
 }
@@ -22224,7 +22240,7 @@ var { SerialTaskQueue: SerialTaskQueue2 } = (init_task_queue(), __toCommonJS(tas
 var { formatCalendarMonth: formatCalendarMonth2, getCalendarGridOffset: getCalendarGridOffset2, getCalendarWeekdays: getCalendarWeekdays2, getDisplayLanguage: getDisplayLanguage3, moodLabel: moodLabel4, t: t4 } = (init_i18n(), __toCommonJS(i18n_exports));
 var { getMoodColor: getMoodColor3 } = (init_mood(), __toCommonJS(mood_exports));
 var { shouldHandleCalendarMonthShortcut: shouldHandleCalendarMonthShortcut2 } = (init_calendar_keyboard(), __toCommonJS(calendar_keyboard_exports));
-var { calendarMediaAccessibilityLabel: calendarMediaAccessibilityLabel2, shouldShowCalendarMood: shouldShowCalendarMood2, shouldShowCalendarWeatherCard: shouldShowCalendarWeatherCard2, shouldShowCalendarWeatherBadge: shouldShowCalendarWeatherBadge2, shouldShowCalendarWeatherLocation: shouldShowCalendarWeatherLocation2 } = (init_calendar_display(), __toCommonJS(calendar_display_exports));
+var { calendarEntryAffectsDisplay: calendarEntryAffectsDisplay2, calendarMediaAccessibilityLabel: calendarMediaAccessibilityLabel2, shouldShowCalendarMood: shouldShowCalendarMood2, shouldShowCalendarWeatherCard: shouldShowCalendarWeatherCard2, shouldShowCalendarWeatherBadge: shouldShowCalendarWeatherBadge2, shouldShowCalendarWeatherLocation: shouldShowCalendarWeatherLocation2 } = (init_calendar_display(), __toCommonJS(calendar_display_exports));
 var { ViewVisibilityController: ViewVisibilityController2, normalizeViewVisibilitySettings: normalizeViewVisibilitySettings2 } = (init_view_visibility_controller(), __toCommonJS(view_visibility_controller_exports));
 var { hasExistingImage: hasExistingImage2 } = (init_heic_embed(), __toCommonJS(heic_embed_exports));
 var { ImageMetadataCache: ImageMetadataCache2, HeicCache: HeicCache2, HEIC_EXTS: HEIC_EXTS2, ReverseGeocoder: ReverseGeocoder2 } = (init_image_metadata(), __toCommonJS(image_metadata_exports));
@@ -24159,6 +24175,7 @@ var CalendarView = class extends ItemView2 {
       await this.refresh();
       return;
     }
+    if (!calendarEntryAffectsDisplay2(change.previous, change.entry)) return;
     const entries = [change.previous, change.entry].filter(Boolean);
     const dates = Array.from(new Set(entries.map((entry) => entry.date).filter(Boolean)));
     for (const path of new Set(entries.map((entry) => entry.path).filter(Boolean))) this.mediaService?.invalidate(path);

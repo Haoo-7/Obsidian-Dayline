@@ -27,7 +27,7 @@ const { SerialTaskQueue } = require('./task-queue');
 const { formatCalendarMonth, getCalendarGridOffset, getCalendarWeekdays, getDisplayLanguage, moodLabel, t } = require('./i18n');
 const { getMoodColor } = require('./mood');
 const { shouldHandleCalendarMonthShortcut } = require('./calendar-keyboard');
-const { calendarMediaAccessibilityLabel, shouldShowCalendarMood, shouldShowCalendarWeatherCard, shouldShowCalendarWeatherBadge, shouldShowCalendarWeatherLocation } = require('./calendar-display');
+const { calendarEntryAffectsDisplay, calendarMediaAccessibilityLabel, shouldShowCalendarMood, shouldShowCalendarWeatherCard, shouldShowCalendarWeatherBadge, shouldShowCalendarWeatherLocation } = require('./calendar-display');
 const { ViewVisibilityController, normalizeViewVisibilitySettings } = require('./view-visibility-controller');
 const { hasExistingImage } = require('./heic-embed');
 const { ImageMetadataCache, HeicCache, HEIC_EXTS, ReverseGeocoder } = require('./image-metadata');
@@ -2123,6 +2123,8 @@ class CalendarView extends ItemView {
       await this.refresh();
       return;
     }
+
+    if (!calendarEntryAffectsDisplay(change.previous, change.entry)) return;
 
     const entries = [change.previous, change.entry].filter(Boolean);
     const dates = Array.from(new Set(entries.map((entry) => entry.date).filter(Boolean)));
