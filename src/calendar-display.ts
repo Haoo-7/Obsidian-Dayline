@@ -1,3 +1,5 @@
+import type { JournalEntry } from './types';
+
 export interface CalendarDisplaySettings {
   showCalendarMood?: boolean;
   showCalendarWeatherCard?: boolean;
@@ -5,6 +7,28 @@ export interface CalendarDisplaySettings {
   showCalendarWeatherLocation?: boolean;
   /** Legacy combined weather visibility setting. */
   showCalendarWeather?: boolean;
+}
+
+/**
+ * Calendar cells use date, ordering, media, weather, and mood score, but not
+ * journal prose or search text. Avoid rebuilding the full month for the latter.
+ */
+export function calendarEntryAffectsDisplay(previous?: JournalEntry, entry?: JournalEntry): boolean {
+  if (!previous || !entry) return previous !== entry;
+
+  const projection = (value: JournalEntry) => JSON.stringify({
+    path: value.path,
+    date: value.date,
+    sourceId: value.sourceId,
+    sourceType: value.sourceType,
+    createdAt: value.createdAt,
+    media: value.media,
+    cover: value.cover,
+    weather: value.weather,
+    mood: value.mood ? { score: value.mood.score } : undefined,
+  });
+
+  return projection(previous) !== projection(entry);
 }
 
 /** Keep the media name available to keyboard users without creating a hover label. */
