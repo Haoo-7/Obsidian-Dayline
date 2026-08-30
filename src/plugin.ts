@@ -1699,11 +1699,11 @@ button.cal-weather-refresh:hover {
 .cal-mood-empty .cal-mood-dot { width: 8px; height: 8px; border: 1px solid var(--text-faint); background: transparent; }
 .cal-mood-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--journal-mood-color); }
 .cal-mood-button:hover .cal-mood-dot { box-shadow: 0 0 0 2px color-mix(in srgb, var(--journal-mood-color) 35%, transparent); }
-.cal-mood-button.mood-2 { --journal-mood-color: #4b93d1; }
-.cal-mood-button.mood-1 { --journal-mood-color: #56a86a; }
-.cal-mood-button.mood-0 { --journal-mood-color: #d9bd4c; }
-.cal-mood-button.mood--1 { --journal-mood-color: #e68a3b; }
-.cal-mood-button.mood--2 { --journal-mood-color: #d84b76; }
+.cal-mood-button.mood-2 { --journal-mood-color: #ee6a54; }
+.cal-mood-button.mood-1 { --journal-mood-color: #f0b34f; }
+.cal-mood-button.mood-0 { --journal-mood-color: #55b6c9; }
+.cal-mood-button.mood--1 { --journal-mood-color: #4d6fb8; }
+.cal-mood-button.mood--2 { --journal-mood-color: #7652c7; }
 .journal-timeline-view { box-sizing: border-box; width: 100%; min-width: 0; padding: 14px; overflow-x: hidden; overflow-y: auto; }
 .journal-index-loading { display: flex; align-items: center; justify-content: center; min-height: 160px; padding: 24px; color: var(--text-muted); text-align: center; overflow-wrap: anywhere; }
 .journal-index-load-error { color: var(--text-error); }
@@ -1744,11 +1744,11 @@ button.cal-weather-refresh:hover {
 .journal-timeline-list { display: grid; grid-template-columns: minmax(0, 1fr); width: 100%; min-width: 0; gap: 8px; }
 .journal-timeline-entry { display: grid; grid-template-columns: minmax(0, 1fr); width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box; overflow: hidden; gap: 10px; padding: 10px; border: 1px solid var(--background-modifier-border); border-radius: 7px; box-shadow: inset 3px 0 0 var(--background-modifier-border); cursor: pointer; background: var(--background-primary); }
 .journal-timeline-entry.has-thumbnail { grid-template-columns: minmax(0, 1fr) 88px; }
-.journal-timeline-entry.mood-score-2 { box-shadow: inset 3px 0 0 #4b93d1; }
-.journal-timeline-entry.mood-score-1 { box-shadow: inset 3px 0 0 #56a86a; }
-.journal-timeline-entry.mood-score-0 { box-shadow: inset 3px 0 0 #d9bd4c; }
-.journal-timeline-entry.mood-score--1 { box-shadow: inset 3px 0 0 #e68a3b; }
-.journal-timeline-entry.mood-score--2 { box-shadow: inset 3px 0 0 #d84b76; }
+.journal-timeline-entry.mood-score-2 { box-shadow: inset 3px 0 0 #ee6a54; }
+.journal-timeline-entry.mood-score-1 { box-shadow: inset 3px 0 0 #f0b34f; }
+.journal-timeline-entry.mood-score-0 { box-shadow: inset 3px 0 0 #55b6c9; }
+.journal-timeline-entry.mood-score--1 { box-shadow: inset 3px 0 0 #4d6fb8; }
+.journal-timeline-entry.mood-score--2 { box-shadow: inset 3px 0 0 #7652c7; }
 .journal-timeline-entry:hover, .journal-timeline-entry:focus-visible { border-right-color: var(--interactive-accent); outline: none; }
 .journal-timeline-entry-body { min-width: 0; overflow: hidden; }
 .journal-timeline-entry-top { flex-wrap: wrap; gap: 4px 7px; min-width: 0; color: var(--text-muted); }
@@ -1766,29 +1766,61 @@ button.cal-weather-refresh:hover {
 .journal-timeline-thumbnail.is-loaded img { opacity: 1; }
 .journal-timeline-thumbnail-count { position: absolute; right: 4px; bottom: 4px; padding: 1px 4px; border-radius: 4px; background: rgba(0, 0, 0, 0.65); color: #fff; font-size: 10px; }
 .journal-timeline-empty { min-width: 0; padding: 28px 8px; overflow-wrap: anywhere; color: var(--text-muted); text-align: center; }
-.journal-mood-picker-modal { width: min(720px, calc(100vw - 32px)); max-width: calc(100vw - 32px); min-width: 0; box-sizing: border-box; }
-.journal-mood-picker-modal .modal-content { width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box; }
-.journal-mood-picker { container-type: inline-size; }
-.journal-mood-picker h3 { margin-bottom: 4px; }
-.journal-mood-date-field { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 10px; margin: 0 0 14px; color: var(--text-muted); font-size: 12px; }
-.journal-mood-date-field label { flex: 1 1 120px; min-width: 0; }
-.journal-mood-date-field input { flex: 0 1 180px; min-width: min(180px, 100%); max-width: 100%; }
-.journal-mood-step { color: var(--text-muted); margin: 0 0 16px; }
-.journal-mood-scale { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 7px; }
-.journal-mood-level { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 0; min-height: 76px; gap: 6px; color: var(--journal-mood-color); border: 1px solid var(--background-modifier-border); background: var(--background-secondary); }
-.journal-mood-level:hover, .journal-mood-level:focus-visible, .journal-mood-level[aria-checked='true'] { border-color: var(--journal-mood-color); outline: none; }
-.journal-mood-level[aria-checked='true'] { box-shadow: 0 0 0 2px color-mix(in srgb, var(--journal-mood-color) 35%, transparent); }
-.journal-mood-level[aria-checked='true']::after { content: '✓'; position: absolute; top: 3px; right: 5px; font-size: 12px; }
-.journal-mood-dot { display: block; width: 24px; height: 24px; flex: 0 0 24px; border-radius: 50%; background: var(--journal-mood-color); }
-.journal-mood-level-label { min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
-.journal-mood-selected { color: var(--text-muted); text-align: center; font-size: 12px; margin-top: 10px; }
+.journal-mood-picker-modal { --journal-mood-active: #55b6c9; width: min(700px, calc(100vw - 32px)); max-width: calc(100vw - 32px); max-height: min(820px, calc(100vh - 48px)); min-width: 0; overflow: hidden; border-color: color-mix(in srgb, var(--journal-mood-active) 42%, var(--background-modifier-border)); background: radial-gradient(circle at 50% 43%, color-mix(in srgb, var(--journal-mood-active) 54%, transparent) 0%, color-mix(in srgb, var(--journal-mood-active) 24%, transparent) 42%, transparent 72%), linear-gradient(155deg, color-mix(in srgb, var(--journal-mood-active) 30%, var(--background-primary)), color-mix(in srgb, var(--journal-mood-active) 16%, var(--background-secondary))); box-shadow: 0 24px 70px color-mix(in srgb, var(--journal-mood-active) 28%, rgba(0, 0, 0, 0.45)); box-sizing: border-box; }
+.journal-mood-picker-modal .modal-content { width: 100%; max-width: 100%; min-width: 0; max-height: calc(100vh - 72px); overflow-y: auto; background: transparent; box-sizing: border-box; }
+.journal-mood-picker-modal .modal-close-button { color: var(--text-normal); background: color-mix(in srgb, var(--background-primary) 58%, transparent); }
+.journal-mood-picker { --journal-mood-active: #55b6c9; container-type: inline-size; padding: 4px 2px 2px; }
+.journal-mood-picker h3 { margin: 0; color: var(--text-normal); font-size: 20px; font-weight: 650; letter-spacing: 0; line-height: 1.2; }
+.journal-mood-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; min-width: 0; margin-bottom: 18px; }
+.journal-mood-header-copy { min-width: 0; }
+.journal-mood-step { margin: 6px 0 0; color: var(--text-muted); font-size: 13px; line-height: 1.45; }
+.journal-mood-date-field { display: flex; flex: 0 1 auto; align-items: center; gap: 8px; min-width: 0; color: var(--text-muted); font-size: 12px; }
+.journal-mood-date-field label { flex: 0 0 auto; }
+.journal-mood-date-field input { width: 148px; min-width: 0; max-width: 100%; height: 34px; }
+.journal-mood-panel { min-width: 0; }
+.journal-mood-scale-panel { padding: 0 20px 16px; overflow: hidden; border: 0; background: transparent; }
+.journal-fluid-mood-control { position: relative; min-width: 0; outline: none; cursor: grab; touch-action: none; user-select: none; }
+.journal-fluid-mood-control.is-dragging { cursor: grabbing; }
+.journal-fluid-mood-control:focus-visible { outline: 2px solid var(--interactive-accent); outline-offset: 5px; border-radius: 6px; }
+.journal-fluid-visual { position: relative; width: 100%; height: clamp(230px, 42vh, 320px); min-height: 230px; overflow: hidden; }
+.journal-fluid-canvas { display: block; width: 100%; height: 100%; }
+.journal-fluid-readout { display: flex; align-items: baseline; justify-content: center; min-height: 42px; margin-top: -10px; text-align: center; }
+.journal-fluid-value { color: var(--text-normal); font-size: 24px; font-weight: 650; letter-spacing: 0; line-height: 1.25; transition: color 180ms ease; }
+.journal-fluid-mood-control.is-empty .journal-fluid-value { color: var(--text-muted); font-size: 16px; font-weight: 500; }
+.journal-fluid-track { position: relative; height: 34px; margin: 20px 18px 0; }
+.journal-fluid-track::before { content: ''; position: absolute; top: 50%; left: 0; width: 100%; height: 8px; border: 1px solid color-mix(in srgb, var(--text-normal) 10%, transparent); border-radius: 4px; background: var(--background-modifier-border); transform: translateY(-50%); box-sizing: border-box; }
+.journal-fluid-track-spectrum { position: absolute; top: 50%; left: 0; width: 100%; height: 6px; border-radius: 3px; background: linear-gradient(90deg, #7652c7 0%, #4f50c0 12.5%, #4d6fb8 25%, #5191c1 37.5%, #55b6c9 50%, #73c56a 62.5%, #f0b34f 75%, #ef8e52 87.5%, #ee6a54 100%); opacity: 0.86; transform: translateY(-50%); }
+.journal-fluid-handle { position: absolute; top: 50%; left: var(--journal-mood-position); width: 28px; height: 28px; border: 4px solid var(--background-primary); border-radius: 50%; background: var(--journal-mood-active); box-shadow: 0 5px 14px color-mix(in srgb, var(--journal-mood-active) 40%, rgba(0, 0, 0, 0.3)); transform: translate(-50%, -50%); transition: background-color 160ms ease, box-shadow 160ms ease; box-sizing: border-box; }
+.journal-fluid-mood-control.is-dragging .journal-fluid-handle { width: 32px; height: 32px; }
+.journal-fluid-endpoints { display: flex; justify-content: space-between; gap: 24px; margin: -1px 18px 0; color: var(--text-muted); font-size: 11px; line-height: 1.35; }
+.journal-fluid-endpoints span { min-width: 0; max-width: 45%; overflow-wrap: anywhere; }
+.journal-fluid-endpoints span:last-child { text-align: right; }
+.journal-visually-hidden { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: -1px !important; overflow: hidden !important; clip: rect(0, 0, 0, 0) !important; white-space: nowrap !important; border: 0 !important; }
+.journal-mood-scale-actions { justify-content: flex-end !important; }
+.journal-mood-continue { min-width: 104px; }
+.journal-mood-picker .mod-cta:not(:disabled) { border-color: color-mix(in srgb, var(--journal-mood-active) 74%, #202124); color: #fff; background: color-mix(in srgb, var(--journal-mood-active) 76%, #202124); }
+.journal-mood-summary { display: flex; align-items: center; gap: 14px; min-width: 0; margin-bottom: 18px; padding: 8px 14px 8px 8px; border: 1px solid color-mix(in srgb, var(--journal-mood-active) 26%, var(--background-modifier-border)); border-radius: 8px; background: color-mix(in srgb, var(--journal-mood-active) 7%, var(--background-secondary)); }
+.journal-mood-summary-canvas { display: block; width: 76px; height: 76px; flex: 0 0 76px; }
+.journal-mood-summary-copy { display: flex; flex-direction: column; min-width: 0; gap: 3px; }
+.journal-mood-summary-label { color: var(--text-muted); font-size: 11px; }
+.journal-mood-summary-copy strong { color: var(--text-normal); font-size: 18px; font-weight: 650; letter-spacing: 0; }
+.journal-mood-form { display: grid; gap: 18px; min-width: 0; }
+.journal-mood-field-group { min-width: 0; }
+.journal-mood-field-label, .journal-mood-note-field label { display: block; margin-bottom: 8px; color: var(--text-normal); font-size: 12px; font-weight: 600; }
 .journal-mood-labels { display: flex; flex-wrap: wrap; gap: 7px; }
-.journal-mood-label[aria-pressed='true'] { border-color: var(--interactive-accent); color: var(--text-accent); background: var(--background-modifier-hover); }
-.journal-mood-custom-label-field, .journal-mood-note-field { display: flex; gap: 7px; min-width: 0; margin-top: 12px; }
+.journal-mood-label { min-height: 34px; border-radius: 6px; }
+.journal-mood-label[aria-pressed='true'] { border-color: var(--journal-mood-active); color: var(--text-normal); background: color-mix(in srgb, var(--journal-mood-active) 16%, var(--background-secondary)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--journal-mood-active) 28%, transparent); }
+.journal-mood-label:focus-visible { outline: 2px solid var(--interactive-accent); outline-offset: 2px; }
+.journal-mood-custom-label-field { display: flex; gap: 7px; min-width: 0; margin-top: 10px; }
 .journal-mood-custom-label-field input { flex: 1 1 auto; min-width: 0; }
 .journal-mood-custom-label-field button { flex: 0 0 auto; }
-.journal-mood-note-field { flex-direction: column; align-items: stretch; gap: 5px; }
-.journal-mood-note-field textarea { width: 100%; min-height: 56px; resize: vertical; }
+.journal-mood-note-field { display: flex; flex-direction: column; align-items: stretch; min-width: 0; gap: 0; }
+.journal-mood-note-field textarea { width: 100%; min-height: 82px; resize: vertical; box-sizing: border-box; }
+.journal-mood-actions button.is-loading { cursor: wait; opacity: 0.68; }
+.journal-mood-picker > * { animation: journal-mood-enter 360ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+.journal-mood-picker > *:nth-child(2) { animation-delay: 35ms; }
+.journal-mood-picker > *:nth-child(3) { animation-delay: 65ms; }
+@keyframes journal-mood-enter { from { opacity: 0; filter: blur(5px); transform: translateY(8px); } to { opacity: 1; filter: blur(0); transform: translateY(0); } }
 .dayline-mobile-shell .view-content { padding: 0; overflow: hidden; }
 .dayline-mobile-view { display: flex; flex-direction: column; width: 100%; min-width: 0; height: 100%; min-height: 100%; overflow: hidden; }
 .dayline-mobile-header { display: flex; align-items: center; justify-content: flex-end; min-height: 52px; padding: 4px max(8px, env(safe-area-inset-right)) 4px max(8px, env(safe-area-inset-left)); border-bottom: 1px solid var(--background-modifier-border); box-sizing: border-box; }

@@ -4,6 +4,9 @@ import { filterMoodLabelsForScore, MOOD_LABELS, MOOD_LEVELS, MOOD_LABEL_GROUPS, 
 describe('mood picker choices', () => {
   it('provides five ordered levels and optional labels', () => {
     expect(MOOD_LEVELS.map((level) => level.score)).toEqual([-2, -1, 0, 1, 2]);
+    expect(MOOD_LEVELS.map((level) => level.color)).toEqual([
+      '#7652c7', '#4d6fb8', '#55b6c9', '#f0b34f', '#ee6a54',
+    ]);
     expect(MOOD_LEVELS.every((level) => !('icon' in level))).toBe(true);
     expect(MOOD_LABELS.map((label) => label.id)).toContain('calm');
     expect(MOOD_LABELS.map((label) => label.id)).toContain('grateful');
