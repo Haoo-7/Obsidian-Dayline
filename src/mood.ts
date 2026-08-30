@@ -1,11 +1,11 @@
 export type MoodScore = -2 | -1 | 0 | 1 | 2;
 
 export const MOOD_LEVELS = [
-  { score: -2 as MoodScore, labelKey: 'veryLow', color: '#d84b76' },
-  { score: -1 as MoodScore, labelKey: 'low', color: '#e68a3b' },
-  { score: 0 as MoodScore, labelKey: 'neutral', color: '#d9bd4c' },
-  { score: 1 as MoodScore, labelKey: 'good', color: '#56a86a' },
-  { score: 2 as MoodScore, labelKey: 'veryGood', color: '#4b93d1' },
+  { score: -2 as MoodScore, labelKey: 'veryLow', color: '#7652c7' },
+  { score: -1 as MoodScore, labelKey: 'low', color: '#4d6fb8' },
+  { score: 0 as MoodScore, labelKey: 'neutral', color: '#55b6c9' },
+  { score: 1 as MoodScore, labelKey: 'good', color: '#f0b34f' },
+  { score: 2 as MoodScore, labelKey: 'veryGood', color: '#ee6a54' },
 ];
 
 export const MOOD_LABELS = [

@@ -1,7 +1,8 @@
 // @ts-nocheck
-const { Modal, Notice } = require('obsidian');
-const { MOOD_LEVELS, filterMoodLabelsForScore, moodLabelsForScore, moveMoodScore } = require('./mood');
-const { feelingLabel, moodLabel, t } = require('./i18n');
+import { Modal, Notice } from 'obsidian';
+import { filterMoodLabelsForScore, getMoodColor, moodLabelsForScore } from './mood';
+import { drawFluidMood, FluidMoodControl } from './fluid-mood-control';
+import { feelingLabel, moodLabel, t } from './i18n';
 
 const BUILT_IN_LABEL_IDS = new Set(moodLabelsForScore(null).map((item) => item.id));
 
@@ -44,44 +45,71 @@ export class MoodPickerModal extends Modal {
   }
 
   onClose() {
+    this.fluidControl?.destroy();
+    this.fluidControl = null;
     this.contentEl.removeEventListener('keydown', this.keyHandler);
     this.contentEl.empty();
   }
 
-  renderScale() {
-    this.step = 1;
+  resetContent(step) {
+    this.fluidControl?.destroy();
+    this.fluidControl = null;
+    this.step = step;
     this.contentEl.empty();
-    this.contentEl.createEl('h3', { text: t(this.settings, 'moodTitle') });
-    if (this.allowDateSelection) this.renderDateField();
-    this.contentEl.createEl('p', { cls: 'journal-mood-step', text: t(this.settings, 'moodQuestion') });
-    const scale = this.contentEl.createDiv({ cls: 'journal-mood-scale', attr: { role: 'radiogroup', 'aria-label': t(this.settings, 'moodQuestion') } });
-    MOOD_LEVELS.forEach((level, index) => {
-      const button = scale.createEl('button', {
-        cls: 'journal-mood-level',
-        attr: {
-          type: 'button',
-          role: 'radio',
-          'aria-label': moodLabel(this.settings, level.score),
-          'aria-checked': String(this.score === level.score),
-          tabindex: this.score === level.score || (this.score === null && index === 2) ? '0' : '-1',
-        },
-      });
-      button.style.setProperty('--journal-mood-color', level.color);
-      button.createSpan({ cls: 'journal-mood-dot', attr: { 'aria-hidden': 'true' } });
-      button.createSpan({ cls: 'journal-mood-level-label', text: moodLabel(this.settings, level.score) });
-      button.addEventListener('click', () => {
-        this.selectScore(level.score);
-        this.renderLabels();
-      });
-    });
-    this.contentEl.createDiv({
-      cls: 'journal-mood-selected',
-      text: this.score === null ? t(this.settings, 'chooseLevel') : `${t(this.settings, 'selected')}: ${moodLabel(this.settings, this.score)}`,
-    });
+    this.contentEl.classList.toggle('is-scale-step', step === 1);
+    this.contentEl.classList.toggle('is-label-step', step === 2);
+    this.setActiveColor(getMoodColor(this.score ?? 0));
   }
 
-  renderDateField() {
-    const field = this.contentEl.createDiv({ cls: 'journal-mood-date-field' });
+  setActiveColor(color) {
+    this.modalEl.style.setProperty('--journal-mood-active', color);
+    this.contentEl.style.setProperty('--journal-mood-active', color);
+  }
+
+  renderHeader(title, question) {
+    const header = this.contentEl.createDiv({ cls: 'journal-mood-header' });
+    const copy = header.createDiv({ cls: 'journal-mood-header-copy' });
+    copy.createEl('h3', { text: title });
+    copy.createEl('p', { cls: 'journal-mood-step', text: question });
+    if (this.allowDateSelection) this.renderDateField(header);
+    return header;
+  }
+
+  renderScale() {
+    this.resetContent(1);
+    this.renderHeader(t(this.settings, 'moodTitle'), t(this.settings, 'moodQuestion'));
+    const panel = this.contentEl.createDiv({ cls: 'journal-mood-panel journal-mood-scale-panel' });
+    const controlHost = panel.createDiv();
+    const actions = this.contentEl.createDiv({ cls: 'journal-mood-actions journal-mood-scale-actions' });
+    const next = actions.createEl('button', {
+      text: t(this.settings, 'continue'),
+      cls: 'mod-cta journal-mood-continue',
+      attr: { type: 'button' },
+    });
+    next.disabled = this.score === null;
+    next.addEventListener('click', () => {
+      if (this.score !== null) this.renderLabels();
+    });
+    this.fluidControl = new FluidMoodControl(controlHost, {
+      initialScore: this.score,
+      accessibleLabel: t(this.settings, 'moodQuestion'),
+      emptyLabel: t(this.settings, 'chooseLevel'),
+      labelForScore: (score) => moodLabel(this.settings, score),
+      onPreview: (_value, color) => this.setActiveColor(color),
+      onCommit: (score) => {
+        this.selectScore(score);
+        this.setActiveColor(getMoodColor(score));
+        next.disabled = false;
+      },
+      onActivate: () => {
+        if (this.score !== null) this.renderLabels();
+      },
+    });
+    this.fluidControl.focus();
+  }
+
+  renderDateField(parent = this.contentEl) {
+    const field = parent.createDiv({ cls: 'journal-mood-date-field' });
     const label = field.createEl('label', { text: t(this.settings, 'moodDate') });
     const input = field.createEl('input', {
       attr: {
@@ -126,12 +154,20 @@ export class MoodPickerModal extends Modal {
   }
 
   renderLabels() {
-    this.step = 2;
-    this.contentEl.empty();
-    this.contentEl.createEl('h3', { text: t(this.settings, 'addFeelings') });
-    if (this.allowDateSelection) this.renderDateField();
-    this.contentEl.createEl('p', { cls: 'journal-mood-step', text: t(this.settings, 'chooseFeelings') });
-    const group = this.contentEl.createDiv({ cls: 'journal-mood-labels', attr: { role: 'group', 'aria-label': t(this.settings, 'addFeelings') } });
+    this.resetContent(2);
+    this.renderHeader(t(this.settings, 'addFeelings'), t(this.settings, 'chooseFeelings'));
+
+    const summary = this.contentEl.createDiv({ cls: 'journal-mood-summary' });
+    const summaryCanvas = summary.createEl('canvas', { cls: 'journal-mood-summary-canvas', attr: { 'aria-hidden': 'true' } });
+    drawFluidMood(summaryCanvas, this.score ?? 0, 0, { width: 76, height: 76, pixelRatio: 2 });
+    const summaryCopy = summary.createDiv({ cls: 'journal-mood-summary-copy' });
+    summaryCopy.createSpan({ cls: 'journal-mood-summary-label', text: t(this.settings, 'selected') });
+    summaryCopy.createEl('strong', { text: moodLabel(this.settings, this.score) });
+
+    const form = this.contentEl.createDiv({ cls: 'journal-mood-form' });
+    const feelings = form.createDiv({ cls: 'journal-mood-field-group' });
+    feelings.createEl('label', { cls: 'journal-mood-field-label', text: t(this.settings, 'chooseFeelings') });
+    const group = feelings.createDiv({ cls: 'journal-mood-labels', attr: { role: 'group', 'aria-label': t(this.settings, 'addFeelings') } });
     const builtIn = moodLabelsForScore(this.score);
     for (const item of builtIn) {
       const button = group.createEl('button', {
@@ -158,7 +194,7 @@ export class MoodPickerModal extends Modal {
         button.setAttribute('aria-pressed', String(this.labels.has(item)));
       });
     }
-    const customField = this.contentEl.createDiv({ cls: 'journal-mood-custom-label-field' });
+    const customField = feelings.createDiv({ cls: 'journal-mood-custom-label-field' });
     const customInput = customField.createEl('input', {
       attr: {
         type: 'text',
@@ -178,7 +214,7 @@ export class MoodPickerModal extends Modal {
     };
     addCustom.addEventListener('click', addLabel);
     customInput.addEventListener('keydown', (event) => { if (event.key === 'Enter') { event.preventDefault(); addLabel(); } });
-    const noteField = this.contentEl.createDiv({ cls: 'journal-mood-note-field' });
+    const noteField = form.createDiv({ cls: 'journal-mood-note-field' });
     noteField.createEl('label', { text: t(this.settings, 'moodNote') });
     const noteInput = noteField.createEl('textarea', {
       attr: {
@@ -194,16 +230,24 @@ export class MoodPickerModal extends Modal {
     const back = actions.createEl('button', { text: t(this.settings, 'back'), attr: { type: 'button' } });
     back.addEventListener('click', () => this.renderScale());
     const save = actions.createEl('button', { text: t(this.settings, 'save'), cls: 'mod-cta', attr: { type: 'button' } });
-    save.addEventListener('click', () => this.save());
+    save.addEventListener('click', () => this.save(save));
     save.focus();
   }
 
-  async save() {
+  async save(saveButton) {
     if (this.score === null) return;
+    if (saveButton) {
+      saveButton.disabled = true;
+      saveButton.classList.add('is-loading');
+    }
     try {
       await this.onSave?.({ filePath: this.filePath, score: this.score, labels: Array.from(this.labels), note: this.note.trim() || null, customLabels: this.customLabels });
       this.close();
     } catch (error) {
+      if (saveButton) {
+        saveButton.disabled = false;
+        saveButton.classList.remove('is-loading');
+      }
       new Notice(`${t(this.settings, 'moodTitle')}: ${error.message || error}`);
     }
   }
@@ -213,19 +257,6 @@ export class MoodPickerModal extends Modal {
       event.preventDefault();
       this.close();
       return;
-    }
-    if (this.step !== 1) return;
-    if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
-      event.preventDefault();
-      this.selectScore(moveMoodScore(this.score, 1));
-      this.renderScale();
-    } else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
-      event.preventDefault();
-      this.selectScore(moveMoodScore(this.score, -1));
-      this.renderScale();
-    } else if (event.key === 'Enter' && this.score !== null) {
-      event.preventDefault();
-      this.renderLabels();
     }
   }
 }

@@ -960,11 +960,11 @@ var init_mood = __esm({
   "src/mood.ts"() {
     "use strict";
     MOOD_LEVELS = [
-      { score: -2, labelKey: "veryLow", color: "#d84b76" },
-      { score: -1, labelKey: "low", color: "#e68a3b" },
-      { score: 0, labelKey: "neutral", color: "#d9bd4c" },
-      { score: 1, labelKey: "good", color: "#56a86a" },
-      { score: 2, labelKey: "veryGood", color: "#4b93d1" }
+      { score: -2, labelKey: "veryLow", color: "#7652c7" },
+      { score: -1, labelKey: "low", color: "#4d6fb8" },
+      { score: 0, labelKey: "neutral", color: "#55b6c9" },
+      { score: 1, labelKey: "good", color: "#f0b34f" },
+      { score: 2, labelKey: "veryGood", color: "#ee6a54" }
     ];
     MOOD_LABELS = [
       { id: "calm", label: "Calm" },
@@ -1743,6 +1743,413 @@ var init_mood_store = __esm({
   }
 });
 
+// src/fluid-mood-control.ts
+function clampMoodValue(value) {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(-2, Math.min(2, value));
+}
+function moodValueFromPosition(clientX, left, width) {
+  if (!Number.isFinite(width) || width <= 0) return 0;
+  return clampMoodValue((clientX - left) / width * 4 - 2);
+}
+function snapMoodScore(value) {
+  return Math.round(clampMoodValue(value));
+}
+function parseHexColor(color) {
+  const value = color.replace("#", "");
+  const expanded = value.length === 3 ? value.split("").map((part) => `${part}${part}`).join("") : value;
+  const parsed = Number.parseInt(expanded, 16);
+  return {
+    r: parsed >> 16 & 255,
+    g: parsed >> 8 & 255,
+    b: parsed & 255
+  };
+}
+function rgbToHex({ r, g, b }) {
+  return `#${[r, g, b].map((channel) => Math.round(channel).toString(16).padStart(2, "0")).join("")}`;
+}
+function rgbToHsl({ r, g, b }) {
+  const red = r / 255;
+  const green = g / 255;
+  const blue = b / 255;
+  const max = Math.max(red, green, blue);
+  const min = Math.min(red, green, blue);
+  const delta = max - min;
+  const lightness = (max + min) / 2;
+  let hue = 0;
+  if (delta > 0) {
+    if (max === red) hue = 60 * ((green - blue) / delta % 6);
+    else if (max === green) hue = 60 * ((blue - red) / delta + 2);
+    else hue = 60 * ((red - green) / delta + 4);
+  }
+  if (hue < 0) hue += 360;
+  return {
+    h: hue,
+    s: delta === 0 ? 0 : delta / (1 - Math.abs(2 * lightness - 1)),
+    l: lightness
+  };
+}
+function hslToRgb({ h, s, l }) {
+  const hue = (h % 360 + 360) % 360;
+  const chroma = (1 - Math.abs(2 * l - 1)) * s;
+  const x = chroma * (1 - Math.abs(hue / 60 % 2 - 1));
+  const offset = l - chroma / 2;
+  let red = 0;
+  let green = 0;
+  let blue = 0;
+  if (hue < 60) [red, green] = [chroma, x];
+  else if (hue < 120) [red, green] = [x, chroma];
+  else if (hue < 180) [green, blue] = [chroma, x];
+  else if (hue < 240) [green, blue] = [x, chroma];
+  else if (hue < 300) [red, blue] = [x, chroma];
+  else [red, blue] = [chroma, x];
+  return {
+    r: (red + offset) * 255,
+    g: (green + offset) * 255,
+    b: (blue + offset) * 255
+  };
+}
+function mixHsl(from, to, amount) {
+  const start = rgbToHsl(from);
+  const end = rgbToHsl(to);
+  const t4 = Math.max(0, Math.min(1, amount));
+  const hueDelta = (end.h - start.h + 540) % 360 - 180;
+  const saturationDip = Math.sin(Math.PI * t4) * Math.min(0.24, Math.max(0, (Math.abs(hueDelta) - 60) / 360));
+  return hslToRgb({
+    h: start.h + hueDelta * t4,
+    s: Math.max(0, start.s + (end.s - start.s) * t4 - saturationDip),
+    l: start.l + (end.l - start.l) * t4
+  });
+}
+function interpolateMoodColor(value) {
+  const clamped = clampMoodValue(value);
+  const lowerScore = Math.floor(clamped);
+  const upperScore = Math.ceil(clamped);
+  const lower = MOOD_LEVELS.find((level) => level.score === lowerScore) ?? MOOD_LEVELS[0];
+  const upper = MOOD_LEVELS.find((level) => level.score === upperScore) ?? MOOD_LEVELS[MOOD_LEVELS.length - 1];
+  return rgbToHex(mixHsl(parseHexColor(lower.color), parseHexColor(upper.color), clamped - lowerScore));
+}
+function colorWithAlpha(color, alpha) {
+  const { r, g, b } = parseHexColor(color);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+function traceFluidPath(context, centerX, centerY, radius, value, phase, layer) {
+  const positive = (value + 2) / 4;
+  const energy = 0.045 + Math.abs(value) * 0.018;
+  const count = 96;
+  context.beginPath();
+  for (let index = 0; index <= count; index += 1) {
+    const angle = index / count * Math.PI * 2 - Math.PI / 2;
+    const fourLobe = Math.sin(angle * 4 + phase * 0.72 + layer * 0.48);
+    const fiveLobe = Math.sin(angle * 5 - phase * 0.58 + layer * 0.31);
+    const drift = Math.sin(angle * 2 + phase * 0.36 + layer) * 0.018;
+    const modulation = (fourLobe * (1 - positive) + fiveLobe * positive) * energy + drift;
+    const localRadius = radius * (1 + modulation);
+    const x = centerX + Math.cos(angle) * localRadius;
+    const y = centerY + Math.sin(angle) * localRadius * (0.96 + positive * 0.04);
+    if (index === 0) context.moveTo(x, y);
+    else context.lineTo(x, y);
+  }
+  context.closePath();
+}
+function drawFluidMood(canvas, value, phase = 0, dimensions) {
+  const context = canvas.getContext("2d");
+  if (!context) return false;
+  const rect = canvas.getBoundingClientRect();
+  const width = Math.max(1, Math.round(dimensions?.width ?? rect.width ?? canvas.clientWidth));
+  const height = Math.max(1, Math.round(dimensions?.height ?? rect.height ?? canvas.clientHeight));
+  const pixelRatio = Math.max(1, Math.min(2, dimensions?.pixelRatio ?? window.devicePixelRatio ?? 1));
+  const targetWidth = Math.round(width * pixelRatio);
+  const targetHeight = Math.round(height * pixelRatio);
+  if (canvas.width !== targetWidth || canvas.height !== targetHeight) {
+    canvas.width = targetWidth;
+    canvas.height = targetHeight;
+  }
+  context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+  context.clearRect(0, 0, width, height);
+  const clamped = clampMoodValue(value);
+  const color = interpolateMoodColor(clamped);
+  const centerX = width / 2;
+  const centerY = height / 2;
+  const baseRadius = Math.min(width, height) * (0.225 + (clamped + 2) / 4 * 0.025);
+  const glow = context.createRadialGradient(centerX, centerY, baseRadius * 0.1, centerX, centerY, baseRadius * 1.72);
+  glow.addColorStop(0, colorWithAlpha(color, 0.45));
+  glow.addColorStop(0.55, colorWithAlpha(color, 0.2));
+  glow.addColorStop(1, colorWithAlpha(color, 0));
+  context.fillStyle = glow;
+  context.fillRect(0, 0, width, height);
+  for (let layer = 0; layer < 4; layer += 1) {
+    const radius = baseRadius * (1.42 - layer * 0.23);
+    traceFluidPath(context, centerX, centerY, radius, clamped, phase, layer);
+    const fill = context.createRadialGradient(
+      centerX - radius * 0.28,
+      centerY - radius * 0.34,
+      radius * 0.08,
+      centerX,
+      centerY,
+      radius * 1.18
+    );
+    fill.addColorStop(0, colorWithAlpha("#ffffff", 0.58 - layer * 0.08));
+    fill.addColorStop(0.44, colorWithAlpha(color, 0.22 + layer * 0.08));
+    fill.addColorStop(1, colorWithAlpha(color, 0.05 + layer * 0.09));
+    context.fillStyle = fill;
+    context.fill();
+    context.lineWidth = Math.max(1, 1.35 - layer * 0.12);
+    context.strokeStyle = colorWithAlpha(layer === 0 ? "#ffffff" : color, 0.58 - layer * 0.07);
+    context.stroke();
+  }
+  const coreRadius = Math.max(3, baseRadius * 0.075);
+  context.beginPath();
+  context.arc(centerX, centerY, coreRadius, 0, Math.PI * 2);
+  context.fillStyle = colorWithAlpha("#ffffff", 0.82);
+  context.fill();
+  return true;
+}
+var FluidMoodControl;
+var init_fluid_mood_control = __esm({
+  "src/fluid-mood-control.ts"() {
+    "use strict";
+    init_mood();
+    FluidMoodControl = class {
+      constructor(root, options) {
+        __publicField(this, "root");
+        __publicField(this, "canvas");
+        __publicField(this, "valueLabel");
+        __publicField(this, "liveRegion");
+        __publicField(this, "handle");
+        __publicField(this, "track");
+        __publicField(this, "options");
+        __publicField(this, "mediaQuery");
+        __publicField(this, "resizeObserver", null);
+        __publicField(this, "animationFrame", null);
+        __publicField(this, "activePointerId", null);
+        __publicField(this, "dragStartScore", null);
+        __publicField(this, "dragStartValue", 0);
+        __publicField(this, "selectedScore");
+        __publicField(this, "displayValue");
+        __publicField(this, "targetValue");
+        __publicField(this, "phase", 0);
+        __publicField(this, "lastFrame", 0);
+        __publicField(this, "lastPreviewColor", null);
+        __publicField(this, "destroyed", false);
+        __publicField(this, "handlePointerDown", (event) => {
+          if (event.button !== 0 || this.activePointerId !== null) return;
+          event.preventDefault();
+          this.activePointerId = event.pointerId;
+          this.dragStartScore = this.selectedScore;
+          this.dragStartValue = this.displayValue;
+          this.root.classList.add("is-dragging");
+          this.capturePointer(event.pointerId);
+          this.updateFromPointer(event.clientX);
+        });
+        __publicField(this, "handlePointerMove", (event) => {
+          if (event.pointerId !== this.activePointerId) return;
+          event.preventDefault();
+          this.updateFromPointer(event.clientX);
+        });
+        __publicField(this, "handlePointerUp", (event) => {
+          if (event.pointerId !== this.activePointerId) return;
+          event.preventDefault();
+          this.updateFromPointer(event.clientX);
+          this.releasePointer(event.pointerId);
+          this.activePointerId = null;
+          this.root.classList.remove("is-dragging");
+          this.commitScore(snapMoodScore(this.displayValue));
+        });
+        __publicField(this, "handlePointerCancel", (event) => {
+          if (event.pointerId !== this.activePointerId) return;
+          this.releasePointer(event.pointerId);
+          this.activePointerId = null;
+          this.root.classList.remove("is-dragging");
+          this.selectedScore = this.dragStartScore;
+          this.displayValue = this.dragStartValue;
+          this.targetValue = this.dragStartScore ?? this.dragStartValue;
+          if (this.prefersReducedMotion()) this.displayValue = this.targetValue;
+          this.updatePresentation(false);
+        });
+        __publicField(this, "handleKeydown", (event) => {
+          let next = null;
+          const current = this.selectedScore ?? 0;
+          if (event.key === "ArrowRight" || event.key === "ArrowUp") next = snapMoodScore(current + 1);
+          else if (event.key === "ArrowLeft" || event.key === "ArrowDown") next = snapMoodScore(current - 1);
+          else if (event.key === "Home") next = -2;
+          else if (event.key === "End") next = 2;
+          else if ((event.key === "Enter" || event.key === " ") && this.selectedScore !== null) {
+            event.preventDefault();
+            this.options.onActivate?.(this.selectedScore);
+            return;
+          } else return;
+          event.preventDefault();
+          this.commitScore(next);
+        });
+        __publicField(this, "handleVisibilityChange", () => {
+          if (document.hidden) this.stopAnimation();
+          else this.startAnimation();
+        });
+        __publicField(this, "handleMotionChange", () => {
+          if (this.prefersReducedMotion()) {
+            this.displayValue = this.targetValue;
+            this.stopAnimation();
+            this.renderFrame();
+          } else {
+            this.startAnimation();
+          }
+        });
+        __publicField(this, "animate", (time) => {
+          if (this.destroyed || document.hidden || this.prefersReducedMotion() || !this.root.isConnected) {
+            this.animationFrame = null;
+            return;
+          }
+          const elapsed = Math.min(48, Math.max(0, time - this.lastFrame));
+          this.lastFrame = time;
+          if (this.activePointerId === null) {
+            const distance = this.targetValue - this.displayValue;
+            this.displayValue = Math.abs(distance) < 2e-3 ? this.targetValue : this.displayValue + distance * 0.18;
+            this.updatePresentation(false, false);
+          }
+          this.phase += elapsed * 42e-5;
+          this.renderFrame();
+          this.animationFrame = requestAnimationFrame(this.animate);
+        });
+        this.root = root;
+        this.options = options;
+        this.selectedScore = options.initialScore;
+        this.displayValue = options.initialScore ?? 0;
+        this.targetValue = this.displayValue;
+        this.mediaQuery = typeof window.matchMedia === "function" ? window.matchMedia("(prefers-reduced-motion: reduce)") : null;
+        root.classList.add("journal-fluid-mood-control");
+        root.tabIndex = 0;
+        root.setAttribute("role", "slider");
+        root.setAttribute("aria-label", options.accessibleLabel);
+        root.setAttribute("aria-valuemin", "-2");
+        root.setAttribute("aria-valuemax", "2");
+        root.setAttribute("aria-orientation", "horizontal");
+        const visual = document.createElement("div");
+        visual.className = "journal-fluid-visual";
+        this.canvas = document.createElement("canvas");
+        this.canvas.className = "journal-fluid-canvas";
+        this.canvas.setAttribute("aria-hidden", "true");
+        visual.append(this.canvas);
+        const readout = document.createElement("div");
+        readout.className = "journal-fluid-readout";
+        this.valueLabel = document.createElement("strong");
+        this.valueLabel.className = "journal-fluid-value";
+        readout.append(this.valueLabel);
+        this.track = document.createElement("div");
+        this.track.className = "journal-fluid-track";
+        this.track.setAttribute("aria-hidden", "true");
+        const spectrum = document.createElement("span");
+        spectrum.className = "journal-fluid-track-spectrum";
+        this.handle = document.createElement("span");
+        this.handle.className = "journal-fluid-handle";
+        this.track.append(spectrum, this.handle);
+        const endpoints = document.createElement("div");
+        endpoints.className = "journal-fluid-endpoints";
+        const low = document.createElement("span");
+        low.textContent = options.labelForScore(-2);
+        const high = document.createElement("span");
+        high.textContent = options.labelForScore(2);
+        endpoints.append(low, high);
+        this.liveRegion = document.createElement("span");
+        this.liveRegion.className = "journal-visually-hidden";
+        this.liveRegion.setAttribute("aria-live", "polite");
+        root.append(visual, readout, this.track, endpoints, this.liveRegion);
+        root.addEventListener("pointerdown", this.handlePointerDown);
+        root.addEventListener("pointermove", this.handlePointerMove);
+        root.addEventListener("pointerup", this.handlePointerUp);
+        root.addEventListener("pointercancel", this.handlePointerCancel);
+        root.addEventListener("keydown", this.handleKeydown);
+        document.addEventListener("visibilitychange", this.handleVisibilityChange);
+        this.mediaQuery?.addEventListener?.("change", this.handleMotionChange);
+        if (typeof ResizeObserver !== "undefined") {
+          this.resizeObserver = new ResizeObserver(() => this.renderFrame());
+          this.resizeObserver.observe(this.canvas);
+        }
+        this.updatePresentation(false);
+        this.startAnimation();
+      }
+      focus() {
+        this.root.focus();
+      }
+      destroy() {
+        if (this.destroyed) return;
+        this.destroyed = true;
+        this.stopAnimation();
+        this.resizeObserver?.disconnect();
+        this.root.removeEventListener("pointerdown", this.handlePointerDown);
+        this.root.removeEventListener("pointermove", this.handlePointerMove);
+        this.root.removeEventListener("pointerup", this.handlePointerUp);
+        this.root.removeEventListener("pointercancel", this.handlePointerCancel);
+        this.root.removeEventListener("keydown", this.handleKeydown);
+        document.removeEventListener("visibilitychange", this.handleVisibilityChange);
+        this.mediaQuery?.removeEventListener?.("change", this.handleMotionChange);
+      }
+      capturePointer(pointerId) {
+        try {
+          this.root.setPointerCapture?.(pointerId);
+        } catch {
+        }
+      }
+      releasePointer(pointerId) {
+        try {
+          if (this.root.hasPointerCapture?.(pointerId) === false) return;
+          this.root.releasePointerCapture?.(pointerId);
+        } catch {
+        }
+      }
+      updateFromPointer(clientX) {
+        const rect = this.track.getBoundingClientRect();
+        this.displayValue = moodValueFromPosition(clientX, rect.left, rect.width);
+        this.targetValue = this.displayValue;
+        this.updatePresentation(false);
+      }
+      commitScore(score) {
+        this.selectedScore = score;
+        this.targetValue = score;
+        if (this.prefersReducedMotion()) this.displayValue = score;
+        this.updatePresentation(true);
+        this.options.onCommit(score);
+      }
+      updatePresentation(announce, render = true) {
+        const nearest = snapMoodScore(this.displayValue);
+        const presentedScore = this.activePointerId === null && this.selectedScore !== null ? this.selectedScore : nearest;
+        const label = this.selectedScore === null && this.activePointerId === null ? this.options.emptyLabel : this.options.labelForScore(presentedScore);
+        const color = interpolateMoodColor(this.displayValue);
+        const position = (this.displayValue + 2) / 4 * 100;
+        this.root.style.setProperty("--journal-mood-active", color);
+        this.root.style.setProperty("--journal-mood-position", `${position}%`);
+        if (color !== this.lastPreviewColor) {
+          this.lastPreviewColor = color;
+          this.options.onPreview?.(this.displayValue, color);
+        }
+        this.root.classList.toggle("is-empty", this.selectedScore === null && this.activePointerId === null);
+        this.root.setAttribute("aria-valuenow", String(this.selectedScore ?? 0));
+        this.root.setAttribute("aria-valuetext", label);
+        this.valueLabel.textContent = label;
+        this.handle.setAttribute("data-label", label);
+        if (announce) this.liveRegion.textContent = label;
+        if (render) this.renderFrame();
+      }
+      prefersReducedMotion() {
+        return this.mediaQuery?.matches === true;
+      }
+      startAnimation() {
+        if (this.destroyed || this.prefersReducedMotion() || document.hidden || this.animationFrame !== null) return;
+        this.lastFrame = performance.now();
+        this.animationFrame = requestAnimationFrame(this.animate);
+      }
+      stopAnimation() {
+        if (this.animationFrame === null) return;
+        cancelAnimationFrame(this.animationFrame);
+        this.animationFrame = null;
+      }
+      renderFrame() {
+        drawFluidMood(this.canvas, this.displayValue, this.phase);
+      }
+    };
+  }
+});
+
 // src/i18n.ts
 var i18n_exports = {};
 __export(i18n_exports, {
@@ -1921,6 +2328,7 @@ var init_i18n = __esm({
         chooseLevel: "\u9009\u62E9\u4E00\u4E2A\u5F3A\u5EA6",
         addFeelings: "\u6DFB\u52A0\u60C5\u7EEA\u6807\u7B7E",
         chooseFeelings: "\u9009\u62E9\u6240\u6709\u7B26\u5408\u7684\u6807\u7B7E",
+        continue: "\u7EE7\u7EED",
         back: "\u8FD4\u56DE",
         save: "\u4FDD\u5B58",
         selected: "\u5DF2\u9009\u62E9",
@@ -2128,6 +2536,7 @@ var init_i18n = __esm({
         chooseLevel: "Choose a level",
         addFeelings: "Add feelings",
         chooseFeelings: "Choose any that fit",
+        continue: "Continue",
         back: "Back",
         save: "Save",
         selected: "Selected",
@@ -2286,15 +2695,16 @@ function extractDate(filePath) {
   const now = /* @__PURE__ */ new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 }
-var Modal, Notice, MOOD_LEVELS2, filterMoodLabelsForScore2, moodLabelsForScore2, moveMoodScore2, feelingLabel2, moodLabel2, t2, BUILT_IN_LABEL_IDS2, MoodPickerModal, MoodRecoveryModal;
+var import_obsidian, BUILT_IN_LABEL_IDS2, MoodPickerModal, MoodRecoveryModal;
 var init_mood_picker_modal = __esm({
   "src/mood-picker-modal.ts"() {
     "use strict";
-    ({ Modal, Notice } = require("obsidian"));
-    ({ MOOD_LEVELS: MOOD_LEVELS2, filterMoodLabelsForScore: filterMoodLabelsForScore2, moodLabelsForScore: moodLabelsForScore2, moveMoodScore: moveMoodScore2 } = (init_mood(), __toCommonJS(mood_exports)));
-    ({ feelingLabel: feelingLabel2, moodLabel: moodLabel2, t: t2 } = (init_i18n(), __toCommonJS(i18n_exports)));
-    BUILT_IN_LABEL_IDS2 = new Set(moodLabelsForScore2(null).map((item) => item.id));
-    MoodPickerModal = class extends Modal {
+    import_obsidian = require("obsidian");
+    init_mood();
+    init_fluid_mood_control();
+    init_i18n();
+    BUILT_IN_LABEL_IDS2 = new Set(moodLabelsForScore(null).map((item) => item.id));
+    MoodPickerModal = class extends import_obsidian.Modal {
       constructor(app, options = {}) {
         super(app);
         this.filePath = options.filePath;
@@ -2322,49 +2732,73 @@ var init_mood_picker_modal = __esm({
         this.contentEl.addEventListener("keydown", this.keyHandler);
       }
       onClose() {
+        this.fluidControl?.destroy();
+        this.fluidControl = null;
         this.contentEl.removeEventListener("keydown", this.keyHandler);
         this.contentEl.empty();
       }
-      renderScale() {
-        this.step = 1;
+      resetContent(step) {
+        this.fluidControl?.destroy();
+        this.fluidControl = null;
+        this.step = step;
         this.contentEl.empty();
-        this.contentEl.createEl("h3", { text: t2(this.settings, "moodTitle") });
-        if (this.allowDateSelection) this.renderDateField();
-        this.contentEl.createEl("p", { cls: "journal-mood-step", text: t2(this.settings, "moodQuestion") });
-        const scale = this.contentEl.createDiv({ cls: "journal-mood-scale", attr: { role: "radiogroup", "aria-label": t2(this.settings, "moodQuestion") } });
-        MOOD_LEVELS2.forEach((level, index) => {
-          const button = scale.createEl("button", {
-            cls: "journal-mood-level",
-            attr: {
-              type: "button",
-              role: "radio",
-              "aria-label": moodLabel2(this.settings, level.score),
-              "aria-checked": String(this.score === level.score),
-              tabindex: this.score === level.score || this.score === null && index === 2 ? "0" : "-1"
-            }
-          });
-          button.style.setProperty("--journal-mood-color", level.color);
-          button.createSpan({ cls: "journal-mood-dot", attr: { "aria-hidden": "true" } });
-          button.createSpan({ cls: "journal-mood-level-label", text: moodLabel2(this.settings, level.score) });
-          button.addEventListener("click", () => {
-            this.selectScore(level.score);
-            this.renderLabels();
-          });
-        });
-        this.contentEl.createDiv({
-          cls: "journal-mood-selected",
-          text: this.score === null ? t2(this.settings, "chooseLevel") : `${t2(this.settings, "selected")}: ${moodLabel2(this.settings, this.score)}`
-        });
+        this.contentEl.classList.toggle("is-scale-step", step === 1);
+        this.contentEl.classList.toggle("is-label-step", step === 2);
+        this.setActiveColor(getMoodColor(this.score ?? 0));
       }
-      renderDateField() {
-        const field = this.contentEl.createDiv({ cls: "journal-mood-date-field" });
-        const label = field.createEl("label", { text: t2(this.settings, "moodDate") });
+      setActiveColor(color) {
+        this.modalEl.style.setProperty("--journal-mood-active", color);
+        this.contentEl.style.setProperty("--journal-mood-active", color);
+      }
+      renderHeader(title, question) {
+        const header = this.contentEl.createDiv({ cls: "journal-mood-header" });
+        const copy = header.createDiv({ cls: "journal-mood-header-copy" });
+        copy.createEl("h3", { text: title });
+        copy.createEl("p", { cls: "journal-mood-step", text: question });
+        if (this.allowDateSelection) this.renderDateField(header);
+        return header;
+      }
+      renderScale() {
+        this.resetContent(1);
+        this.renderHeader(t(this.settings, "moodTitle"), t(this.settings, "moodQuestion"));
+        const panel = this.contentEl.createDiv({ cls: "journal-mood-panel journal-mood-scale-panel" });
+        const controlHost = panel.createDiv();
+        const actions = this.contentEl.createDiv({ cls: "journal-mood-actions journal-mood-scale-actions" });
+        const next = actions.createEl("button", {
+          text: t(this.settings, "continue"),
+          cls: "mod-cta journal-mood-continue",
+          attr: { type: "button" }
+        });
+        next.disabled = this.score === null;
+        next.addEventListener("click", () => {
+          if (this.score !== null) this.renderLabels();
+        });
+        this.fluidControl = new FluidMoodControl(controlHost, {
+          initialScore: this.score,
+          accessibleLabel: t(this.settings, "moodQuestion"),
+          emptyLabel: t(this.settings, "chooseLevel"),
+          labelForScore: (score) => moodLabel(this.settings, score),
+          onPreview: (_value, color) => this.setActiveColor(color),
+          onCommit: (score) => {
+            this.selectScore(score);
+            this.setActiveColor(getMoodColor(score));
+            next.disabled = false;
+          },
+          onActivate: () => {
+            if (this.score !== null) this.renderLabels();
+          }
+        });
+        this.fluidControl.focus();
+      }
+      renderDateField(parent = this.contentEl) {
+        const field = parent.createDiv({ cls: "journal-mood-date-field" });
+        const label = field.createEl("label", { text: t(this.settings, "moodDate") });
         const input = field.createEl("input", {
           attr: {
             type: "date",
             value: this.date || "",
-            "aria-label": t2(this.settings, "moodDate"),
-            title: t2(this.settings, "moodDateDesc")
+            "aria-label": t(this.settings, "moodDate"),
+            title: t(this.settings, "moodDateDesc")
           }
         });
         label.htmlFor = input.id = `dayline-mood-date-${Date.now()}`;
@@ -2372,9 +2806,9 @@ var init_mood_picker_modal = __esm({
       }
       selectScore(score) {
         this.score = score;
-        const builtInIds = new Set(moodLabelsForScore2(null).map((item) => item.id));
+        const builtInIds = new Set(moodLabelsForScore(null).map((item) => item.id));
         const custom = Array.from(this.labels).filter((label) => !builtInIds.has(label));
-        this.labels = /* @__PURE__ */ new Set([...custom, ...filterMoodLabelsForScore2(score, this.labels)]);
+        this.labels = /* @__PURE__ */ new Set([...custom, ...filterMoodLabelsForScore(score, this.labels)]);
       }
       async changeDate(date, input) {
         if (!date || date === this.date) return;
@@ -2395,21 +2829,27 @@ var init_mood_picker_modal = __esm({
           this.renderScale();
         } catch (error) {
           input.disabled = false;
-          new Notice(`${t2(this.settings, "moodTitle")}: ${error.message || error}`);
+          new import_obsidian.Notice(`${t(this.settings, "moodTitle")}: ${error.message || error}`);
         }
       }
       renderLabels() {
-        this.step = 2;
-        this.contentEl.empty();
-        this.contentEl.createEl("h3", { text: t2(this.settings, "addFeelings") });
-        if (this.allowDateSelection) this.renderDateField();
-        this.contentEl.createEl("p", { cls: "journal-mood-step", text: t2(this.settings, "chooseFeelings") });
-        const group = this.contentEl.createDiv({ cls: "journal-mood-labels", attr: { role: "group", "aria-label": t2(this.settings, "addFeelings") } });
-        const builtIn = moodLabelsForScore2(this.score);
+        this.resetContent(2);
+        this.renderHeader(t(this.settings, "addFeelings"), t(this.settings, "chooseFeelings"));
+        const summary = this.contentEl.createDiv({ cls: "journal-mood-summary" });
+        const summaryCanvas = summary.createEl("canvas", { cls: "journal-mood-summary-canvas", attr: { "aria-hidden": "true" } });
+        drawFluidMood(summaryCanvas, this.score ?? 0, 0, { width: 76, height: 76, pixelRatio: 2 });
+        const summaryCopy = summary.createDiv({ cls: "journal-mood-summary-copy" });
+        summaryCopy.createSpan({ cls: "journal-mood-summary-label", text: t(this.settings, "selected") });
+        summaryCopy.createEl("strong", { text: moodLabel(this.settings, this.score) });
+        const form = this.contentEl.createDiv({ cls: "journal-mood-form" });
+        const feelings = form.createDiv({ cls: "journal-mood-field-group" });
+        feelings.createEl("label", { cls: "journal-mood-field-label", text: t(this.settings, "chooseFeelings") });
+        const group = feelings.createDiv({ cls: "journal-mood-labels", attr: { role: "group", "aria-label": t(this.settings, "addFeelings") } });
+        const builtIn = moodLabelsForScore(this.score);
         for (const item of builtIn) {
           const button = group.createEl("button", {
             cls: "journal-mood-label",
-            text: feelingLabel2(this.settings, item.id),
+            text: feelingLabel(this.settings, item.id),
             attr: { type: "button", "aria-pressed": String(this.labels.has(item.id)) }
           });
           button.addEventListener("click", () => {
@@ -2431,16 +2871,16 @@ var init_mood_picker_modal = __esm({
             button.setAttribute("aria-pressed", String(this.labels.has(item)));
           });
         }
-        const customField = this.contentEl.createDiv({ cls: "journal-mood-custom-label-field" });
+        const customField = feelings.createDiv({ cls: "journal-mood-custom-label-field" });
         const customInput = customField.createEl("input", {
           attr: {
             type: "text",
             maxlength: "48",
-            placeholder: t2(this.settings, "customFeelingPlaceholder"),
-            "aria-label": t2(this.settings, "customFeeling")
+            placeholder: t(this.settings, "customFeelingPlaceholder"),
+            "aria-label": t(this.settings, "customFeeling")
           }
         });
-        const addCustom = customField.createEl("button", { text: t2(this.settings, "addCustomFeeling"), attr: { type: "button" } });
+        const addCustom = customField.createEl("button", { text: t(this.settings, "addCustomFeeling"), attr: { type: "button" } });
         const addLabel = () => {
           const value = String(customInput.value || "").trim();
           if (!value) return;
@@ -2456,14 +2896,14 @@ var init_mood_picker_modal = __esm({
             addLabel();
           }
         });
-        const noteField = this.contentEl.createDiv({ cls: "journal-mood-note-field" });
-        noteField.createEl("label", { text: t2(this.settings, "moodNote") });
+        const noteField = form.createDiv({ cls: "journal-mood-note-field" });
+        noteField.createEl("label", { text: t(this.settings, "moodNote") });
         const noteInput = noteField.createEl("textarea", {
           attr: {
             rows: "3",
             maxlength: "2000",
-            placeholder: t2(this.settings, "moodNotePlaceholder"),
-            "aria-label": t2(this.settings, "moodNote")
+            placeholder: t(this.settings, "moodNotePlaceholder"),
+            "aria-label": t(this.settings, "moodNote")
           }
         });
         noteInput.value = this.note || "";
@@ -2471,19 +2911,27 @@ var init_mood_picker_modal = __esm({
           this.note = noteInput.value;
         });
         const actions = this.contentEl.createDiv({ cls: "journal-mood-actions" });
-        const back = actions.createEl("button", { text: t2(this.settings, "back"), attr: { type: "button" } });
+        const back = actions.createEl("button", { text: t(this.settings, "back"), attr: { type: "button" } });
         back.addEventListener("click", () => this.renderScale());
-        const save = actions.createEl("button", { text: t2(this.settings, "save"), cls: "mod-cta", attr: { type: "button" } });
-        save.addEventListener("click", () => this.save());
+        const save = actions.createEl("button", { text: t(this.settings, "save"), cls: "mod-cta", attr: { type: "button" } });
+        save.addEventListener("click", () => this.save(save));
         save.focus();
       }
-      async save() {
+      async save(saveButton) {
         if (this.score === null) return;
+        if (saveButton) {
+          saveButton.disabled = true;
+          saveButton.classList.add("is-loading");
+        }
         try {
           await this.onSave?.({ filePath: this.filePath, score: this.score, labels: Array.from(this.labels), note: this.note.trim() || null, customLabels: this.customLabels });
           this.close();
         } catch (error) {
-          new Notice(`${t2(this.settings, "moodTitle")}: ${error.message || error}`);
+          if (saveButton) {
+            saveButton.disabled = false;
+            saveButton.classList.remove("is-loading");
+          }
+          new import_obsidian.Notice(`${t(this.settings, "moodTitle")}: ${error.message || error}`);
         }
       }
       handleKeydown(event) {
@@ -2492,22 +2940,9 @@ var init_mood_picker_modal = __esm({
           this.close();
           return;
         }
-        if (this.step !== 1) return;
-        if (event.key === "ArrowRight" || event.key === "ArrowDown") {
-          event.preventDefault();
-          this.selectScore(moveMoodScore2(this.score, 1));
-          this.renderScale();
-        } else if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
-          event.preventDefault();
-          this.selectScore(moveMoodScore2(this.score, -1));
-          this.renderScale();
-        } else if (event.key === "Enter" && this.score !== null) {
-          event.preventDefault();
-          this.renderLabels();
-        }
       }
     };
-    MoodRecoveryModal = class extends Modal {
+    MoodRecoveryModal = class extends import_obsidian.Modal {
       constructor(app, options = {}) {
         super(app);
         this.store = options.store;
@@ -2523,11 +2958,11 @@ var init_mood_picker_modal = __esm({
       }
       render() {
         this.contentEl.empty();
-        this.contentEl.createEl("h3", { text: t2(this.settings, "moodRecoveryTitle") });
-        this.contentEl.createEl("p", { cls: "journal-mood-recovery-description", text: t2(this.settings, "moodRecoveryDescription") });
+        this.contentEl.createEl("h3", { text: t(this.settings, "moodRecoveryTitle") });
+        this.contentEl.createEl("p", { cls: "journal-mood-recovery-description", text: t(this.settings, "moodRecoveryDescription") });
         const orphans = Object.entries(this.store?.getOrphans?.() || {}).sort(([a], [b]) => a.localeCompare(b));
         if (orphans.length === 0) {
-          this.contentEl.createDiv({ cls: "journal-mood-recovery-empty", text: t2(this.settings, "moodRecoveryEmpty") });
+          this.contentEl.createDiv({ cls: "journal-mood-recovery-empty", text: t(this.settings, "moodRecoveryEmpty") });
           return;
         }
         const list = this.contentEl.createDiv({ cls: "journal-mood-recovery-list" });
@@ -2536,10 +2971,10 @@ var init_mood_picker_modal = __esm({
           const details = row.createDiv({ cls: "journal-mood-recovery-details" });
           details.createDiv({ cls: "journal-mood-recovery-path", text: path });
           const record = orphan.record || {};
-          details.createDiv({ cls: "journal-mood-recovery-meta", text: `${moodLabel2(this.settings, record.score)} \xB7 ${(record.labels || []).join(", ") || t2(this.settings, "noFeelings")}` });
+          details.createDiv({ cls: "journal-mood-recovery-meta", text: `${moodLabel(this.settings, record.score)} \xB7 ${(record.labels || []).join(", ") || t(this.settings, "noFeelings")}` });
           if (record.note) details.createDiv({ cls: "journal-mood-recovery-note", text: record.note });
-          const destination = row.createEl("input", { attr: { type: "text", value: path, "aria-label": t2(this.settings, "moodRestoreDestination"), title: t2(this.settings, "moodRestoreDestination") } });
-          const restore = row.createEl("button", { text: t2(this.settings, "restoreMood"), attr: { type: "button" } });
+          const destination = row.createEl("input", { attr: { type: "text", value: path, "aria-label": t(this.settings, "moodRestoreDestination"), title: t(this.settings, "moodRestoreDestination") } });
+          const restore = row.createEl("button", { text: t(this.settings, "restoreMood"), attr: { type: "button" } });
           restore.addEventListener("click", async () => {
             restore.disabled = true;
             try {
@@ -2547,9 +2982,9 @@ var init_mood_picker_modal = __esm({
             } catch (error) {
               const message = String(error?.message || error);
               const canReplace = /already has a record/i.test(message);
-              const confirmed = canReplace && (typeof window === "undefined" || window.confirm(t2(this.settings, "moodRestoreConflict")));
+              const confirmed = canReplace && (typeof window === "undefined" || window.confirm(t(this.settings, "moodRestoreConflict")));
               if (!confirmed) {
-                new Notice(message);
+                new import_obsidian.Notice(message);
                 restore.disabled = false;
                 return;
               }
@@ -2560,7 +2995,7 @@ var init_mood_picker_modal = __esm({
             } catch (error) {
               const message = String(error?.message || error);
               console.warn("[Dayline] Mood recovery refresh failed:", message);
-              new Notice(t2(this.settings, "viewRefreshFailed", { error: message }));
+              new import_obsidian.Notice(t(this.settings, "viewRefreshFailed", { error: message }));
             }
             this.render();
           });
@@ -2876,7 +3311,7 @@ __export(journal_timeline_view_exports, {
   JOURNAL_TIMELINE_VIEW: () => JOURNAL_TIMELINE_VIEW,
   JournalTimelineView: () => JournalTimelineView
 });
-var ItemView, Notice2, TFile, setIcon, MOOD_LEVELS3, getMoodColor2, buildRecentMoodTrend2, calculateJournalStats2, formatJournalDate2, getDisplayLanguage2, moodLabel3, t3, isGenericJournalTitle2, JOURNAL_TIMELINE_VIEW, JournalTimelineView;
+var ItemView, Notice2, TFile, setIcon, MOOD_LEVELS2, getMoodColor2, buildRecentMoodTrend2, calculateJournalStats2, formatJournalDate2, getDisplayLanguage2, moodLabel2, t2, isGenericJournalTitle2, JOURNAL_TIMELINE_VIEW, JournalTimelineView;
 var init_journal_timeline_view = __esm({
   "src/journal-timeline-view.ts"() {
     "use strict";
@@ -2886,9 +3321,9 @@ var init_journal_timeline_view = __esm({
     init_journal_timeline_interaction();
     init_journal_index();
     ({ ItemView, Notice: Notice2, TFile, setIcon } = require("obsidian"));
-    ({ MOOD_LEVELS: MOOD_LEVELS3, getMoodColor: getMoodColor2 } = (init_mood(), __toCommonJS(mood_exports)));
+    ({ MOOD_LEVELS: MOOD_LEVELS2, getMoodColor: getMoodColor2 } = (init_mood(), __toCommonJS(mood_exports)));
     ({ buildRecentMoodTrend: buildRecentMoodTrend2, calculateJournalStats: calculateJournalStats2 } = (init_journal_stats(), __toCommonJS(journal_stats_exports)));
-    ({ formatJournalDate: formatJournalDate2, getDisplayLanguage: getDisplayLanguage2, moodLabel: moodLabel3, t: t3 } = (init_i18n(), __toCommonJS(i18n_exports)));
+    ({ formatJournalDate: formatJournalDate2, getDisplayLanguage: getDisplayLanguage2, moodLabel: moodLabel2, t: t2 } = (init_i18n(), __toCommonJS(i18n_exports)));
     ({ isGenericJournalTitle: isGenericJournalTitle2 } = (init_excerpt(), __toCommonJS(excerpt_exports)));
     JOURNAL_TIMELINE_VIEW = "journal-timeline-view";
     JournalTimelineView = class extends ItemView {
@@ -2918,7 +3353,7 @@ var init_journal_timeline_view = __esm({
         return JOURNAL_TIMELINE_VIEW;
       }
       getDisplayText() {
-        return t3(this.plugin.settings, "timelineTitle");
+        return t2(this.plugin.settings, "timelineTitle");
       }
       getIcon() {
         return "list";
@@ -2971,26 +3406,26 @@ var init_journal_timeline_view = __esm({
         root.addClass("journal-timeline-view");
         this.renderToken++;
         if (this.journalIndexError) {
-          root.createDiv({ cls: "journal-index-loading journal-index-load-error", text: t3(this.plugin.settings, "journalIndexLoadFailed", { error: this.journalIndexError?.message || this.journalIndexError }) });
+          root.createDiv({ cls: "journal-index-loading journal-index-load-error", text: t2(this.plugin.settings, "journalIndexLoadFailed", { error: this.journalIndexError?.message || this.journalIndexError }) });
           return;
         }
         if (!this.index.isReady) {
-          root.createDiv({ cls: "journal-index-loading", text: t3(this.plugin.settings, "journalIndexLoading") });
+          root.createDiv({ cls: "journal-index-loading", text: t2(this.plugin.settings, "journalIndexLoading") });
           return;
         }
         const entries = this.index.filter(this.filter);
         const header = root.createDiv({ cls: "journal-timeline-header" });
         const heading = header.createDiv({ cls: "journal-timeline-heading" });
-        heading.createEl("h2", { text: t3(this.plugin.settings, "timelineTitle") });
+        heading.createEl("h2", { text: t2(this.plugin.settings, "timelineTitle") });
         heading.createDiv({ cls: "journal-timeline-count", text: String(entries.length) });
         const actions = header.createDiv({ cls: "journal-timeline-actions" });
         const moodButton = actions.createEl("button", {
-          attr: { type: "button", "aria-label": t3(this.plugin.settings, "recordMood"), title: t3(this.plugin.settings, "recordMood") }
+          attr: { type: "button", "aria-label": t2(this.plugin.settings, "recordMood"), title: t2(this.plugin.settings, "recordMood") }
         });
         setIcon(moodButton, "heart-pulse");
         moodButton.addEventListener("click", () => this.plugin.recordCurrentMood());
         const newButton = actions.createEl("button", {
-          attr: { type: "button", "aria-label": t3(this.plugin.settings, "createDailyNote"), title: t3(this.plugin.settings, "createDailyNote") }
+          attr: { type: "button", "aria-label": t2(this.plugin.settings, "createDailyNote"), title: t2(this.plugin.settings, "createDailyNote") }
         });
         setIcon(newButton, "file-plus-2");
         newButton.addEventListener("click", () => this.plugin.createDailyNoteForToday());
@@ -3000,11 +3435,11 @@ var init_journal_timeline_view = __esm({
       }
       renderStats(root) {
         const stats = calculateJournalStats2(this.index.getEntries());
-        const section = root.createDiv({ cls: "journal-timeline-stats", attr: { "aria-label": t3(this.plugin.settings, "moodTrend") } });
+        const section = root.createDiv({ cls: "journal-timeline-stats", attr: { "aria-label": t2(this.plugin.settings, "moodTrend") } });
         const values = [
-          [t3(this.plugin.settings, "currentStreak"), `${stats.currentStreak}`],
-          [t3(this.plugin.settings, "longestStreak"), `${stats.longestStreak}`],
-          [t3(this.plugin.settings, "thisMonth"), `${stats.monthCompletionRate}%`]
+          [t2(this.plugin.settings, "currentStreak"), `${stats.currentStreak}`],
+          [t2(this.plugin.settings, "longestStreak"), `${stats.longestStreak}`],
+          [t2(this.plugin.settings, "thisMonth"), `${stats.monthCompletionRate}%`]
         ];
         for (const [label, value] of values) {
           const item = section.createDiv({ cls: "journal-stat" });
@@ -3013,12 +3448,12 @@ var init_journal_timeline_view = __esm({
         }
         if (!shouldShowTimelineMoodTrend(this.plugin.settings)) return;
         const trend = section.createDiv({ cls: "journal-stat-trend" });
-        trend.createDiv({ cls: "journal-stat-label", text: t3(this.plugin.settings, "moodTrend") });
+        trend.createDiv({ cls: "journal-stat-label", text: t2(this.plugin.settings, "moodTrend") });
         const grid = trend.createDiv({ cls: "journal-stat-trend-grid" });
         for (const item of buildRecentMoodTrend2(this.index.getEntries())) {
           const cell = grid.createDiv({ cls: "journal-stat-trend-cell" });
           cell.style.backgroundColor = getMoodColor2(item.score);
-          cell.setAttribute("aria-label", `${item.date}: ${item.score === void 0 ? t3(this.plugin.settings, "noMood") : moodLabel3(this.plugin.settings, item.score)}`);
+          cell.setAttribute("aria-label", `${item.date}: ${item.score === void 0 ? t2(this.plugin.settings, "noMood") : moodLabel2(this.plugin.settings, item.score)}`);
           cell.title = cell.getAttribute("aria-label");
         }
       }
@@ -3034,7 +3469,7 @@ var init_journal_timeline_view = __esm({
         const filters = root.createDiv({ cls: "journal-timeline-filter-area" });
         const row = filters.createDiv({ cls: "journal-timeline-filter-row" });
         const query = row.createEl("input", {
-          attr: { type: "search", placeholder: t3(this.plugin.settings, "searchJournal"), "aria-label": t3(this.plugin.settings, "searchJournal") }
+          attr: { type: "search", placeholder: t2(this.plugin.settings, "searchJournal"), "aria-label": t2(this.plugin.settings, "searchJournal") }
         });
         query.value = this.filter.query ?? "";
         query.addEventListener("input", () => {
@@ -3044,9 +3479,9 @@ var init_journal_timeline_view = __esm({
         const filterButton = row.createEl("button", {
           attr: {
             type: "button",
-            "aria-label": this.filterMenuOpen ? t3(this.plugin.settings, "closeFilters") : t3(this.plugin.settings, "openFilters"),
+            "aria-label": this.filterMenuOpen ? t2(this.plugin.settings, "closeFilters") : t2(this.plugin.settings, "openFilters"),
             "aria-expanded": String(this.filterMenuOpen),
-            title: this.filterMenuOpen ? t3(this.plugin.settings, "closeFilters") : t3(this.plugin.settings, "openFilters")
+            title: this.filterMenuOpen ? t2(this.plugin.settings, "closeFilters") : t2(this.plugin.settings, "openFilters")
           }
         });
         setIcon(filterButton, "list-filter");
@@ -3056,20 +3491,20 @@ var init_journal_timeline_view = __esm({
         });
         const menu = filters.createDiv({ cls: "journal-timeline-filter-menu" });
         if (!this.filterMenuOpen) menu.addClass("is-hidden");
-        const from = menu.createEl("input", { attr: { type: "date", "aria-label": t3(this.plugin.settings, "fromDate"), title: t3(this.plugin.settings, "fromDate") } });
+        const from = menu.createEl("input", { attr: { type: "date", "aria-label": t2(this.plugin.settings, "fromDate"), title: t2(this.plugin.settings, "fromDate") } });
         from.value = this.filter.from ?? "";
         from.addEventListener("change", () => {
           this.filter.from = from.value || void 0;
           this.updateResults();
         });
-        const to = menu.createEl("input", { attr: { type: "date", "aria-label": t3(this.plugin.settings, "toDate"), title: t3(this.plugin.settings, "toDate") } });
+        const to = menu.createEl("input", { attr: { type: "date", "aria-label": t2(this.plugin.settings, "toDate"), title: t2(this.plugin.settings, "toDate") } });
         to.value = this.filter.to ?? "";
         to.addEventListener("change", () => {
           this.filter.to = to.value || void 0;
           this.updateResults();
         });
-        const source = menu.createEl("select", { attr: { "aria-label": t3(this.plugin.settings, "source"), title: t3(this.plugin.settings, "source") } });
-        source.createEl("option", { text: t3(this.plugin.settings, "allSources"), attr: { value: "" } });
+        const source = menu.createEl("select", { attr: { "aria-label": t2(this.plugin.settings, "source"), title: t2(this.plugin.settings, "source") } });
+        source.createEl("option", { text: t2(this.plugin.settings, "allSources"), attr: { value: "" } });
         for (const item of this.sourceOptions()) {
           const option = source.createEl("option", { text: item.label, attr: { value: item.id } });
           option.selected = this.filter.sourceId === item.id;
@@ -3079,10 +3514,10 @@ var init_journal_timeline_view = __esm({
           this.filter.sourceId = source.value || void 0;
           this.updateResults();
         });
-        const mood = menu.createEl("select", { attr: { "aria-label": t3(this.plugin.settings, "allMoods"), title: t3(this.plugin.settings, "allMoods") } });
-        mood.createEl("option", { text: t3(this.plugin.settings, "allMoods"), attr: { value: "" } });
-        for (const level of MOOD_LEVELS3) {
-          const option = mood.createEl("option", { text: moodLabel3(this.plugin.settings, level.score), attr: { value: String(level.score) } });
+        const mood = menu.createEl("select", { attr: { "aria-label": t2(this.plugin.settings, "allMoods"), title: t2(this.plugin.settings, "allMoods") } });
+        mood.createEl("option", { text: t2(this.plugin.settings, "allMoods"), attr: { value: "" } });
+        for (const level of MOOD_LEVELS2) {
+          const option = mood.createEl("option", { text: moodLabel2(this.plugin.settings, level.score), attr: { value: String(level.score) } });
           option.style.color = level.color;
         }
         mood.value = this.filter.moodScore === void 0 ? "" : String(this.filter.moodScore);
@@ -3090,7 +3525,7 @@ var init_journal_timeline_view = __esm({
           this.filter.moodScore = mood.value === "" ? void 0 : Number(mood.value);
           this.updateResults();
         });
-        const media = menu.createEl("select", { attr: { "aria-label": t3(this.plugin.settings, "mediaFilter"), title: t3(this.plugin.settings, "mediaFilter") } });
+        const media = menu.createEl("select", { attr: { "aria-label": t2(this.plugin.settings, "mediaFilter"), title: t2(this.plugin.settings, "mediaFilter") } });
         for (const [value, key] of [
           ["all", "mediaAll"],
           ["any", "mediaAny"],
@@ -3099,7 +3534,7 @@ var init_journal_timeline_view = __esm({
           ["audio", "mediaAudio"],
           ["none", "mediaNone"]
         ]) {
-          const option = media.createEl("option", { text: t3(this.plugin.settings, key), attr: { value } });
+          const option = media.createEl("option", { text: t2(this.plugin.settings, key), attr: { value } });
           option.selected = (this.filter.media || "all") === value;
         }
         media.value = this.filter.media || "all";
@@ -3107,11 +3542,11 @@ var init_journal_timeline_view = __esm({
           this.filter.media = media.value === "all" ? void 0 : media.value;
           this.updateResults();
         });
-        const location = menu.createEl("select", { attr: { "aria-label": t3(this.plugin.settings, "locationFilter"), title: t3(this.plugin.settings, "locationFilter") } });
-        location.createEl("option", { text: t3(this.plugin.settings, "allLocations"), attr: { value: "" } });
+        const location = menu.createEl("select", { attr: { "aria-label": t2(this.plugin.settings, "locationFilter"), title: t2(this.plugin.settings, "locationFilter") } });
+        location.createEl("option", { text: t2(this.plugin.settings, "allLocations"), attr: { value: "" } });
         for (const item of buildJournalLocationOptions(this.index.getEntries())) {
           const option = location.createEl("option", {
-            text: item.value === MISSING_LOCATION_FILTER ? t3(this.plugin.settings, "noLocation") : item.label,
+            text: item.value === MISSING_LOCATION_FILTER ? t2(this.plugin.settings, "noLocation") : item.label,
             attr: { value: item.value }
           });
           option.selected = this.filter.location === item.value;
@@ -3121,8 +3556,8 @@ var init_journal_timeline_view = __esm({
           this.filter.location = location.value || void 0;
           this.updateResults();
         });
-        const tag = menu.createEl("select", { attr: { "aria-label": t3(this.plugin.settings, "tagFilter"), title: t3(this.plugin.settings, "tagFilter") } });
-        tag.createEl("option", { text: t3(this.plugin.settings, "allTags"), attr: { value: "" } });
+        const tag = menu.createEl("select", { attr: { "aria-label": t2(this.plugin.settings, "tagFilter"), title: t2(this.plugin.settings, "tagFilter") } });
+        tag.createEl("option", { text: t2(this.plugin.settings, "allTags"), attr: { value: "" } });
         for (const item of buildJournalTagOptions(this.index.getEntries())) {
           const option = tag.createEl("option", { text: item.label, attr: { value: item.value } });
           option.selected = this.filter.tag === item.value;
@@ -3135,12 +3570,12 @@ var init_journal_timeline_view = __esm({
         const favorite = menu.createEl("label", { cls: "journal-timeline-favorite-filter" });
         const checkbox = favorite.createEl("input", { attr: { type: "checkbox" } });
         checkbox.checked = Boolean(this.filter.favoriteOnly);
-        favorite.createSpan({ text: t3(this.plugin.settings, "favoritesOnly") });
+        favorite.createSpan({ text: t2(this.plugin.settings, "favoritesOnly") });
         checkbox.addEventListener("change", () => {
           this.filter.favoriteOnly = checkbox.checked;
           this.updateResults();
         });
-        const clear = menu.createEl("button", { attr: { type: "button", "aria-label": t3(this.plugin.settings, "clearFilters"), title: t3(this.plugin.settings, "clearFilters") } });
+        const clear = menu.createEl("button", { attr: { type: "button", "aria-label": t2(this.plugin.settings, "clearFilters"), title: t2(this.plugin.settings, "clearFilters") } });
         setIcon(clear, "x");
         clear.addEventListener("click", () => {
           this.filter = {};
@@ -3151,25 +3586,25 @@ var init_journal_timeline_view = __esm({
       }
       renderFilterSummary(root) {
         const active = [];
-        if (this.filter.query?.trim()) active.push({ key: "query", label: `${t3(this.plugin.settings, "searchJournal")}: ${this.filter.query.trim()}` });
-        if (this.filter.from) active.push({ key: "from", label: `${t3(this.plugin.settings, "fromDate")}: ${this.filter.from}` });
-        if (this.filter.to) active.push({ key: "to", label: `${t3(this.plugin.settings, "toDate")}: ${this.filter.to}` });
+        if (this.filter.query?.trim()) active.push({ key: "query", label: `${t2(this.plugin.settings, "searchJournal")}: ${this.filter.query.trim()}` });
+        if (this.filter.from) active.push({ key: "from", label: `${t2(this.plugin.settings, "fromDate")}: ${this.filter.from}` });
+        if (this.filter.to) active.push({ key: "to", label: `${t2(this.plugin.settings, "toDate")}: ${this.filter.to}` });
         if (this.filter.sourceId) {
           const source = this.sourceOptions().find((item) => item.id === this.filter.sourceId);
-          active.push({ key: "sourceId", label: `${t3(this.plugin.settings, "source")}: ${source?.label || this.filter.sourceId}` });
+          active.push({ key: "sourceId", label: `${t2(this.plugin.settings, "source")}: ${source?.label || this.filter.sourceId}` });
         }
-        if (this.filter.moodScore !== void 0) active.push({ key: "moodScore", label: moodLabel3(this.plugin.settings, this.filter.moodScore) });
-        if (this.filter.media) active.push({ key: "media", label: `${t3(this.plugin.settings, "mediaFilter")}: ${this.mediaFilterLabel(this.filter.media)}` });
+        if (this.filter.moodScore !== void 0) active.push({ key: "moodScore", label: moodLabel2(this.plugin.settings, this.filter.moodScore) });
+        if (this.filter.media) active.push({ key: "media", label: `${t2(this.plugin.settings, "mediaFilter")}: ${this.mediaFilterLabel(this.filter.media)}` });
         if (this.filter.location) {
           const option = buildJournalLocationOptions(this.index.getEntries()).find((item) => item.value === this.filter.location);
-          active.push({ key: "location", label: `${t3(this.plugin.settings, "locationFilter")}: ${option?.value === MISSING_LOCATION_FILTER ? t3(this.plugin.settings, "noLocation") : option?.label || this.filter.location}` });
+          active.push({ key: "location", label: `${t2(this.plugin.settings, "locationFilter")}: ${option?.value === MISSING_LOCATION_FILTER ? t2(this.plugin.settings, "noLocation") : option?.label || this.filter.location}` });
         }
-        if (this.filter.tag) active.push({ key: "tag", label: `${t3(this.plugin.settings, "tagFilter")}: #${this.filter.tag}` });
-        if (this.filter.favoriteOnly) active.push({ key: "favoriteOnly", label: t3(this.plugin.settings, "favorite") });
+        if (this.filter.tag) active.push({ key: "tag", label: `${t2(this.plugin.settings, "tagFilter")}: #${this.filter.tag}` });
+        if (this.filter.favoriteOnly) active.push({ key: "favoriteOnly", label: t2(this.plugin.settings, "favorite") });
         if (active.length === 0) return;
         const summary = root.createDiv({ cls: "journal-timeline-filter-summary" });
         for (const item of active) {
-          const chip = summary.createEl("button", { cls: "journal-filter-chip", text: `${item.label} \xD7`, attr: { type: "button", "aria-label": `${t3(this.plugin.settings, "clearFilters")}: ${item.label}` } });
+          const chip = summary.createEl("button", { cls: "journal-filter-chip", text: `${item.label} \xD7`, attr: { type: "button", "aria-label": `${t2(this.plugin.settings, "clearFilters")}: ${item.label}` } });
           chip.addEventListener("click", () => {
             delete this.filter[item.key];
             this.render();
@@ -3181,20 +3616,20 @@ var init_journal_timeline_view = __esm({
         for (const source of this.index.sources || []) {
           byId.set(source.id, {
             id: source.id,
-            label: source.id === "daily" ? t3(this.plugin.settings, "dailyNotes") : source.label || source.path || source.id
+            label: source.id === "daily" ? t2(this.plugin.settings, "dailyNotes") : source.label || source.path || source.id
           });
         }
         for (const entry of this.index.getEntries()) {
           if (!byId.has(entry.sourceId)) byId.set(entry.sourceId, {
             id: entry.sourceId,
-            label: entry.sourceId === "daily" ? t3(this.plugin.settings, "dailyNotes") : entry.sourceLabel || entry.sourcePath || entry.sourceId
+            label: entry.sourceId === "daily" ? t2(this.plugin.settings, "dailyNotes") : entry.sourceLabel || entry.sourcePath || entry.sourceId
           });
         }
         return Array.from(byId.values());
       }
       mediaFilterLabel(value) {
         const key = value === "all" ? "mediaAll" : value === "any" ? "mediaAny" : value === "image" ? "mediaImage" : value === "video" ? "mediaVideo" : value === "audio" ? "mediaAudio" : "mediaNone";
-        return t3(this.plugin.settings, key);
+        return t2(this.plugin.settings, key);
       }
       updateResults() {
         const count = this.contentEl.querySelector(".journal-timeline-count");
@@ -3216,7 +3651,7 @@ var init_journal_timeline_view = __esm({
         this.thumbnailVisibilityChecks.clear();
         list.empty();
         if (entries.length === 0) {
-          list.createDiv({ cls: "journal-timeline-empty", text: t3(this.plugin.settings, "noResults") });
+          list.createDiv({ cls: "journal-timeline-empty", text: t2(this.plugin.settings, "noResults") });
           return;
         }
         for (const entry of entries) this.renderEntry(list, entry, this.renderToken);
@@ -3238,20 +3673,20 @@ var init_journal_timeline_view = __esm({
         const top = body.createDiv({ cls: "journal-timeline-entry-top" });
         top.createEl("h3", { cls: "journal-timeline-entry-date", text: formatJournalDate2(entry.date, this.plugin.settings) });
         top.createEl("time", { cls: "journal-timeline-entry-iso", text: entry.date, attr: { datetime: entry.date } });
-        if (entry.favorite) top.createSpan({ cls: "journal-timeline-favorite", text: t3(this.plugin.settings, "favorite") });
+        if (entry.favorite) top.createSpan({ cls: "journal-timeline-favorite", text: t2(this.plugin.settings, "favorite") });
         if (entry.title && !isGenericJournalTitle2(entry.title, entry.date)) body.createDiv({ cls: "journal-timeline-title", text: entry.title });
         if (entry.excerpt) body.createDiv({ cls: "journal-timeline-excerpt", text: entry.excerpt });
         const meta = body.createDiv({ cls: "journal-timeline-meta" });
-        if (entry.location?.name) meta.createSpan({ text: `${t3(this.plugin.settings, "journalLocation")}: ${entry.location.name}` });
+        if (entry.location?.name) meta.createSpan({ text: `${t2(this.plugin.settings, "journalLocation")}: ${entry.location.name}` });
         else if (entry.location && (entry.location.latitude !== void 0 || entry.location.longitude !== void 0)) {
           meta.createSpan({
-            text: `${t3(this.plugin.settings, "journalLocation")}: ${[entry.location.latitude, entry.location.longitude].filter((value) => value !== void 0).join(", ")}`
+            text: `${t2(this.plugin.settings, "journalLocation")}: ${[entry.location.latitude, entry.location.longitude].filter((value) => value !== void 0).join(", ")}`
           });
         }
         const mediaCount = Math.max(media.length, imageLinks.length);
-        if (mediaCount > 0) meta.createSpan({ text: `${mediaCount}${t3(this.plugin.settings, "media")}` });
+        if (mediaCount > 0) meta.createSpan({ text: `${mediaCount}${t2(this.plugin.settings, "media")}` });
         if (entry.sourceLabel || entry.sourcePath) {
-          meta.createSpan({ text: entry.sourceId === "daily" ? t3(this.plugin.settings, "dailyNotes") : entry.sourceLabel || entry.sourcePath });
+          meta.createSpan({ text: entry.sourceId === "daily" ? t2(this.plugin.settings, "dailyNotes") : entry.sourceLabel || entry.sourcePath });
         }
         let thumbnail;
         if (thumbnailMedia.length > 0) {
@@ -3316,7 +3751,7 @@ var init_journal_timeline_view = __esm({
       async openEntry(path) {
         const file = this.app.vault.getAbstractFileByPath(path);
         if (!(file instanceof TFile)) {
-          new Notice2(t3(this.plugin.settings, "timelineOpenFailed", { error: path }));
+          new Notice2(t2(this.plugin.settings, "timelineOpenFailed", { error: path }));
           return;
         }
         try {
@@ -3324,7 +3759,7 @@ var init_journal_timeline_view = __esm({
           else await this.app.workspace.getLeaf("split").openFile(file);
         } catch (error) {
           console.warn("[Dayline] Open timeline entry failed:", error?.message || error);
-          new Notice2(t3(this.plugin.settings, "timelineOpenFailed", { error: error?.message || error }));
+          new Notice2(t2(this.plugin.settings, "timelineOpenFailed", { error: error?.message || error }));
         }
       }
     };
@@ -3933,11 +4368,11 @@ function shouldShowOnThisDayExcerptSettings(settings) {
 function shouldShowExifGeocoding(settings) {
   return settings.showExif === true;
 }
-var import_obsidian, VIEW_TYPE, SETTINGS_SECTION_IDS, SETTINGS_SECTION_LABEL_KEYS, SETTINGS_ACTION_ROWS, DaylineSettingsTab, FolderSuggestModal;
+var import_obsidian2, VIEW_TYPE, SETTINGS_SECTION_IDS, SETTINGS_SECTION_LABEL_KEYS, SETTINGS_ACTION_ROWS, DaylineSettingsTab, FolderSuggestModal;
 var init_settings_tab = __esm({
   "src/settings-tab.ts"() {
     "use strict";
-    import_obsidian = require("obsidian");
+    import_obsidian2 = require("obsidian");
     init_i18n();
     init_locale();
     init_dayline_wordmark_compact();
@@ -3967,7 +4402,7 @@ var init_settings_tab = __esm({
       metadataBackup: ["exportMetadataCommand", "restoreMetadataCommand"],
       dataMaintenance: ["integrityCommand", "importFrontmatterCommand"]
     };
-    DaylineSettingsTab = class extends import_obsidian.PluginSettingTab {
+    DaylineSettingsTab = class extends import_obsidian2.PluginSettingTab {
       constructor(app, plugin) {
         super(app, plugin);
         this.plugin = plugin;
@@ -3979,14 +4414,14 @@ var init_settings_tab = __esm({
         } catch (error) {
           const message = error?.message || String(error);
           console.warn("[Dayline] Settings save failed:", message);
-          new import_obsidian.Notice(t(this.plugin.settings, "settingsSaveFailed", { error: message }));
+          new import_obsidian2.Notice(t(this.plugin.settings, "settingsSaveFailed", { error: message }));
           return false;
         }
       }
       _notifyViewRefreshFailure(error) {
         const message = error?.message || String(error);
         console.warn("[Dayline] Settings view refresh failed:", message);
-        new import_obsidian.Notice(t(this.plugin.settings, "viewRefreshFailed", { error: message }));
+        new import_obsidian2.Notice(t(this.plugin.settings, "viewRefreshFailed", { error: message }));
       }
       _refreshCalendarView() {
         for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE)) {
@@ -4051,7 +4486,7 @@ var init_settings_tab = __esm({
           brand.setText("Dayline");
         }
         this._addSection(containerEl, "general");
-        new import_obsidian.Setting(containerEl).setName(t(this.plugin.settings, "language")).setDesc(t(this.plugin.settings, "languageDesc")).addDropdown((dd) => dd.addOption("system", t(this.plugin.settings, "system")).addOption("en", t(this.plugin.settings, "english")).addOption("zh", t(this.plugin.settings, "chinese")).setValue(this.plugin.settings.displayLanguage).onChange(async (value) => {
+        new import_obsidian2.Setting(containerEl).setName(t(this.plugin.settings, "language")).setDesc(t(this.plugin.settings, "languageDesc")).addDropdown((dd) => dd.addOption("system", t(this.plugin.settings, "system")).addOption("en", t(this.plugin.settings, "english")).addOption("zh", t(this.plugin.settings, "chinese")).setValue(this.plugin.settings.displayLanguage).onChange(async (value) => {
           this.plugin.settings.displayLanguage = value;
           this.plugin.settings.weatherLanguage = getDisplayLanguage({ displayLanguage: value });
           if (!await this._saveSettings()) return;
@@ -4059,13 +4494,13 @@ var init_settings_tab = __esm({
           this._refreshCalendarView();
           this.plugin.refreshJournalViews();
         }));
-        new import_obsidian.Setting(containerEl).setName(t(this.plugin.settings, "weekStart")).setDesc(t(this.plugin.settings, "weekStartDesc")).addDropdown((dd) => dd.addOption("system", t(this.plugin.settings, "weekStartSystem")).addOption("monday", t(this.plugin.settings, "weekStartMonday")).addOption("sunday", t(this.plugin.settings, "weekStartSunday")).setValue(this.plugin.settings.weekStart || "system").onChange(async (value) => {
+        new import_obsidian2.Setting(containerEl).setName(t(this.plugin.settings, "weekStart")).setDesc(t(this.plugin.settings, "weekStartDesc")).addDropdown((dd) => dd.addOption("system", t(this.plugin.settings, "weekStartSystem")).addOption("monday", t(this.plugin.settings, "weekStartMonday")).addOption("sunday", t(this.plugin.settings, "weekStartSunday")).setValue(this.plugin.settings.weekStart || "system").onChange(async (value) => {
           this.plugin.settings.weekStart = value;
           if (!await this._saveSettings()) return;
           this._refreshCalendarView();
         }));
         this._addSection(containerEl, "calendar-journal");
-        new import_obsidian.Setting(containerEl).setName(_s("s_dailyFolder")).setDesc(_s("s_dailyFolderDesc")).addSearch((cb) => {
+        new import_obsidian2.Setting(containerEl).setName(_s("s_dailyFolder")).setDesc(_s("s_dailyFolderDesc")).addSearch((cb) => {
           this.folderInput = cb;
           cb.setValue(this.plugin.settings.dailyFolder).setPlaceholder("Calendar/Daily").onChange(async (value) => {
             this.plugin.settings.dailyFolder = value.replace(/\/+$/, "");
@@ -4081,12 +4516,12 @@ var init_settings_tab = __esm({
             this.folderInput.setValue(path);
           }).open();
         }));
-        new import_obsidian.Setting(containerEl).setName(_s("s_thumbnailFilter")).setDesc(_s("s_thumbnailFilterDesc")).addDropdown((dd) => dd.addOption("all", _s("s_thumbnailAll")).addOption("date-prefixed", _s("s_thumbnailDate")).setValue(this.plugin.settings.thumbnailFilter).onChange(async (value) => {
+        new import_obsidian2.Setting(containerEl).setName(_s("s_thumbnailFilter")).setDesc(_s("s_thumbnailFilterDesc")).addDropdown((dd) => dd.addOption("all", _s("s_thumbnailAll")).addOption("date-prefixed", _s("s_thumbnailDate")).setValue(this.plugin.settings.thumbnailFilter).onChange(async (value) => {
           this.plugin.settings.thumbnailFilter = value;
           if (!await this._saveSettings()) return;
           this._refreshCalendarView();
         }));
-        new import_obsidian.Setting(containerEl).setName(t(this.plugin.settings, "journalSources")).setDesc(t(this.plugin.settings, "journalSourcesDesc")).addTextArea((text) => {
+        new import_obsidian2.Setting(containerEl).setName(t(this.plugin.settings, "journalSources")).setDesc(t(this.plugin.settings, "journalSourcesDesc")).addTextArea((text) => {
           text.setValue(JSON.stringify(this.plugin.settings.journalSources || [], null, 2));
           text.inputEl.rows = 5;
           text.inputEl.addClass("calendar-sidebar-source-json");
@@ -4099,55 +4534,55 @@ var init_settings_tab = __esm({
               await this.plugin.journalIndex.refresh(this.plugin.settings);
               this.plugin.refreshJournalViews();
             } catch (_) {
-              new import_obsidian.Notice(t(this.plugin.settings, "invalidJournalSources"));
+              new import_obsidian2.Notice(t(this.plugin.settings, "invalidJournalSources"));
             }
           });
         });
-        this._addActionRow(new import_obsidian.Setting(containerEl).setName(t(this.plugin.settings, "journalTools")).setDesc(t(this.plugin.settings, "journalToolsDesc")), "journalTools").addButton((button) => button.setButtonText(t(this.plugin.settings, "openTimeline")).onClick(() => this.plugin.activateTimeline())).addButton((button) => button.setButtonText(t(this.plugin.settings, "detectImports")).onClick(async () => {
+        this._addActionRow(new import_obsidian2.Setting(containerEl).setName(t(this.plugin.settings, "journalTools")).setDesc(t(this.plugin.settings, "journalToolsDesc")), "journalTools").addButton((button) => button.setButtonText(t(this.plugin.settings, "openTimeline")).onClick(() => this.plugin.activateTimeline())).addButton((button) => button.setButtonText(t(this.plugin.settings, "detectImports")).onClick(async () => {
           const result = await this.plugin.journalIndex.detectSources(this.plugin.settings);
-          new import_obsidian.Notice(t(this.plugin.settings, "detectImportsResult", result));
+          new import_obsidian2.Notice(t(this.plugin.settings, "detectImportsResult", result));
         }));
-        new import_obsidian.Setting(containerEl).setName(t(this.plugin.settings, "showTimelineMoodTrend")).setDesc(t(this.plugin.settings, "showTimelineMoodTrendDesc")).addToggle((toggle) => toggle.setValue(shouldShowTimelineMoodTrend(this.plugin.settings)).onChange(async (value) => {
+        new import_obsidian2.Setting(containerEl).setName(t(this.plugin.settings, "showTimelineMoodTrend")).setDesc(t(this.plugin.settings, "showTimelineMoodTrendDesc")).addToggle((toggle) => toggle.setValue(shouldShowTimelineMoodTrend(this.plugin.settings)).onChange(async (value) => {
           this.plugin.settings.showTimelineMoodTrend = value;
           if (!await this._saveSettings()) return;
           this.plugin.refreshJournalViews();
         }));
-        new import_obsidian.Setting(containerEl).setName(t(this.plugin.settings, "showCalendarMood")).setDesc(t(this.plugin.settings, "showCalendarMoodDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showCalendarMood !== false).onChange(async (value) => {
+        new import_obsidian2.Setting(containerEl).setName(t(this.plugin.settings, "showCalendarMood")).setDesc(t(this.plugin.settings, "showCalendarMoodDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showCalendarMood !== false).onChange(async (value) => {
           this.plugin.settings.showCalendarMood = value;
           if (!await this._saveSettings()) return;
           await this._refreshViews();
         }));
-        new import_obsidian.Setting(containerEl).setName(t(this.plugin.settings, "showCalendarEntryCount")).setDesc(t(this.plugin.settings, "showCalendarEntryCountDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showCalendarEntryCount !== false).onChange(async (value) => {
+        new import_obsidian2.Setting(containerEl).setName(t(this.plugin.settings, "showCalendarEntryCount")).setDesc(t(this.plugin.settings, "showCalendarEntryCountDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showCalendarEntryCount !== false).onChange(async (value) => {
           this.plugin.settings.showCalendarEntryCount = value;
           if (!await this._saveSettings()) return;
           await this._refreshViews();
         }));
         if (shouldShowCalendarWeatherOptions(this.plugin.settings)) {
-          new import_obsidian.Setting(containerEl).setName(t(this.plugin.settings, "showCalendarWeatherCard")).setDesc(t(this.plugin.settings, "showCalendarWeatherCardDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showCalendarWeatherCard !== false).onChange(async (value) => {
+          new import_obsidian2.Setting(containerEl).setName(t(this.plugin.settings, "showCalendarWeatherCard")).setDesc(t(this.plugin.settings, "showCalendarWeatherCardDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showCalendarWeatherCard !== false).onChange(async (value) => {
             this.plugin.settings.showCalendarWeatherCard = value;
             if (!await this._saveSettings()) return;
             this.display();
             await this._refreshViews();
           }));
           if (shouldShowWeatherLocationOption(this.plugin.settings)) {
-            new import_obsidian.Setting(containerEl).setName(t(this.plugin.settings, "showCalendarWeatherLocation")).setDesc(t(this.plugin.settings, "showCalendarWeatherLocationDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showCalendarWeatherLocation === true).onChange(async (value) => {
+            new import_obsidian2.Setting(containerEl).setName(t(this.plugin.settings, "showCalendarWeatherLocation")).setDesc(t(this.plugin.settings, "showCalendarWeatherLocationDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showCalendarWeatherLocation === true).onChange(async (value) => {
               this.plugin.settings.showCalendarWeatherLocation = value;
               if (!await this._saveSettings()) return;
               await this._refreshViews();
             }));
           }
-          new import_obsidian.Setting(containerEl).setName(t(this.plugin.settings, "showCalendarWeatherBadge")).setDesc(t(this.plugin.settings, "showCalendarWeatherBadgeDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showCalendarWeatherBadge !== false).onChange(async (value) => {
+          new import_obsidian2.Setting(containerEl).setName(t(this.plugin.settings, "showCalendarWeatherBadge")).setDesc(t(this.plugin.settings, "showCalendarWeatherBadgeDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showCalendarWeatherBadge !== false).onChange(async (value) => {
             this.plugin.settings.showCalendarWeatherBadge = value;
             if (!await this._saveSettings()) return;
             await this._refreshViews();
           }));
         }
         this._addSection(containerEl, "mood");
-        new import_obsidian.Setting(containerEl).setName(t(this.plugin.settings, "mirrorMood")).setDesc(t(this.plugin.settings, "mirrorMoodDesc")).addToggle((toggle) => toggle.setValue(Boolean(this.plugin.settings.mirrorMoodToFrontmatter)).onChange(async (value) => {
+        new import_obsidian2.Setting(containerEl).setName(t(this.plugin.settings, "mirrorMood")).setDesc(t(this.plugin.settings, "mirrorMoodDesc")).addToggle((toggle) => toggle.setValue(Boolean(this.plugin.settings.mirrorMoodToFrontmatter)).onChange(async (value) => {
           this.plugin.settings.mirrorMoodToFrontmatter = value;
           await this._saveSettings();
         }));
-        new import_obsidian.Setting(containerEl).setName(t(this.plugin.settings, "reminder")).setDesc(t(this.plugin.settings, "reminderDesc")).addToggle((toggle) => toggle.setValue(Boolean(this.plugin.settings.reminderEnabled)).onChange(async (value) => {
+        new import_obsidian2.Setting(containerEl).setName(t(this.plugin.settings, "reminder")).setDesc(t(this.plugin.settings, "reminderDesc")).addToggle((toggle) => toggle.setValue(Boolean(this.plugin.settings.reminderEnabled)).onChange(async (value) => {
           this.plugin.settings.reminderEnabled = value;
           await this._saveSettings();
         })).addExtraButton((button) => button.setIcon("clock-3").setTooltip(t(this.plugin.settings, "reminderHour")).onClick(() => {
@@ -4159,7 +4594,7 @@ var init_settings_tab = __esm({
           }
         }));
         this._addSection(containerEl, "weather");
-        new import_obsidian.Setting(containerEl).setName(_s("s_weatherEnable")).setDesc(_s("s_weatherEnableDesc")).addToggle(
+        new import_obsidian2.Setting(containerEl).setName(_s("s_weatherEnable")).setDesc(_s("s_weatherEnableDesc")).addToggle(
           (toggle) => toggle.setValue(this.plugin.settings.weatherEnabled).onChange(async (value) => {
             this.plugin.settings.weatherEnabled = value;
             if (!await this._saveSettings()) return;
@@ -4168,35 +4603,35 @@ var init_settings_tab = __esm({
           })
         );
         if (shouldShowWeatherSettings(this.plugin.settings)) {
-          new import_obsidian.Setting(containerEl).setName(_s("s_latitude")).setDesc(_s("s_latitudeDesc")).addText(
+          new import_obsidian2.Setting(containerEl).setName(_s("s_latitude")).setDesc(_s("s_latitudeDesc")).addText(
             (text) => text.setPlaceholder("39.9042").setValue(String(this.plugin.settings.weatherLatitude)).onChange(async (value) => {
               this.plugin.settings.weatherLatitude = value.trim();
               if (!await this._saveSettings()) return;
               await this._refreshViews();
             })
           );
-          new import_obsidian.Setting(containerEl).setName(_s("s_longitude")).setDesc(_s("s_longitudeDesc")).addText(
+          new import_obsidian2.Setting(containerEl).setName(_s("s_longitude")).setDesc(_s("s_longitudeDesc")).addText(
             (text) => text.setPlaceholder("116.4074").setValue(String(this.plugin.settings.weatherLongitude)).onChange(async (value) => {
               this.plugin.settings.weatherLongitude = value.trim();
               if (!await this._saveSettings()) return;
               await this._refreshViews();
             })
           );
-          new import_obsidian.Setting(containerEl).setName(_s("s_locationName")).setDesc(_s("s_locationNameDesc")).addText(
+          new import_obsidian2.Setting(containerEl).setName(_s("s_locationName")).setDesc(_s("s_locationNameDesc")).addText(
             (text) => text.setPlaceholder(_s("s_locationName")).setValue(String(this.plugin.settings.weatherLocationName)).onChange(async (value) => {
               this.plugin.settings.weatherLocationName = value.trim();
               if (!await this._saveSettings()) return;
               await this._refreshViews();
             })
           );
-          new import_obsidian.Setting(containerEl).setName(_s("s_tempUnits")).setDesc(_s("s_tempUnitsDesc")).addDropdown(
+          new import_obsidian2.Setting(containerEl).setName(_s("s_tempUnits")).setDesc(_s("s_tempUnitsDesc")).addDropdown(
             (dd) => dd.addOption("metric", _s("s_celsius")).addOption("imperial", _s("s_fahrenheit")).setValue(this.plugin.settings.weatherUnits).onChange(async (value) => {
               this.plugin.settings.weatherUnits = value;
               if (!await this._saveSettings()) return;
               await this._refreshViews();
             })
           );
-          const weatherFieldsSetting = new import_obsidian.Setting(containerEl).setName(t(this.plugin.settings, "weatherExtraFields")).setDesc(t(this.plugin.settings, "weatherExtraFieldsDesc"));
+          const weatherFieldsSetting = new import_obsidian2.Setting(containerEl).setName(t(this.plugin.settings, "weatherExtraFields")).setDesc(t(this.plugin.settings, "weatherExtraFieldsDesc"));
           {
             const control = weatherFieldsSetting.controlEl.createDiv({ cls: "dayline-weather-field-options" });
             const fields = [
@@ -4223,18 +4658,18 @@ var init_settings_tab = __esm({
               });
             }
           }
-          new import_obsidian.Setting(containerEl).setName(t(this.plugin.settings, "weatherTimezone")).setDesc(t(this.plugin.settings, "weatherTimezoneDesc")).addText((text) => text.setPlaceholder("auto or Asia/Shanghai").setValue(String(this.plugin.settings.weatherTimezone || "auto")).onChange(async (value) => {
+          new import_obsidian2.Setting(containerEl).setName(t(this.plugin.settings, "weatherTimezone")).setDesc(t(this.plugin.settings, "weatherTimezoneDesc")).addText((text) => text.setPlaceholder("auto or Asia/Shanghai").setValue(String(this.plugin.settings.weatherTimezone || "auto")).onChange(async (value) => {
             this.plugin.settings.weatherTimezone = value.trim() || "auto";
             if (!await this._saveSettings()) return;
             await this._refreshViews();
           }));
-          new import_obsidian.Setting(containerEl).setName(_s("s_autoFetch")).setDesc(_s("s_autoFetchDesc")).addToggle(
+          new import_obsidian2.Setting(containerEl).setName(_s("s_autoFetch")).setDesc(_s("s_autoFetchDesc")).addToggle(
             (toggle) => toggle.setValue(this.plugin.settings.weatherAutoFetch).onChange(async (value) => {
               this.plugin.settings.weatherAutoFetch = value;
               await this._saveSettings();
             })
           );
-          new import_obsidian.Setting(containerEl).setName(_s("s_cacheTtl")).setDesc(_s("s_cacheTtlDesc")).addText(
+          new import_obsidian2.Setting(containerEl).setName(_s("s_cacheTtl")).setDesc(_s("s_cacheTtlDesc")).addText(
             (text) => text.setPlaceholder("2").setValue(String(this.plugin.settings.weatherTtlHours)).onChange(async (value) => {
               const n = parseInt(value, 10);
               this.plugin.settings.weatherTtlHours = isNaN(n) || n < 1 ? 2 : n;
@@ -4244,19 +4679,19 @@ var init_settings_tab = __esm({
           );
         }
         this._addSection(containerEl, "media-privacy");
-        new import_obsidian.Setting(containerEl).setName(_s("s_exifEnable")).setDesc(_s("s_exifEnableDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showExif).onChange(async (value) => {
+        new import_obsidian2.Setting(containerEl).setName(_s("s_exifEnable")).setDesc(_s("s_exifEnableDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showExif).onChange(async (value) => {
           this.plugin.settings.showExif = value;
           if (!await this._saveSettings()) return;
           this.display();
         }));
         if (shouldShowExifGeocoding(this.plugin.settings)) {
-          new import_obsidian.Setting(containerEl).setName(_s("s_exifGeocode")).setDesc(_s("s_exifGeocodeDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.exifReverseGeocode).onChange(async (value) => {
+          new import_obsidian2.Setting(containerEl).setName(_s("s_exifGeocode")).setDesc(_s("s_exifGeocodeDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.exifReverseGeocode).onChange(async (value) => {
             this.plugin.settings.exifReverseGeocode = value;
             await this._saveSettings();
           }));
         }
         this._addSection(containerEl, "on-this-day");
-        new import_obsidian.Setting(containerEl).setName(_s("s_otdButton")).setDesc(_s("s_otdButtonDesc")).addToggle(
+        new import_obsidian2.Setting(containerEl).setName(_s("s_otdButton")).setDesc(_s("s_otdButtonDesc")).addToggle(
           (toggle) => toggle.setValue(this.plugin.settings.onThisDayButton).onChange(async (value) => {
             this.plugin.settings.onThisDayButton = value;
             if (!await this._saveSettings()) return;
@@ -4265,7 +4700,7 @@ var init_settings_tab = __esm({
             if (leaf?.view) leaf.view.render();
           })
         );
-        new import_obsidian.Setting(containerEl).setName(_s("s_otdDot")).setDesc(_s("s_otdDotDesc")).addToggle(
+        new import_obsidian2.Setting(containerEl).setName(_s("s_otdDot")).setDesc(_s("s_otdDotDesc")).addToggle(
           (toggle) => toggle.setValue(this.plugin.settings.onThisDayDot).onChange(async (value) => {
             this.plugin.settings.onThisDayDot = value;
             if (!await this._saveSettings()) return;
@@ -4273,7 +4708,7 @@ var init_settings_tab = __esm({
           })
         );
         if (shouldShowOnThisDayExcerptSettings(this.plugin.settings)) {
-          new import_obsidian.Setting(containerEl).setName(_s("s_otdExcerptMode")).setDesc(_s("s_otdExcerptModeDesc")).addDropdown((dropdown) => dropdown.addOptions({
+          new import_obsidian2.Setting(containerEl).setName(_s("s_otdExcerptMode")).setDesc(_s("s_otdExcerptModeDesc")).addDropdown((dropdown) => dropdown.addOptions({
             auto: _s("s_otdExcerptAuto"),
             frontmatter: _s("s_otdExcerptFrontmatter"),
             template: _s("s_otdExcerptTemplate"),
@@ -4286,14 +4721,14 @@ var init_settings_tab = __esm({
             this.display();
           }));
           if (this.plugin.settings.onThisDayExcerptMode === "frontmatter") {
-            new import_obsidian.Setting(containerEl).setName(_s("s_otdExcerptKey")).setDesc(_s("s_otdExcerptKeyDesc")).addText((text) => text.setValue(this.plugin.settings.onThisDayExcerptKey || "excerpt").onChange(async (value) => {
+            new import_obsidian2.Setting(containerEl).setName(_s("s_otdExcerptKey")).setDesc(_s("s_otdExcerptKeyDesc")).addText((text) => text.setValue(this.plugin.settings.onThisDayExcerptKey || "excerpt").onChange(async (value) => {
               this.plugin.settings.onThisDayExcerptKey = value;
               if (!await this._saveSettings()) return;
               this.app.workspace.getLeavesOfType(VIEW_TYPE)[0]?.view?._otdProvider?.invalidate();
             }));
           }
           if (this.plugin.settings.onThisDayExcerptMode === "template") {
-            new import_obsidian.Setting(containerEl).setName(_s("s_otdTemplate")).setDesc(_s("s_otdTemplateDesc")).addText((text) => text.setValue(this.plugin.settings.onThisDayExcerptTemplate || "{body}").onChange(async (value) => {
+            new import_obsidian2.Setting(containerEl).setName(_s("s_otdTemplate")).setDesc(_s("s_otdTemplateDesc")).addText((text) => text.setValue(this.plugin.settings.onThisDayExcerptTemplate || "{body}").onChange(async (value) => {
               this.plugin.settings.onThisDayExcerptTemplate = value;
               if (!await this._saveSettings()) return;
               this.app.workspace.getLeavesOfType(VIEW_TYPE)[0]?.view?._otdProvider?.invalidate();
@@ -4301,7 +4736,7 @@ var init_settings_tab = __esm({
           }
         }
         this._addSection(containerEl, "data-maintenance");
-        new import_obsidian.Setting(containerEl).setName(t(this.plugin.settings, "moodMetadataPath")).setDesc(t(this.plugin.settings, "moodMetadataPathDesc")).addText((text) => text.setValue(this.plugin.settings.moodMetadataPath).setPlaceholder("Calendar/journal-metadata.json").onChange(async (value) => {
+        new import_obsidian2.Setting(containerEl).setName(t(this.plugin.settings, "moodMetadataPath")).setDesc(t(this.plugin.settings, "moodMetadataPathDesc")).addText((text) => text.setValue(this.plugin.settings.moodMetadataPath).setPlaceholder("Calendar/journal-metadata.json").onChange(async (value) => {
           const next = value.trim() || "Calendar/journal-metadata.json";
           this.plugin.settings.moodMetadataPath = next;
           if (!await this._saveSettings()) return;
@@ -4310,27 +4745,27 @@ var init_settings_tab = __esm({
           await this.plugin.journalIndex.refresh(this.plugin.settings);
           this.plugin.refreshJournalViews();
         }));
-        this._addActionRow(new import_obsidian.Setting(containerEl).setName(t(this.plugin.settings, "moodExport")).setDesc(t(this.plugin.settings, "moodExportDesc")), "moodExport").addButton((button) => button.setButtonText(t(this.plugin.settings, "exportMoodCsvCommand")).onClick(() => this.plugin.exportMood("csv"))).addButton((button) => button.setButtonText(t(this.plugin.settings, "exportMoodJsonCommand")).onClick(() => this.plugin.exportMood("json")));
-        this._addActionRow(new import_obsidian.Setting(containerEl).setName(t(this.plugin.settings, "metadataBackup")).setDesc(t(this.plugin.settings, "metadataBackupDesc")), "metadataBackup").addButton((button) => button.setButtonText(t(this.plugin.settings, "exportMetadataCommand")).onClick(async () => {
+        this._addActionRow(new import_obsidian2.Setting(containerEl).setName(t(this.plugin.settings, "moodExport")).setDesc(t(this.plugin.settings, "moodExportDesc")), "moodExport").addButton((button) => button.setButtonText(t(this.plugin.settings, "exportMoodCsvCommand")).onClick(() => this.plugin.exportMood("csv"))).addButton((button) => button.setButtonText(t(this.plugin.settings, "exportMoodJsonCommand")).onClick(() => this.plugin.exportMood("json")));
+        this._addActionRow(new import_obsidian2.Setting(containerEl).setName(t(this.plugin.settings, "metadataBackup")).setDesc(t(this.plugin.settings, "metadataBackupDesc")), "metadataBackup").addButton((button) => button.setButtonText(t(this.plugin.settings, "exportMetadataCommand")).onClick(async () => {
           try {
             const path = await this.plugin.moodStore.exportTo();
-            new import_obsidian.Notice(t(this.plugin.settings, "metadataExported", { path }));
+            new import_obsidian2.Notice(t(this.plugin.settings, "metadataExported", { path }));
           } catch (error) {
-            new import_obsidian.Notice(t(this.plugin.settings, "metadataExportFailed", { error: error?.message || error }));
+            new import_obsidian2.Notice(t(this.plugin.settings, "metadataExportFailed", { error: error?.message || error }));
           }
         })).addButton((button) => button.setButtonText(t(this.plugin.settings, "restoreMetadataCommand")).onClick(async () => {
           try {
             await this.plugin.moodStore.restoreBackup();
             await this.plugin.journalIndex.refresh(this.plugin.settings);
             this.plugin.refreshJournalViews();
-            new import_obsidian.Notice(t(this.plugin.settings, "metadataRestored"));
+            new import_obsidian2.Notice(t(this.plugin.settings, "metadataRestored"));
           } catch (error) {
-            new import_obsidian.Notice(t(this.plugin.settings, "metadataRestoreFailed", { error: error?.message || error }));
+            new import_obsidian2.Notice(t(this.plugin.settings, "metadataRestoreFailed", { error: error?.message || error }));
           }
         }));
-        this._addActionRow(new import_obsidian.Setting(containerEl).setName(t(this.plugin.settings, "dataMaintenance")).setDesc(t(this.plugin.settings, "dataMaintenanceDesc")), "dataMaintenance").addButton((button) => button.setButtonText(t(this.plugin.settings, "integrityCommand")).onClick(async () => {
+        this._addActionRow(new import_obsidian2.Setting(containerEl).setName(t(this.plugin.settings, "dataMaintenance")).setDesc(t(this.plugin.settings, "dataMaintenanceDesc")), "dataMaintenance").addButton((button) => button.setButtonText(t(this.plugin.settings, "integrityCommand")).onClick(async () => {
           const result = await this.plugin.moodStore.checkIntegrity();
-          new import_obsidian.Notice(result.valid ? t(this.plugin.settings, "metadataValid") : t(this.plugin.settings, "metadataIntegrityIssues", {
+          new import_obsidian2.Notice(result.valid ? t(this.plugin.settings, "metadataValid") : t(this.plugin.settings, "metadataIntegrityIssues", {
             metadata: result.invalidMetadata.length,
             records: result.invalidRecords.length,
             orphans: result.invalidOrphans.length,
@@ -4343,27 +4778,27 @@ var init_settings_tab = __esm({
           );
           await this.plugin.journalIndex.refresh(this.plugin.settings);
           this.plugin.refreshJournalViews();
-          new import_obsidian.Notice(t(this.plugin.settings, "importedMoods", { count }));
+          new import_obsidian2.Notice(t(this.plugin.settings, "importedMoods", { count }));
         }));
         const orphanCount = Object.keys(this.plugin.moodStore?.getOrphans?.() || {}).length;
         if (orphanCount > 0) {
-          new import_obsidian.Setting(containerEl).setName(t(this.plugin.settings, "moodRecoveryTitle")).setDesc(t(this.plugin.settings, "moodRecoveryDescription")).addButton((button) => button.setButtonText(t(this.plugin.settings, "moodRecoveryCommand")).onClick(() => this.plugin.openMoodRecovery()));
+          new import_obsidian2.Setting(containerEl).setName(t(this.plugin.settings, "moodRecoveryTitle")).setDesc(t(this.plugin.settings, "moodRecoveryDescription")).addButton((button) => button.setButtonText(t(this.plugin.settings, "moodRecoveryCommand")).onClick(() => this.plugin.openMoodRecovery()));
         }
         if (shouldShowWeatherSettings(this.plugin.settings)) {
-          new import_obsidian.Setting(containerEl).setName(_s("s_backfill")).setDesc(_s("s_backfillDesc")).addButton((btn) => btn.setButtonText(_s("s_backfillBtn")).onClick(async () => {
+          new import_obsidian2.Setting(containerEl).setName(_s("s_backfill")).setDesc(_s("s_backfillDesc")).addButton((btn) => btn.setButtonText(_s("s_backfillBtn")).onClick(async () => {
             const leaf = this.app.workspace.getLeavesOfType(VIEW_TYPE)[0];
             if (leaf?.view) leaf.view.startWeatherBackfill();
           }));
         }
       }
     };
-    FolderSuggestModal = class extends import_obsidian.SuggestModal {
+    FolderSuggestModal = class extends import_obsidian2.SuggestModal {
       constructor(app, onSubmit) {
         super(app);
         this.onSubmit = onSubmit;
       }
       getSuggestions(query) {
-        const folders = this.app.vault.getAllLoadedFiles().filter((f) => f instanceof import_obsidian.TFolder);
+        const folders = this.app.vault.getAllLoadedFiles().filter((f) => f instanceof import_obsidian2.TFolder);
         if (!query) return folders;
         return folders.filter(
           (f) => f.path.toLowerCase().includes(query.toLowerCase())
@@ -5604,9 +6039,9 @@ var init_misc = __esm({
       let a = Math.abs(rational.num);
       let b = Math.abs(rational.den);
       while (b !== 0) {
-        const t5 = a % b;
+        const t4 = a % b;
         a = b;
-        b = t5;
+        b = t4;
       }
       const gcd = a || 1;
       return {
@@ -19341,7 +19776,7 @@ var init_input_track = __esm({
        */
       async getPairableTracks(query) {
         return this.input.getTracks(mergeInputTrackQueries({
-          filter: (t5) => t5.canBePairedWith(this)
+          filter: (t4) => t4.canBePairedWith(this)
         }, query));
       }
       /**
@@ -19350,7 +19785,7 @@ var init_input_track = __esm({
        */
       async getPairableVideoTracks(query) {
         return this.input.getVideoTracks(mergeInputTrackQueries({
-          filter: (t5) => t5.canBePairedWith(this)
+          filter: (t4) => t4.canBePairedWith(this)
         }, query));
       }
       /**
@@ -19359,19 +19794,19 @@ var init_input_track = __esm({
        */
       async getPairableAudioTracks(query) {
         return this.input.getAudioTracks(mergeInputTrackQueries({
-          filter: (t5) => t5.canBePairedWith(this)
+          filter: (t4) => t4.canBePairedWith(this)
         }, query));
       }
       /** Returns the primary track that can be paired with this track, optionally steered by the provided query. */
       async getPrimaryPairableVideoTrack(query) {
         return this.input.getPrimaryVideoTrack(mergeInputTrackQueries({
-          filter: (t5) => t5.canBePairedWith(this)
+          filter: (t4) => t4.canBePairedWith(this)
         }, query));
       }
       /** Returns the primary track that can be paired with this track, optionally steered by the provided query. */
       async getPrimaryPairableAudioTrack(query) {
         return this.input.getPrimaryAudioTrack(mergeInputTrackQueries({
-          filter: (t5) => t5.canBePairedWith(this)
+          filter: (t4) => t4.canBePairedWith(this)
         }, query));
       }
       /** Returns `true` if there is another track that can be paired with this track. */
@@ -19824,7 +20259,7 @@ var init_input_track = __esm({
     queryInputTracks = async (tracks, query) => {
       let matched = tracks;
       if (query?.filter) {
-        const filterMatches = tracks.map((t5) => query.filter(t5));
+        const filterMatches = tracks.map((t4) => query.filter(t4));
         const hasAsyncFilter = filterMatches.some((x) => x instanceof Promise);
         if (hasAsyncFilter) {
           const resolvedFilterMatches = await Promise.all(filterMatches);
@@ -19836,7 +20271,7 @@ var init_input_track = __esm({
       if (!query?.sortBy) {
         return matched;
       }
-      const sortValues = matched.map((t5) => query.sortBy(t5));
+      const sortValues = matched.map((t4) => query.sortBy(t4));
       const hasAsyncSort = sortValues.some((x) => x instanceof Promise);
       const resolvedSortValues = hasAsyncSort ? await Promise.all(sortValues) : sortValues;
       return matched.map((track, i) => ({ track, sortValue: resolvedSortValues[i] })).sort((a, b) => {
@@ -20114,11 +20549,11 @@ var init_input = __esm({
       async getPrimaryVideoTrack(query) {
         query && (query = toValidatedInputTrackQuery(query));
         const merged = mergeInputTrackQueries(query, {
-          sortBy: async (t5) => [
-            prefer((await t5.getDisposition()).default),
-            prefer(await t5.hasPairableAudioTrack()),
-            prefer(!await t5.hasOnlyKeyPackets()),
-            desc(await t5.getBitrate())
+          sortBy: async (t4) => [
+            prefer((await t4.getDisposition()).default),
+            prefer(await t4.hasPairableAudioTrack()),
+            prefer(!await t4.hasOnlyKeyPackets()),
+            desc(await t4.getBitrate())
           ]
         });
         const sorted = await this.getVideoTracks(merged);
@@ -20134,10 +20569,10 @@ var init_input = __esm({
         query && (query = toValidatedInputTrackQuery(query));
         const primaryVideoTrack = await this.getPrimaryVideoTrack();
         const merged = mergeInputTrackQueries(query, {
-          sortBy: async (t5) => [
-            prefer(!primaryVideoTrack || t5.canBePairedWith(primaryVideoTrack)),
-            prefer((await t5.getDisposition()).default),
-            desc(await t5.getBitrate())
+          sortBy: async (t4) => [
+            prefer(!primaryVideoTrack || t4.canBePairedWith(primaryVideoTrack)),
+            prefer((await t4.getDisposition()).default),
+            desc(await t4.getBitrate())
           ]
         });
         const sorted = await this.getAudioTracks(merged);
@@ -22237,7 +22672,7 @@ var { cachedMonthsReferencingMedia: cachedMonthsReferencingMedia2 } = (init_cale
 var { MEDIA_EXTENSIONS: MEDIA_EXTENSIONS2, IMAGE_EXTENSIONS: MEDIA_IMAGE_EXTENSIONS, classifyMediaLink: classifyMediaLink2, createMediaAttachment: createMediaAttachment2, normalizeMediaLink: normalizeMediaLink2 } = (init_media_links(), __toCommonJS(media_links_exports));
 var { OverlayRegistry: OverlayRegistry2 } = (init_overlay_registry(), __toCommonJS(overlay_registry_exports));
 var { SerialTaskQueue: SerialTaskQueue2 } = (init_task_queue(), __toCommonJS(task_queue_exports));
-var { formatCalendarMonth: formatCalendarMonth2, getCalendarGridOffset: getCalendarGridOffset2, getCalendarWeekdays: getCalendarWeekdays2, getDisplayLanguage: getDisplayLanguage3, moodLabel: moodLabel4, t: t4 } = (init_i18n(), __toCommonJS(i18n_exports));
+var { formatCalendarMonth: formatCalendarMonth2, getCalendarGridOffset: getCalendarGridOffset2, getCalendarWeekdays: getCalendarWeekdays2, getDisplayLanguage: getDisplayLanguage3, moodLabel: moodLabel3, t: t3 } = (init_i18n(), __toCommonJS(i18n_exports));
 var { getMoodColor: getMoodColor3 } = (init_mood(), __toCommonJS(mood_exports));
 var { shouldHandleCalendarMonthShortcut: shouldHandleCalendarMonthShortcut2 } = (init_calendar_keyboard(), __toCommonJS(calendar_keyboard_exports));
 var { calendarEntryAffectsDisplay: calendarEntryAffectsDisplay2, calendarMediaAccessibilityLabel: calendarMediaAccessibilityLabel2, shouldShowCalendarMood: shouldShowCalendarMood2, shouldShowCalendarWeatherCard: shouldShowCalendarWeatherCard2, shouldShowCalendarWeatherBadge: shouldShowCalendarWeatherBadge2, shouldShowCalendarWeatherLocation: shouldShowCalendarWeatherLocation2 } = (init_calendar_display(), __toCommonJS(calendar_display_exports));
@@ -22392,12 +22827,12 @@ var DaylinePlugin = class extends Plugin {
     this._syncDaylineRibbon();
     this.addCommand({
       id: "open-calendar-sidebar",
-      name: t4(this.settings, "openCalendar"),
+      name: t3(this.settings, "openCalendar"),
       callback: () => this.activateView()
     });
     this.addCommand({
       id: "refresh-weather",
-      name: t4(this.settings, "refreshWeather"),
+      name: t3(this.settings, "refreshWeather"),
       callback: () => {
         const calendar = this.app.workspace.getLeavesOfType(VIEW_TYPE2)[0]?.view || this.app.workspace.getLeavesOfType(MOBILE_DAYLINE_VIEW2)[0]?.view?.calendarView;
         if (calendar) {
@@ -22409,7 +22844,7 @@ var DaylinePlugin = class extends Plugin {
     });
     this.addCommand({
       id: "open-on-this-day",
-      name: t4(this.settings, "openOnThisDay"),
+      name: t3(this.settings, "openOnThisDay"),
       callback: () => {
         const [, month, day] = _daylineDate(this.settings).split("-").map(Number);
         this.openOnThisDay(month, day);
@@ -22417,17 +22852,17 @@ var DaylinePlugin = class extends Plugin {
     });
     this.addCommand({
       id: "open-journal-timeline",
-      name: t4(this.settings, "openTimelineCommand"),
+      name: t3(this.settings, "openTimelineCommand"),
       callback: () => this.activateTimeline()
     });
     this.addCommand({
       id: "new-daily-note",
-      name: t4(this.settings, "newDailyCommand"),
+      name: t3(this.settings, "newDailyCommand"),
       callback: () => this.createDailyNoteForToday()
     });
     this.addCommand({
       id: "record-current-mood",
-      name: t4(this.settings, "recordMoodCommand"),
+      name: t3(this.settings, "recordMoodCommand"),
       callback: () => this.recordCurrentMood()
     });
     this.addSettingTab(new DaylineSettingsTab2(this.app, this));
@@ -22508,10 +22943,10 @@ var DaylinePlugin = class extends Plugin {
   }
   _showDaylineMenu(event) {
     const menu = new Menu();
-    menu.addItem((item) => item.setTitle(t4(this.settings, "calendarTitle")).setIcon("calendar-days").setChecked(this.viewVisibilityController.isOpen("calendar")).onClick(() => {
+    menu.addItem((item) => item.setTitle(t3(this.settings, "calendarTitle")).setIcon("calendar-days").setChecked(this.viewVisibilityController.isOpen("calendar")).onClick(() => {
       this.viewVisibilityController.toggle("calendar").then(() => this._syncDaylineRibbon()).catch((error) => console.warn("[Dayline] Calendar visibility toggle failed:", error?.message || error));
     }));
-    menu.addItem((item) => item.setTitle(t4(this.settings, "timelineTitle")).setIcon("list").setChecked(this.viewVisibilityController.isOpen("timeline")).onClick(() => {
+    menu.addItem((item) => item.setTitle(t3(this.settings, "timelineTitle")).setIcon("list").setChecked(this.viewVisibilityController.isOpen("timeline")).onClick(() => {
       this.viewVisibilityController.toggle("timeline").then(() => this._syncDaylineRibbon()).catch((error) => console.warn("[Dayline] Timeline visibility toggle failed:", error?.message || error));
     }));
     menu.showAtMouseEvent(event);
@@ -22608,7 +23043,7 @@ var DaylinePlugin = class extends Plugin {
       return Boolean(await task);
     } catch (error) {
       console.warn("[Dayline] Failed to open mobile Dayline:", error?.message || error);
-      new Notice4(t4(this.settings, "openNoteFailed", { error: error?.message || error }));
+      new Notice4(t3(this.settings, "openNoteFailed", { error: error?.message || error }));
       return false;
     } finally {
       if (this._mobileDaylineOpenPromise === task) this._mobileDaylineOpenPromise = null;
@@ -22654,7 +23089,7 @@ var DaylinePlugin = class extends Plugin {
       await this.journalIndex.refreshFile(path, this.settings);
     } catch (error) {
       console.warn("[Dayline] Create daily note failed:", error?.message || error);
-      new Notice4(t4(this.settings, "createNoteFailed", { error: error?.message || error }));
+      new Notice4(t3(this.settings, "createNoteFailed", { error: error?.message || error }));
     }
   }
   async recordCurrentMood() {
@@ -22688,7 +23123,7 @@ var DaylinePlugin = class extends Plugin {
         await this.moodStore.set(targetPath, score, labels, this.settings, note);
         await this.journalIndex.refreshFile(targetPath, this.settings);
         this.refreshJournalViews();
-        new Notice4(`${t4(this.settings, "moodSaved")}: ${targetPath}`);
+        new Notice4(`${t3(this.settings, "moodSaved")}: ${targetPath}`);
       }
     }).open();
   }
@@ -22703,7 +23138,7 @@ var DaylinePlugin = class extends Plugin {
     }).open();
   }
   async deleteMoodRecord(path) {
-    const label = t4(this.settings, "deleteMoodConfirm");
+    const label = t3(this.settings, "deleteMoodConfirm");
     if (typeof window !== "undefined" && !window.confirm(`${label}
 ${path}`)) return false;
     try {
@@ -22712,11 +23147,11 @@ ${path}`)) return false;
       if (!deleted) return false;
       await this.journalIndex.refresh(this.settings);
       this.refreshJournalViews();
-      new Notice4(t4(this.settings, "moodDeleted"));
+      new Notice4(t3(this.settings, "moodDeleted"));
       return true;
     } catch (error) {
       console.warn("[Dayline] Delete mood failed:", error?.message || error);
-      new Notice4(t4(this.settings, "moodDeleteFailed", { error: error?.message || error }));
+      new Notice4(t3(this.settings, "moodDeleteFailed", { error: error?.message || error }));
       return false;
     }
   }
@@ -22726,9 +23161,9 @@ ${path}`)) return false;
       const content = format === "csv" ? serializeMoodCsv2(metadata) : serializeMoodJson2(metadata);
       const stamp = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
       const path = await saveMoodExport2(this.app, content, `dayline-moods-${stamp}.${format === "csv" ? "csv" : "json"}`);
-      new Notice4(t4(this.settings, "moodExported", { path }));
+      new Notice4(t3(this.settings, "moodExported", { path }));
     } catch (error) {
-      new Notice4(t4(this.settings, "moodExportFailed", { error: error?.message || error }));
+      new Notice4(t3(this.settings, "moodExportFailed", { error: error?.message || error }));
     }
   }
   refreshJournalViews() {
@@ -22750,7 +23185,7 @@ ${path}`)) return false;
     if (clock.hour !== Number(this.settings.reminderHour ?? 21) || clock.minute !== 0) return;
     const date = _daylineDate(this.settings, now);
     if (this.journalIndex.getEntries().some((entry) => entry.date === date)) return;
-    new Notice4(t4(this.settings, "dailyReminder"));
+    new Notice4(t3(this.settings, "dailyReminder"));
   }
   async ensureFolder(path) {
     const normalized = String(path || "").replace(/\\/g, "/").replace(/\/$/, "");
@@ -22865,7 +23300,7 @@ ${path}`)) return false;
       new OnThisDayModal2(this.app, this, provider, month, day, entries).open();
     }).catch((err) => {
       console.warn("[Dayline] On This Day load failed:", err?.message || err);
-      new Notice4(t4(this.settings, "onThisDayLoadFailed", { error: err?.message || err }));
+      new Notice4(t3(this.settings, "onThisDayLoadFailed", { error: err?.message || err }));
     });
   }
   /* ----- Shared EXIF Tooltip (used by calendar view + note-image hover) ----- */
@@ -23798,11 +24233,11 @@ button.cal-weather-refresh:hover {
 .cal-mood-empty .cal-mood-dot { width: 8px; height: 8px; border: 1px solid var(--text-faint); background: transparent; }
 .cal-mood-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--journal-mood-color); }
 .cal-mood-button:hover .cal-mood-dot { box-shadow: 0 0 0 2px color-mix(in srgb, var(--journal-mood-color) 35%, transparent); }
-.cal-mood-button.mood-2 { --journal-mood-color: #4b93d1; }
-.cal-mood-button.mood-1 { --journal-mood-color: #56a86a; }
-.cal-mood-button.mood-0 { --journal-mood-color: #d9bd4c; }
-.cal-mood-button.mood--1 { --journal-mood-color: #e68a3b; }
-.cal-mood-button.mood--2 { --journal-mood-color: #d84b76; }
+.cal-mood-button.mood-2 { --journal-mood-color: #ee6a54; }
+.cal-mood-button.mood-1 { --journal-mood-color: #f0b34f; }
+.cal-mood-button.mood-0 { --journal-mood-color: #55b6c9; }
+.cal-mood-button.mood--1 { --journal-mood-color: #4d6fb8; }
+.cal-mood-button.mood--2 { --journal-mood-color: #7652c7; }
 .journal-timeline-view { box-sizing: border-box; width: 100%; min-width: 0; padding: 14px; overflow-x: hidden; overflow-y: auto; }
 .journal-index-loading { display: flex; align-items: center; justify-content: center; min-height: 160px; padding: 24px; color: var(--text-muted); text-align: center; overflow-wrap: anywhere; }
 .journal-index-load-error { color: var(--text-error); }
@@ -23843,11 +24278,11 @@ button.cal-weather-refresh:hover {
 .journal-timeline-list { display: grid; grid-template-columns: minmax(0, 1fr); width: 100%; min-width: 0; gap: 8px; }
 .journal-timeline-entry { display: grid; grid-template-columns: minmax(0, 1fr); width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box; overflow: hidden; gap: 10px; padding: 10px; border: 1px solid var(--background-modifier-border); border-radius: 7px; box-shadow: inset 3px 0 0 var(--background-modifier-border); cursor: pointer; background: var(--background-primary); }
 .journal-timeline-entry.has-thumbnail { grid-template-columns: minmax(0, 1fr) 88px; }
-.journal-timeline-entry.mood-score-2 { box-shadow: inset 3px 0 0 #4b93d1; }
-.journal-timeline-entry.mood-score-1 { box-shadow: inset 3px 0 0 #56a86a; }
-.journal-timeline-entry.mood-score-0 { box-shadow: inset 3px 0 0 #d9bd4c; }
-.journal-timeline-entry.mood-score--1 { box-shadow: inset 3px 0 0 #e68a3b; }
-.journal-timeline-entry.mood-score--2 { box-shadow: inset 3px 0 0 #d84b76; }
+.journal-timeline-entry.mood-score-2 { box-shadow: inset 3px 0 0 #ee6a54; }
+.journal-timeline-entry.mood-score-1 { box-shadow: inset 3px 0 0 #f0b34f; }
+.journal-timeline-entry.mood-score-0 { box-shadow: inset 3px 0 0 #55b6c9; }
+.journal-timeline-entry.mood-score--1 { box-shadow: inset 3px 0 0 #4d6fb8; }
+.journal-timeline-entry.mood-score--2 { box-shadow: inset 3px 0 0 #7652c7; }
 .journal-timeline-entry:hover, .journal-timeline-entry:focus-visible { border-right-color: var(--interactive-accent); outline: none; }
 .journal-timeline-entry-body { min-width: 0; overflow: hidden; }
 .journal-timeline-entry-top { flex-wrap: wrap; gap: 4px 7px; min-width: 0; color: var(--text-muted); }
@@ -23865,29 +24300,61 @@ button.cal-weather-refresh:hover {
 .journal-timeline-thumbnail.is-loaded img { opacity: 1; }
 .journal-timeline-thumbnail-count { position: absolute; right: 4px; bottom: 4px; padding: 1px 4px; border-radius: 4px; background: rgba(0, 0, 0, 0.65); color: #fff; font-size: 10px; }
 .journal-timeline-empty { min-width: 0; padding: 28px 8px; overflow-wrap: anywhere; color: var(--text-muted); text-align: center; }
-.journal-mood-picker-modal { width: min(720px, calc(100vw - 32px)); max-width: calc(100vw - 32px); min-width: 0; box-sizing: border-box; }
-.journal-mood-picker-modal .modal-content { width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box; }
-.journal-mood-picker { container-type: inline-size; }
-.journal-mood-picker h3 { margin-bottom: 4px; }
-.journal-mood-date-field { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 10px; margin: 0 0 14px; color: var(--text-muted); font-size: 12px; }
-.journal-mood-date-field label { flex: 1 1 120px; min-width: 0; }
-.journal-mood-date-field input { flex: 0 1 180px; min-width: min(180px, 100%); max-width: 100%; }
-.journal-mood-step { color: var(--text-muted); margin: 0 0 16px; }
-.journal-mood-scale { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 7px; }
-.journal-mood-level { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 0; min-height: 76px; gap: 6px; color: var(--journal-mood-color); border: 1px solid var(--background-modifier-border); background: var(--background-secondary); }
-.journal-mood-level:hover, .journal-mood-level:focus-visible, .journal-mood-level[aria-checked='true'] { border-color: var(--journal-mood-color); outline: none; }
-.journal-mood-level[aria-checked='true'] { box-shadow: 0 0 0 2px color-mix(in srgb, var(--journal-mood-color) 35%, transparent); }
-.journal-mood-level[aria-checked='true']::after { content: '\u2713'; position: absolute; top: 3px; right: 5px; font-size: 12px; }
-.journal-mood-dot { display: block; width: 24px; height: 24px; flex: 0 0 24px; border-radius: 50%; background: var(--journal-mood-color); }
-.journal-mood-level-label { min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
-.journal-mood-selected { color: var(--text-muted); text-align: center; font-size: 12px; margin-top: 10px; }
+.journal-mood-picker-modal { --journal-mood-active: #55b6c9; width: min(700px, calc(100vw - 32px)); max-width: calc(100vw - 32px); max-height: min(820px, calc(100vh - 48px)); min-width: 0; overflow: hidden; border-color: color-mix(in srgb, var(--journal-mood-active) 42%, var(--background-modifier-border)); background: radial-gradient(circle at 50% 43%, color-mix(in srgb, var(--journal-mood-active) 54%, transparent) 0%, color-mix(in srgb, var(--journal-mood-active) 24%, transparent) 42%, transparent 72%), linear-gradient(155deg, color-mix(in srgb, var(--journal-mood-active) 30%, var(--background-primary)), color-mix(in srgb, var(--journal-mood-active) 16%, var(--background-secondary))); box-shadow: 0 24px 70px color-mix(in srgb, var(--journal-mood-active) 28%, rgba(0, 0, 0, 0.45)); box-sizing: border-box; }
+.journal-mood-picker-modal .modal-content { width: 100%; max-width: 100%; min-width: 0; max-height: calc(100vh - 72px); overflow-y: auto; background: transparent; box-sizing: border-box; }
+.journal-mood-picker-modal .modal-close-button { color: var(--text-normal); background: color-mix(in srgb, var(--background-primary) 58%, transparent); }
+.journal-mood-picker { --journal-mood-active: #55b6c9; container-type: inline-size; padding: 4px 2px 2px; }
+.journal-mood-picker h3 { margin: 0; color: var(--text-normal); font-size: 20px; font-weight: 650; letter-spacing: 0; line-height: 1.2; }
+.journal-mood-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; min-width: 0; margin-bottom: 18px; }
+.journal-mood-header-copy { min-width: 0; }
+.journal-mood-step { margin: 6px 0 0; color: var(--text-muted); font-size: 13px; line-height: 1.45; }
+.journal-mood-date-field { display: flex; flex: 0 1 auto; align-items: center; gap: 8px; min-width: 0; color: var(--text-muted); font-size: 12px; }
+.journal-mood-date-field label { flex: 0 0 auto; }
+.journal-mood-date-field input { width: 148px; min-width: 0; max-width: 100%; height: 34px; }
+.journal-mood-panel { min-width: 0; }
+.journal-mood-scale-panel { padding: 0 20px 16px; overflow: hidden; border: 0; background: transparent; }
+.journal-fluid-mood-control { position: relative; min-width: 0; outline: none; cursor: grab; touch-action: none; user-select: none; }
+.journal-fluid-mood-control.is-dragging { cursor: grabbing; }
+.journal-fluid-mood-control:focus-visible { outline: 2px solid var(--interactive-accent); outline-offset: 5px; border-radius: 6px; }
+.journal-fluid-visual { position: relative; width: 100%; height: clamp(230px, 42vh, 320px); min-height: 230px; overflow: hidden; }
+.journal-fluid-canvas { display: block; width: 100%; height: 100%; }
+.journal-fluid-readout { display: flex; align-items: baseline; justify-content: center; min-height: 42px; margin-top: -10px; text-align: center; }
+.journal-fluid-value { color: var(--text-normal); font-size: 24px; font-weight: 650; letter-spacing: 0; line-height: 1.25; transition: color 180ms ease; }
+.journal-fluid-mood-control.is-empty .journal-fluid-value { color: var(--text-muted); font-size: 16px; font-weight: 500; }
+.journal-fluid-track { position: relative; height: 34px; margin: 20px 18px 0; }
+.journal-fluid-track::before { content: ''; position: absolute; top: 50%; left: 0; width: 100%; height: 8px; border: 1px solid color-mix(in srgb, var(--text-normal) 10%, transparent); border-radius: 4px; background: var(--background-modifier-border); transform: translateY(-50%); box-sizing: border-box; }
+.journal-fluid-track-spectrum { position: absolute; top: 50%; left: 0; width: 100%; height: 6px; border-radius: 3px; background: linear-gradient(90deg, #7652c7 0%, #4f50c0 12.5%, #4d6fb8 25%, #5191c1 37.5%, #55b6c9 50%, #73c56a 62.5%, #f0b34f 75%, #ef8e52 87.5%, #ee6a54 100%); opacity: 0.86; transform: translateY(-50%); }
+.journal-fluid-handle { position: absolute; top: 50%; left: var(--journal-mood-position); width: 28px; height: 28px; border: 4px solid var(--background-primary); border-radius: 50%; background: var(--journal-mood-active); box-shadow: 0 5px 14px color-mix(in srgb, var(--journal-mood-active) 40%, rgba(0, 0, 0, 0.3)); transform: translate(-50%, -50%); transition: background-color 160ms ease, box-shadow 160ms ease; box-sizing: border-box; }
+.journal-fluid-mood-control.is-dragging .journal-fluid-handle { width: 32px; height: 32px; }
+.journal-fluid-endpoints { display: flex; justify-content: space-between; gap: 24px; margin: -1px 18px 0; color: var(--text-muted); font-size: 11px; line-height: 1.35; }
+.journal-fluid-endpoints span { min-width: 0; max-width: 45%; overflow-wrap: anywhere; }
+.journal-fluid-endpoints span:last-child { text-align: right; }
+.journal-visually-hidden { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: -1px !important; overflow: hidden !important; clip: rect(0, 0, 0, 0) !important; white-space: nowrap !important; border: 0 !important; }
+.journal-mood-scale-actions { justify-content: flex-end !important; }
+.journal-mood-continue { min-width: 104px; }
+.journal-mood-picker .mod-cta:not(:disabled) { border-color: color-mix(in srgb, var(--journal-mood-active) 74%, #202124); color: #fff; background: color-mix(in srgb, var(--journal-mood-active) 76%, #202124); }
+.journal-mood-summary { display: flex; align-items: center; gap: 14px; min-width: 0; margin-bottom: 18px; padding: 8px 14px 8px 8px; border: 1px solid color-mix(in srgb, var(--journal-mood-active) 26%, var(--background-modifier-border)); border-radius: 8px; background: color-mix(in srgb, var(--journal-mood-active) 7%, var(--background-secondary)); }
+.journal-mood-summary-canvas { display: block; width: 76px; height: 76px; flex: 0 0 76px; }
+.journal-mood-summary-copy { display: flex; flex-direction: column; min-width: 0; gap: 3px; }
+.journal-mood-summary-label { color: var(--text-muted); font-size: 11px; }
+.journal-mood-summary-copy strong { color: var(--text-normal); font-size: 18px; font-weight: 650; letter-spacing: 0; }
+.journal-mood-form { display: grid; gap: 18px; min-width: 0; }
+.journal-mood-field-group { min-width: 0; }
+.journal-mood-field-label, .journal-mood-note-field label { display: block; margin-bottom: 8px; color: var(--text-normal); font-size: 12px; font-weight: 600; }
 .journal-mood-labels { display: flex; flex-wrap: wrap; gap: 7px; }
-.journal-mood-label[aria-pressed='true'] { border-color: var(--interactive-accent); color: var(--text-accent); background: var(--background-modifier-hover); }
-.journal-mood-custom-label-field, .journal-mood-note-field { display: flex; gap: 7px; min-width: 0; margin-top: 12px; }
+.journal-mood-label { min-height: 34px; border-radius: 6px; }
+.journal-mood-label[aria-pressed='true'] { border-color: var(--journal-mood-active); color: var(--text-normal); background: color-mix(in srgb, var(--journal-mood-active) 16%, var(--background-secondary)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--journal-mood-active) 28%, transparent); }
+.journal-mood-label:focus-visible { outline: 2px solid var(--interactive-accent); outline-offset: 2px; }
+.journal-mood-custom-label-field { display: flex; gap: 7px; min-width: 0; margin-top: 10px; }
 .journal-mood-custom-label-field input { flex: 1 1 auto; min-width: 0; }
 .journal-mood-custom-label-field button { flex: 0 0 auto; }
-.journal-mood-note-field { flex-direction: column; align-items: stretch; gap: 5px; }
-.journal-mood-note-field textarea { width: 100%; min-height: 56px; resize: vertical; }
+.journal-mood-note-field { display: flex; flex-direction: column; align-items: stretch; min-width: 0; gap: 0; }
+.journal-mood-note-field textarea { width: 100%; min-height: 82px; resize: vertical; box-sizing: border-box; }
+.journal-mood-actions button.is-loading { cursor: wait; opacity: 0.68; }
+.journal-mood-picker > * { animation: journal-mood-enter 360ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+.journal-mood-picker > *:nth-child(2) { animation-delay: 35ms; }
+.journal-mood-picker > *:nth-child(3) { animation-delay: 65ms; }
+@keyframes journal-mood-enter { from { opacity: 0; filter: blur(5px); transform: translateY(8px); } to { opacity: 1; filter: blur(0); transform: translateY(0); } }
 .dayline-mobile-shell .view-content { padding: 0; overflow: hidden; }
 .dayline-mobile-view { display: flex; flex-direction: column; width: 100%; min-width: 0; height: 100%; min-height: 100%; overflow: hidden; }
 .dayline-mobile-header { display: flex; align-items: center; justify-content: flex-end; min-height: 52px; padding: 4px max(8px, env(safe-area-inset-right)) 4px max(8px, env(safe-area-inset-left)); border-bottom: 1px solid var(--background-modifier-border); box-sizing: border-box; }
@@ -24066,7 +24533,7 @@ var CalendarView = class extends ItemView2 {
     return VIEW_TYPE2;
   }
   getDisplayText() {
-    return t4(this.plugin.settings, "calendarTitle");
+    return t3(this.plugin.settings, "calendarTitle");
   }
   getIcon() {
     return "calendar";
@@ -24078,7 +24545,7 @@ var CalendarView = class extends ItemView2 {
     this.containerEl.addClass("cal-sidebar");
     this.contentEl.addClass("cal-calendar-content");
     this.contentEl.setAttribute("tabindex", "0");
-    this.contentEl.setAttribute("aria-label", t4(this.plugin.settings, "calendarTitle"));
+    this.contentEl.setAttribute("aria-label", t3(this.plugin.settings, "calendarTitle"));
     this._calendarKeydownHandler = (event) => {
       if (!shouldHandleCalendarMonthShortcut2(event)) return;
       if (event.key === "ArrowLeft") {
@@ -24105,7 +24572,7 @@ var CalendarView = class extends ItemView2 {
         refresh.catch((error) => {
           console.warn("[Dayline] Initial calendar month load failed:", error?.message || error);
           this.monthCache.delete(this._monthKey(this.displayMonth));
-          new Notice4(t4(this.plugin.settings, "calendarMonthLoadFailed", { error: error?.message || error }));
+          new Notice4(t3(this.plugin.settings, "calendarMonthLoadFailed", { error: error?.message || error }));
         });
       },
       (error) => {
@@ -24158,7 +24625,7 @@ var CalendarView = class extends ItemView2 {
       } catch (error) {
         console.warn("[Dayline] Calendar image refresh failed:", error?.message || error);
         this.monthCache.delete(this._monthKey(this.displayMonth));
-        new Notice4(t4(this.plugin.settings, "calendarMonthLoadFailed", { error: error?.message || error }));
+        new Notice4(t3(this.plugin.settings, "calendarMonthLoadFailed", { error: error?.message || error }));
       }
     }, 300);
   }
@@ -24208,7 +24675,7 @@ var CalendarView = class extends ItemView2 {
         this.render();
       }).catch((error) => {
         console.warn("[Dayline] On This Day index refresh failed:", error?.message || error);
-        new Notice4(t4(this.plugin.settings, "onThisDayLoadFailed", { error: error?.message || error }));
+        new Notice4(t3(this.plugin.settings, "onThisDayLoadFailed", { error: error?.message || error }));
       });
     }
   }
@@ -24254,13 +24721,13 @@ var CalendarView = class extends ItemView2 {
     this._fetchToken = (this._fetchToken || 0) + 1;
     const el = this.contentEl;
     el.empty();
-    el.setAttribute("aria-label", t4(this.plugin.settings, "calendarTitle"));
+    el.setAttribute("aria-label", t3(this.plugin.settings, "calendarTitle"));
     if (this.journalIndexError) {
-      el.createDiv({ cls: "journal-index-loading journal-index-load-error", text: t4(this.plugin.settings, "journalIndexLoadFailed", { error: this.journalIndexError?.message || this.journalIndexError }) });
+      el.createDiv({ cls: "journal-index-loading journal-index-load-error", text: t3(this.plugin.settings, "journalIndexLoadFailed", { error: this.journalIndexError?.message || this.journalIndexError }) });
       return;
     }
     if (!this.plugin.journalIndex?.isReady) {
-      el.createDiv({ cls: "journal-index-loading", text: t4(this.plugin.settings, "journalIndexLoading") });
+      el.createDiv({ cls: "journal-index-loading", text: t3(this.plugin.settings, "journalIndexLoading") });
       return;
     }
     this._ensureExifTooltip();
@@ -24271,7 +24738,7 @@ var CalendarView = class extends ItemView2 {
     const header = el.createDiv({ cls: "cal-header" });
     const prevBtn = header.createEl("button", {
       cls: "cal-nav cal-icon-button",
-      attr: { type: "button", "aria-label": t4(this.plugin.settings, "previousMonth"), title: t4(this.plugin.settings, "previousMonth") }
+      attr: { type: "button", "aria-label": t3(this.plugin.settings, "previousMonth"), title: t3(this.plugin.settings, "previousMonth") }
     });
     setIcon2(prevBtn, "chevron-left");
     prevBtn.addEventListener("click", (e) => {
@@ -24282,8 +24749,8 @@ var CalendarView = class extends ItemView2 {
       cls: "cal-title cal-title-button",
       attr: {
         type: "button",
-        "aria-label": t4(this.plugin.settings, "jumpToMonth"),
-        title: t4(this.plugin.settings, "jumpToMonth"),
+        "aria-label": t3(this.plugin.settings, "jumpToMonth"),
+        title: t3(this.plugin.settings, "jumpToMonth"),
         "aria-expanded": String(this._calendarJumpOpen)
       }
     });
@@ -24295,7 +24762,7 @@ var CalendarView = class extends ItemView2 {
     });
     const nextBtn = header.createEl("button", {
       cls: "cal-nav cal-icon-button",
-      attr: { type: "button", "aria-label": t4(this.plugin.settings, "nextMonth"), title: t4(this.plugin.settings, "nextMonth") }
+      attr: { type: "button", "aria-label": t3(this.plugin.settings, "nextMonth"), title: t3(this.plugin.settings, "nextMonth") }
     });
     setIcon2(nextBtn, "chevron-right");
     nextBtn.addEventListener("click", (e) => {
@@ -24305,7 +24772,7 @@ var CalendarView = class extends ItemView2 {
     const headerActions = header.createDiv({ cls: "cal-header-actions" });
     const todayBtn = headerActions.createEl("button", {
       cls: "cal-icon-button cal-today-button",
-      attr: { type: "button", "aria-label": t4(this.plugin.settings, "today"), title: t4(this.plugin.settings, "today") }
+      attr: { type: "button", "aria-label": t3(this.plugin.settings, "today"), title: t3(this.plugin.settings, "today") }
     });
     setIcon2(todayBtn, "calendar-check");
     todayBtn.addEventListener("click", (event) => {
@@ -24371,7 +24838,7 @@ var CalendarView = class extends ItemView2 {
         const overlay = cell.createDiv({ cls: "cal-day-overlay" });
         this._setBackground(bg, dateEntry);
         const firstMedia = cover;
-        const mediaLabel = t4(this.plugin.settings, "mediaMetadata");
+        const mediaLabel = t3(this.plugin.settings, "mediaMetadata");
         cell.addEventListener("mouseenter", () => {
           bg.removeAttribute("aria-label");
           this._onMediaEnter(cell, firstMedia);
@@ -24421,8 +24888,8 @@ var CalendarView = class extends ItemView2 {
           cls: `cal-mood-button ${mood ? `mood-${mood.score}` : "cal-mood-empty"}`,
           attr: {
             type: "button",
-            "aria-label": `${t4(this.plugin.settings, "recordMood")}: ${dateStr}`,
-            title: mood ? moodLabel4(this.plugin.settings, mood.score) : `${t4(this.plugin.settings, "recordMood")}: ${dateStr}`
+            "aria-label": `${t3(this.plugin.settings, "recordMood")}: ${dateStr}`,
+            title: mood ? moodLabel3(this.plugin.settings, mood.score) : `${t3(this.plugin.settings, "recordMood")}: ${dateStr}`
           }
         });
         if (mood) moodButton.style.setProperty("--journal-mood-color", getMoodColor3(mood.score));
@@ -24449,16 +24916,16 @@ var CalendarView = class extends ItemView2 {
   }
   _renderMonthJump(containerEl) {
     const panel = containerEl.createDiv({ cls: "cal-jump-panel" });
-    panel.setAttribute("aria-label", t4(this.plugin.settings, "jumpToMonth"));
+    panel.setAttribute("aria-label", t3(this.plugin.settings, "jumpToMonth"));
     const yearLabel = panel.createEl("label", { cls: "cal-filter-field" });
-    yearLabel.createSpan({ text: t4(this.plugin.settings, "year") });
+    yearLabel.createSpan({ text: t3(this.plugin.settings, "year") });
     const yearInput = yearLabel.createEl("input", {
-      attr: { type: "number", min: "1", max: "9999", inputmode: "numeric", "aria-label": t4(this.plugin.settings, "year") }
+      attr: { type: "number", min: "1", max: "9999", inputmode: "numeric", "aria-label": t3(this.plugin.settings, "year") }
     });
     yearInput.value = String(this.displayMonth.getFullYear());
     const monthLabel = panel.createEl("label", { cls: "cal-filter-field" });
-    monthLabel.createSpan({ text: t4(this.plugin.settings, "month") });
-    const monthSelect = monthLabel.createEl("select", { attr: { "aria-label": t4(this.plugin.settings, "month") } });
+    monthLabel.createSpan({ text: t3(this.plugin.settings, "month") });
+    const monthSelect = monthLabel.createEl("select", { attr: { "aria-label": t3(this.plugin.settings, "month") } });
     const locale = getDisplayLanguage3(this.plugin.settings) === "en" ? "en-US" : "zh-CN";
     const monthFormatter = new Intl.DateTimeFormat(locale, { month: "long", timeZone: "UTC" });
     for (let index = 0; index < 12; index++) {
@@ -24470,7 +24937,7 @@ var CalendarView = class extends ItemView2 {
     }
     const apply = panel.createEl("button", {
       cls: "cal-icon-button cal-jump-apply",
-      attr: { type: "button", "aria-label": t4(this.plugin.settings, "apply"), title: t4(this.plugin.settings, "apply") }
+      attr: { type: "button", "aria-label": t3(this.plugin.settings, "apply"), title: t3(this.plugin.settings, "apply") }
     });
     setIcon2(apply, "check");
     apply.addEventListener("click", (event) => {
@@ -24490,7 +24957,7 @@ var CalendarView = class extends ItemView2 {
     this.buildMonthCache(this.displayMonth).then(() => this.render()).catch((error) => {
       console.warn("[Dayline] Calendar month jump failed:", error?.message || error);
       this.monthCache.delete(this._monthKey(this.displayMonth));
-      new Notice4(t4(this.plugin.settings, "calendarMonthLoadFailed", { error: error?.message || error }));
+      new Notice4(t3(this.plugin.settings, "calendarMonthLoadFailed", { error: error?.message || error }));
     });
   }
   /* ----- EXIF Tooltip (delegates to plugin) ----- */
@@ -24829,7 +25296,7 @@ var CalendarView = class extends ItemView2 {
     this.buildMonthCache(this.displayMonth).then(() => this.render()).catch((error) => {
       console.warn("[Dayline] Calendar month load failed:", error?.message || error);
       this.monthCache.delete(this._monthKey(this.displayMonth));
-      new Notice4(t4(this.plugin.settings, "calendarMonthLoadFailed", { error: error?.message || error }));
+      new Notice4(t3(this.plugin.settings, "calendarMonthLoadFailed", { error: error?.message || error }));
     });
   }
   /* ----- Open (or create + open) daily note ----- */
@@ -24845,7 +25312,7 @@ var CalendarView = class extends ItemView2 {
       if (!leaf) {
         const error = "No markdown leaf is available";
         console.warn("[Dayline] Open note failed:", error);
-        new Notice4(t4(this.plugin.settings, "openNoteFailed", { error }));
+        new Notice4(t3(this.plugin.settings, "openNoteFailed", { error }));
         return;
       }
       leaf.openFile(f).then(() => {
@@ -24854,7 +25321,7 @@ var CalendarView = class extends ItemView2 {
         this._triggerWeatherAfterOpen(dateStr);
       }).catch((error) => {
         console.warn("[Dayline] Open note failed:", error?.message || error);
-        new Notice4(t4(this.plugin.settings, "openNoteFailed", { error: error?.message || error }));
+        new Notice4(t3(this.plugin.settings, "openNoteFailed", { error: error?.message || error }));
       });
     };
     if (file instanceof TFile2) {
@@ -24866,7 +25333,7 @@ var CalendarView = class extends ItemView2 {
           setTimeout(() => this._triggerWeatherAfterOpen(dateStr), 500);
         }).catch((error) => {
           console.warn("[Dayline] Create daily note failed:", error?.message || error);
-          new Notice4(t4(this.plugin.settings, "createNoteFailed", { error: error?.message || error }));
+          new Notice4(t3(this.plugin.settings, "createNoteFailed", { error: error?.message || error }));
         });
       }).open();
     }
@@ -24985,7 +25452,7 @@ var CalendarView = class extends ItemView2 {
       if (this._exifNoteImages.has(img)) continue;
       this._exifNoteImages.add(img);
       img.tabIndex = 0;
-      img.setAttribute("aria-label", t4(this.plugin.settings, "mediaMetadata"));
+      img.setAttribute("aria-label", t3(this.plugin.settings, "mediaMetadata"));
       img.addEventListener("mouseenter", (e) => this._onNoteImageEnter(e, img));
       img.addEventListener("mouseleave", () => this._onExifLeave(img));
       img.addEventListener("focusin", (e) => this._onNoteImageEnter(e, img, true));
@@ -25004,7 +25471,7 @@ var CalendarView = class extends ItemView2 {
       if (!ext || !MEDIA_EXTENSIONS2.includes(ext)) continue;
       this._exifNoteImages.add(el);
       el.tabIndex = 0;
-      el.setAttribute("aria-label", t4(this.plugin.settings, "mediaMetadata"));
+      el.setAttribute("aria-label", t3(this.plugin.settings, "mediaMetadata"));
       el.addEventListener("mouseenter", (e) => MEDIA_IMAGE_EXTENSIONS.includes(ext) ? this._onNoteImageEnter(e, el) : this._onNoteMediaEnter(e, el));
       el.addEventListener("mouseleave", () => this._onExifLeave(el));
       el.addEventListener("focusin", (e) => MEDIA_IMAGE_EXTENSIONS.includes(ext) ? this._onNoteImageEnter(e, el, true) : this._onNoteMediaEnter(e, el, true));
@@ -25019,7 +25486,7 @@ var CalendarView = class extends ItemView2 {
     const loader = document.createElement("div");
     loader.className = "cal-heic-preview";
     loader.style.cssText = "display:flex;align-items:center;justify-content:center;min-height:60px;color:var(--text-muted);font-size:12px;";
-    loader.textContent = t4(this.plugin.settings, "heicConverting");
+    loader.textContent = t3(this.plugin.settings, "heicConverting");
     el.appendChild(loader);
     try {
       const notePath = this._notePathForElement(el);
@@ -25027,7 +25494,7 @@ var CalendarView = class extends ItemView2 {
       if (!(file instanceof TFile2)) return;
       const thumb = await this.plugin.heicCache.getThumbnail(file);
       if (!thumb) {
-        loader.textContent = t4(this.plugin.settings, "heicConversionFailed");
+        loader.textContent = t3(this.plugin.settings, "heicConversionFailed");
         return;
       }
       if (hasExistingImage2(el)) {
@@ -25040,14 +25507,14 @@ var CalendarView = class extends ItemView2 {
       img.setAttribute("data-cal-exif", "1");
       this._exifNoteImages.add(img);
       img.tabIndex = 0;
-      img.setAttribute("aria-label", t4(this.plugin.settings, "mediaMetadata"));
+      img.setAttribute("aria-label", t3(this.plugin.settings, "mediaMetadata"));
       img.addEventListener("mouseenter", (e) => this._onNoteImageEnter(e, img));
       img.addEventListener("mouseleave", () => this._onExifLeave(img));
       img.addEventListener("focusin", (e) => this._onNoteImageEnter(e, img, true));
       this._addNoteMediaInfoControl(img, () => this._onNoteImageEnter(null, img, true));
       loader.replaceWith(img);
     } catch (_) {
-      loader.textContent = t4(this.plugin.settings, "heicError");
+      loader.textContent = t3(this.plugin.settings, "heicError");
     }
   }
   async _onNoteImageEnter(e, img, immediate = false) {
@@ -25099,8 +25566,8 @@ var CalendarView = class extends ItemView2 {
     const button = document.createElement("button");
     button.className = "dayline-note-media-info";
     button.type = "button";
-    button.setAttribute("aria-label", t4(this.plugin.settings, "mediaMetadata"));
-    button.title = t4(this.plugin.settings, "mediaMetadata");
+    button.setAttribute("aria-label", t3(this.plugin.settings, "mediaMetadata"));
+    button.title = t3(this.plugin.settings, "mediaMetadata");
     setIcon2(button, "info");
     button.addEventListener("pointerdown", (event) => {
       event.preventDefault();
@@ -25426,8 +25893,8 @@ var MobileDaylineView = class extends ItemView2 {
       cls: "dayline-mobile-mode-controls",
       attr: { role: "group", "aria-label": "Dayline view" }
     });
-    this._addModeButton(controls, "calendar", "calendar-days", t4(this.plugin.settings, "calendarTitle"));
-    this._addModeButton(controls, "timeline", "list", t4(this.plugin.settings, "timelineTitle"));
+    this._addModeButton(controls, "calendar", "calendar-days", t3(this.plugin.settings, "calendarTitle"));
+    this._addModeButton(controls, "timeline", "list", t3(this.plugin.settings, "timelineTitle"));
     this.modeHost = root.createDiv({ cls: "dayline-mobile-mode-host" });
     this.opening = true;
     this._renderLoading();
@@ -25485,14 +25952,14 @@ var MobileDaylineView = class extends ItemView2 {
   _renderLoading() {
     if (!this.modeHost) return;
     this.modeHost.empty();
-    this.modeHost.createDiv({ cls: "dayline-mobile-loading", text: t4(this.plugin.settings, "journalIndexLoading") });
+    this.modeHost.createDiv({ cls: "dayline-mobile-loading", text: t3(this.plugin.settings, "journalIndexLoading") });
   }
   _renderLoadError(error) {
     if (!this.modeHost) return;
     this.modeHost.empty();
     this.modeHost.createDiv({
       cls: "dayline-mobile-loading dayline-mobile-load-error",
-      text: t4(this.plugin.settings, "journalIndexLoadFailed", { error: error?.message || error })
+      text: t3(this.plugin.settings, "journalIndexLoadFailed", { error: error?.message || error })
     });
   }
   _embeddedView(mode) {

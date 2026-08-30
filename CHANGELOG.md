@@ -1,5 +1,51 @@
 # Changelog
 
+## 2.2.0 (2026-08-30)
+
+### Added
+- Added a desktop fluid mood control to the first step of the mood picker, with continuous pointer dragging, animated Canvas shapes, five-level snapping, keyboard navigation, accessible slider semantics, and reduced-motion support.
+- Added focused coverage for fluid value mapping, color interpolation, pointer cancellation and capture failures, keyboard activation, two-step navigation, and saved mood payloads.
+
+### Changed
+- The mood picker now tints the full modal surface as the mood changes, using a semantic spectrum from purple and deep blue through calm cyan to warm amber and coral red.
+- The second step now carries the selected color forward and presents a compact fluid preview alongside the selected mood, labels, custom feelings, and note fields.
+- Calendar mood markers and timeline mood colors now use the same five-color spectrum as the picker.
+
+### Fixed
+- Body-only and task-only journal updates no longer rebuild the calendar, preventing visible day-cell flicker while preserving refreshes for date, media, mood, and weather changes.
+- Guarded pointer capture and release when synthetic or cancelled pointer events no longer have an active native pointer, preventing `NotFoundError` entries in Obsidian's error buffer.
+
+### Verification
+- `npm test` passed: 38 test files and 182 tests.
+- `npm run typecheck`, `npm run build`, and `git diff --check` passed.
+- Verified in Obsidian 1.13.7 with dark and light themes: pointer dragging, five-level snapping, keyboard activation, full-modal color transitions, second-step color inheritance, repeated open/close, and clean error-level console output.
+- Deployed the release build to the Main_Topic vault; repository and Vault runtime hashes matched, while `data.json` and `Calendar/journal-metadata.json` remained byte-identical to their pre-deployment state.
+
+---
+
+## 2.2.0（2026-08-30）
+
+### 新增
+- 在心情选择器第一步加入桌面端流体心情控件，支持连续指针拖动、Canvas 动态形变、五档吸附、键盘导航、无障碍滑杆语义和减少动态效果设置。
+- 增加针对流体数值映射、颜色插值、指针取消与捕获失败、键盘确认、两步流程和心情保存载荷的聚焦测试。
+
+### 变更
+- 心情变化现在会为整个弹窗表面同步染色，色谱从紫色、深蓝色经过冷静青蓝色，逐步升温至暖琥珀色和珊瑚红色。
+- 第二步会继续继承已选颜色，并用紧凑的流体预览展示已选心情，同时保留标签、自定义感受和备注字段。
+- 日历心情标记和时间线心情颜色现在与选择器使用同一套五色色谱。
+
+### 修复
+- 仅正文或任务发生变化时不再重建日历，避免日期格可见闪烁；日期、媒体、心情和天气变化仍会正常刷新。
+- 当合成或已取消的指针事件不再具有原生活跃指针时，安全处理指针捕获与释放，避免 Obsidian 错误缓冲出现 `NotFoundError`。
+
+### 验证
+- `npm test` 通过：38 个测试文件、182 项测试。
+- `npm run typecheck`、`npm run build` 和 `git diff --check` 通过。
+- 已在 Obsidian 1.13.7 的深色与浅色主题中验证：指针拖动、五档吸附、键盘确认、整窗颜色过渡、第二步颜色继承、反复开关和错误级别控制台均正常。
+- 已将发布构建部署到 Main_Topic Vault；仓库与 Vault 的运行时文件哈希一致，`data.json` 和 `Calendar/journal-metadata.json` 与部署前逐字节一致。
+
+---
+
 ## 2.1.3 (2026-08-15)
 
 ### Changed
