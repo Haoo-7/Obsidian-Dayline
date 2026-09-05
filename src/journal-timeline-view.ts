@@ -1,9 +1,9 @@
 // @ts-nocheck
-const { ItemView, Notice, TFile, setIcon } = require('obsidian');
-const { MOOD_LEVELS, getMoodColor } = require('./mood');
-const { buildRecentMoodTrend, calculateJournalStats } = require('./journal-stats');
-const { formatJournalDate, getDisplayLanguage, moodLabel, t } = require('./i18n');
-const { isGenericJournalTitle } = require('./excerpt');
+import { ItemView, Notice, TFile, setIcon } from 'obsidian';
+import { MOOD_LEVELS, getMoodColor } from './mood';
+import { buildRecentMoodTrend, calculateJournalStats } from './journal-stats';
+import { formatJournalDate, getDisplayLanguage, moodLabel, t } from './i18n';
+import { isGenericJournalTitle } from './excerpt';
 import { createMediaAttachment } from './media-links';
 import { shouldShowTimelineMoodTrend } from './journal-timeline-display';
 import {
@@ -14,21 +14,22 @@ import {
 } from './journal-timeline-filters';
 import { isInteractiveTimelineTarget, shouldOpenTimelineEntryFromKey } from './journal-timeline-interaction';
 import { startJournalIndexLoad } from './journal-index';
+import { renderMobileDaylineModeControls } from './dayline-mobile';
 
 export const JOURNAL_TIMELINE_VIEW = 'journal-timeline-view';
 
 export class JournalTimelineView extends ItemView {
-  constructor(leaf, plugin, options = {}) {
+  constructor(leaf, plugin) {
     super(leaf);
     this.plugin = plugin;
-    this.embedded = options.embedded === true;
     this.index = plugin.journalIndex;
-    this.filter = {};
+    this.filter = this._getMobileTimelineFilter();
     this.filterMenuOpen = false;
     this.renderToken = 0;
     this.closed = false;
     this.journalIndexError = null;
     this.thumbnailObserver = null;
+    this.thumbnailLayoutObserver = null;
     this.thumbnailVisibilityChecks = new Map();
     this.thumbnailScrollTimer = null;
     this.mediaRefreshTimer = null;
@@ -45,15 +46,51 @@ export class JournalTimelineView extends ItemView {
   getDisplayText() { return t(this.plugin.settings, 'timelineTitle'); }
   getIcon() { return 'list'; }
 
+  _renderMobileModeControls(root) {
+    if (!this.plugin.capabilities?.isMobile) return;
+    renderMobileDaylineModeControls(root, {
+      activeMode: 'timeline',
+      labels: {
+        calendar: t(this.plugin.settings, 'calendarTitle'),
+        timeline: t(this.plugin.settings, 'timelineTitle'),
+      },
+      onSelect: (mode) => mode === 'calendar'
+        ? this.plugin.activateView()
+        : this.plugin.activateTimeline(),
+      setIcon,
+      onReturn: () => this.plugin._returnToMobileMarkdown(),
+    });
+  }
+
+  _getMobileTimelineFilter() {
+    if (!this.plugin.capabilities?.isMobile) return {};
+    const filter = this.plugin._getMobileTimelineFilter?.();
+    return filter && typeof filter === 'object' ? { ...filter } : {};
+  }
+
+  _persistMobileTimelineFilter() {
+    if (this.plugin.capabilities?.isMobile) this.plugin._setMobileTimelineFilter?.(this.filter);
+  }
+
   setDateFilter(date) {
     this.filter = { from: date, to: date };
+    this._persistMobileTimelineFilter();
     this.render();
   }
 
   async onOpen() {
     this.closed = false;
     this.journalIndexError = null;
-    this.contentEl.addEventListener('scroll', this.thumbnailScrollHandler, { passive: true });
+    const root = this.contentEl;
+    if (this.plugin.capabilities?.isMobile) this.containerEl.addClass('dayline-mobile-native-view');
+    root.removeClass('cal-calendar-content');
+    root.addEventListener('scroll', this.thumbnailScrollHandler, { passive: true });
+    if (typeof ResizeObserver !== 'undefined') {
+      this.thumbnailLayoutObserver = new ResizeObserver(() => {
+        for (const check of this.thumbnailVisibilityChecks.values()) check();
+      });
+      this.thumbnailLayoutObserver.observe(root);
+    }
     this.unsubscribe = this.index.subscribe(() => this.render());
     this.render();
     startJournalIndexLoad(
@@ -80,6 +117,8 @@ export class JournalTimelineView extends ItemView {
     this.thumbnailObserver?.disconnect();
     this.thumbnailObserver = null;
     this.contentEl.removeEventListener('scroll', this.thumbnailScrollHandler);
+    this.thumbnailLayoutObserver?.disconnect();
+    this.thumbnailLayoutObserver = null;
     if (this.thumbnailScrollTimer) clearTimeout(this.thumbnailScrollTimer);
     this.thumbnailScrollTimer = null;
     if (this.mediaRefreshTimer) clearTimeout(this.mediaRefreshTimer);
@@ -87,18 +126,24 @@ export class JournalTimelineView extends ItemView {
     this.thumbnailVisibilityChecks.clear();
     this.unsubscribe?.();
     this.unsubscribe = null;
-    if (!this.embedded) {
+    if (!this.plugin.capabilities?.isMobile) {
       this.plugin.viewVisibilityController?.viewClosed('timeline')
         .then(() => this.plugin._syncDaylineRibbon())
         .catch((error) => console.warn('[Dayline] Timeline close state sync failed:', error?.message || error));
+    } else {
+      this.plugin._syncDaylineRibbon();
     }
+    this.containerEl.removeClass('dayline-mobile-native-view');
+    this.contentEl.removeClass('journal-timeline-view');
   }
 
   render() {
     const root = this.contentEl;
+    this._persistMobileTimelineFilter();
     root.empty();
     root.addClass('journal-timeline-view');
     this.renderToken++;
+    this._renderMobileModeControls(root);
     if (this.journalIndexError) {
       root.createDiv({ cls: 'journal-index-loading journal-index-load-error', text: t(this.plugin.settings, 'journalIndexLoadFailed', { error: this.journalIndexError?.message || this.journalIndexError }) });
       return;
@@ -305,12 +350,14 @@ export class JournalTimelineView extends ItemView {
   }
 
   updateResults() {
-    const count = this.contentEl.querySelector('.journal-timeline-count');
+    const root = this.contentEl;
+    this._persistMobileTimelineFilter();
+    const count = root.querySelector('.journal-timeline-count');
     const entries = this.index.filter(this.filter);
     if (count) count.setText(String(entries.length));
-    const list = this.contentEl.querySelector('.journal-timeline-list');
+    const list = root.querySelector('.journal-timeline-list');
     if (list) this.renderList(list, entries);
-    const area = this.contentEl.querySelector('.journal-timeline-filter-area');
+    const area = root.querySelector('.journal-timeline-filter-area');
     if (area) {
       const oldSummary = area.querySelector('.journal-timeline-filter-summary');
       oldSummary?.remove();
@@ -409,7 +456,7 @@ export class JournalTimelineView extends ItemView {
         this.thumbnailObserver.unobserve(observation.target);
         load();
       }
-    }, { rootMargin: '160px' });
+    }, { root: this.contentEl, rootMargin: '160px' });
     this.thumbnailObserver.observe(container);
     const checkVisible = () => {
       if (token !== this.renderToken || !container.isConnected) return;

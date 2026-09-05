@@ -105,7 +105,14 @@ export class MoodPickerModal extends Modal {
         if (this.score !== null) this.renderLabels();
       },
     });
-    this.fluidControl.focus();
+    // Obsidian's Modal may autofocus the first form control after onOpen.
+    // Restore focus to the mood control after that pass so the date input
+    // remains touch-selectable without opening the native picker on launch.
+    if (typeof window !== 'undefined') {
+      window.setTimeout(() => this.fluidControl?.focus?.(), 0);
+    } else {
+      this.fluidControl.focus();
+    }
   }
 
   renderDateField(parent = this.contentEl) {
@@ -115,6 +122,9 @@ export class MoodPickerModal extends Modal {
       attr: {
         type: 'date',
         value: this.date || '',
+        // Keep the date control available by touch without letting Obsidian's
+        // modal autofocus open the native picker on mobile.
+        tabindex: '-1',
         'aria-label': t(this.settings, 'moodDate'),
         title: t(this.settings, 'moodDateDesc'),
       },

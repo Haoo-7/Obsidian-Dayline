@@ -126,6 +126,7 @@ export class DaylineSettingsTab extends PluginSettingTab {
   display() {
     const { containerEl } = this;
     containerEl.empty();
+    containerEl.addClass('dayline-settings-container');
     const _s = (key, ...args) => _l(this.plugin.settings.weatherLanguage, key, ...args);
 
     const brand = containerEl.createDiv({ cls: 'dayline-settings-brand', attr: { 'aria-label': 'Dayline' } });
@@ -440,6 +441,7 @@ export class DaylineSettingsTab extends PluginSettingTab {
     const weatherFieldsSetting = new Setting(containerEl)
       .setName(t(this.plugin.settings, 'weatherExtraFields'))
       .setDesc(t(this.plugin.settings, 'weatherExtraFieldsDesc'));
+    weatherFieldsSetting.settingEl.addClass('dayline-weather-fields-setting');
     {
         const control = weatherFieldsSetting.controlEl.createDiv({ cls: 'dayline-weather-field-options' });
         const fields = [

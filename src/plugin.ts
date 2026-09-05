@@ -14,7 +14,7 @@ const { JournalTimelineView, JOURNAL_TIMELINE_VIEW } = require('./journal-timeli
 const { OnThisDayProvider, OnThisDayModal } = require('./on-this-day');
 const { DaylineSettingsTab } = require('./settings-tab');
 const { WeatherService, lookupWeatherCode, validateWeatherCoordinates } = require('./weather-service');
-const { buildWeatherDetailParts, buildWeatherExtraParts, buildWeatherStatus } = require('./weather-display');
+const { buildWeatherCardParts, buildWeatherStatus, normalizeWeatherDisplayFields } = require('./weather-display');
 const { localize: _l } = require('./locale');
 const { formatDateParts, getClockPartsInTimeZone, getTodayDate } = require('./date-utils');
 const { ThumbnailService } = require('./thumbnail-service');
@@ -32,21 +32,24 @@ const { ViewVisibilityController, normalizeViewVisibilitySettings } = require('.
 const { hasExistingImage } = require('./heic-embed');
 const { ImageMetadataCache, HeicCache, HEIC_EXTS, ReverseGeocoder } = require('./image-metadata');
 const { detectPlatformCapabilities, resolveCapabilityRoute } = require('./platform-capabilities');
+const { createMobileMarkdownQuickEntry } = require('./mobile-quick-entry');
 const {
   getMediaControlOwner,
   shouldAddMediaInfoControl,
   shouldDismissMetadataFromPointer,
   shouldOpenCalendarDateFromPointer,
 } = require('./media-interaction');
-const { calendarCellTouchRouting } = require('./touch-targets');
+const { calendarCellTouchRouting, isCalendarTapGesture } = require('./touch-targets');
 const {
   MOBILE_DAYLINE_VIEW,
-  bindMobileEmbeddedViewHost,
-  createSerialDaylineModeSwitcher,
+  createSerialMobileDaylineModeController,
   getMobileDaylineLeaf,
+  getMobileDaylineViewType,
   getMobileMarkdownLeaf,
   normalizeDaylineMobileMode,
+  renderMobileDaylineModeControls,
 } = require('./dayline-mobile');
+const { collectMobileDiagnostics, formatMobileDiagnostics } = require('./mobile-diagnostics');
 
 const VIEW_TYPE = 'calendar-sidebar-view';
 const OVERLAY_ATTR = 'data-cal-weather-overlay';
@@ -107,10 +110,16 @@ class DaylinePlugin extends Plugin {
     this._exifHoverToken = 0;
     this._exifTouchAnchor = null;
     this._exifDismissHandlers = null;
+    this._mobileDiagnosticEvents = [];
+    this._mobileTimelineFilter = {};
+    this._mobileDaylineModeController = null;
+    this._mobileReturnLeaf = null;
     this._otdRequestToken = 0;
     await this._migrateLegacyData();
     await this.loadSettings();
     this.capabilities = detectPlatformCapabilities({ Platform, app: this.app });
+    this._mobileQuickEntry = createMobileMarkdownQuickEntry(this);
+    this._recordMobileDiagnostic('plugin-loaded');
     this._applyCapabilityClasses();
 
     this.moodStore = new MoodStore(this.app, this.settings);
@@ -203,8 +212,7 @@ class DaylinePlugin extends Plugin {
       id: 'refresh-weather',
       name: t(this.settings, 'refreshWeather'),
       callback: () => {
-        const calendar = this.app.workspace.getLeavesOfType(VIEW_TYPE)[0]?.view
-          || this.app.workspace.getLeavesOfType(MOBILE_DAYLINE_VIEW)[0]?.view?.calendarView;
+        const calendar = this.app.workspace.getLeavesOfType(VIEW_TYPE)[0]?.view;
         if (calendar) {
           calendar.refreshWeather().catch((err) => {
             console.warn('[Dayline] Refresh weather failed:', err.message);
@@ -238,6 +246,11 @@ class DaylinePlugin extends Plugin {
       name: t(this.settings, 'recordMoodCommand'),
       callback: () => this.recordCurrentMood(),
     });
+    this.addCommand({
+      id: 'copy-mobile-diagnostics',
+      name: 'Copy Dayline mobile diagnostics',
+      callback: () => this._copyMobileDiagnostics(),
+    });
 
     // Settings tab
     this.addSettingTab(new DaylineSettingsTab(this.app, this));
@@ -256,6 +269,7 @@ class DaylinePlugin extends Plugin {
       this._syncDaylineRibbon();
       // Trigger initial overlay sync once the layout is stable
       this._syncAllOverlays();
+      this._mobileQuickEntry?.sync();
     });
 
     // Plugin-level overlay sync: react to file-open, active-leaf-change, layout-change
@@ -271,10 +285,8 @@ class DaylinePlugin extends Plugin {
         for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE)) {
           leaf.view?._handleActiveLeafChange?.();
         }
-        for (const leaf of this.app.workspace.getLeavesOfType(MOBILE_DAYLINE_VIEW)) {
-          leaf.view?.activeView?._handleActiveLeafChange?.();
-        }
         this._syncAllOverlays();
+        this._mobileQuickEntry?.sync();
       })
     );
     this.registerEvent(
@@ -282,6 +294,7 @@ class DaylinePlugin extends Plugin {
         this._endExifHover();
         this._syncAllOverlays();
         this._syncDaylineRibbon();
+        this._mobileQuickEntry?.sync();
       })
     );
     this.registerEvent(this.app.vault.on('create', (file) => this._handleJournalCreateOrModify(file)));
@@ -312,6 +325,8 @@ class DaylinePlugin extends Plugin {
     await this.moodStore?.flush();
     await this.viewVisibilityController?.unload();
     this._removeAllOverlays();
+    this._mobileQuickEntry?.dispose();
+    this._mobileQuickEntry = null;
     this._removeCapabilityClasses();
     this.mediaService?.dispose?.();
     this._exifTooltipEl?.remove();
@@ -353,7 +368,7 @@ class DaylinePlugin extends Plugin {
     const ribbon = this._daylineRibbonEl;
     if (!ribbon || !this.viewVisibilityController) return;
     const open = this.capabilities?.isMobile
-      ? this.app.workspace.getLeavesOfType(MOBILE_DAYLINE_VIEW).length > 0
+      ? this._mobileDaylineViewTypes().some((viewType) => this.app.workspace.getLeavesOfType(viewType).length > 0)
       : this.viewVisibilityController.isAnyOpen();
     ribbon.classList.toggle('is-active', open);
   }
@@ -362,11 +377,47 @@ class DaylinePlugin extends Plugin {
     const root = typeof document !== 'undefined' ? document.body : null;
     root?.classList.toggle('dayline-coarse-pointer', Boolean(this.capabilities?.coarsePointer));
     root?.classList.toggle('dayline-mobile', Boolean(this.capabilities?.isMobile));
+    root?.classList.toggle('dayline-phone', Boolean(this.capabilities?.isPhone));
+  }
+
+  _recordMobileDiagnostic(name) {
+    if (!Array.isArray(this._mobileDiagnosticEvents)) this._mobileDiagnosticEvents = [];
+    this._mobileDiagnosticEvents.push({ name: String(name), at: new Date().toISOString() });
+    if (this._mobileDiagnosticEvents.length > 20) this._mobileDiagnosticEvents.splice(0, this._mobileDiagnosticEvents.length - 20);
+  }
+
+  async _copyMobileDiagnostics() {
+    const text = formatMobileDiagnostics(collectMobileDiagnostics(this));
+    try {
+      if (typeof navigator !== 'undefined' && typeof navigator.clipboard?.writeText === 'function') {
+        await navigator.clipboard.writeText(text);
+      } else if (typeof document !== 'undefined' && typeof document.execCommand === 'function') {
+        if (!document.body) throw new Error('document body is unavailable');
+        const input = document.createElement('textarea');
+        input.value = text;
+        input.setAttribute('readonly', 'true');
+        input.style.position = 'fixed';
+        input.style.opacity = '0';
+        document.body.appendChild(input);
+        try {
+          input.select();
+          if (!document.execCommand('copy')) throw new Error('clipboard copy command failed');
+        } finally {
+          input.remove();
+        }
+      } else {
+        throw new Error('clipboard is unavailable');
+      }
+      new Notice('Dayline mobile diagnostics copied');
+    } catch (error) {
+      console.warn('[Dayline] Could not copy mobile diagnostics:', error?.message || error);
+      new Notice('Unable to copy Dayline diagnostics');
+    }
   }
 
   _removeCapabilityClasses() {
     const root = typeof document !== 'undefined' ? document.body : null;
-    root?.classList.remove('dayline-coarse-pointer', 'dayline-mobile');
+    root?.classList.remove('dayline-coarse-pointer', 'dayline-mobile', 'dayline-phone');
   }
 
   _installExifDismissHandlers() {
@@ -422,51 +473,97 @@ class DaylinePlugin extends Plugin {
     if (this.journalIndex && !this.journalIndex.isReady) return this.journalIndex.refresh(this.settings);
   }
 
-  async _activateMobileMode(mode) {
-    const normalized = normalizeDaylineMobileMode(mode);
-    const opened = await this._openMobileDayline(normalized);
+  _mobileDaylineViewTypes() {
+    return [VIEW_TYPE, JOURNAL_TIMELINE_VIEW, MOBILE_DAYLINE_VIEW];
+  }
+
+  _mobileDaylineViewType(mode) {
+    return getMobileDaylineViewType(mode, VIEW_TYPE, JOURNAL_TIMELINE_VIEW);
+  }
+
+  _getMobileDaylineLeaf() {
+    return getMobileDaylineLeaf(this.app.workspace, this._mobileDaylineViewTypes());
+  }
+
+  _getMobileTimelineFilter() {
+    return { ...(this._mobileTimelineFilter || {}) };
+  }
+
+  _setMobileTimelineFilter(filter) {
+    this._mobileTimelineFilter = filter && typeof filter === 'object' ? { ...filter } : {};
+  }
+
+  _getMobileDaylineModeController() {
+    if (!this._mobileDaylineModeController) {
+      this._mobileDaylineModeController = createSerialMobileDaylineModeController({
+        getLeaf: () => this._getMobileDaylineLeaf(),
+        getViewType: (mode) => this._mobileDaylineViewType(mode),
+        revealLeaf: (leaf) => this.app.workspace.revealLeaf?.(leaf),
+        onApplied: ({ mode }) => {
+          this._mobileDaylineLastMode = mode;
+          this._syncDaylineRibbon();
+        },
+      });
+    }
+    return this._mobileDaylineModeController;
+  }
+
+  _requestMobileDaylineMode(mode, preferredLeaf = null, afterApply = null) {
+    return this._getMobileDaylineModeController().request(mode, preferredLeaf, afterApply || undefined);
+  }
+
+  async _redirectLegacyMobileDaylineLeaf(leaf) {
+    if (!leaf) return false;
+    const opened = await this._openMobileDayline(this._mobileDaylineLastMode || 'calendar', leaf);
     if (!opened) return false;
-    this._mobileDaylineLastMode = normalized;
-    this._syncDaylineRibbon();
+    this._recordMobileDiagnostic('legacy-mobile-view-redirect');
     return true;
   }
 
-  async _openMobileDayline(mode = 'calendar') {
-    if (!this.capabilities?.isMobile) return false;
-    if (this._mobileDaylineOpenPromise) {
-      await this._mobileDaylineOpenPromise;
-      const existing = this.app.workspace.getLeavesOfType(MOBILE_DAYLINE_VIEW)[0];
-      await existing?.view?.setMode?.(mode);
-      return Boolean(existing);
-    }
-    const task = (async () => {
-      const leaf = getMobileDaylineLeaf(this.app.workspace, MOBILE_DAYLINE_VIEW);
-      if (!leaf) throw new Error('could not create Dayline tab');
-      await leaf.setViewState({ type: MOBILE_DAYLINE_VIEW, active: true });
-      await this.app.workspace.revealLeaf?.(leaf);
-      await leaf.view?.setMode?.(mode);
-      return leaf;
-    })();
-    this._mobileDaylineOpenPromise = task;
+  async _activateMobileMode(mode, afterApply = null) {
+    const active = this.app.workspace?.activeLeaf;
+    if (active?.view?.getViewType?.() === 'markdown') this._mobileReturnLeaf = active;
+    const normalized = normalizeDaylineMobileMode(mode);
+    this._recordMobileDiagnostic(`mode-request:${normalized}`);
+    return this._openMobileDayline(normalized, null, afterApply);
+  }
+
+  async _returnToMobileMarkdown() {
+    const leaf = this._mobileReturnLeaf;
+    if (!leaf || typeof leaf.setViewState !== 'function') return false;
     try {
-      return Boolean(await task);
+      await leaf.setViewState({ type: 'markdown', active: true });
+      await this.app.workspace?.revealLeaf?.(leaf);
+      this.app.workspace?.setActiveLeaf?.(leaf, { focus: true });
+      return true;
     } catch (error) {
+      console.warn('[Dayline] Failed to return to Markdown:', error?.message || error);
+      return false;
+    }
+  }
+
+  async _openMobileDayline(mode = 'calendar', preferredLeaf = null, afterApply = null) {
+    if (!this.capabilities?.isMobile) return false;
+    try {
+      await this._requestMobileDaylineMode(mode, preferredLeaf, afterApply);
+      return true;
+    } catch (error) {
+      this._recordMobileDiagnostic('mobile-view-open-failed');
       console.warn('[Dayline] Failed to open mobile Dayline:', error?.message || error);
       new Notice(t(this.settings, 'openNoteFailed', { error: error?.message || error }));
       return false;
-    } finally {
-      if (this._mobileDaylineOpenPromise === task) this._mobileDaylineOpenPromise = null;
     }
   }
 
   async openTimelineForDate(date) {
+    if (this.capabilities?.isMobile) {
+      this._setMobileTimelineFilter({ from: date, to: date });
+      await this._activateMobileMode('timeline', ({ leaf }) => leaf?.view?.setDateFilter?.(date));
+      return;
+    }
     const opened = await this.activateTimeline();
     if (!opened) return;
-    const viewType = this.capabilities?.isMobile ? MOBILE_DAYLINE_VIEW : JOURNAL_TIMELINE_VIEW;
-    const leaf = this.app.workspace.getLeavesOfType(viewType)[0];
-    const view = leaf?.view;
-    if (this.capabilities?.isMobile) await view?.setDateFilter?.(date);
-    else view?.setDateFilter?.(date);
+    this.app.workspace.getLeavesOfType(JOURNAL_TIMELINE_VIEW)[0]?.view?.setDateFilter?.(date);
   }
 
   async openJournalFile(file) {
@@ -479,6 +576,10 @@ class DaylinePlugin extends Plugin {
     }
     if (!leaf) throw new Error('No markdown leaf is available');
     await leaf.openFile(file);
+    if (this.capabilities?.isMobile) {
+      await workspace.revealLeaf?.(leaf);
+      workspace.setActiveLeaf?.(leaf, { focus: true });
+    }
     return leaf;
   }
 
@@ -593,11 +694,6 @@ class DaylinePlugin extends Plugin {
       const refresh = leaf.view?.refresh?.();
       if (refresh?.catch) refresh.catch((error) => console.warn('[Dayline] Calendar refresh failed:', error?.message || error));
     }
-    for (const leaf of this.app.workspace.getLeavesOfType(MOBILE_DAYLINE_VIEW)) {
-      const view = leaf.view;
-      const refresh = view?.activeView?.render?.();
-      if (refresh?.catch) refresh.catch((error) => console.warn('[Dayline] Mobile Dayline refresh failed:', error?.message || error));
-    }
   }
 
   _maybeRemind() {
@@ -676,9 +772,6 @@ class DaylinePlugin extends Plugin {
     for (const leaf of this.app.workspace.getLeavesOfType(JOURNAL_TIMELINE_VIEW)) {
       leaf.view?._onMediaChanged?.(file);
     }
-    for (const leaf of this.app.workspace.getLeavesOfType(MOBILE_DAYLINE_VIEW)) {
-      leaf.view?.activeView?._onMediaChanged?.(file);
-    }
   }
 
   _invalidateMediaCaches(path) {
@@ -723,16 +816,12 @@ class DaylinePlugin extends Plugin {
         view._syncNoteOverlays();
       }
     }
-    for (const leaf of this.app.workspace.getLeavesOfType(MOBILE_DAYLINE_VIEW)) {
-      leaf.view?.activeView?._syncNoteOverlays?.();
-    }
   }
 
   /* ----- On This Day ----- */
   openOnThisDay(month, day) {
     const calendarLeaf = this.app.workspace.getLeavesOfType(VIEW_TYPE)[0];
-    const mobileView = this.app.workspace.getLeavesOfType(MOBILE_DAYLINE_VIEW)[0]?.view?.calendarView;
-    const provider = calendarLeaf?.view?._otdProvider || mobileView?._otdProvider;
+    const provider = calendarLeaf?.view?._otdProvider;
     if (!provider) return;
     const token = ++this._otdRequestToken;
     provider.getEntries(month, day).then((entries) => {
@@ -1009,6 +1098,60 @@ class DaylinePlugin extends Plugin {
 }
 .dayline-weather-field-options { display: flex; flex-wrap: wrap; gap: 6px 10px; }
 .dayline-weather-field-option { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+@media (max-width: 560px), (pointer: coarse) {
+  .dayline-settings-container .dayline-weather-fields-setting {
+    display: block;
+  }
+  .dayline-settings-container .dayline-weather-fields-setting .setting-item-info,
+  .dayline-settings-container .dayline-weather-fields-setting .setting-item-control {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    flex: 1 1 100%;
+  }
+  .dayline-settings-container .dayline-weather-fields-setting .setting-item-control {
+    justify-content: flex-start;
+  }
+  .dayline-settings-container .dayline-weather-field-options {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    gap: 6px 8px;
+  }
+  .dayline-settings-container .dayline-weather-field-option {
+    display: grid;
+    grid-template-columns: 20px minmax(0, 1fr);
+    align-items: center;
+    column-gap: 8px;
+    min-width: 0;
+    max-width: 100%;
+    min-height: 44px;
+    padding: 4px 2px;
+    box-sizing: border-box;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .dayline-settings-container .dayline-weather-field-option > input[type='checkbox'] {
+    flex: 0 0 18px !important;
+    width: 18px !important;
+    min-width: 18px !important;
+    max-width: 18px !important;
+    height: 18px !important;
+    min-height: 18px !important;
+    max-height: 18px !important;
+    margin: 0;
+    box-sizing: border-box;
+  }
+  .dayline-settings-container .dayline-weather-field-option > span {
+    display: block;
+    min-width: 0;
+    width: auto;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+}
 .cal-header {
   display: flex;
   align-items: center;
@@ -1144,9 +1287,14 @@ class DaylinePlugin extends Plugin {
 .cal-day-bg {
   position: absolute;
   inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
+  object-fit: cover;
+  object-position: center;
   z-index: 0;
 }
 .cal-day-overlay {
@@ -1384,6 +1532,24 @@ button.cal-weather-refresh:hover {
 .cal-weather-error {
   opacity: 0.7;
 }
+.dayline-mobile-native-view .cal-weather-card {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.dayline-mobile-native-view .cal-weather-info {
+  min-width: 0;
+  overflow: hidden;
+}
+.dayline-mobile-native-view .cal-weather-detail,
+.dayline-mobile-native-view .cal-weather-location,
+.dayline-mobile-native-view .cal-weather-extra,
+.dayline-mobile-native-view .cal-weather-status {
+  white-space: normal;
+  overflow: visible;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  line-height: 1.35;
+}
 /* --- Weather badge on day cells --- */
 .cal-weather-badge {
   position: absolute;
@@ -1483,6 +1649,16 @@ button.cal-weather-refresh:hover {
 .cal-note-overlay .spin {
   animation: cal-spin 1s linear infinite;
 }
+@media (max-width: 600px) {
+  /* Keep the note weather chip below Obsidian's mobile title/actions row. */
+  .markdown-source-view .cal-note-overlay,
+  .markdown-preview-view .cal-note-overlay {
+    top: calc(96px + env(safe-area-inset-top));
+    right: 8px;
+    max-width: min(280px, calc(100vw - 16px));
+    z-index: 2;
+  }
+}
 @keyframes cal-spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
@@ -1505,6 +1681,12 @@ button.cal-weather-refresh:hover {
   margin: 4px 0 0;
   font-size: 11px;
   color: var(--text-muted);
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  appearance: none;
+  font-family: inherit;
+  text-align: left;
   border-radius: 4px;
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
@@ -1821,18 +2003,16 @@ button.cal-weather-refresh:hover {
 .journal-mood-picker > *:nth-child(2) { animation-delay: 35ms; }
 .journal-mood-picker > *:nth-child(3) { animation-delay: 65ms; }
 @keyframes journal-mood-enter { from { opacity: 0; filter: blur(5px); transform: translateY(8px); } to { opacity: 1; filter: blur(0); transform: translateY(0); } }
-.dayline-mobile-shell .view-content { padding: 0; overflow: hidden; }
-.dayline-mobile-view { display: flex; flex-direction: column; width: 100%; min-width: 0; height: 100%; min-height: 100%; overflow: hidden; }
-.dayline-mobile-header { display: flex; align-items: center; justify-content: flex-end; min-height: 52px; padding: 4px max(8px, env(safe-area-inset-right)) 4px max(8px, env(safe-area-inset-left)); border-bottom: 1px solid var(--background-modifier-border); box-sizing: border-box; }
+.dayline-mobile-native-view { min-width: 0; min-height: 0; }
+.dayline-mobile-native-view .view-content { width: 100%; height: 100%; min-width: 0; min-height: 0; padding: 0; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; box-sizing: border-box; }
+.dayline-mobile-native-view.cal-sidebar { height: 100%; min-height: 0; overflow: hidden; box-sizing: border-box; }
+.dayline-mobile-native-view .cal-calendar-content,
+.dayline-mobile-native-view .journal-timeline-view { min-height: 100%; box-sizing: border-box; }
 .dayline-mobile-mode-controls { display: inline-flex; align-items: center; gap: 4px; min-width: 0; }
+.dayline-mobile-native-mode-controls { position: sticky; top: 0; z-index: 3; display: flex; justify-content: flex-end; min-height: 52px; padding: 4px max(8px, env(safe-area-inset-right)) 4px max(8px, env(safe-area-inset-left)); border-bottom: 1px solid var(--background-modifier-border); background: var(--background-primary); box-sizing: border-box; }
 .dayline-mobile-mode-button { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; padding: 10px; border: 0; border-radius: 6px; color: var(--text-muted); background: transparent; }
 .dayline-mobile-mode-button.is-active { color: var(--text-accent); background: var(--background-modifier-hover); }
 .dayline-mobile-mode-button:focus-visible { outline: 2px solid var(--interactive-accent); outline-offset: 2px; }
-.dayline-mobile-mode-host { flex: 1 1 auto; width: 100%; min-width: 0; min-height: 0; max-width: 100%; overflow: hidden; box-sizing: border-box; }
-.dayline-mobile-mode-host.cal-sidebar { padding-top: 8px; overflow-y: auto; }
-.dayline-mobile-mode-host .journal-timeline-view { height: 100%; padding: 8px; }
-.dayline-mobile-loading { display: flex; align-items: center; justify-content: center; min-height: 160px; padding: 24px; color: var(--text-muted); text-align: center; overflow-wrap: anywhere; }
-.dayline-mobile-load-error { color: var(--text-warning, var(--text-muted)); }
 .journal-mood-recovery-modal .modal-content { width: min(560px, calc(100vw - 20px)); max-width: calc(100vw - 20px); min-width: 0; box-sizing: border-box; }
 .journal-mood-recovery-description { color: var(--text-muted); font-size: 12px; }
 .journal-mood-recovery-list { display: grid; gap: 8px; min-width: 0; }
@@ -1883,10 +2063,165 @@ button.cal-weather-refresh:hover {
   .journal-mood-recovery-row button { justify-self: stretch; }
   .journal-timeline-header { align-items: flex-start; }
   .journal-timeline-actions { flex-wrap: wrap; justify-content: flex-end; }
-  .dayline-mobile-mode-host .journal-timeline-view { padding-left: 8px; padding-right: 8px; }
-  .dayline-mobile-mode-host .journal-timeline-entry.has-thumbnail { grid-template-columns: minmax(0, 1fr) 76px; }
-  .dayline-mobile-mode-host .journal-timeline-thumbnail,
-  .dayline-mobile-mode-host .journal-timeline-thumbnail img { width: 76px; height: 76px; min-width: 76px; }
+  .dayline-mobile-native-view .journal-timeline-view { padding-left: 8px; padding-right: 8px; }
+  .dayline-mobile-native-view .journal-timeline-entry.has-thumbnail { grid-template-columns: minmax(0, 1fr) 76px; }
+  .dayline-mobile-native-view .journal-timeline-thumbnail,
+  .dayline-mobile-native-view .journal-timeline-thumbnail img { width: 76px; height: 76px; min-width: 76px; }
+}
+body.dayline-mobile.dayline-phone .journal-mood-picker-modal {
+  width: calc(100vw - 20px);
+  max-width: calc(100vw - 20px);
+  max-height: calc(100vh - 24px);
+  max-height: calc(100dvh - 24px);
+  padding-top: env(safe-area-inset-top);
+  padding-right: env(safe-area-inset-right);
+  padding-left: env(safe-area-inset-left);
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--journal-mood-active) 18%, var(--background-modifier-border));
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--background-primary) 94%, var(--journal-mood-active) 6%);
+  box-shadow: 0 16px 42px color-mix(in srgb, var(--journal-mood-active) 16%, rgba(0, 0, 0, 0.22));
+  box-sizing: border-box;
+}
+body.dayline-mobile.dayline-phone .journal-mood-picker-modal .modal-content {
+  max-height: calc(100vh - 48px);
+  max-height: calc(100dvh - 48px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 0;
+}
+body.dayline-mobile.dayline-phone .journal-mood-picker-modal .modal-close-button {
+  border: 0;
+  box-shadow: none;
+  background: color-mix(in srgb, var(--journal-mood-active) 8%, var(--background-primary));
+}
+body.dayline-mobile.dayline-phone .journal-mood-picker {
+  padding: 2px 0 0;
+}
+body.dayline-mobile.dayline-phone .journal-mood-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+  margin-bottom: 8px;
+}
+body.dayline-mobile.dayline-phone .journal-mood-header-copy,
+body.dayline-mobile.dayline-phone .journal-mood-step {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+body.dayline-mobile.dayline-phone .journal-mood-picker h3 {
+  font-size: 18px;
+}
+body.dayline-mobile.dayline-phone .journal-mood-date-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
+  width: 100%;
+}
+body.dayline-mobile.dayline-phone .journal-mood-date-field input {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  height: 44px;
+  box-sizing: border-box;
+}
+body.dayline-mobile.dayline-phone .journal-mood-scale-panel {
+  padding: 0 0 10px;
+}
+body.dayline-mobile.dayline-phone .journal-fluid-visual {
+  height: clamp(180px, 29vh, 240px);
+  min-height: 180px;
+}
+body.dayline-mobile.dayline-phone .journal-fluid-track {
+  margin-right: 10px;
+  margin-left: 10px;
+}
+body.dayline-mobile.dayline-phone .journal-fluid-track-spectrum {
+  opacity: 0.62;
+  filter: saturate(0.72);
+}
+body.dayline-mobile.dayline-phone .journal-fluid-handle {
+  border-width: 3px;
+  box-shadow: 0 3px 10px color-mix(in srgb, var(--journal-mood-active) 28%, rgba(0, 0, 0, 0.18));
+}
+body.dayline-mobile.dayline-phone .journal-fluid-endpoints {
+  margin-right: 10px;
+  margin-left: 10px;
+  gap: 12px;
+  font-size: 10px;
+}
+body.dayline-mobile.dayline-phone .journal-mood-summary {
+  gap: 10px;
+  margin-bottom: 10px;
+  padding: 4px 10px 4px 4px;
+  border-color: color-mix(in srgb, var(--journal-mood-active) 18%, var(--background-modifier-border));
+  background: color-mix(in srgb, var(--journal-mood-active) 6%, var(--background-secondary));
+}
+body.dayline-mobile.dayline-phone .journal-mood-summary-canvas {
+  width: 52px;
+  height: 52px;
+  flex: 0 0 52px;
+}
+body.dayline-mobile.dayline-phone .journal-mood-form {
+  gap: 12px;
+}
+body.dayline-mobile.dayline-phone .journal-mood-field-label,
+body.dayline-mobile.dayline-phone .journal-mood-note-field label {
+  margin-bottom: 6px;
+}
+body.dayline-mobile.dayline-phone .journal-mood-labels {
+  gap: 6px;
+}
+body.dayline-mobile.dayline-phone .journal-mood-label {
+  min-height: 44px;
+}
+body.dayline-mobile.dayline-phone .journal-mood-custom-label-field {
+  gap: 6px;
+  margin-top: 8px;
+}
+body.dayline-mobile.dayline-phone .journal-mood-custom-label-field input,
+body.dayline-mobile.dayline-phone .journal-mood-custom-label-field button {
+  min-height: 44px;
+}
+body.dayline-mobile.dayline-phone .journal-mood-label:not([aria-pressed='true']),
+body.dayline-mobile.dayline-phone .journal-mood-custom-label-field button,
+body.dayline-mobile.dayline-phone .journal-mood-actions > button:not(.mod-cta) {
+  border-color: transparent;
+  color: var(--text-normal);
+  background: color-mix(in srgb, var(--background-secondary) 88%, var(--journal-mood-active) 12%);
+  box-shadow: none;
+}
+body.dayline-mobile.dayline-phone .journal-mood-label[aria-pressed='true'] {
+  border-color: color-mix(in srgb, var(--journal-mood-active) 28%, transparent);
+  background: color-mix(in srgb, var(--journal-mood-active) 16%, var(--background-secondary));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--journal-mood-active) 8%, transparent);
+}
+body.dayline-mobile.dayline-phone .journal-mood-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  flex-wrap: nowrap;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 8px 0 calc(16px + env(safe-area-inset-bottom));
+  background: color-mix(in srgb, var(--background-primary) 94%, var(--journal-mood-active) 6%);
+}
+body.dayline-mobile.dayline-phone .journal-mood-actions > button {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 44px;
+}
+body.dayline-mobile.dayline-phone .journal-mood-picker .mod-cta:disabled {
+  border-color: transparent;
+  color: var(--text-muted);
+  background: color-mix(in srgb, var(--background-secondary) 90%, var(--journal-mood-active) 10%);
+}
+body.dayline-mobile.dayline-phone .journal-mood-picker .mod-cta:not(:disabled) {
+  border-color: color-mix(in srgb, var(--journal-mood-active) 42%, transparent);
+  color: #fff;
+  background: color-mix(in srgb, var(--journal-mood-active) 78%, #202124);
 }
 @container (max-width: 420px) {
   .journal-mood-scale { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -1977,10 +2312,9 @@ button.cal-weather-refresh:hover {
    Calendar View (ItemView)
    ============================================================ */
 class CalendarView extends ItemView {
-  constructor(leaf, plugin, options = {}) {
+  constructor(leaf, plugin) {
     super(leaf);
     this.plugin = plugin;
-    this.embedded = options.embedded === true;
     this.app = plugin.app;
     // Track the displayed month — derive it from the configured Dayline date
     // context so the calendar cannot lag behind the weather/reminder date.
@@ -2030,20 +2364,40 @@ class CalendarView extends ItemView {
     this._calendarKeydownHandler = null;
     this.closed = false;
     this.journalIndexError = null;
+    this._hasOpened = false;
   }
 
   getViewType()   { return VIEW_TYPE; }
   getDisplayText(){ return t(this.plugin.settings, 'calendarTitle'); }
   getIcon()       { return 'calendar'; }
 
+  _renderMobileModeControls(root) {
+    if (!this.plugin.capabilities?.isMobile) return;
+    renderMobileDaylineModeControls(root, {
+      activeMode: 'calendar',
+      labels: {
+        calendar: t(this.plugin.settings, 'calendarTitle'),
+        timeline: t(this.plugin.settings, 'timelineTitle'),
+      },
+      onSelect: (mode) => mode === 'timeline'
+        ? this.plugin.activateTimeline()
+        : this.plugin.activateView(),
+      setIcon,
+      onReturn: () => this.plugin._returnToMobileMarkdown(),
+    });
+  }
+
   /* ----- Lifecycle ----- */
   async onOpen() {
     this.closed = false;
     this.journalIndexError = null;
+    const root = this.contentEl;
     this.containerEl.addClass('cal-sidebar');
-    this.contentEl.addClass('cal-calendar-content');
-    this.contentEl.setAttribute('tabindex', '0');
-    this.contentEl.setAttribute('aria-label', t(this.plugin.settings, 'calendarTitle'));
+    if (this.plugin.capabilities?.isMobile) this.containerEl.addClass('dayline-mobile-native-view');
+    root.removeClass('journal-timeline-view');
+    root.addClass('cal-calendar-content');
+    root.setAttribute('tabindex', '0');
+    root.setAttribute('aria-label', t(this.plugin.settings, 'calendarTitle'));
     this._calendarKeydownHandler = (event) => {
       if (!shouldHandleCalendarMonthShortcut(event)) return;
       if (event.key === 'ArrowLeft') {
@@ -2054,7 +2408,7 @@ class CalendarView extends ItemView {
         this._goToMonth(1);
       }
     };
-    this.contentEl.addEventListener('keydown', this._calendarKeydownHandler);
+    root.addEventListener('keydown', this._calendarKeydownHandler);
     this._unsubscribeIndex = this.plugin.journalIndex?.subscribe?.((_, change) => {
       this._onJournalIndexChanged(change)
         .catch((error) => console.warn('[Dayline] Calendar index refresh failed:', error?.message || error));
@@ -2062,6 +2416,8 @@ class CalendarView extends ItemView {
 
     // Detect which date the user is currently viewing
     this._syncActiveDate();
+    if (this.plugin.capabilities?.isMobile && !this._hasOpened) this._syncDisplayMonthToActiveDate();
+    this._hasOpened = true;
     this.render();
 
     const indexWasReady = Boolean(this.plugin.journalIndex?.isReady);
@@ -2072,7 +2428,10 @@ class CalendarView extends ItemView {
       () => {
         if (this.closed) return;
         this.journalIndexError = null;
-        const refresh = indexWasReady ? this.refresh() : Promise.resolve();
+        // A legacy mobile view can redirect while the first index build is
+        // committing. Render explicitly when that completion notification
+        // races the subscription established above.
+        const refresh = indexWasReady ? this.refresh() : Promise.resolve().then(() => this.render());
         refresh.catch((error) => {
           console.warn('[Dayline] Initial calendar month load failed:', error?.message || error);
           this.monthCache.delete(this._monthKey(this.displayMonth));
@@ -2091,7 +2450,8 @@ class CalendarView extends ItemView {
 
   onClose() {
     this.closed = true;
-    if (this._calendarKeydownHandler) this.contentEl.removeEventListener('keydown', this._calendarKeydownHandler);
+    const root = this.contentEl;
+    if (this._calendarKeydownHandler) root.removeEventListener('keydown', this._calendarKeydownHandler);
     this._calendarKeydownHandler = null;
     this._unsubscribeIndex?.();
     this._unsubscribeIndex = null;
@@ -2102,15 +2462,32 @@ class CalendarView extends ItemView {
     this._exifObservers?.clear();
     this._removeAllOverlaysFromViews();
     this._hostPositionMarkers.clear();
-    if (!this.embedded) {
+    if (!this.plugin.capabilities?.isMobile) {
       this.plugin.viewVisibilityController?.viewClosed('calendar')
         .then(() => this.plugin._syncDaylineRibbon())
         .catch((error) => console.warn('[Dayline] Calendar close state sync failed:', error?.message || error));
+    } else {
+      this.plugin._syncDaylineRibbon();
     }
+    this.containerEl.removeClass('cal-sidebar');
+    this.containerEl.removeClass('dayline-mobile-native-view');
+    root.removeClass('cal-calendar-content');
   }
 
   _handleActiveLeafChange() {
+    const previousMonth = this._monthKey(this.displayMonth);
     this._syncActiveDate();
+    if (this.plugin.capabilities?.isMobile && this.activeDate) {
+      const nextMonth = this._monthKey(this._monthStartForDate(this.activeDate) || this.displayMonth);
+      if (nextMonth !== previousMonth) {
+        this.displayMonth = this._monthStartForDate(this.activeDate) || this.displayMonth;
+        this.monthCache.delete(nextMonth);
+        this.buildMonthCache(this.displayMonth)
+          .then(() => { if (!this.closed) this.render(); })
+          .catch((error) => console.warn('[Dayline] Active-date month sync failed:', error?.message || error));
+        return;
+      }
+    }
     // Defer to avoid race with click handler calling openFile.
     setTimeout(() => this.render(), 0);
   }
@@ -2203,6 +2580,19 @@ class CalendarView extends ItemView {
     return `${date.getFullYear()}-${date.getMonth()}`;
   }
 
+  _monthStartForDate(dateStr) {
+    const [year, month] = String(dateStr || '').split('-').map(Number);
+    if (!Number.isInteger(year) || !Number.isInteger(month) || month < 1 || month > 12) return null;
+    // Use midday so a host timezone/DST transition cannot move the month back
+    // across a midnight boundary while the mobile view is settling.
+    return new Date(year, month - 1, 1, 12, 0, 0, 0);
+  }
+
+  _syncDisplayMonthToActiveDate() {
+    const month = this._monthStartForDate(this.activeDate);
+    if (month) this.displayMonth = month;
+  }
+
   /* ----- Build cache for a given month ----- */
   async buildMonthCache(monthDate) {
     const year = monthDate.getFullYear();
@@ -2249,6 +2639,7 @@ class CalendarView extends ItemView {
     const el = this.contentEl;
     el.empty();
     el.setAttribute('aria-label', t(this.plugin.settings, 'calendarTitle'));
+    this._renderMobileModeControls(el);
 
     if (this.journalIndexError) {
       el.createDiv({ cls: 'journal-index-loading journal-index-load-error', text: t(this.plugin.settings, 'journalIndexLoadFailed', { error: this.journalIndexError?.message || this.journalIndexError }) });
@@ -2323,12 +2714,14 @@ class CalendarView extends ItemView {
 
     // --- On This Day button (below weather card) ---
     if (this.plugin.settings.onThisDayButton) {
-      const otdBtn = el.createDiv({ cls: 'cal-otd-button' });
+      const otdBtn = el.createEl('button', {
+        cls: 'cal-otd-button',
+        attr: { type: 'button', 'aria-label': _l(this.plugin.settings.weatherLanguage, 'otd_button', ..._daylineDate(this.plugin.settings).split('-').slice(1).map(Number)) },
+      });
       const [, todayMonth, todayDay] = _daylineDate(this.plugin.settings).split('-').map(Number);
       const tm = todayMonth, td = todayDay;
       otdBtn.setText(_l(this.plugin.settings.weatherLanguage, 'otd_button', tm, td));
-      otdBtn.addEventListener('pointerdown', (e) => {
-        e.preventDefault();
+      otdBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         const [, monthNumber, dayNumber] = _daylineDate(this.plugin.settings).split('-').map(Number);
         this.plugin.openOnThisDay(monthNumber, dayNumber);
@@ -2377,8 +2770,28 @@ class CalendarView extends ItemView {
 
       // Background image (first image as thumbnail)
       if (cover) {
-        const bg = cell.createDiv({ cls: 'cal-day-bg' });
+        const mobileImage = Boolean(this.plugin.capabilities?.isMobile);
+        const bg = mobileImage
+          ? cell.createEl('img', {
+            cls: 'cal-day-bg',
+            attr: {
+              alt: '',
+              loading: 'eager',
+              decoding: 'async',
+              'aria-hidden': 'true',
+            },
+          })
+          : cell.createDiv({ cls: 'cal-day-bg' });
         const overlay = cell.createDiv({ cls: 'cal-day-overlay' });
+        if (mobileImage) {
+          bg.addEventListener('load', () => bg.addClass('is-loaded'));
+          bg.addEventListener('error', () => {
+            bg.removeAttribute('src');
+            bg.removeClass('is-loaded');
+            cell.removeClass('cal-has-image');
+            cell.addClass('cal-no-image');
+          });
+        }
         this._setBackground(bg, dateEntry);
 
         // Unified media metadata tooltip on hover. Images retain the legacy EXIF path.
@@ -2393,6 +2806,7 @@ class CalendarView extends ItemView {
         if (touchRouting.focusMediaBackground) {
           bg.tabIndex = 0;
           bg.setAttribute('role', 'img');
+          bg.removeAttribute('aria-hidden');
           bg.addEventListener('focusin', () => {
             const label = calendarMediaAccessibilityLabel(dateStr, mediaLabel, true);
             if (label) bg.setAttribute('aria-label', label);
@@ -2471,13 +2885,61 @@ class CalendarView extends ItemView {
       // Date number
       const num = cell.createEl('span', { cls: 'cal-day-num', text: String(d) });
 
-      // Click to open daily note — use pointerdown (fires before leaf activation)
-      // so the first click after sidebar focus loss is not absorbed by Obsidian.
-      cell.addEventListener('pointerdown', (e) => {
-        if (!shouldOpenCalendarDateFromPointer(e.target)) return;
-        e.stopPropagation();
-        this._openNote(dateStr, dateEntry.primaryEntryPath || dateEntry.path);
-      });
+      // Desktop keeps the immediate pointerdown action. On coarse pointers,
+      // wait for release and cancel when movement exceeds the tap threshold so
+      // a vertical calendar scroll cannot open/create a note accidentally.
+      if (this.plugin.capabilities?.coarsePointer) {
+        let gesture = null;
+        const eventTarget = typeof window !== 'undefined' ? window : cell;
+        const cleanup = () => {
+          eventTarget.removeEventListener('pointermove', onMove);
+          eventTarget.removeEventListener('pointerup', onUp);
+          eventTarget.removeEventListener('pointercancel', onCancel);
+          gesture = null;
+        };
+        const onMove = (event) => {
+          if (!gesture || event.pointerId !== gesture.pointerId) return;
+          if (!isCalendarTapGesture(gesture.startX, gesture.startY, event.clientX, event.clientY)) {
+            gesture.canceled = true;
+          }
+        };
+        const onUp = (event) => {
+          if (!gesture || event.pointerId !== gesture.pointerId) return;
+          const tap = !gesture.canceled
+            && isCalendarTapGesture(gesture.startX, gesture.startY, event.clientX, event.clientY);
+          cleanup();
+          if (!tap) return;
+          event.preventDefault();
+          event.stopPropagation();
+          this._openNote(dateStr, dateEntry.primaryEntryPath || dateEntry.path);
+        };
+        const onCancel = (event) => {
+          if (!gesture || event.pointerId !== gesture.pointerId) return;
+          cleanup();
+        };
+        cell.addEventListener('pointerdown', (event) => {
+          if (!shouldOpenCalendarDateFromPointer(event.target)) return;
+          if (event.isPrimary === false || (event.button !== undefined && event.button !== 0)) return;
+          cleanup();
+          gesture = {
+            pointerId: event.pointerId,
+            startX: event.clientX,
+            startY: event.clientY,
+            canceled: false,
+          };
+          eventTarget.addEventListener('pointermove', onMove, { passive: true });
+          eventTarget.addEventListener('pointerup', onUp, { passive: false });
+          eventTarget.addEventListener('pointercancel', onCancel, { passive: true });
+        });
+      } else {
+        // Use pointerdown on desktop so the first click after sidebar focus
+        // loss is not absorbed by Obsidian's leaf activation.
+        cell.addEventListener('pointerdown', (e) => {
+          if (!shouldOpenCalendarDateFromPointer(e.target)) return;
+          e.stopPropagation();
+          this._openNote(dateStr, dateEntry.primaryEntryPath || dateEntry.path);
+        });
+      }
     }
   }
 
@@ -2792,38 +3254,19 @@ class CalendarView extends ItemView {
       locationEl.setText(`${_l(lang, 'weatherLocation')}: ${snap.location || ''}`);
       locationEl.title = snap.location || '';
     }
-    const displayFields = Array.isArray(this.plugin.settings.weatherDisplayFields)
-      ? this.plugin.settings.weatherDisplayFields
-      : ['feels', 'humidity'];
+    const displayFields = normalizeWeatherDisplayFields(this.plugin.settings.weatherDisplayFields);
+    const weatherParts = buildWeatherCardParts(
+      snap,
+      { ...labels, low: _l(lang, 'low') },
+      displayFields,
+      lang,
+      this.plugin.settings.weatherTimezone || 'auto',
+    );
     if (detailEl) {
-      detailEl.setText(buildWeatherDetailParts(snap, labels)
-        .filter((part) => part.startsWith(`${labels.feels} `)
-          ? displayFields.includes('feels')
-          : displayFields.includes('humidity'))
-        .join(' · ') || '');
+      detailEl.setText(weatherParts.detail.join(' · ') || '');
       detailEl.title = snap.location || '';
     }
-    if (extraEl) {
-      const displayFields = Array.isArray(this.plugin.settings.weatherDisplayFields)
-        ? this.plugin.settings.weatherDisplayFields
-        : ['feels', 'humidity'];
-      const extraParts = buildWeatherExtraParts(
-        snap,
-        { ...labels, low: _l(lang, 'low') },
-        lang,
-        this.plugin.settings.weatherTimezone || 'auto',
-      ).filter((part) => {
-        if (part.startsWith(`${labels.feels} `)) return displayFields.includes('feels');
-        if (part.startsWith(`${labels.humidity} `)) return displayFields.includes('humidity');
-        if (part.startsWith(`${labels.low} `)) return displayFields.includes('low');
-        if (part.startsWith(`${labels.precipitation} `)) return displayFields.includes('precipitation');
-        if (part.startsWith(`${labels.wind} `)) return displayFields.includes('wind');
-        if (part.startsWith(`${labels.sunrise} `)) return displayFields.includes('sunrise');
-        if (part.startsWith(`${labels.sunset} `)) return displayFields.includes('sunset');
-        return false;
-      });
-      extraEl.setText(extraParts.join(' · '));
-    }
+    if (extraEl) extraEl.setText(weatherParts.extra.join(' · '));
     if (statusEl) statusEl.setText(buildWeatherStatus(snap, labels).join(' · '));
 
     card.removeAttribute('aria-live');
@@ -2910,13 +3353,37 @@ class CalendarView extends ItemView {
   /* ----- Resolve and set background image ----- */
   async _setBackground(bgEl, summary) {
     try {
+      if (this.plugin.capabilities?.isMobile) {
+        const directUrl = this._resolveImmediateImageResource(summary);
+        if (directUrl && bgEl.isConnected) {
+          this._applyBackgroundResource(bgEl, directUrl);
+          return;
+        }
+      }
       const result = await this.mediaService?.loadFirstCover?.(summary.media || [], summary.cover);
       if (result && bgEl.isConnected) {
-        bgEl.style.backgroundImage = `url("${result.url}")`;
+        this._applyBackgroundResource(bgEl, result.url);
       }
     } catch (_) {
       // silent
     }
+  }
+
+  _applyBackgroundResource(bgEl, resource) {
+    if (String(bgEl.tagName || '').toLowerCase() === 'img') bgEl.src = resource;
+    else bgEl.style.backgroundImage = `url("${resource}")`;
+  }
+
+  _resolveImmediateImageResource(summary) {
+    const candidate = summary?.cover || summary?.media?.find?.((item) => item?.kind === 'image');
+    if (!candidate || candidate.kind !== 'image') return null;
+    if (candidate.external) return candidate.normalizedLink || candidate.link || null;
+    const extension = String(candidate.extension || candidate.normalizedLink || '')
+      .split(/[.?|/\\]/).pop()?.toLowerCase();
+    if (extension === 'heic' || extension === 'heif') return null;
+    const file = this.app.metadataCache?.getFirstLinkpathDest?.(candidate.normalizedLink, candidate.sourcePath)
+      || this.app.vault?.getAbstractFileByPath?.(candidate.normalizedLink);
+    return file ? this.app.vault?.getResourcePath?.(file) || null : null;
   }
 
   /* ----- Navigate months ----- */
@@ -2957,7 +3424,11 @@ class CalendarView extends ItemView {
         new Notice(t(this.plugin.settings, 'openNoteFailed', { error }));
         return;
       }
-      leaf.openFile(f).then(() => {
+      leaf.openFile(f).then(async () => {
+        if (this.plugin.capabilities?.isMobile) {
+          await this.app.workspace.revealLeaf?.(leaf);
+          this.app.workspace.setActiveLeaf?.(leaf, { focus: true });
+        }
         this._syncActiveDate(leaf);
         this.render();
         // Trigger background weather load after note opens (non-blocking)
@@ -3348,7 +3819,7 @@ class CalendarView extends ItemView {
     }
 
     // Normalize and match against vault path
-    const vaultPath = (this.app.vault.adapter.basePath || '').replace(/\\/g, '/');
+    const vaultPath = (this.app.vault?.adapter?.basePath || '').replace(/\\/g, '/');
     const normalized = path.replace(/\\/g, '/');
 
     if (vaultPath && normalized.startsWith(vaultPath)) {
@@ -3656,21 +4127,14 @@ class CalendarView extends ItemView {
 }
 
 /* ============================================================
-   Mobile Dayline View
+   Legacy Mobile Dayline View
    ============================================================ */
 class MobileDaylineView extends ItemView {
   constructor(leaf, plugin) {
     super(leaf);
     this.plugin = plugin;
-    this.mode = 'calendar';
-    this.activeView = null;
-    this.calendarView = null;
-    this.timelineView = null;
-    this.modeHost = null;
-    this.modeButtons = new Map();
-    this.opening = false;
-    this.closed = false;
-    this._queueMode = createSerialDaylineModeSwitcher((mode) => this._applyMode(mode));
+    this.redirecting = false;
+    this.redirectTimer = null;
   }
 
   getViewType() { return MOBILE_DAYLINE_VIEW; }
@@ -3678,115 +4142,23 @@ class MobileDaylineView extends ItemView {
   getIcon() { return 'calendar-range'; }
 
   async onOpen() {
-    this.closed = false;
-    this.containerEl.addClass('dayline-mobile-shell');
-    const root = this.contentEl;
-    root.empty();
-    root.addClass('dayline-mobile-view');
-    const header = root.createDiv({ cls: 'dayline-mobile-header' });
-    const controls = header.createDiv({
-      cls: 'dayline-mobile-mode-controls',
-      attr: { role: 'group', 'aria-label': 'Dayline view' },
-    });
-    this._addModeButton(controls, 'calendar', 'calendar-days', t(this.plugin.settings, 'calendarTitle'));
-    this._addModeButton(controls, 'timeline', 'list', t(this.plugin.settings, 'timelineTitle'));
-    this.modeHost = root.createDiv({ cls: 'dayline-mobile-mode-host' });
-    this.opening = true;
-    this._renderLoading();
-    try {
-      await this.plugin.ensureJournalIndexReady();
-      await this._showMode(this.mode);
-    } catch (error) {
-      console.warn('[Dayline] Mobile journal index load failed:', error?.message || error);
-      this._renderLoadError(error);
-    } finally {
-      this.opening = false;
-    }
+    if (this.redirecting) return;
+    this.redirecting = true;
+    // Let Obsidian finish opening the restored legacy view before replacing it.
+    this.redirectTimer = setTimeout(() => {
+      this.redirectTimer = null;
+      this.plugin._redirectLegacyMobileDaylineLeaf(this.leaf)
+        .catch((error) => {
+          console.warn('[Dayline] Could not migrate legacy mobile view:', error?.message || error);
+          new Notice(t(this.plugin.settings, 'openNoteFailed', { error: error?.message || error }));
+        })
+        .finally(() => { this.redirecting = false; });
+    }, 0);
   }
 
-  async onClose() {
-    this.closed = true;
-    await this.activeView?.onClose?.();
-    this.activeView = null;
-    this.modeButtons.clear();
-    this.plugin._syncDaylineRibbon();
-  }
-
-  async setMode(mode) {
-    this.mode = normalizeDaylineMobileMode(mode);
-    this._syncModeButtons();
-    if (!this.opening && this.modeHost) await this._queueMode(this.mode);
-  }
-
-  async setDateFilter(date) {
-    await this.setMode('timeline');
-    this.timelineView?.setDateFilter?.(date);
-  }
-
-  async _applyMode(mode) {
-    if (this.closed || this.opening || !this.modeHost) return;
-    try {
-      await this._showMode(mode);
-    } catch (error) {
-      console.warn('[Dayline] Mobile journal index reload failed:', error?.message || error);
-      this._renderLoadError(error);
-    }
-  }
-
-  _addModeButton(parent, mode, icon, label) {
-    const button = parent.createEl('button', {
-      cls: 'dayline-mobile-mode-button',
-      attr: { type: 'button', 'aria-label': label, title: label, 'aria-pressed': String(this.mode === mode) },
-    });
-    setIcon(button, icon);
-    button.addEventListener('click', () => this.setMode(mode));
-    this.modeButtons.set(mode, button);
-  }
-
-  _syncModeButtons() {
-    for (const [mode, button] of this.modeButtons) {
-      const active = mode === this.mode;
-      button.toggleClass('is-active', active);
-      button.setAttribute('aria-pressed', String(active));
-    }
-  }
-
-  _renderLoading() {
-    if (!this.modeHost) return;
-    this.modeHost.empty();
-    this.modeHost.createDiv({ cls: 'dayline-mobile-loading', text: t(this.plugin.settings, 'journalIndexLoading') });
-  }
-
-  _renderLoadError(error) {
-    if (!this.modeHost) return;
-    this.modeHost.empty();
-    this.modeHost.createDiv({
-      cls: 'dayline-mobile-loading dayline-mobile-load-error',
-      text: t(this.plugin.settings, 'journalIndexLoadFailed', { error: error?.message || error }),
-    });
-  }
-
-  _embeddedView(mode) {
-    if (mode === 'timeline') {
-      this.timelineView ??= new JournalTimelineView(this.leaf, this.plugin, { embedded: true });
-      return this.timelineView;
-    }
-    this.calendarView ??= new CalendarView(this.leaf, this.plugin, { embedded: true });
-    return this.calendarView;
-  }
-
-  async _showMode(mode) {
-    if (this.closed || !this.modeHost) return;
-    const next = this._embeddedView(mode);
-    if (this.activeView === next) return;
-    await this.activeView?.onClose?.();
-    this.activeView = null;
-    this.modeHost.empty();
-    this.modeHost.classList.remove('cal-sidebar', 'cal-calendar-content', 'journal-timeline-view');
-    bindMobileEmbeddedViewHost(next, this.modeHost);
-    this.activeView = next;
-    this._syncModeButtons();
-    await next.onOpen();
+  onClose() {
+    if (this.redirectTimer) clearTimeout(this.redirectTimer);
+    this.redirectTimer = null;
   }
 }
 

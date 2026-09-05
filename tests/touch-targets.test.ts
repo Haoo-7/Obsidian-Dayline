@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { COARSE_POINTER_MIN, calendarCellTouchRouting, hasTouchTargetSize, touchTargetSize } from '../src/touch-targets';
+import { CALENDAR_POINTER_MOVE_THRESHOLD, COARSE_POINTER_MIN, calendarCellTouchRouting, hasTouchTargetSize, isCalendarTapGesture, touchTargetSize } from '../src/touch-targets';
 
 describe('touch targets', () => {
   it('uses 44px controls for coarse pointers and preserves desktop sizing', () => {
@@ -28,5 +28,12 @@ describe('touch targets', () => {
       showEntryCountControl: true,
       focusMediaBackground: true,
     });
+  });
+
+  it('distinguishes a tap from a scroll gesture without device-specific branches', () => {
+    expect(isCalendarTapGesture(10, 10, 10 + CALENDAR_POINTER_MOVE_THRESHOLD, 10)).toBe(true);
+    expect(isCalendarTapGesture(10, 10, 10 + CALENDAR_POINTER_MOVE_THRESHOLD + 1, 10)).toBe(false);
+    expect(isCalendarTapGesture(10, 10, 10, 10 + CALENDAR_POINTER_MOVE_THRESHOLD)).toBe(true);
+    expect(isCalendarTapGesture(10, 10, 10, 10, -1)).toBe(false);
   });
 });

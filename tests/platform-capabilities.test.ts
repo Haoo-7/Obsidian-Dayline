@@ -57,4 +57,65 @@ describe('platform capability routing', () => {
     expect(result.isAndroid).toBe(true);
     expect(result.isIos).toBe(false);
   });
+
+  it('keeps the desktop capability routes independent from mobile routing', () => {
+    const result = detectPlatformCapabilities(browser({
+      Platform: { isMobile: false, isDesktop: true },
+      navigator: { maxTouchPoints: 0, deviceMemory: 8, hardwareConcurrency: 8 },
+      matchMedia: () => ({ matches: false }),
+    }));
+    expect(result.isMobile).toBe(false);
+    expect(result.isDesktop).toBe(true);
+    expect(result.coarsePointer).toBe(false);
+    expect(resolveCapabilityRoute(result, 'mediaMetadata')).toBe('full');
+    expect(resolveCapabilityRoute(result, 'mediaCover')).toBe('full');
+    expect(resolveCapabilityRoute(result, 'heic')).toBe('full');
+    expect(resolveCapabilityRoute(result, 'audioArtwork')).toBe('full');
+  });
+
+  it('reads phone-app form factor from Platform without inferring from viewport or pointer', () => {
+    const result = detectPlatformCapabilities(browser({
+      Platform: { isMobile: true, isMobileApp: true, isPhone: true, isTablet: false, isIosApp: true },
+      navigator: { maxTouchPoints: 0, deviceMemory: 8, hardwareConcurrency: 8 },
+      matchMedia: () => ({ matches: false }),
+    }));
+    expect(result.isMobile).toBe(true);
+    expect(result.isMobileApp).toBe(true);
+    expect(result.isPhone).toBe(true);
+    expect(result.isTablet).toBe(false);
+    expect(result.isDesktop).toBe(false);
+  });
+
+  it('reads tablet-app form factor from Platform without treating it as a phone', () => {
+    const result = detectPlatformCapabilities(browser({
+      Platform: { isMobile: true, isMobileApp: true, isPhone: false, isTablet: true, isIosApp: true },
+    }));
+    expect(result.isMobile).toBe(true);
+    expect(result.isMobileApp).toBe(true);
+    expect(result.isPhone).toBe(false);
+    expect(result.isTablet).toBe(true);
+  });
+
+  it('keeps desktop mobile emulation as isMobile without marking a phone or tablet app', () => {
+    const result = detectPlatformCapabilities(browser({
+      Platform: { isMobile: true, isMobileApp: false, isPhone: false, isTablet: false, isDesktop: false },
+    }));
+    expect(result.isMobile).toBe(true);
+    expect(result.isMobileApp).toBe(false);
+    expect(result.isPhone).toBe(false);
+    expect(result.isTablet).toBe(false);
+  });
+
+  it('does not infer phone or tablet flags on desktop', () => {
+    const result = detectPlatformCapabilities(browser({
+      Platform: { isMobile: false, isMobileApp: false, isPhone: false, isTablet: false, isDesktop: true },
+      navigator: { maxTouchPoints: 0, deviceMemory: 8, hardwareConcurrency: 8 },
+      matchMedia: () => ({ matches: false }),
+    }));
+    expect(result.isMobile).toBe(false);
+    expect(result.isMobileApp).toBe(false);
+    expect(result.isPhone).toBe(false);
+    expect(result.isTablet).toBe(false);
+    expect(result.isDesktop).toBe(true);
+  });
 });

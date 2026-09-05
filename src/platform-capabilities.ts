@@ -2,6 +2,9 @@ export type CapabilityRoute = 'full' | 'fallback' | 'disabled';
 
 export type PlatformCapabilities = {
   isMobile: boolean;
+  isMobileApp: boolean;
+  isPhone: boolean;
+  isTablet: boolean;
   isIos: boolean;
   isAndroid: boolean;
   isDesktop: boolean;
@@ -46,6 +49,9 @@ export function detectPlatformCapabilities(input: DetectionInput = {}): Platform
   const wasmApi = input.WebAssembly === undefined ? (globalThis as any).WebAssembly : input.WebAssembly;
   const mediaQuery = input.matchMedia || (globalThis as any).matchMedia;
   const isMobile = Boolean(platform.isMobile || platform.isMobileApp);
+  const isMobileApp = Boolean(platform.isMobileApp);
+  const isPhone = Boolean(platform.isPhone);
+  const isTablet = Boolean(platform.isTablet);
   const isIos = Boolean(platform.isIosApp || platform.isIos || platform.isIOS);
   const isAndroid = Boolean(platform.isAndroidApp || platform.isAndroid);
   const coarsePointer = Boolean(
@@ -87,6 +93,9 @@ export function detectPlatformCapabilities(input: DetectionInput = {}): Platform
   const audioArtwork = isMobile ? 'disabled' : route(objectUrls && !memoryConstrained, false);
   return {
     isMobile,
+    isMobileApp,
+    isPhone,
+    isTablet,
     isIos,
     isAndroid,
     isDesktop: Boolean(platform.isDesktop || (!isMobile && !isIos && !isAndroid)),

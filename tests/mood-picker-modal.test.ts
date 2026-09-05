@@ -184,6 +184,7 @@ describe('MoodPickerModal fluid flow', () => {
     });
     modal.onOpen();
     const date = modal.contentEl.querySelector<HTMLInputElement>('input[type="date"]')!;
+    expect(date.tabIndex).toBe(-1);
     date.value = '2026-08-29';
     date.dispatchEvent(new Event('change', { bubbles: true }));
 
@@ -192,5 +193,68 @@ describe('MoodPickerModal fluid flow', () => {
       expect(modal.contentEl.querySelector('[role="slider"]')?.getAttribute('aria-valuenow')).toBe('-2');
     });
     modal.close();
+  });
+
+  function openLabelStep(modal: InstanceType<typeof MoodPickerModal>): void {
+    const slider = modal.contentEl.querySelector<HTMLElement>('[role="slider"]')!;
+    const track = slider.querySelector<HTMLElement>('.journal-fluid-track')!;
+    vi.spyOn(track, 'getBoundingClientRect').mockReturnValue({
+      left: 0,
+      right: 400,
+      top: 0,
+      bottom: 34,
+      width: 400,
+      height: 34,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    });
+    slider.dispatchEvent(pointerEvent('pointerdown', 390));
+    slider.dispatchEvent(pointerEvent('pointerup', 390));
+    modal.contentEl.querySelector<HTMLButtonElement>('.journal-mood-continue')!.click();
+  }
+
+  it('keeps Back, ARIA, and custom feeling behavior on step two', async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    const modal = new MoodPickerModal({}, {
+      filePath: 'Daily/2026-09-01.md',
+      settings: { displayLanguage: 'en' },
+      customLabels: [],
+      onSave,
+    });
+    modal.onOpen();
+    expect(modal.contentEl.querySelector('[role="slider"]')?.getAttribute('aria-label')).toBe('How did today feel?');
+
+    openLabelStep(modal);
+    const group = modal.contentEl.querySelector<HTMLElement>('.journal-mood-labels')!;
+    expect(group.getAttribute('role')).toBe('group');
+    expect(group.getAttribute('aria-label')).toBe('Add feelings');
+    const joyful = Array.from(modal.contentEl.querySelectorAll<HTMLButtonElement>('.journal-mood-label'))
+      .find((button) => button.textContent === 'Joyful')!;
+    expect(joyful.getAttribute('aria-pressed')).toBe('false');
+    joyful.click();
+    expect(joyful.getAttribute('aria-pressed')).toBe('true');
+
+    const customInput = modal.contentEl.querySelector<HTMLInputElement>('input[type="text"]')!;
+    expect(customInput.getAttribute('aria-label')).toBe('Custom feeling');
+    customInput.value = 'walked';
+    modal.contentEl.querySelectorAll<HTMLButtonElement>('.journal-mood-custom-label-field button')[0].click();
+    expect(Array.from(modal.contentEl.querySelectorAll('.journal-mood-label')).some((button) => button.textContent === 'walked')).toBe(true);
+
+    modal.contentEl.querySelectorAll<HTMLButtonElement>('.journal-mood-actions button')[0].click();
+    expect(modal.contentEl.querySelector('.journal-fluid-mood-control')).not.toBeNull();
+    expect(modal.contentEl.querySelector('.journal-mood-labels')).toBeNull();
+
+    openLabelStep(modal);
+    expect(Array.from(modal.contentEl.querySelectorAll('.journal-mood-label')).some((button) => button.textContent === 'walked')).toBe(true);
+    modal.contentEl.querySelector<HTMLButtonElement>('.journal-mood-actions .mod-cta')!.click();
+    await vi.waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave).toHaveBeenCalledWith({
+      filePath: 'Daily/2026-09-01.md',
+      score: 2,
+      labels: ['walked', 'joyful'],
+      note: null,
+      customLabels: ['walked'],
+    });
   });
 });
