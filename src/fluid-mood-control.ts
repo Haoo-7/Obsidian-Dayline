@@ -339,7 +339,9 @@ export class FluidMoodControl {
     this.releasePointer(event.pointerId);
     this.activePointerId = null;
     this.root.classList.remove('is-dragging');
-    this.commitScore(snapMoodScore(this.displayValue));
+    // Persist the user's actual release position even when the visual easing
+    // frame has not caught up with the latest pointer event yet.
+    this.commitScore(snapMoodScore(this.targetValue));
   };
 
   private readonly handlePointerCancel = (event: PointerEvent): void => {
@@ -405,8 +407,13 @@ export class FluidMoodControl {
 
   private updateFromPointer(clientX: number): void {
     const rect = this.track.getBoundingClientRect();
-    this.displayValue = moodValueFromPosition(clientX, rect.left, rect.width);
-    this.targetValue = this.displayValue;
+    this.targetValue = moodValueFromPosition(clientX, rect.left, rect.width);
+    // Pointer tracking should feel attached to the finger. The eased motion
+    // is reserved for the settle from a fractional release to the stored
+    // five-step score.
+    if (this.activePointerId !== null || this.prefersReducedMotion()) {
+      this.displayValue = this.targetValue;
+    }
     this.updatePresentation(false);
   }
 
@@ -435,7 +442,8 @@ export class FluidMoodControl {
       this.options.onPreview?.(this.displayValue, color);
     }
     this.root.classList.toggle('is-empty', this.selectedScore === null && this.activePointerId === null);
-    this.root.setAttribute('aria-valuenow', String(this.selectedScore ?? 0));
+    const ariaValue = this.activePointerId === null ? (this.selectedScore ?? 0) : this.displayValue;
+    this.root.setAttribute('aria-valuenow', String(Number(ariaValue.toFixed(3))));
     this.root.setAttribute('aria-valuetext', label);
     this.valueLabel.textContent = label;
     this.handle.setAttribute('data-label', label);
@@ -466,11 +474,12 @@ export class FluidMoodControl {
     }
     const elapsed = Math.min(48, Math.max(0, time - this.lastFrame));
     this.lastFrame = time;
-    if (this.activePointerId === null) {
-      const distance = this.targetValue - this.displayValue;
-      this.displayValue = Math.abs(distance) < 0.002 ? this.targetValue : this.displayValue + distance * 0.18;
-      this.updatePresentation(false, false);
-    }
+    const distance = this.targetValue - this.displayValue;
+    const easing = Math.min(0.48, Math.max(0.08, 1 - Math.exp(-elapsed / 72)));
+    this.displayValue = Math.abs(distance) < 0.002
+      ? this.targetValue
+      : this.displayValue + distance * easing;
+    this.updatePresentation(false, false);
     this.phase += elapsed * 0.00042;
     this.renderFrame();
     this.animationFrame = requestAnimationFrame(this.animate);

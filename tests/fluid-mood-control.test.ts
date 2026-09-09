@@ -232,4 +232,42 @@ describe('FluidMoodControl interaction', () => {
     expect(clearRect.mock.calls.length - beforeFrame).toBe(1);
     control.destroy();
   });
+
+  it('tracks the pointer continuously and eases only the stored-score settle', () => {
+    const frameCallbacks: FrameRequestCallback[] = [];
+    vi.mocked(requestAnimationFrame).mockImplementation((callback) => {
+      frameCallbacks.push(callback);
+      return frameCallbacks.length;
+    });
+    vi.mocked(matchMedia).mockReturnValue({
+      matches: false,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    } as unknown as MediaQueryList);
+    const root = document.createElement('div');
+    document.body.append(root);
+    const onCommit = vi.fn();
+    const control = new FluidMoodControl(root, {
+      initialScore: 0,
+      accessibleLabel: 'Mood scale',
+      emptyLabel: 'Choose',
+      labelForScore: (score) => `Mood ${score}`,
+      onCommit,
+    });
+    mockTrackRect(root, 0, 400);
+
+    root.dispatchEvent(pointerEvent('pointerdown', 380));
+    expect(Number(root.style.getPropertyValue('--journal-mood-position').replace('%', ''))).toBe(95);
+    expect(root.getAttribute('aria-valuenow')).toBe('1.8');
+
+    root.dispatchEvent(pointerEvent('pointerup', 220));
+    expect(onCommit).toHaveBeenCalledWith(0);
+    const beforeSettle = Number(root.style.getPropertyValue('--journal-mood-position').replace('%', ''));
+    frameCallbacks.shift()?.(performance.now() + 16);
+    const afterSettle = Number(root.style.getPropertyValue('--journal-mood-position').replace('%', ''));
+    expect(beforeSettle).toBeCloseTo(55, 6);
+    expect(afterSettle).toBeGreaterThan(50);
+    expect(afterSettle).toBeLessThan(beforeSettle);
+    control.destroy();
+  });
 });

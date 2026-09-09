@@ -5,7 +5,7 @@ import { buildRecentMoodTrend, calculateJournalStats } from './journal-stats';
 import { formatJournalDate, getDisplayLanguage, moodLabel, t } from './i18n';
 import { isGenericJournalTitle } from './excerpt';
 import { createMediaAttachment } from './media-links';
-import { shouldShowTimelineMoodTrend } from './journal-timeline-display';
+import { shouldShowTimelineMoodTrend, shouldShowTimelineTitles } from './journal-timeline-display';
 import {
   buildJournalLocationOptions,
   buildJournalTagOptions,
@@ -17,6 +17,29 @@ import { startJournalIndexLoad } from './journal-index';
 import { renderMobileDaylineModeControls } from './dayline-mobile';
 
 export const JOURNAL_TIMELINE_VIEW = 'journal-timeline-view';
+const TIMELINE_PAGE_SIZE = 50;
+
+function timelineDateParts(date, settings) {
+  const value = new Date(`${date}T12:00:00`);
+  const locale = getDisplayLanguage(settings) === 'en' ? 'en-US' : 'zh-CN';
+  const parts = new Intl.DateTimeFormat(locale, { weekday: 'short', day: 'numeric' }).formatToParts(value);
+  return {
+    weekday: parts.find((part) => part.type === 'weekday')?.value || '',
+    day: parts.find((part) => part.type === 'day')?.value || '',
+  };
+}
+
+function timelineEntryTime(entry, settings) {
+  const source = entry.modifiedAt || entry.createdAt;
+  if (!source) return '';
+  const value = new Date(source);
+  if (!Number.isFinite(value.getTime())) return '';
+  return new Intl.DateTimeFormat(getDisplayLanguage(settings) === 'en' ? 'en-US' : 'zh-CN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(value);
+}
 
 export class JournalTimelineView extends ItemView {
   constructor(leaf, plugin) {
@@ -31,8 +54,12 @@ export class JournalTimelineView extends ItemView {
     this.thumbnailObserver = null;
     this.thumbnailLayoutObserver = null;
     this.thumbnailVisibilityChecks = new Map();
+    this.thumbnailLoaders = new Map();
     this.thumbnailScrollTimer = null;
     this.mediaRefreshTimer = null;
+    this.visibleEntryLimit = TIMELINE_PAGE_SIZE;
+    this.renderScheduled = false;
+    this.renderScheduleTimer = null;
     this.thumbnailScrollHandler = () => {
       if (this.thumbnailScrollTimer) return;
       this.thumbnailScrollTimer = setTimeout(() => {
@@ -91,7 +118,7 @@ export class JournalTimelineView extends ItemView {
       });
       this.thumbnailLayoutObserver.observe(root);
     }
-    this.unsubscribe = this.index.subscribe(() => this.render());
+    this.unsubscribe = this.index.subscribe(() => this.scheduleRender());
     this.render();
     startJournalIndexLoad(
       () => this.plugin.ensureJournalIndexReady
@@ -123,7 +150,11 @@ export class JournalTimelineView extends ItemView {
     this.thumbnailScrollTimer = null;
     if (this.mediaRefreshTimer) clearTimeout(this.mediaRefreshTimer);
     this.mediaRefreshTimer = null;
+    if (this.renderScheduleTimer) clearTimeout(this.renderScheduleTimer);
+    this.renderScheduleTimer = null;
+    this.renderScheduled = false;
     this.thumbnailVisibilityChecks.clear();
+    this.thumbnailLoaders.clear();
     this.unsubscribe?.();
     this.unsubscribe = null;
     if (!this.plugin.capabilities?.isMobile) {
@@ -135,6 +166,16 @@ export class JournalTimelineView extends ItemView {
     }
     this.containerEl.removeClass('dayline-mobile-native-view');
     this.contentEl.removeClass('journal-timeline-view');
+  }
+
+  scheduleRender() {
+    if (this.renderScheduled || this.closed) return;
+    this.renderScheduled = true;
+    this.renderScheduleTimer = setTimeout(() => {
+      this.renderScheduleTimer = null;
+      this.renderScheduled = false;
+      if (!this.closed) this.render();
+    }, 0);
   }
 
   render() {
@@ -354,6 +395,7 @@ export class JournalTimelineView extends ItemView {
     this._persistMobileTimelineFilter();
     const count = root.querySelector('.journal-timeline-count');
     const entries = this.index.filter(this.filter);
+    this.visibleEntryLimit = TIMELINE_PAGE_SIZE;
     if (count) count.setText(String(entries.length));
     const list = root.querySelector('.journal-timeline-list');
     if (list) this.renderList(list, entries);
@@ -370,12 +412,25 @@ export class JournalTimelineView extends ItemView {
     this.thumbnailObserver?.disconnect();
     this.thumbnailObserver = null;
     this.thumbnailVisibilityChecks.clear();
+    this.thumbnailLoaders.clear();
     list.empty();
     if (entries.length === 0) {
       list.createDiv({ cls: 'journal-timeline-empty', text: t(this.plugin.settings, 'noResults') });
       return;
     }
-    for (const entry of entries) this.renderEntry(list, entry, this.renderToken);
+    for (const entry of entries.slice(0, this.visibleEntryLimit)) this.renderEntry(list, entry, this.renderToken);
+    if (entries.length > this.visibleEntryLimit) {
+      const remaining = Math.min(TIMELINE_PAGE_SIZE, entries.length - this.visibleEntryLimit);
+      const button = list.createEl('button', {
+        cls: 'journal-timeline-load-more',
+        text: getDisplayLanguage(this.plugin.settings) === 'en' ? `Show ${remaining} more` : `再显示 ${remaining} 条`,
+        attr: { type: 'button' },
+      });
+      button.addEventListener('click', () => {
+        this.visibleEntryLimit += TIMELINE_PAGE_SIZE;
+        this.renderList(list, entries);
+      });
+    }
   }
 
   renderEntry(list, entry, token) {
@@ -393,25 +448,48 @@ export class JournalTimelineView extends ItemView {
     const card = list.createEl('article', { cls: `journal-timeline-entry ${scoreClass}${thumbnailMedia.length ? ' has-thumbnail' : ''}` });
     card.tabIndex = 0;
     card.dataset.path = entry.path;
+    const dateColumn = card.createDiv({ cls: 'journal-timeline-entry-date-column' });
+    const dateParts = timelineDateParts(entry.date, this.plugin.settings);
+    dateColumn.createSpan({ cls: 'journal-timeline-entry-weekday', text: dateParts.weekday });
+    dateColumn.createSpan({ cls: 'journal-timeline-entry-day', text: dateParts.day });
     const body = card.createDiv({ cls: 'journal-timeline-entry-body' });
-    const top = body.createDiv({ cls: 'journal-timeline-entry-top' });
-    top.createEl('h3', { cls: 'journal-timeline-entry-date', text: formatJournalDate(entry.date, this.plugin.settings) });
-    top.createEl('time', { cls: 'journal-timeline-entry-iso', text: entry.date, attr: { datetime: entry.date } });
-    if (entry.favorite) top.createSpan({ cls: 'journal-timeline-favorite', text: t(this.plugin.settings, 'favorite') });
-    if (entry.title && !isGenericJournalTitle(entry.title, entry.date)) body.createDiv({ cls: 'journal-timeline-title', text: entry.title });
-    if (entry.excerpt) body.createDiv({ cls: 'journal-timeline-excerpt', text: entry.excerpt });
-    const meta = body.createDiv({ cls: 'journal-timeline-meta' });
-    if (entry.location?.name) meta.createSpan({ text: `${t(this.plugin.settings, 'journalLocation')}: ${entry.location.name}` });
-    else if (entry.location && (entry.location.latitude !== undefined || entry.location.longitude !== undefined)) {
-      meta.createSpan({
-        text: `${t(this.plugin.settings, 'journalLocation')}: ${[entry.location.latitude, entry.location.longitude]
-          .filter((value) => value !== undefined).join(', ')}`,
+    const title = entry.title && !isGenericJournalTitle(entry.title, entry.date) ? entry.title : '';
+    const titleEditor = shouldShowTimelineTitles(this.plugin.settings) ? body.createEl('h3', {
+      cls: `journal-timeline-entry-title${title ? '' : ' is-placeholder'}`,
+      text: title,
+      attr: {
+        role: 'button',
+        tabindex: '0',
+        'aria-label': title
+          ? `${t(this.plugin.settings, 'editJournalTitle')}: ${title}`
+          : t(this.plugin.settings, 'addJournalTitle'),
+        title: title ? t(this.plugin.settings, 'editJournalTitle') : t(this.plugin.settings, 'addJournalTitle'),
+      },
+    }) : null;
+    if (titleEditor) {
+      if (!title) titleEditor.dataset.placeholder = t(this.plugin.settings, 'addJournalTitle');
+      titleEditor.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        this.editTitleInline(titleEditor, entry.path, title);
+      });
+      titleEditor.addEventListener('keydown', (event) => {
+        if (event.target !== titleEditor) return;
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        event.preventDefault();
+        event.stopPropagation();
+        this.editTitleInline(titleEditor, entry.path, title);
       });
     }
-    const mediaCount = Math.max(media.length, imageLinks.length);
-    if (mediaCount > 0) meta.createSpan({ text: `${mediaCount}${t(this.plugin.settings, 'media')}` });
-    if (entry.sourceLabel || entry.sourcePath) {
-      meta.createSpan({ text: entry.sourceId === 'daily' ? t(this.plugin.settings, 'dailyNotes') : (entry.sourceLabel || entry.sourcePath) });
+
+    const top = body.createDiv({ cls: 'journal-timeline-entry-top' });
+    top.createEl('time', { cls: 'journal-timeline-entry-iso', text: entry.date, attr: { datetime: entry.date } });
+    if (entry.favorite) top.createSpan({ cls: 'journal-timeline-favorite', text: t(this.plugin.settings, 'favorite') });
+    if (entry.excerpt) body.createDiv({ cls: 'journal-timeline-excerpt', text: entry.excerpt });
+    const time = timelineEntryTime(entry, this.plugin.settings);
+    if (time) {
+      const meta = body.createDiv({ cls: 'journal-timeline-meta' });
+      meta.createEl('time', { text: time, attr: { datetime: entry.modifiedAt || entry.createdAt } });
     }
     let thumbnail;
     if (thumbnailMedia.length > 0) {
@@ -430,11 +508,56 @@ export class JournalTimelineView extends ItemView {
     });
   }
 
+  editTitleInline(editor, path, initialTitle) {
+    if (editor.dataset.editing === 'true') return;
+    editor.dataset.editing = 'true';
+    editor.classList.add('is-editing');
+    editor.textContent = '';
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = initialTitle;
+    input.maxLength = 200;
+    input.setAttribute('aria-label', t(this.plugin.settings, 'editJournalTitle'));
+    editor.append(input);
+
+    let settled = false;
+    const finish = async (save) => {
+      if (settled) return;
+      settled = true;
+      if (!save) {
+        this.render();
+        return;
+      }
+      try {
+        await this.plugin.saveJournalTitle(path, input.value);
+      } catch (error) {
+        new Notice(t(this.plugin.settings, 'journalTitleSaveFailed', { error: error?.message || error }));
+        this.render();
+      }
+    };
+    input.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        void finish(true);
+      } else if (event.key === 'Escape') {
+        event.preventDefault();
+        void finish(false);
+      }
+    });
+    input.addEventListener('blur', () => { void finish(true); });
+    input.addEventListener('click', (event) => event.stopPropagation());
+    input.addEventListener('pointerdown', (event) => event.stopPropagation());
+    input.focus();
+    input.select();
+  }
+
   observeThumbnail(card, container, image, entry, links, token) {
     let started = false;
     const load = async () => {
       if (started) return;
       started = true;
+      this.thumbnailLoaders.delete(container);
+      this.thumbnailVisibilityChecks.delete(container);
       const explicitCover = entry.cover ? createMediaAttachment(entry.cover, entry.path) : null;
       const validCover = explicitCover?.kind !== 'unknown' ? explicitCover : undefined;
       const result = this.plugin.mediaService?.loadFirstCover
@@ -454,10 +577,11 @@ export class JournalTimelineView extends ItemView {
       for (const observation of observations) {
         if (!observation.isIntersecting) continue;
         this.thumbnailObserver.unobserve(observation.target);
-        load();
+        this.thumbnailLoaders.get(observation.target)?.();
       }
     }, { root: this.contentEl, rootMargin: '160px' });
     this.thumbnailObserver.observe(container);
+    this.thumbnailLoaders.set(container, load);
     const checkVisible = () => {
       if (token !== this.renderToken || !container.isConnected) return;
       const rootRect = this.contentEl.getBoundingClientRect();

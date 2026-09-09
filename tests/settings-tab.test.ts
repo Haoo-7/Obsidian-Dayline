@@ -17,9 +17,10 @@ import {
   shouldShowOnThisDayExcerptSettings,
   shouldShowWeatherLocationOption,
   shouldShowWeatherSettings,
+  commitJournalSourceSettings,
 } from '../src/settings-tab';
 import { t } from '../src/i18n';
-import { shouldShowTimelineMoodTrend } from '../src/journal-timeline-display';
+import { shouldShowTimelineMoodTrend, shouldShowTimelineTitles } from '../src/journal-timeline-display';
 
 describe('Dayline settings information architecture', () => {
   it('keeps sections in task and maintenance order with localized labels', () => {
@@ -65,5 +66,24 @@ describe('Dayline settings information architecture', () => {
     expect(shouldShowTimelineMoodTrend({ showTimelineMoodTrend: false })).toBe(false);
     expect(t({ displayLanguage: 'zh' }, 'showTimelineMoodTrend')).toBe('显示时间线心情趋势');
     expect(t({ displayLanguage: 'en' }, 'showTimelineMoodTrend')).toBe('Show timeline mood trend');
+    expect(shouldShowTimelineTitles({})).toBe(true);
+    expect(t({ displayLanguage: 'zh' }, 'showTimelineTitles')).toBe('显示时间轴日记标题');
+    expect(t({ displayLanguage: 'en' }, 'showTimelineTitles')).toBe('Show timeline journal titles');
+  });
+});
+
+describe('journal source settings updates', () => {
+  it('rebuilds the journal index before notifying views', async () => {
+    const order: string[] = [];
+    const plugin = {
+      settings: { dailyFolder: 'New/Daily' },
+      saveSettings: async () => { order.push('save'); },
+      journalIndex: { refresh: async () => { order.push('index'); } },
+      refreshJournalViews: () => { order.push('views'); },
+    };
+
+    await commitJournalSourceSettings(plugin);
+
+    expect(order).toEqual(['save', 'index', 'views']);
   });
 });

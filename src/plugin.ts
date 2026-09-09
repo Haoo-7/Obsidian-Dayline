@@ -81,6 +81,7 @@ const DEFAULT_SETTINGS = {
   showCalendarView: true,
   showTimelineView: false,
   showTimelineMoodTrend: true,
+  showTimelineTitles: true,
   // Legacy combined weather visibility setting; retained for migration/downgrade compatibility.
   showCalendarWeather: true,
   // --- EXIF metadata ---
@@ -124,7 +125,7 @@ class DaylinePlugin extends Plugin {
 
     this.moodStore = new MoodStore(this.app, this.settings);
     await this.moodStore.load();
-    this.journalIndex = new JournalIndex(this.app, (path) => this.moodStore.get(path));
+    this.journalIndex = new JournalIndex(this.app, (path) => this.moodStore.getForIndex(path));
     // Desktop indexes eagerly, but only after Obsidian has restored layout and
     // populated metadata embeds. Mobile remains lazy until Dayline is opened.
     if (!this.capabilities.isMobile) {
@@ -598,7 +599,7 @@ class DaylinePlugin extends Plugin {
     const date = _daylineDate(this.settings);
     const path = `${this.settings.dailyFolder}/${date}.md`;
     try {
-      const file = await this.ensureJournalFile(path, '');
+      const file = await this.createDailyNoteForDate(date);
       await this.openJournalFile(file);
       await this.journalIndex.refreshFile(path, this.settings);
     } catch (error) {
@@ -616,6 +617,23 @@ class DaylinePlugin extends Plugin {
       ? activeFile.path
       : `${this.settings.dailyFolder}/${_daylineDate(this.settings)}.md`;
     this.openMoodPicker(path, { allowDateSelection: true, ensureFile: false });
+  }
+
+  async saveJournalTitle(path, title) {
+    const file = this.app.vault.getAbstractFileByPath(path);
+    if (!(file instanceof TFile)) throw new Error(`Journal file not found: ${path}`);
+    const sources = this.journalIndex.resolveSources(this.settings);
+    const isJournal = sources.some((source) =>
+      path === source.path || path.startsWith(`${source.path}/`));
+    if (!isJournal) throw new Error(`Not a journal file: ${path}`);
+
+    await this.app.fileManager.processFrontMatter(file, (frontmatter) => {
+      const value = String(title || '').trim();
+      if (value) frontmatter.title = value;
+      else delete frontmatter.title;
+    });
+    await this.journalIndex.refreshFile(file.path, this.settings);
+    this.refreshJournalViews();
   }
 
   async openMoodPicker(path, options = {}) {
@@ -704,6 +722,30 @@ class DaylinePlugin extends Plugin {
     const date = _daylineDate(this.settings, now);
     if (this.journalIndex.getEntries().some((entry) => entry.date === date)) return;
     new Notice(t(this.settings, 'dailyReminder'));
+  }
+
+  async createDailyNoteForDate(dateStr) {
+    const path = `${this.settings.dailyFolder}/${dateStr}.md`;
+    const existing = this.app.vault.getAbstractFileByPath(path);
+    if (existing instanceof TFile) return existing;
+    await this.ensureFolder(this.settings.dailyFolder);
+    const dnPlugin = this.app.internalPlugins?.getPluginById?.('daily-notes');
+    const templatePath = dnPlugin?.instance?.options?.template;
+    if (templatePath) {
+      const templateFile = this.app.vault.getAbstractFileByPath(String(templatePath).replace(/\.md$/, '') + '.md');
+      if (templateFile instanceof TFile) {
+        const tp = this.app.plugins?.getPlugin?.('templater-obsidian')?.templater;
+        if (tp?.create_new_note_from_template) {
+          await tp.create_new_note_from_template(templateFile, this.settings.dailyFolder, dateStr, false);
+          const created = this.app.vault.getAbstractFileByPath(path);
+          if (created instanceof TFile) return created;
+        }
+        const content = await this.app.vault.read(templateFile);
+        const resolved = content.replace(/\{\{date\}\}/g, dateStr).replace(/\{\{title\}\}/g, dateStr);
+        return this.app.vault.create(path, resolved);
+      }
+    }
+    return this.app.vault.create(path, '');
   }
 
   async ensureFolder(path) {
@@ -1555,11 +1597,20 @@ button.cal-weather-refresh:hover {
   position: absolute;
   top: 2px;
   right: 2px;
-  width: 16px;
-  height: 16px;
+  width: 17px;
+  height: 17px;
+  padding: 0;
+  box-sizing: border-box;
   object-fit: contain;
   z-index: 3;
   pointer-events: none;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.48));
+}
+.cal-day.cal-has-image .cal-weather-badge {
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.58));
 }
 
 /* --- Daily note weather overlay (Day One style frosted-glass chip) --- */
@@ -1867,8 +1918,8 @@ button.cal-weather-refresh:hover {
   left: 2px;
   bottom: 2px;
   z-index: 4;
-  width: 16px;
-  height: 16px;
+  width: 20px;
+  height: 20px;
   padding: 0;
   border: 0;
   background: transparent;
@@ -1879,13 +1930,26 @@ button.cal-weather-refresh:hover {
 .cal-mood-empty { opacity: 0; }
 .cal-day:hover .cal-mood-empty, .cal-mood-empty:focus-visible { opacity: 1; }
 .cal-mood-empty .cal-mood-dot { width: 8px; height: 8px; border: 1px solid var(--text-faint); background: transparent; }
-.cal-mood-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--journal-mood-color); }
-.cal-mood-button:hover .cal-mood-dot { box-shadow: 0 0 0 2px color-mix(in srgb, var(--journal-mood-color) 35%, transparent); }
+.cal-mood-dot { width: 10px; height: 10px; border: 2px solid color-mix(in srgb, var(--background-primary) 78%, transparent); border-radius: 50%; background: var(--journal-mood-color); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.22); }
+.cal-mood-button:hover .cal-mood-dot, .cal-mood-button:focus-visible .cal-mood-dot { box-shadow: 0 0 0 3px color-mix(in srgb, var(--journal-mood-color) 30%, transparent), 0 1px 3px rgba(0, 0, 0, 0.22); }
 .cal-mood-button.mood-2 { --journal-mood-color: #ee6a54; }
 .cal-mood-button.mood-1 { --journal-mood-color: #f0b34f; }
 .cal-mood-button.mood-0 { --journal-mood-color: #55b6c9; }
 .cal-mood-button.mood--1 { --journal-mood-color: #4d6fb8; }
 .cal-mood-button.mood--2 { --journal-mood-color: #7652c7; }
+@media (pointer: coarse) {
+  /* Touch-capable desktop hosts do not have a hover state to reveal an empty mood entry. */
+  .dayline-coarse-pointer:not(.dayline-mobile) .cal-mood-button {
+    width: 28px;
+    height: 28px;
+    left: 0;
+    bottom: 0;
+  }
+  .dayline-coarse-pointer:not(.dayline-mobile) .cal-mood-empty { opacity: 0.78; }
+  .dayline-coarse-pointer:not(.dayline-mobile) .cal-mood-empty .cal-mood-dot { width: 12px; height: 12px; }
+  .dayline-coarse-pointer:not(.dayline-mobile) .cal-mood-dot { width: 12px; height: 12px; }
+  .journal-timeline-entry-title.is-placeholder { opacity: 0.42; }
+}
 .journal-timeline-view { box-sizing: border-box; width: 100%; min-width: 0; padding: 14px; overflow-x: hidden; overflow-y: auto; }
 .journal-index-loading { display: flex; align-items: center; justify-content: center; min-height: 160px; padding: 24px; color: var(--text-muted); text-align: center; overflow-wrap: anywhere; }
 .journal-index-load-error { color: var(--text-error); }
@@ -1924,27 +1988,37 @@ button.cal-weather-refresh:hover {
 .journal-stat-label-trend-row span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .journal-stat-label-trend-row span:last-child { flex: 0 0 auto; color: var(--text-faint); }
 .journal-timeline-list { display: grid; grid-template-columns: minmax(0, 1fr); width: 100%; min-width: 0; gap: 8px; }
-.journal-timeline-entry { display: grid; grid-template-columns: minmax(0, 1fr); width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box; overflow: hidden; gap: 10px; padding: 10px; border: 1px solid var(--background-modifier-border); border-radius: 7px; box-shadow: inset 3px 0 0 var(--background-modifier-border); cursor: pointer; background: var(--background-primary); }
-.journal-timeline-entry.has-thumbnail { grid-template-columns: minmax(0, 1fr) 88px; }
+.journal-timeline-entry { display: grid; grid-template-columns: 30px minmax(0, 1fr); width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box; overflow: hidden; gap: 4px; padding: 12px; border: 1px solid var(--background-modifier-border); border-radius: 7px; box-shadow: inset 3px 0 0 var(--background-modifier-border); cursor: pointer; background: var(--background-primary); }
+.journal-timeline-entry.has-thumbnail { grid-template-columns: 30px minmax(0, 1fr) 104px; }
 .journal-timeline-entry.mood-score-2 { box-shadow: inset 3px 0 0 #ee6a54; }
 .journal-timeline-entry.mood-score-1 { box-shadow: inset 3px 0 0 #f0b34f; }
 .journal-timeline-entry.mood-score-0 { box-shadow: inset 3px 0 0 #55b6c9; }
 .journal-timeline-entry.mood-score--1 { box-shadow: inset 3px 0 0 #4d6fb8; }
 .journal-timeline-entry.mood-score--2 { box-shadow: inset 3px 0 0 #7652c7; }
 .journal-timeline-entry:hover, .journal-timeline-entry:focus-visible { border-right-color: var(--interactive-accent); outline: none; }
-.journal-timeline-entry-body { min-width: 0; overflow: hidden; }
+.journal-timeline-entry-body { display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
+.journal-timeline-entry-date-column { display: flex; flex-direction: column; justify-content: center; align-items: flex-start; min-width: 0; padding-top: 2px; color: var(--text-muted); }
+.journal-timeline-entry-weekday { margin-bottom: 4px; font-size: 11px; font-weight: 600; line-height: 1.25; }
+.journal-timeline-entry-day { color: var(--text-normal); font-size: 24px; font-weight: 700; line-height: 1.05; }
 .journal-timeline-entry-top { flex-wrap: wrap; gap: 4px 7px; min-width: 0; color: var(--text-muted); }
-.journal-timeline-entry-actions { display: inline-flex; align-items: center; gap: 2px; margin-left: auto; }
-.journal-timeline-entry-actions button { width: 24px; height: 24px; padding: 4px; }
 .journal-timeline-entry-date { flex: 0 1 auto; min-width: 0; max-width: 100%; margin: 0; overflow: hidden; color: var(--text-normal); font-size: 14px; font-weight: 600; }
 .journal-timeline-entry-iso { display: none; }
 .journal-timeline-favorite { flex: 0 0 auto; color: var(--text-accent); font-size: 11px; }
-.journal-timeline-title { min-width: 0; margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-normal); font-size: 13px; }
-.journal-timeline-excerpt { min-width: 0; max-width: 100%; margin-top: 4px; overflow: hidden; overflow-wrap: anywhere; color: var(--text-muted); font-size: 12px; line-height: 1.45; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
-.journal-timeline-meta { flex-wrap: wrap; gap: 5px 10px; min-width: 0; margin-top: 6px; overflow-wrap: anywhere; color: var(--text-faint); font-size: 11px; }
+.journal-timeline-entry-title { position: relative; display: block; width: 100%; min-width: 0; margin: 0 0 4px; padding: 0; overflow: hidden; color: var(--text-normal); font-size: 15px; font-weight: 600; line-height: 1.3; text-align: left; text-overflow: ellipsis; white-space: nowrap; cursor: text; }
+.journal-timeline-entry-title:hover, .journal-timeline-entry-title:focus-visible { color: var(--text-accent); outline: none; }
+.journal-timeline-entry-title:focus-visible { text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--journal-mood-active, var(--interactive-accent)) 60%, transparent); text-underline-offset: 3px; }
+.journal-timeline-entry-title.is-placeholder { color: var(--text-muted); font-size: 13px; font-weight: 500; opacity: 0.56; transition: opacity 160ms ease, color 160ms ease; }
+.journal-timeline-entry:hover .journal-timeline-entry-title.is-placeholder,
+.journal-timeline-entry:focus-within .journal-timeline-entry-title.is-placeholder,
+.journal-timeline-entry-title.is-placeholder:focus-visible { opacity: 0.72; }
+.journal-timeline-entry-title.is-placeholder::before { content: attr(data-placeholder); }
+.journal-timeline-entry-title.is-editing { overflow: visible; cursor: text; }
+.journal-timeline-entry-title input { display: block; width: 100%; min-width: 0; height: 24px; margin: 0; padding: 0 0 3px; border: 0; border-bottom: 1px solid var(--interactive-accent); border-radius: 0; color: var(--text-normal); background: transparent; box-shadow: none; font: inherit; font-size: 15px; font-weight: 600; line-height: 1.3; outline: none; }
+.journal-timeline-excerpt { min-width: 0; max-width: 100%; margin-top: 2px; overflow: hidden; overflow-wrap: anywhere; color: var(--text-muted); font-size: 12px; line-height: 1.35; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
+.journal-timeline-meta { flex-wrap: wrap; gap: 5px 10px; min-width: 0; min-height: 10px; margin-top: auto; padding-top: 4px; overflow-wrap: anywhere; color: var(--text-faint); font-size: 10px; line-height: 1; }
 .journal-timeline-mood-note { margin-top: 6px; overflow-wrap: anywhere; color: var(--text-muted); font-size: 12px; white-space: pre-wrap; }
-.journal-timeline-thumbnail { position: relative; width: 88px; height: 88px; min-width: 88px; overflow: hidden; border-radius: 5px; background: var(--background-secondary); }
-.journal-timeline-thumbnail img { display: block; width: 88px; height: 88px; object-fit: cover; opacity: 0; transition: opacity 0.15s ease; }
+.journal-timeline-thumbnail { position: relative; width: 104px; height: 92px; min-width: 104px; overflow: hidden; border-radius: 7px; background: var(--background-secondary); }
+.journal-timeline-thumbnail img { display: block; width: 104px; height: 92px; object-fit: cover; opacity: 0; transition: opacity 0.15s ease; }
 .journal-timeline-thumbnail.is-loaded img { opacity: 1; }
 .journal-timeline-thumbnail-count { position: absolute; right: 4px; bottom: 4px; padding: 1px 4px; border-radius: 4px; background: rgba(0, 0, 0, 0.65); color: #fff; font-size: 10px; }
 .journal-timeline-empty { min-width: 0; padding: 28px 8px; overflow-wrap: anywhere; color: var(--text-muted); text-align: center; }
@@ -1973,14 +2047,20 @@ button.cal-weather-refresh:hover {
 .journal-fluid-track::before { content: ''; position: absolute; top: 50%; left: 0; width: 100%; height: 8px; border: 1px solid color-mix(in srgb, var(--text-normal) 10%, transparent); border-radius: 4px; background: var(--background-modifier-border); transform: translateY(-50%); box-sizing: border-box; }
 .journal-fluid-track-spectrum { position: absolute; top: 50%; left: 0; width: 100%; height: 6px; border-radius: 3px; background: linear-gradient(90deg, #7652c7 0%, #4f50c0 12.5%, #4d6fb8 25%, #5191c1 37.5%, #55b6c9 50%, #73c56a 62.5%, #f0b34f 75%, #ef8e52 87.5%, #ee6a54 100%); opacity: 0.86; transform: translateY(-50%); }
 .journal-fluid-handle { position: absolute; top: 50%; left: var(--journal-mood-position); width: 28px; height: 28px; border: 4px solid var(--background-primary); border-radius: 50%; background: var(--journal-mood-active); box-shadow: 0 5px 14px color-mix(in srgb, var(--journal-mood-active) 40%, rgba(0, 0, 0, 0.3)); transform: translate(-50%, -50%); transition: background-color 160ms ease, box-shadow 160ms ease; box-sizing: border-box; }
-.journal-fluid-mood-control.is-dragging .journal-fluid-handle { width: 32px; height: 32px; }
+.journal-fluid-mood-control.is-dragging .journal-fluid-handle { width: 32px; height: 32px; transition-duration: 120ms; }
 .journal-fluid-endpoints { display: flex; justify-content: space-between; gap: 24px; margin: -1px 18px 0; color: var(--text-muted); font-size: 11px; line-height: 1.35; }
 .journal-fluid-endpoints span { min-width: 0; max-width: 45%; overflow-wrap: anywhere; }
 .journal-fluid-endpoints span:last-child { text-align: right; }
 .journal-visually-hidden { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: -1px !important; overflow: hidden !important; clip: rect(0, 0, 0, 0) !important; white-space: nowrap !important; border: 0 !important; }
 .journal-mood-scale-actions { justify-content: flex-end !important; }
+.journal-mood-actions button { appearance: none; min-height: 36px; padding: 7px 16px; border: 0; border-radius: 999px; color: var(--text-normal); background: color-mix(in srgb, var(--background-primary) 90%, var(--journal-mood-active) 10%); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--journal-mood-active) 12%, transparent); font: inherit; line-height: 1.2; transition: color 180ms ease, background-color 180ms ease, box-shadow 180ms ease, transform 120ms ease; }
+.journal-mood-actions button:hover { background: color-mix(in srgb, var(--background-primary) 78%, var(--journal-mood-active) 22%); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--journal-mood-active) 24%, transparent); }
+.journal-mood-actions button:active { transform: translateY(1px); }
+.journal-mood-actions button:focus-visible { outline: 2px solid color-mix(in srgb, var(--journal-mood-active) 68%, var(--interactive-accent)); outline-offset: 2px; }
 .journal-mood-continue { min-width: 104px; }
-.journal-mood-picker .mod-cta:not(:disabled) { border-color: color-mix(in srgb, var(--journal-mood-active) 74%, #202124); color: #fff; background: color-mix(in srgb, var(--journal-mood-active) 76%, #202124); }
+.journal-mood-picker .mod-cta:not(:disabled) { color: var(--text-on-accent, #fff); background: color-mix(in srgb, var(--journal-mood-active) 78%, var(--background-primary)); box-shadow: 0 4px 12px color-mix(in srgb, var(--journal-mood-active) 24%, transparent); }
+.journal-mood-picker .mod-cta:not(:disabled):hover { background: color-mix(in srgb, var(--journal-mood-active) 88%, var(--background-primary)); box-shadow: 0 5px 16px color-mix(in srgb, var(--journal-mood-active) 32%, transparent); }
+.journal-mood-picker .mod-cta:disabled { color: var(--text-faint); background: color-mix(in srgb, var(--background-primary) 94%, var(--background-modifier-border) 6%); box-shadow: none; }
 .journal-mood-summary { display: flex; align-items: center; gap: 14px; min-width: 0; margin-bottom: 18px; padding: 8px 14px 8px 8px; border: 1px solid color-mix(in srgb, var(--journal-mood-active) 26%, var(--background-modifier-border)); border-radius: 8px; background: color-mix(in srgb, var(--journal-mood-active) 7%, var(--background-secondary)); }
 .journal-mood-summary-canvas { display: block; width: 76px; height: 76px; flex: 0 0 76px; }
 .journal-mood-summary-copy { display: flex; flex-direction: column; min-width: 0; gap: 3px; }
@@ -1990,8 +2070,10 @@ button.cal-weather-refresh:hover {
 .journal-mood-field-group { min-width: 0; }
 .journal-mood-field-label, .journal-mood-note-field label { display: block; margin-bottom: 8px; color: var(--text-normal); font-size: 12px; font-weight: 600; }
 .journal-mood-labels { display: flex; flex-wrap: wrap; gap: 7px; }
-.journal-mood-label { min-height: 34px; border-radius: 6px; }
-.journal-mood-label[aria-pressed='true'] { border-color: var(--journal-mood-active); color: var(--text-normal); background: color-mix(in srgb, var(--journal-mood-active) 16%, var(--background-secondary)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--journal-mood-active) 28%, transparent); }
+.journal-mood-label { appearance: none; min-height: 34px; padding: 7px 13px; border: 0; border-radius: 999px; color: var(--text-muted); background: color-mix(in srgb, var(--background-primary) 90%, var(--journal-mood-active) 10%); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--journal-mood-active) 10%, transparent); font: inherit; line-height: 1.2; transition: color 180ms ease, background-color 180ms ease, box-shadow 180ms ease, transform 120ms ease; }
+.journal-mood-label:hover { color: var(--text-normal); background: color-mix(in srgb, var(--background-primary) 78%, var(--journal-mood-active) 22%); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--journal-mood-active) 22%, transparent); }
+.journal-mood-label:active { transform: translateY(1px); }
+.journal-mood-label[aria-pressed='true'] { color: var(--text-normal); background: color-mix(in srgb, var(--journal-mood-active) 22%, var(--background-primary)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--journal-mood-active) 38%, transparent), 0 3px 10px color-mix(in srgb, var(--journal-mood-active) 12%, transparent); }
 .journal-mood-label:focus-visible { outline: 2px solid var(--interactive-accent); outline-offset: 2px; }
 .journal-mood-custom-label-field { display: flex; gap: 7px; min-width: 0; margin-top: 10px; }
 .journal-mood-custom-label-field input { flex: 1 1 auto; min-width: 0; }
@@ -2025,8 +2107,10 @@ button.cal-weather-refresh:hover {
 .journal-mood-actions { justify-content: space-between; gap: 8px; margin-top: 22px; }
 @media (max-width: 420px) {
   .journal-timeline-view { padding: 10px; }
-  .journal-timeline-entry.has-thumbnail { grid-template-columns: minmax(0, 1fr) 72px; }
-  .journal-timeline-thumbnail, .journal-timeline-thumbnail img { width: 72px; height: 72px; min-width: 72px; }
+  .journal-timeline-entry { grid-template-columns: 32px minmax(0, 1fr); gap: 5px; padding: 9px; }
+  .journal-timeline-entry.has-thumbnail { grid-template-columns: 32px minmax(0, 1fr) 96px; }
+  .journal-timeline-thumbnail, .journal-timeline-thumbnail img { width: 96px; height: 82px; min-width: 96px; }
+  .journal-timeline-entry-day { font-size: 20px; }
   .journal-stat-periods { grid-template-columns: minmax(0, 1fr); }
   .journal-stat-mood-reports { grid-template-columns: minmax(0, 1fr); }
   .journal-mood-recovery-row { grid-template-columns: minmax(0, 1fr); }
@@ -2043,7 +2127,7 @@ button.cal-weather-refresh:hover {
   .cal-otd-button, .cal-filter-field input, .cal-filter-field select,
   .journal-timeline-actions button, .journal-timeline-filter-row > button,
   .journal-timeline-view input, .journal-timeline-view select,
-  .journal-timeline-entry-actions button, .journal-mood-picker button,
+  .journal-mood-picker button,
   .journal-mood-picker input, .journal-mood-picker textarea,
   .journal-mood-picker select, .journal-mood-recovery-row button,
   .cal-jump-apply, .cal-otd-close, .dayline-mobile-mode-button {
@@ -2051,9 +2135,8 @@ button.cal-weather-refresh:hover {
     min-height: 44px;
   }
   .cal-day-bg { outline-offset: 2px; }
-  .journal-timeline-entry-actions { gap: 4px; }
-  .journal-timeline-entry-actions button { width: 44px; height: 44px; padding: 10px; }
   .journal-timeline-actions button, .journal-timeline-filter-row > button { width: 44px; height: 44px; flex-basis: 44px; padding: 10px; }
+  .journal-timeline-entry-title { min-height: 44px; padding-top: 7px; padding-bottom: 7px; }
   .cal-sidebar { padding-left: max(8px, env(safe-area-inset-left)); padding-right: max(8px, env(safe-area-inset-right)); }
 }
 @media (max-width: 420px) {
@@ -2064,9 +2147,10 @@ button.cal-weather-refresh:hover {
   .journal-timeline-header { align-items: flex-start; }
   .journal-timeline-actions { flex-wrap: wrap; justify-content: flex-end; }
   .dayline-mobile-native-view .journal-timeline-view { padding-left: 8px; padding-right: 8px; }
-  .dayline-mobile-native-view .journal-timeline-entry.has-thumbnail { grid-template-columns: minmax(0, 1fr) 76px; }
+  .dayline-mobile-native-view .journal-timeline-entry { grid-template-columns: 32px minmax(0, 1fr); }
+  .dayline-mobile-native-view .journal-timeline-entry.has-thumbnail { grid-template-columns: 32px minmax(0, 1fr) 96px; }
   .dayline-mobile-native-view .journal-timeline-thumbnail,
-  .dayline-mobile-native-view .journal-timeline-thumbnail img { width: 76px; height: 76px; min-width: 76px; }
+  .dayline-mobile-native-view .journal-timeline-thumbnail img { width: 96px; height: 82px; min-width: 96px; }
 }
 body.dayline-mobile.dayline-phone .journal-mood-picker-modal {
   width: calc(100vw - 20px);
@@ -2190,7 +2274,7 @@ body.dayline-mobile.dayline-phone .journal-mood-custom-label-field button,
 body.dayline-mobile.dayline-phone .journal-mood-actions > button:not(.mod-cta) {
   border-color: transparent;
   color: var(--text-normal);
-  background: color-mix(in srgb, var(--background-secondary) 88%, var(--journal-mood-active) 12%);
+  background: color-mix(in srgb, var(--background-primary) 82%, var(--journal-mood-active) 18%);
   box-shadow: none;
 }
 body.dayline-mobile.dayline-phone .journal-mood-label[aria-pressed='true'] {
@@ -2219,9 +2303,9 @@ body.dayline-mobile.dayline-phone .journal-mood-picker .mod-cta:disabled {
   background: color-mix(in srgb, var(--background-secondary) 90%, var(--journal-mood-active) 10%);
 }
 body.dayline-mobile.dayline-phone .journal-mood-picker .mod-cta:not(:disabled) {
-  border-color: color-mix(in srgb, var(--journal-mood-active) 42%, transparent);
-  color: #fff;
-  background: color-mix(in srgb, var(--journal-mood-active) 78%, #202124);
+  border-color: color-mix(in srgb, var(--journal-mood-active) 62%, var(--background-modifier-border));
+  color: var(--text-normal);
+  background: color-mix(in srgb, var(--background-primary) 68%, var(--journal-mood-active) 32%);
 }
 @container (max-width: 420px) {
   .journal-mood-scale { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -2342,8 +2426,10 @@ class CalendarView extends ItemView {
     this._overlayLeaves = new WeakSet();
     // In-flight dedup: leaf → promise, prevents concurrent duplicate fetch+mount
     this._overlayInFlight = new WeakMap();
+    this._overlayDates = new WeakMap();
     // Per-leaf version counter to discard stale async mounts
     this._overlayVersions = new WeakMap();
+    this._overlayGeneration = 0;
     // Track containers where we set position:relative so we can revert on unload
     this._hostPositionMarkers = new Set();
     // Containers whose shared overlays are claimed by this view
@@ -2450,6 +2536,8 @@ class CalendarView extends ItemView {
 
   onClose() {
     this.closed = true;
+    this._overlayGeneration = (this._overlayGeneration || 0) + 1;
+    this._fetchToken++;
     const root = this.contentEl;
     if (this._calendarKeydownHandler) root.removeEventListener('keydown', this._calendarKeydownHandler);
     this._calendarKeydownHandler = null;
@@ -2533,9 +2621,15 @@ class CalendarView extends ItemView {
       return;
     }
 
-    if (!calendarEntryAffectsDisplay(change.previous, change.entry)) return;
-
     const entries = [change.previous, change.entry].filter(Boolean);
+    // OTD excerpts depend on journal prose/frontmatter even when the calendar
+    // projection is unchanged. Invalidate its content cache independently.
+    const otdDates = Array.from(new Set(entries.map((entry) => entry.date).filter(Boolean)));
+    if (!calendarEntryAffectsDisplay(change.previous, change.entry)) {
+      for (const date of otdDates) this._otdProvider?.invalidate?.(date.slice(5));
+      return;
+    }
+
     const dates = Array.from(new Set(entries.map((entry) => entry.date).filter(Boolean)));
     for (const path of new Set(entries.map((entry) => entry.path).filter(Boolean))) this.mediaService?.invalidate(path);
     if (!dates.length) return;
@@ -2736,7 +2830,10 @@ class CalendarView extends ItemView {
 
     // --- Grid ---
     const grid = el.createDiv({ cls: 'cal-grid' });
-    const touchRouting = calendarCellTouchRouting(Boolean(this.plugin.capabilities?.coarsePointer));
+    const touchRouting = calendarCellTouchRouting(
+      Boolean(this.plugin.capabilities?.coarsePointer),
+      Boolean(this.plugin.capabilities?.isMobile),
+    );
 
     const firstDay = getCalendarGridOffset(year, month, this.plugin.settings);
     const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -2841,7 +2938,7 @@ class CalendarView extends ItemView {
         const snap = this._readCachedWeather(dateStr, weatherPath);
         if (snap) {
         const badge = cell.createEl('img', { cls: 'cal-weather-badge' });
-        badge.src = _iconUrl(snap.icon) || '';
+        badge.src = _iconUrl(snap.icon) || _iconUrl('overcast.svg') || '';
         badge.alt = snap.condition;
           badge.setAttribute('aria-label', `${snap.condition}, ${snap.temperature}${this._unitSymbol(snap.units)}`);
           badge.title = `${snap.condition} · ${snap.temperature}${this._unitSymbol(snap.units)}`;
@@ -3013,7 +3110,7 @@ class CalendarView extends ItemView {
         if (!(file instanceof TFile)) return;
         if (!this.plugin._isCurrentExifHover(hoverToken)) return;
         this.plugin._showExifTooltip(cell, null, true);
-        const fields = await this.exifCache.get(file);
+        const fields = await this._getPersistedExifFields(file, notePath, imageLink);
         if (!this.plugin._isCurrentExifHover(hoverToken)) return;
         this.plugin._showExifTooltip(cell, fields, false);
 
@@ -3058,6 +3155,49 @@ class CalendarView extends ItemView {
   _onExifLeave(anchor) {
     if (this.plugin._exifTouchAnchor && (!anchor || this.plugin._exifTouchAnchor === anchor)) return;
     this.plugin._endExifHover();
+  }
+
+  async _getPersistedExifFields(file, notePath, imageLink) {
+    const note = this.app.vault.getAbstractFileByPath(notePath);
+    const normalizedLink = normalizeMediaLink(imageLink);
+    const frontmatter = note instanceof TFile
+      ? this.app.metadataCache.getFileCache(note)?.frontmatter
+      : null;
+    const records = Array.isArray(frontmatter?._dayline_media_metadata)
+      ? frontmatter._dayline_media_metadata
+      : [];
+    const cached = records.find((record) => record
+      && (record.normalizedLink === normalizedLink || record.link === imageLink));
+    const statPromise = this.app.vault?.adapter?.stat?.(file.path);
+    const stat = statPromise ? await statPromise.catch(() => null) : null;
+    const version = stat ? { mtime: Number(stat.mtime) || 0, size: Number(stat.size) || 0 } : null;
+    if (Array.isArray(cached?.fields)
+      && (!version || (Number(cached.mtime) === version.mtime && Number(cached.size) === version.size))) {
+      return cached.fields;
+    }
+    const fields = await this.exifCache.get(file);
+    if (note instanceof TFile && fields?.length) void this._persistExifFields(note, normalizedLink, fields, version);
+    return fields;
+  }
+
+  async _persistExifFields(note, normalizedLink, fields, version = null) {
+    if (!(note instanceof TFile) || !Array.isArray(fields) || fields.length === 0) return;
+    await this.app.fileManager.processFrontMatter(note, (frontmatter) => {
+      const records = Array.isArray(frontmatter._dayline_media_metadata)
+        ? frontmatter._dayline_media_metadata.filter((record) => record?.normalizedLink !== normalizedLink)
+        : [];
+      const record = { normalizedLink, fields };
+      if (version) { record.mtime = version.mtime; record.size = version.size; }
+      frontmatter._dayline_media_metadata = [...records, record];
+      const gps = fields.find((field) => field.key === 'exif_gps')?.value;
+      if (gps && frontmatter.latitude == null && frontmatter.longitude == null) {
+        const [latitude, longitude] = String(gps).split(',').map((value) => Number.parseFloat(value.trim()));
+        if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
+          frontmatter.latitude = latitude;
+          frontmatter.longitude = longitude;
+        }
+      }
+    });
   }
 
   /* ----- Read cached weather from plugin data (no more YAML pollution) ----- */
@@ -3425,10 +3565,8 @@ class CalendarView extends ItemView {
         return;
       }
       leaf.openFile(f).then(async () => {
-        if (this.plugin.capabilities?.isMobile) {
-          await this.app.workspace.revealLeaf?.(leaf);
-          this.app.workspace.setActiveLeaf?.(leaf, { focus: true });
-        }
+        await this.app.workspace.revealLeaf?.(leaf);
+        this.app.workspace.setActiveLeaf?.(leaf, { focus: true });
         this._syncActiveDate(leaf);
         this.render();
         // Trigger background weather load after note opens (non-blocking)
@@ -3477,6 +3615,7 @@ class CalendarView extends ItemView {
 
   /* ----- Sync weather overlays on all markdown leaves ----- */
   _syncNoteOverlays() {
+    if (this.closed) return;
     const s = this.plugin.settings;
 
     // EXIF hover on note images (runs regardless of weather)
@@ -3506,6 +3645,7 @@ class CalendarView extends ItemView {
       if (!entry) continue;
 
       validJournalFiles.add(file.path);
+      this._overlayDates.set(leaf, entry.date);
 
       // Check if there's already an in-flight request for this leaf — skip if so
       if (this._overlayInFlight.has(leaf)) {
@@ -3526,11 +3666,13 @@ class CalendarView extends ItemView {
 
       // For leaves with no file (blank editor, etc.), still clean up
       // For leaves with a non-daily file (Homepage.md), clean up too
+      this._overlayDates.delete(leaf);
       this._releaseOverlay(leaf.containerEl);
     }
   }
 
   _invalidateOverlayRequests() {
+    this._overlayGeneration = (this._overlayGeneration || 0) + 1;
     for (const leaf of this.app.workspace.getLeavesOfType('markdown')) {
       this._overlayVersions.set(leaf, (this._overlayVersions.get(leaf) || 0) + 1);
     }
@@ -3840,9 +3982,11 @@ class CalendarView extends ItemView {
 
   /* ----- Mount or update weather overlay on a single markdown leaf ----- */
   async _createOrUpdateOverlay(leaf, file, indexedDate) {
+    if (this.closed) return;
     const dateStr = indexedDate || file.name.replace(/\.md$/, '');
     const container = leaf.containerEl;
     if (!container) return;
+    const generation = this._overlayGeneration || 0;
 
     // Record in-flight promise for this leaf to prevent concurrent duplicates
     const inFlightPromise = (async () => {
@@ -3853,7 +3997,9 @@ class CalendarView extends ItemView {
       } finally {
         // Clean up in-flight marker
         this._overlayInFlight.delete(leaf);
-        if (leaf.view?.file === file && !leaf.containerEl?.querySelector(`[${OVERLAY_ATTR}]`)) {
+        // Empty weather is terminal. Only a changed target warrants another sync.
+        if (!this.closed && (leaf.view?.file !== file || generation !== (this._overlayGeneration || 0)
+          || this._overlayDates.get(leaf) !== dateStr)) {
           this._syncNoteOverlays();
         }
       }
@@ -3864,7 +4010,8 @@ class CalendarView extends ItemView {
   /* ----- Build overlay content and mount it into the given leaf ----- */
   async _buildOverlayForLeaf(leaf, file, dateStr) {
     const container = leaf.containerEl;
-    if (!container) return;
+    if (!container || this.closed) return;
+    const generation = this._overlayGeneration || 0;
 
     // Bump this leaf's version counter — stale results must not mount
     const myVersion = (this._overlayVersions.get(leaf) || 0) + 1;
@@ -3896,7 +4043,9 @@ class CalendarView extends ItemView {
 
     // Final re-check: file may have changed during fetch
     const latestFile = leaf.view?.file;
-    if (latestFile !== file || !(latestFile instanceof TFile)) return;
+    if (this.closed || generation !== (this._overlayGeneration || 0)
+      || this._overlayDates.get(leaf) !== dateStr
+      || latestFile !== file || !(latestFile instanceof TFile)) return;
 
     // Discard if a newer request has already mounted for this leaf
     if (myVersion < (this._overlayVersions.get(leaf) || 0)) return;
@@ -4038,28 +4187,7 @@ class CalendarView extends ItemView {
 
   /* ----- Create daily note from template ----- */
   async _createDailyNote(path, dateStr) {
-    // Check if daily notes plugin has a template configured
-    const dnPlugin = this.app.internalPlugins.getPluginById('daily-notes');
-    const templatePath = dnPlugin?.instance?.options?.template;
-
-    if (templatePath) {
-      const templateFile = this.app.vault.getAbstractFileByPath(templatePath + '.md');
-      if (templateFile instanceof TFile) {
-        // Try Templater first for proper template processing (e.g. tp.file.title)
-        const tp = this.app.plugins.getPlugin('templater-obsidian')?.templater;
-        if (tp && tp.create_new_note_from_template) {
-          await tp.create_new_note_from_template(templateFile, this.plugin.settings.dailyFolder, dateStr, false);
-          const created = this.app.vault.getAbstractFileByPath(path);
-          if (created instanceof TFile) return created;
-        }
-        // Fallback: read raw template and create with unresolved content
-        const content = await this.app.vault.read(templateFile);
-        return this.app.vault.create(path, content);
-      }
-    }
-
-    // No template — create empty file
-    return this.app.vault.create(path, '');
+    return this.plugin.createDailyNoteForDate(dateStr);
   }
 
   /* ----- Sync active date from the currently viewed leaf ----- */
@@ -4226,6 +4354,29 @@ const SVG_ICONS = {
 'snow.svg':`data:image/svg+xml,${encodeURIComponent('<svg viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(#snc)"><g id="Clouds"><path d="M55.2623 48.4746C60.1227 40.6111 70.2975 37.38 78.8151 40.9434C87.3214 44.5023 92.138 54.0026 89.903 62.9648L89.7418 63.6143L90.4108 63.585C97.4203 63.2791 103.5 68.9917 103.5 76.0283C103.5 82.8395 97.7717 88.4997 90.9772 88.5H37.9537C31.1275 88.5018 25.2029 83.1709 24.5592 76.3604C23.9158 69.5518 28.7369 63.2124 35.443 61.9453L35.9264 61.8535L35.8424 61.3691C35.0256 56.6239 37.1258 51.7168 41.1051 49.0127C45.0951 46.3014 50.4459 46.1537 54.5797 48.6396L55.0026 48.8945L55.2623 48.4746Z" fill="url(#sng1)" stroke="#E6EFFC"/></g><g id="Snowflakes"><path d="M52.578 98.366l-1.205-.689c.106-.444.105-.908-.003-1.353l1.208-.69c.095-.054.18-.126.247-.214.067-.087.117-.186.146-.292.028-.107.036-.218.021-.326a.72.72 0 00-.106-.31.63.63 0 00-.514-.39.63.63 0 00-.639.084L51.528 94.876c-.335-.317-.741-.55-1.184-.676V92.82a.62.62 0 00-.187-.582.647.647 0 00-.876 0 .62.62 0 00-.187.582v1.38c-.442.128-.848.36-1.185.674L47.266 94.185a.63.63 0 00-.639-.084.63.63 0 00-.514.39.72.72 0 00-.106.31.692.692 0 00.021.326.62.62 0 00.146.293c.068.087.152.16.248.214l1.204.688c-.106.445-.105.909.003 1.353l-1.208.69a.632.632 0 00-.247.214.62.62 0 00-.146.293.692.692 0 00-.021.326.72.72 0 00.106.31.63.63 0 00.514.39c.216.057.445.027.639-.084l1.206-.69c.334.318.74.55 1.184.675v1.382a.62.62 0 00.187.582.647.647 0 00.876 0 .62.62 0 00.187-.582v-1.382c.441-.13.847-.36 1.184-.674l1.206.69a.63.63 0 00.639.084.63.63 0 00.514-.39.72.72 0 00.106-.31.692.692 0 00-.021-.326.62.62 0 00-.146-.293.632.632 0 00-.247-.214zm-4.712-.28a.75.75 0 01-.37-.32.785.785 0 01-.096-.384.69.69 0 01.033-.284.66.66 0 01.159-.265.721.721 0 011.03-.02.78.78 0 01.37.32c.082.143.125.302.126.464 0 .162-.044.321-.126.464a.721.721 0 01-1.03-.02.78.78 0 01-.096.045zm15.002.28l-1.205-.689c.106-.444.105-.908-.003-1.353l1.208-.69c.095-.054.18-.126.247-.214.067-.087.117-.186.146-.292.028-.107.036-.218.021-.326a.72.72 0 00-.106-.31.63.63 0 00-.514-.39.63.63 0 00-.639.084L66.528 94.876c-.335-.317-.741-.55-1.184-.676V92.82a.62.62 0 00-.187-.582.647.647 0 00-.876 0 .62.62 0 00-.187.582v1.38c-.442.128-.848.36-1.185.674L62.266 94.185a.63.63 0 00-.639-.084.63.63 0 00-.514.39.72.72 0 00-.106.31.692.692 0 00.021.326.62.62 0 00.146.293c.068.087.152.16.248.214l1.204.688c-.106.445-.105.909.003 1.353l-1.208.69a.632.632 0 00-.247.214.62.62 0 00-.146.293.692.692 0 00-.021.326.72.72 0 00.106.31.63.63 0 00.514.39c.216.057.445.027.639-.084l1.206-.69c.334.318.74.55 1.184.675v1.382a.62.62 0 00.187.582.647.647 0 00.876 0 .62.62 0 00.187-.582v-1.382c.441-.13.847-.36 1.184-.674l1.206.69a.63.63 0 00.639.084.63.63 0 00.514-.39.72.72 0 00.106-.31.692.692 0 00-.021-.326.62.62 0 00-.146-.293.632.632 0 00-.247-.214zm-4.712-.28a.75.75 0 01-.37-.32.785.785 0 01-.096-.384.69.69 0 01.033-.284.66.66 0 01.159-.265.721.721 0 011.03-.02.78.78 0 01.37.32c.082.143.125.302.126.464 0 .162-.044.321-.126.464a.721.721 0 01-1.03-.02.78.78 0 01-.096.045zm15.002.28l-1.205-.689c.106-.444.105-.908-.003-1.353l1.208-.69c.095-.054.18-.126.247-.214.067-.087.117-.186.146-.292.028-.107.036-.218.021-.326a.72.72 0 00-.106-.31.63.63 0 00-.514-.39.63.63 0 00-.639.084L81.528 94.876c-.335-.317-.741-.55-1.184-.676V92.82a.62.62 0 00-.187-.582.647.647 0 00-.876 0 .62.62 0 00-.187.582v1.38c-.442.128-.848.36-1.185.674L77.266 94.185a.63.63 0 00-.639-.084.63.63 0 00-.514.39.72.72 0 00-.106.31.692.692 0 00.021.326.62.62 0 00.146.293c.068.087.152.16.248.214l1.204.688c-.106.445-.105.909.003 1.353l-1.208.69a.632.632 0 00-.247.214.62.62 0 00-.146.293.692.692 0 00-.021.326.72.72 0 00.106.31.63.63 0 00.514.39c.216.057.445.027.639-.084l1.206-.69c.334.318.74.55 1.184.675v1.382a.62.62 0 00.187.582.647.647 0 00.876 0 .62.62 0 00.187-.582v-1.382c.441-.13.847-.36 1.184-.674l1.206.69a.63.63 0 00.639.084.63.63 0 00.514-.39.72.72 0 00.106-.31.692.692 0 00-.021-.326.62.62 0 00-.146-.293.632.632 0 00-.247-.214zm-4.712-.28a.75.75 0 01-.37-.32.785.785 0 01-.096-.384.69.69 0 01.033-.284.66.66 0 01.159-.265.721.721 0 011.03-.02.78.78 0 01.37.32c.082.143.125.302.126.464 0 .162-.044.321-.126.464a.721.721 0 01-1.03-.02.78.78 0 01-.096.045z" fill="#86C3DB"/></g></g><defs><linearGradient id="sng1" x1="64.0008" y1="39" x2="64.0008" y2="89" gradientUnits="userSpaceOnUse"><stop stop-color="#F3F7FE"/><stop offset="1" stop-color="#E6EFFC"/></linearGradient><clipPath id="snc"><rect width="128" height="128" fill="white"/></clipPath></defs></svg>')}`,
 'thunderstorms.svg':`data:image/svg+xml,${encodeURIComponent('<svg viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(#tsc)"><g id="Clouds"><path d="M55.2625 48.4746C60.1228 40.6111 70.2976 37.38 78.8152 40.9434C87.3215 44.5023 92.1381 54.0026 89.9031 62.9648L89.7419 63.6143L90.4109 63.585C97.4205 63.2791 103.5 68.9917 103.5 76.0283C103.5 82.8395 97.7719 88.4997 90.9773 88.5H37.9539C31.1276 88.5018 25.203 83.1709 24.5593 76.3604C23.9159 69.5518 28.7371 63.2124 35.4431 61.9453L35.9265 61.8535L35.8425 61.3691C35.0258 56.6239 37.1259 51.7168 41.1052 49.0127C45.0952 46.3014 50.4461 46.1537 54.5798 48.6396L55.0027 48.8945L55.2625 48.4746Z" fill="url(#tsg1)" stroke="#E6EFFC"/></g><g id="Lightning"><path d="M71.1729 68.5L63.5566 83.041L63.1729 83.7725H75.002L56.9521 107.892L60.4893 91.0117L60.6162 90.4092H52.7041L60.3555 68.5H71.1729Z" fill="url(#tsg2)" stroke="#F6A823"/></g></g><defs><linearGradient id="tsg1" x1="64.0009" y1="39" x2="64.0009" y2="89" gradientUnits="userSpaceOnUse"><stop stop-color="#F3F7FE"/><stop offset="1" stop-color="#E6EFFC"/></linearGradient><linearGradient id="tsg2" x1="64.528" y1="66.0377" x2="84.4144" y2="77.4572" gradientUnits="userSpaceOnUse"><stop stop-color="#F7B23B"/><stop offset="1" stop-color="#F6A823"/></linearGradient><clipPath id="tsc"><rect width="128" height="128" fill="white"/></clipPath></defs></svg>')}`,
 };
+
+/* Compact badge artwork keeps the weather category legible at calendar-cell size. */
+const CALENDAR_BADGE_MARKUP = {
+  'clear-day.svg': '<circle cx="24" cy="24" r="8" fill="#F7B955"/><g stroke="#F7B955" stroke-width="3" stroke-linecap="round"><path d="M24 4v6"/><path d="M24 38v6"/><path d="m4 24 6 0"/><path d="m38 24 6 0"/><path d="m10 10 4 4"/><path d="m34 34 4 4"/><path d="m38 10-4 4"/><path d="m14 34-4 4"/></g>',
+  'partly-cloudy-day.svg': '<circle cx="17" cy="16" r="6" fill="#F7B955"/><g stroke="#F7B955" stroke-width="2" stroke-linecap="round"><path d="M17 6v3"/><path d="M17 23v3"/><path d="M7 16h3"/><path d="M24 16h3"/><path d="m10 9 2 2"/><path d="m22 21 2 2"/></g><path d="M14 35h20a7 7 0 0 0 .4-14 10 10 0 0 0-19-1A7.5 7.5 0 0 0 14 35Z" fill="#F4F7FC" stroke="#71839A" stroke-width="2.6" stroke-linejoin="round"/>',
+  'overcast.svg': '<path d="M12 34h24a7.5 7.5 0 0 0 .3-15 10 10 0 0 0-19.2-1A7.8 7.8 0 0 0 12 34Z" fill="#F4F7FC" stroke="#71839A" stroke-width="2.8" stroke-linejoin="round"/><path d="M24 28h12a5.5 5.5 0 0 0 .2-11 7.5 7.5 0 0 0-14.2-1" fill="#D9E2ED" stroke="#71839A" stroke-width="2.4" stroke-linejoin="round"/>',
+  'fog.svg': '<path d="M12 29h24a7 7 0 0 0 .3-14 10 10 0 0 0-19-1A7.5 7.5 0 0 0 12 29Z" fill="#E8EEF5" stroke="#71839A" stroke-width="2.6" stroke-linejoin="round"/><g stroke="#71839A" stroke-width="2.6" stroke-linecap="round"><path d="M9 36h30"/><path d="M13 42h22"/></g>',
+  'drizzle.svg': '<path d="M12 29h24a7 7 0 0 0 .3-14 10 10 0 0 0-19-1A7.5 7.5 0 0 0 12 29Z" fill="#F4F7FC" stroke="#71839A" stroke-width="2.6" stroke-linejoin="round"/><g stroke="#2F8FCE" stroke-width="3" stroke-linecap="round"><path d="m17 35-.8 3"/><path d="m24 34-.8 3"/><path d="m31 35-.8 3"/></g>',
+  'rain.svg': '<path d="M12 29h24a7 7 0 0 0 .3-14 10 10 0 0 0-19-1A7.5 7.5 0 0 0 12 29Z" fill="#F4F7FC" stroke="#71839A" stroke-width="2.6" stroke-linejoin="round"/><g fill="#2F8FCE"><path d="m16 34 3 0-2 7-3 0Z"/><path d="m23 32 3 0-2 7-3 0Z"/><path d="m30 34 3 0-2 7-3 0Z"/></g>',
+  'snow.svg': '<path d="M12 29h24a7 7 0 0 0 .3-14 10 10 0 0 0-19-1A7.5 7.5 0 0 0 12 29Z" fill="#F4F7FC" stroke="#71839A" stroke-width="2.6" stroke-linejoin="round"/><g stroke="#65A9C8" stroke-width="2" stroke-linecap="round"><path d="M17 35v7"/><path d="m14 38.5 6 0"/><path d="m15 36 4 5"/><path d="m19 36-4 5"/><path d="M31 35v7"/><path d="m28 38.5 6 0"/><path d="m29 36 4 5"/><path d="m33 36-4 5"/></g>',
+  'thunderstorms.svg': '<path d="M12 29h24a7 7 0 0 0 .3-14 10 10 0 0 0-19-1A7.5 7.5 0 0 0 12 29Z" fill="#F4F7FC" stroke="#71839A" stroke-width="2.6" stroke-linejoin="round"/><path d="M26 25h7l-5 7h4L22 44l2.5-8H20Z" fill="#F4B544" stroke="#B97517" stroke-width="1.5" stroke-linejoin="round"/>',
+};
+
+const CALENDAR_BADGE_ICONS = Object.fromEntries(
+  Object.entries(CALENDAR_BADGE_MARKUP).map(([name, markup]) => [
+    name,
+    'data:image/svg+xml,' + encodeURIComponent('<svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">' + markup + '</svg>'),
+  ]),
+);
+
+function _calendarWeatherIconUrl(iconFile) {
+  return CALENDAR_BADGE_ICONS[iconFile] || CALENDAR_BADGE_ICONS['overcast.svg'];
+}
 
 /** Get data URI for a weather icon — synchronous, zero I/O. */
 function _iconUrl(iconFile) {

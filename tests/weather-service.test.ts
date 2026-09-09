@@ -234,6 +234,36 @@ describe('weather retry and cache reliability', () => {
     expect(request).toHaveBeenCalledTimes(2);
   });
 
+  it('does not relabel or persist an old request after the weather configuration changes', async () => {
+    let resolveRequest: (value: unknown) => void = () => undefined;
+    const request = vi.fn().mockImplementation(() => new Promise((resolve) => {
+      resolveRequest = resolve;
+    }));
+    const plugin = makePlugin({
+      weatherLatitude: '31.2304',
+      weatherLongitude: '121.4737',
+      weatherTimezone: 'Asia/Shanghai',
+      weatherLocationName: 'Shanghai',
+    });
+    const service = new WeatherService(plugin, { request, now: () => NOW });
+    const pending = service.getSnapshot('2026-08-06');
+    await vi.waitFor(() => expect(request).toHaveBeenCalledTimes(1));
+
+    plugin.settings.weatherLatitude = '40.7128';
+    plugin.settings.weatherLongitude = '-74.0060';
+    plugin.settings.weatherTimezone = 'America/New_York';
+    plugin.settings.weatherLocationName = 'New York';
+    resolveRequest({ status: 200, json: { daily: dailyPayload() } });
+
+    const result = await pending;
+    expect(result).toMatchObject({ latitude: 31.2304, longitude: 121.4737, location: 'Shanghai' });
+    expect(result.configKey).toContain('Asia/Shanghai');
+    expect(result.configKey).not.toContain('America/New_York');
+    expect(plugin.weatherCache['2026-08-06']).toBeUndefined();
+    expect(plugin._saveWeatherCache).not.toHaveBeenCalled();
+    expect(service.isSnapshotCompatible(result)).toBe(false);
+  });
+
   it('never persists transient stale or offline flags', async () => {
     const plugin = makePlugin();
     const service = new WeatherService(plugin, { request: vi.fn(), now: () => NOW });

@@ -3,9 +3,17 @@ import { Notice, PluginSettingTab, Setting, SuggestModal, TFolder } from 'obsidi
 import { getDisplayLanguage, t } from './i18n';
 import { localize as _l } from './locale';
 import compactWordmarkSvg from '../assets/dayline-wordmark-compact.svg';
-import { shouldShowTimelineMoodTrend } from './journal-timeline-display';
+import { shouldShowTimelineMoodTrend, shouldShowTimelineTitles } from './journal-timeline-display';
 
 const VIEW_TYPE = 'calendar-sidebar-view';
+
+export async function commitJournalSourceSettings(plugin, save = () => plugin.saveSettings()) {
+  const saved = await save();
+  if (saved === false) return false;
+  await plugin.journalIndex.refresh(plugin.settings);
+  plugin.refreshJournalViews();
+  return true;
+}
 
 export const SETTINGS_SECTION_IDS = [
   'general',
@@ -195,7 +203,7 @@ export class DaylineSettingsTab extends PluginSettingTab {
           .setPlaceholder('Calendar/Daily')
           .onChange(async (value) => {
             this.plugin.settings.dailyFolder = value.replace(/\/+$/, '');
-            if (!(await this._saveSettings())) return;
+            if (!(await commitJournalSourceSettings(this.plugin, () => this._saveSettings()))) return;
             await this._refreshViews({ resetSource: true });
           });
       })
@@ -205,7 +213,7 @@ export class DaylineSettingsTab extends PluginSettingTab {
         .onClick(() => {
           new FolderSuggestModal(this.app, (path) => {
             this.plugin.settings.dailyFolder = path;
-            void this._saveSettings().then((saved) => {
+            void commitJournalSourceSettings(this.plugin, () => this._saveSettings()).then((saved) => {
               if (saved) return this._refreshViews({ resetSource: true });
             }).catch((error) => this._notifyViewRefreshFailure(error));
             this.folderInput.setValue(path);
@@ -237,9 +245,7 @@ export class DaylineSettingsTab extends PluginSettingTab {
             const parsed = JSON.parse(value || '[]');
             if (!Array.isArray(parsed)) throw new Error('Sources must be an array');
             this.plugin.settings.journalSources = parsed;
-            if (!(await this._saveSettings())) return;
-            await this.plugin.journalIndex.refresh(this.plugin.settings);
-            this.plugin.refreshJournalViews();
+            await commitJournalSourceSettings(this.plugin, () => this._saveSettings());
           } catch (_) {
             new Notice(t(this.plugin.settings, 'invalidJournalSources'));
           }
@@ -266,6 +272,17 @@ export class DaylineSettingsTab extends PluginSettingTab {
         .setValue(shouldShowTimelineMoodTrend(this.plugin.settings))
         .onChange(async (value) => {
           this.plugin.settings.showTimelineMoodTrend = value;
+          if (!(await this._saveSettings())) return;
+          this.plugin.refreshJournalViews();
+        }));
+
+    new Setting(containerEl)
+      .setName(t(this.plugin.settings, 'showTimelineTitles'))
+      .setDesc(t(this.plugin.settings, 'showTimelineTitlesDesc'))
+      .addToggle((toggle) => toggle
+        .setValue(shouldShowTimelineTitles(this.plugin.settings))
+        .onChange(async (value) => {
+          this.plugin.settings.showTimelineTitles = value;
           if (!(await this._saveSettings())) return;
           this.plugin.refreshJournalViews();
         }));

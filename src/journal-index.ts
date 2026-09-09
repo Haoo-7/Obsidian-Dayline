@@ -143,6 +143,11 @@ function parseNumber(value: unknown): number | undefined {
   return Number.isFinite(result) ? result : undefined;
 }
 
+function parseCoordinate(value: unknown, minimum: number, maximum: number): number | undefined {
+  const result = parseNumber(value);
+  return result !== undefined && result >= minimum && result <= maximum ? result : undefined;
+}
+
 export function normalizeLocation(frontmatter: Record<string, unknown>): JournalEntry['location'] {
   const raw = readField(frontmatter, 'location');
   const location = typeof raw === 'string'
@@ -152,14 +157,16 @@ export function normalizeLocation(frontmatter: Record<string, unknown>): Journal
           coordinates: raw.filter((item) => typeof item === 'number' || typeof item === 'string') }
       : asRecord(raw);
   const coordinates = readField(frontmatter, 'coordinates') ?? location.coordinates;
-  let latitude = parseNumber(readField(frontmatter, 'latitude') ?? readField(frontmatter, 'lat') ?? location.latitude ?? location.lat);
-  let longitude = parseNumber(readField(frontmatter, 'longitude') ?? readField(frontmatter, 'lng') ?? location.longitude ?? location.lon ?? location.lng);
+  let latitude = parseCoordinate(readField(frontmatter, 'latitude') ?? readField(frontmatter, 'lat') ?? location.latitude ?? location.lat, -90, 90);
+  let longitude = parseCoordinate(readField(frontmatter, 'longitude') ?? readField(frontmatter, 'lng') ?? location.longitude ?? location.lon ?? location.lng, -180, 180);
 
   if ((latitude === undefined || longitude === undefined) && (typeof coordinates === 'string' || Array.isArray(coordinates))) {
-    const values = (Array.isArray(coordinates) ? coordinates : coordinates.split(/[;,\s]+/)).map((value) => parseNumber(value));
-    if (values.length >= 2 && values[0] !== undefined && values[1] !== undefined) {
-      latitude = values[0];
-      longitude = values[1];
+    const values = Array.isArray(coordinates) ? coordinates : coordinates.split(/[;,\s]+/);
+    const parsedLatitude = parseCoordinate(values[0], -90, 90);
+    const parsedLongitude = parseCoordinate(values[1], -180, 180);
+    if (parsedLatitude !== undefined && parsedLongitude !== undefined) {
+      latitude = parsedLatitude;
+      longitude = parsedLongitude;
     }
   }
 
@@ -201,19 +208,21 @@ function moodFromFrontmatter(frontmatter: Record<string, unknown>): MoodRecord |
 
 export class JournalIndex {
   private readonly app: any;
-  private readonly getMood: (path: string) => MoodRecord | undefined;
+  private readonly getMood: (path: string) => MoodRecord | null | undefined;
   private readonly entries = new Map<string, JournalEntry>();
-  private readonly diagnostics: JournalDiagnostic[] = [];
+  private readonly diagnostics = new Map<string, JournalDiagnostic>();
   private readonly listeners = new Set<Listener>();
   private refreshToken = 0;
   private mutationToken = 0;
+  private nextFileRefreshToken = 0;
   private readonly fileRefreshTokens = new Map<string, number>();
+  private sortedEntries: JournalEntry[] | null = null;
   private refreshQueue: Promise<void> = Promise.resolve();
   private initializationPromise: Promise<void> | null = null;
   private initialized = false;
   private currentSources: JournalSource[] = [];
 
-  constructor(app: any, getMood: (path: string) => MoodRecord | undefined = () => undefined) {
+  constructor(app: any, getMood: (path: string) => MoodRecord | null | undefined = () => undefined) {
     this.app = app;
     this.getMood = getMood;
   }
@@ -223,7 +232,7 @@ export class JournalIndex {
   }
 
   getDiagnostics(): JournalDiagnostic[] {
-    return this.diagnostics.slice();
+    return Array.from(this.diagnostics.values());
   }
 
   get isReady(): boolean {
@@ -236,7 +245,12 @@ export class JournalIndex {
   }
 
   getEntries(): JournalEntry[] {
-    return Array.from(this.entries.values()).sort((a, b) => b.date.localeCompare(a.date) || a.path.localeCompare(b.path));
+    if (!this.sortedEntries) {
+      this.sortedEntries = Object.freeze(
+        Array.from(this.entries.values()).sort((a, b) => b.date.localeCompare(a.date) || a.path.localeCompare(b.path)),
+      ) as JournalEntry[];
+    }
+    return this.sortedEntries;
   }
 
   filter(filter: JournalFilter = {}): JournalEntry[] {
@@ -269,8 +283,11 @@ export class JournalIndex {
     const run = async () => {
       const token = ++this.refreshToken;
       const mutationToken = ++this.mutationToken;
-      const completed = await this.rebuild(settings, token, mutationToken);
-      if (completed) this.initialized = true;
+      let completed = await this.rebuild(settings, token, mutationToken);
+      while (!completed) {
+        completed = await this.rebuild(settings, token, this.mutationToken);
+      }
+      this.initialized = true;
     };
     const task = this.refreshQueue.then(run, run);
     this.refreshQueue = task.catch(() => undefined);
@@ -280,20 +297,26 @@ export class JournalIndex {
   async refreshFile(path: string, settings: JournalIndexSettings): Promise<void> {
     const normalizedPath = normalizeVaultPath(path);
     const previous = this.entries.get(normalizedPath);
+    const sources = this.resolveSources(settings);
+    if (!previous && !sourceForPath(normalizedPath, sources)) return;
     ++this.mutationToken;
-    const token = (this.fileRefreshTokens.get(normalizedPath) ?? 0) + 1;
+    const token = ++this.nextFileRefreshToken;
     this.fileRefreshTokens.set(normalizedPath, token);
     const refreshToken = this.refreshToken;
-    const sources = this.resolveSources(settings);
     const file = this.app.vault.getAbstractFileByPath(normalizedPath);
+    const diagnostics = new Map<string, JournalDiagnostic>();
     let entry: JournalEntry | null = null;
     if (file) {
-      entry = await this.readEntry(file, sources);
+      entry = await this.readEntry(file, sources, diagnostics);
     }
     if (refreshToken !== this.refreshToken || this.fileRefreshTokens.get(normalizedPath) !== token) return;
     this.currentSources = sources;
     if (entry) this.entries.set(entry.path, entry);
     else this.entries.delete(normalizedPath);
+    this.sortedEntries = null;
+    this.diagnostics.delete(normalizedPath);
+    const diagnostic = diagnostics.get(normalizedPath);
+    if (diagnostic) this.diagnostics.set(normalizedPath, diagnostic);
     this.fileRefreshTokens.delete(normalizedPath);
     // Ignore Markdown changes outside configured journal sources. They never
     // affect indexed views and should not trigger a calendar/timeline redraw.
@@ -304,8 +327,10 @@ export class JournalIndex {
     const normalizedPath = normalizeVaultPath(path);
     const previous = this.entries.get(normalizedPath);
     ++this.mutationToken;
-    this.fileRefreshTokens.set(normalizedPath, (this.fileRefreshTokens.get(normalizedPath) ?? 0) + 1);
+    this.fileRefreshTokens.set(normalizedPath, ++this.nextFileRefreshToken);
     this.entries.delete(normalizedPath);
+    this.sortedEntries = null;
+    this.diagnostics.delete(normalizedPath);
     if (previous) this.emit({ type: 'file', previous });
   }
 
@@ -313,12 +338,14 @@ export class JournalIndex {
     const oldKey = normalizeVaultPath(oldPath);
     const newKey = normalizeVaultPath(newPath);
     ++this.mutationToken;
-    this.fileRefreshTokens.set(oldKey, (this.fileRefreshTokens.get(oldKey) ?? 0) + 1);
-    this.fileRefreshTokens.set(newKey, (this.fileRefreshTokens.get(newKey) ?? 0) + 1);
+    this.fileRefreshTokens.set(oldKey, ++this.nextFileRefreshToken);
+    this.fileRefreshTokens.set(newKey, ++this.nextFileRefreshToken);
     const previous = this.entries.get(oldKey);
     this.entries.delete(oldKey);
     const entry = previous ? { ...previous, path: newKey } : undefined;
     if (entry) this.entries.set(newKey, entry);
+    this.sortedEntries = null;
+    this.diagnostics.delete(oldKey);
     if (previous) this.emit({ type: 'file', previous, entry });
   }
 
@@ -350,43 +377,60 @@ export class JournalIndex {
 
   resolveSources(settings: JournalIndexSettings): JournalSource[] {
     const configured = Array.isArray(settings.journalSources) ? settings.journalSources : [];
-    if (configured.length > 0) {
-      return configured
-        .map((source, index) => ({
-          ...source,
-          id: source.id || `source-${index + 1}`,
-          path: normalizeVaultPath(source.path),
-          type: String(source.type) === 'journal' ? 'external' : source.type,
-        }))
-        .filter((source) => source.path.length > 0 && source.enabled !== false);
+    const normalized = configured
+      .map((source, index): JournalSource => ({
+        ...source,
+        id: source.id || `source-${index + 1}`,
+        path: normalizeVaultPath(source.path),
+        type: String(source.type) === 'daily' ? 'daily' : 'external',
+      }))
+      .filter((source) => source.path.length > 0 && source.enabled !== false);
+    const explicitDaily = normalized.find((source) => source.type === 'daily');
+    const daily: JournalSource = explicitDaily ?? {
+      ...DEFAULT_JOURNAL_SOURCES[0],
+      path: normalizeVaultPath(settings.dailyFolder || DEFAULT_JOURNAL_SOURCES[0].path),
+    };
+    const seenPaths = new Set([daily.path]);
+    const result = [daily];
+    for (const source of normalized) {
+      if (source.type === 'daily' || seenPaths.has(source.path)) continue;
+      seenPaths.add(source.path);
+      result.push(source);
     }
-    const dailyFolder = normalizeVaultPath(settings.dailyFolder || 'Calendar/Daily');
-    const result = DEFAULT_JOURNAL_SOURCES.map((source) => ({ ...source }));
-    result[0].path = dailyFolder;
     return result;
   }
 
   private async rebuild(settings: JournalIndexSettings, token: number, mutationToken: number): Promise<boolean> {
     const sources = this.resolveSources(settings);
     const next = new Map<string, JournalEntry>();
-    this.diagnostics.length = 0;
+    const diagnostics = new Map<string, JournalDiagnostic>();
     const files = this.app.vault.getMarkdownFiles?.() ?? [];
     for (const file of files) {
       if (token !== this.refreshToken || mutationToken !== this.mutationToken) return false;
       const source = sourceForPath(file.path, sources);
       if (!source) continue;
-      const entry = await this.readEntry(file, sources);
+      const entry = await this.readEntry(file, sources, diagnostics);
       if (entry) next.set(entry.path, entry);
     }
     if (token !== this.refreshToken || mutationToken !== this.mutationToken) return false;
     this.currentSources = sources;
     this.entries.clear();
     for (const [path, entry] of next) this.entries.set(path, entry);
+    // A full snapshot is authoritative for its settings. File reads that
+    // started while it was building must not publish an older source model.
+    this.fileRefreshTokens.clear();
+    this.sortedEntries = null;
+    this.diagnostics.clear();
+    for (const [path, diagnostic] of diagnostics) this.diagnostics.set(path, diagnostic);
     this.emit({ type: 'full' });
     return true;
   }
 
-  private async readEntry(file: any, sources: JournalSource[]): Promise<JournalEntry | null> {
+  private async readEntry(
+    file: any,
+    sources: JournalSource[],
+    diagnostics: Map<string, JournalDiagnostic>,
+  ): Promise<JournalEntry | null> {
     const path = normalizeVaultPath(file.path);
     const source = sourceForPath(path, sources);
     if (!source) return null;
@@ -394,7 +438,7 @@ export class JournalIndex {
     const frontmatter = asRecord(cache?.frontmatter);
     const resolved = resolveJournalDate(file.name, frontmatter, source.dateField);
     if (!resolved.date) {
-      this.diagnostics.push({ path, reason: resolved.reason ?? 'missing-date' });
+      diagnostics.set(path, { path, reason: resolved.reason ?? 'missing-date' });
       return null;
     }
 
@@ -402,7 +446,7 @@ export class JournalIndex {
     try {
       content = await this.app.vault.cachedRead(file);
     } catch (error) {
-      this.diagnostics.push({ path, reason: 'read-failed', detail: String(error) });
+      diagnostics.set(path, { path, reason: 'read-failed', detail: String(error) });
     }
     const embeddedLinks = Array.isArray(cache?.embeds)
       ? cache.embeds.map((embed: any) => String(embed.link ?? '')).filter(Boolean)
@@ -420,7 +464,8 @@ export class JournalIndex {
     const creationDate = firstString(readField(frontmatter, 'creationDate'));
     const modifiedDate = firstString(readField(frontmatter, 'modifiedDate'));
     const weather = asRecord(readField(frontmatter, '_calendar_weather'));
-    const mood = this.getMood(path) ?? moodFromFrontmatter(frontmatter);
+    const storedMood = this.getMood(path);
+    const mood = storedMood === undefined ? moodFromFrontmatter(frontmatter) : storedMood ?? undefined;
     const tags = parseJournalTags(frontmatter, content, Array.isArray(cache?.tags) ? cache.tags : []);
     const title = titleFromContent(file.name, content, frontmatter);
     const excerpt = extractExcerpt(content) ?? '';

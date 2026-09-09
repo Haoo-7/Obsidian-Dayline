@@ -1,5 +1,13 @@
 export type MoodScore = -2 | -1 | 0 | 1 | 2;
 
+export function parseMoodScore(value: unknown): MoodScore | undefined {
+  if (value === -2 || value === -1 || value === 0 || value === 1 || value === 2) return value;
+  if (typeof value !== 'string') return undefined;
+  const normalized = value.trim();
+  if (!['-2', '-1', '0', '1', '2'].includes(normalized)) return undefined;
+  return Number(normalized) as MoodScore;
+}
+
 export const MOOD_LEVELS = [
   { score: -2 as MoodScore, labelKey: 'veryLow', color: '#7652c7' },
   { score: -1 as MoodScore, labelKey: 'low', color: '#4d6fb8' },

@@ -197,8 +197,9 @@ function parsePngExif(arrayBuffer) {
   while (offset <= dv.byteLength - 12) {
     const len = dv.getUint32(offset); // chunk length (big-endian)
     const type = dv.getUint32(offset + 4); // chunk type (4 ASCII chars)
-    if (len > MAX_EXIF_BLOCK_BYTES || offset + 12 + len > dv.byteLength) break;
-    if (type === 0x65495866) { // "eXIf"
+    if (len > dv.byteLength - offset - 12) break;
+    if (type === 0x65584966) { // "eXIf"
+      if (len > MAX_EXIF_BLOCK_BYTES) return null;
       // Chunk data starts at offset + 8, length is `len`
       return _parseExifData(arrayBuffer.slice(offset + 8, offset + 8 + len));
     }
@@ -219,12 +220,10 @@ function parseWebpExif(arrayBuffer) {
   while (offset <= dv.byteLength - 8) {
     const fourCC = dv.getUint32(offset);
     const chunkSize = dv.getUint32(offset + 4, true); // little-endian!
-    if (chunkSize > MAX_EXIF_BLOCK_BYTES || offset + 8 + chunkSize > dv.byteLength) break;
+    if (chunkSize > dv.byteLength - offset - 8) break;
     if (fourCC === 0x45584946) { // "EXIF"
+      if (chunkSize > MAX_EXIF_BLOCK_BYTES) return null;
       return _parseExifData(arrayBuffer.slice(offset + 8, offset + 8 + chunkSize));
-    }
-    if (fourCC === 0x56503820) { // "VP8 " — image data, no more metadata after this
-      break;
     }
     offset += 8 + chunkSize + (chunkSize % 2); // chunks are padded to even
   }
@@ -443,6 +442,7 @@ export class HeicCache {
     /** @type {Map<string, Promise>} */
     this._pending = new Map();
     this._libheifReady = null;
+    this._conversionQueue = Promise.resolve();
   }
 
   _getLibheif() {
@@ -474,7 +474,7 @@ export class HeicCache {
     }
     if (this._pending.has(key)) return this._pending.get(key);
 
-    const promise = this._convert(file);
+    const promise = this._scheduleConversion(file);
     this._pending.set(key, promise);
     try {
       const result = await promise;
@@ -489,8 +489,20 @@ export class HeicCache {
     }
   }
 
+  _scheduleConversion(file) {
+    const operation = this._conversionQueue.then(() => this._convert(file));
+    this._conversionQueue = operation.then(() => undefined, () => undefined);
+    return operation;
+  }
+
   async _convert(file) {
+    let images = [];
     try {
+      const fileSize = Number(file.stat?.size);
+      if (Number.isFinite(fileSize) && fileSize > MAX_HEIC_BYTES) {
+        console.warn('[Dayline] HEIC conversion skipped: file exceeds 100 MiB limit');
+        return null;
+      }
       // Check the factory before reading a potentially large HEIC file. The
       // capability route also disables this path on mobile without a factory.
       if (!this._hasLibheifFactory()) return null;
@@ -501,7 +513,7 @@ export class HeicCache {
       }
       const libheif = await this._getLibheif();
       const decoder = new libheif.HeifDecoder();
-      const images = decoder.decode(new Uint8Array(buf));
+      images = decoder.decode(new Uint8Array(buf)) || [];
       if (!images || !images.length) return null;
       const img = images[0];
 
@@ -551,6 +563,14 @@ export class HeicCache {
     } catch (e) {
       console.warn('[Dayline] HEIC conversion failed:', e.message || e);
       return null;
+    } finally {
+      for (const image of images) {
+        try {
+          image?.free?.();
+        } catch (_) {
+          // A failed native cleanup must not prevent the remaining handles from being released.
+        }
+      }
     }
   }
 

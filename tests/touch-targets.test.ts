@@ -12,6 +12,7 @@ describe('touch targets', () => {
 
   it('keeps one date-open primary surface on coarse calendar cells', () => {
     const coarse = calendarCellTouchRouting(true);
+    const windowsTouch = calendarCellTouchRouting(true, false);
     const desktop = calendarCellTouchRouting(false);
     expect(coarse).toMatchObject({
       primary: 'date-open',
@@ -26,6 +27,14 @@ describe('touch targets', () => {
       secondary: 'in-cell',
       showMoodControl: true,
       showEntryCountControl: true,
+      focusMediaBackground: true,
+    });
+    expect(windowsTouch).toMatchObject({
+      primary: 'date-open',
+      secondary: 'in-cell',
+      showMoodControl: true,
+      showEntryCountControl: true,
+      showMediaInfoControl: true,
       focusMediaBackground: true,
     });
   });

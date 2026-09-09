@@ -195,12 +195,26 @@ export class WeatherService {
     return new Date(this._now()).toISOString();
   }
 
-  _requestKey(dateStr) {
-    return `${dateStr}|${this._configKey()}`;
+  _requestContext() {
+    const source = this.plugin.settings;
+    const settings = {
+      weatherLatitude: source.weatherLatitude,
+      weatherLongitude: source.weatherLongitude,
+      weatherUnits: source.weatherUnits,
+      weatherTimezone: source.weatherTimezone,
+      weatherTtlHours: source.weatherTtlHours,
+      weatherLocationName: source.weatherLocationName,
+      dailyFolder: source.dailyFolder,
+    };
+    return {
+      settings,
+      configKey: weatherConfigKey(settings),
+      today: daylineDate(settings, new Date(this._now())),
+    };
   }
 
-  _runDeduplicated(dateStr, operation) {
-    const requestKey = this._requestKey(dateStr);
+  _runDeduplicated(dateStr, configKey, operation) {
+    const requestKey = `${dateStr}|${configKey}`;
     if (this._inFlight.has(requestKey)) return this._inFlight.get(requestKey);
     const promise = Promise.resolve().then(operation).finally(() => {
       if (this._inFlight.get(requestKey) === promise) this._inFlight.delete(requestKey);
@@ -214,7 +228,8 @@ export class WeatherService {
     const s = this.plugin.settings;
     if (!s.weatherEnabled) return null;
     if (!validateWeatherCoordinates(s.weatherLatitude, s.weatherLongitude)) return null;
-    return this._runDeduplicated(dateStr, () => this._fetchOrUseCached(dateStr, false));
+    const context = this._requestContext();
+    return this._runDeduplicated(dateStr, context.configKey, () => this._fetchOrUseCached(dateStr, false, context));
   }
 
   /** Check whether a frontmatter snapshot or memory cache record needs refresh. */
@@ -233,9 +248,9 @@ export class WeatherService {
     return !!compatibleSnapshot(snapshot, this.plugin.settings);
   }
 
-  _readLegacySnapshots(dateStr, sourcePath) {
+  _readLegacySnapshots(dateStr, sourcePath, settings = this.plugin.settings) {
     const app = this.plugin.app;
-    const candidatePaths = [sourcePath, `${this.plugin.settings.dailyFolder}/${dateStr}.md`]
+    const candidatePaths = [sourcePath, `${settings.dailyFolder}/${dateStr}.md`]
       .filter((path, index, paths) => path && paths.indexOf(path) === index);
     const snapshots = [];
     for (const path of candidatePaths) {
@@ -244,16 +259,16 @@ export class WeatherService {
       const TFile = getObsidianWeatherDeps().TFile;
       if (!(existingFile instanceof TFile)) continue;
       const cache = app.metadataCache?.getFileCache?.(existingFile);
-      const snapshot = compatibleSnapshot(cache?.frontmatter?._calendar_weather, this.plugin.settings);
+      const snapshot = compatibleSnapshot(cache?.frontmatter?._calendar_weather, settings);
       if (snapshot) snapshots.push({ snapshot: normalizeIcon(snapshot), source: 'frontmatter' });
     }
     return snapshots;
   }
 
-  _cachedCandidates(dateStr, sourcePath) {
+  _cachedCandidates(dateStr, sourcePath, settings = this.plugin.settings, configKey = weatherConfigKey(settings)) {
     const candidates = [];
     const cacheEntry = this.plugin.weatherCache?.[dateStr];
-    const cacheSnapshot = compatibleSnapshot(cacheEntry, this.plugin.settings);
+    const cacheSnapshot = compatibleSnapshot(cacheEntry, settings);
     if (cacheSnapshot) {
       // Clean transient flags left by an older build before this record is
       // used as canonical plugin data.
@@ -267,11 +282,11 @@ export class WeatherService {
       candidates.push({ snapshot: normalizeIcon(cacheSnapshot), source: 'weatherCache' });
     }
 
-    candidates.push(...this._readLegacySnapshots(dateStr, sourcePath));
+    candidates.push(...this._readLegacySnapshots(dateStr, sourcePath, settings));
 
     const memoryRecord = this._memoryCache.get(dateStr);
-    if (memoryRecord?.configKey === this._configKey() && memoryRecord.snapshot) {
-      const memorySnapshot = compatibleSnapshot(memoryRecord.snapshot, this.plugin.settings);
+    if (memoryRecord?.configKey === configKey && memoryRecord.snapshot) {
+      const memorySnapshot = compatibleSnapshot(memoryRecord.snapshot, settings);
       if (memorySnapshot) {
         candidates.push({
           snapshot: normalizeIcon(memorySnapshot),
@@ -283,8 +298,8 @@ export class WeatherService {
     return candidates;
   }
 
-  _selectCached(dateStr, sourcePath, ttlHours) {
-    const candidates = this._cachedCandidates(dateStr, sourcePath);
+  _selectCached(dateStr, sourcePath, ttlHours, settings = this.plugin.settings, configKey = weatherConfigKey(settings)) {
+    const candidates = this._cachedCandidates(dateStr, sourcePath, settings, configKey);
     if (candidates.length === 0) return null;
     const fresh = candidates.find((candidate) => !this._shouldFetch(candidate.record || candidate.snapshot, ttlHours));
     return fresh || candidates[0];
@@ -301,19 +316,19 @@ export class WeatherService {
     this.plugin._saveWeatherCache?.();
   }
 
-  async _fetchOrUseCached(dateStr, forceRefresh) {
-    const s = this.plugin.settings;
+  async _fetchOrUseCached(dateStr, forceRefresh, context = this._requestContext()) {
+    const s = context.settings;
     const lat = parseFloat(s.weatherLatitude);
     const lng = parseFloat(s.weatherLongitude);
     const units = s.weatherUnits === 'imperial' ? 'imperial' : 'metric';
     const ttlHours = s.weatherTtlHours || 2;
     const locationName = s.weatherLocationName || '';
     const memoryRecord = this._memoryCache.get(dateStr);
-    const cached = this._selectCached(dateStr, undefined, ttlHours);
+    const cached = this._selectCached(dateStr, undefined, ttlHours, s, context.configKey);
 
     // Preserve the existing short-lived negative cache for dates with no
     // usable snapshot, while force refresh always gets a new attempt.
-    if (!forceRefresh && memoryRecord?.configKey === this._configKey()
+    if (!forceRefresh && memoryRecord?.configKey === context.configKey
       && memoryRecord.snapshot === null && !cached && !this._shouldFetch(memoryRecord, ttlHours)) {
       return null;
     }
@@ -323,17 +338,21 @@ export class WeatherService {
       return cached.snapshot;
     }
 
-    const fetchResult = await this._fetchFromOpenMeteoResult(lat, lng, dateStr, units, locationName);
+    const fetchResult = await this._fetchFromOpenMeteoResult(lat, lng, dateStr, units, locationName, context);
     const weather = fetchResult.snapshot;
     if (!weather) {
       if (cached?.snapshot) return cloneStaleSnapshot(cached.snapshot, fetchResult.offline);
       // Preserve the existing null behavior for dates with no usable cache.
-      this._memoryCache.set(dateStr, { snapshot: null, cachedAt: this._nowIso(), configKey: this._configKey() });
+      if (context.configKey === this._configKey()) {
+        this._memoryCache.set(dateStr, { snapshot: null, cachedAt: this._nowIso(), configKey: context.configKey });
+      }
       return null;
     }
 
-    await this._persistSnapshot(dateStr, weather);
-    this._memoryCache.set(dateStr, { snapshot: weather, cachedAt: this._nowIso(), configKey: this._configKey() });
+    if (context.configKey === this._configKey()) {
+      await this._persistSnapshot(dateStr, weather);
+      this._memoryCache.set(dateStr, { snapshot: weather, cachedAt: this._nowIso(), configKey: context.configKey });
+    }
     return weather;
   }
 
@@ -353,9 +372,9 @@ export class WeatherService {
     return fields.join(',');
   }
 
-  _buildWeatherUrl(lat, lng, dateStr, units) {
-    const timezone = this.plugin.settings.weatherTimezone || 'auto';
-    const today = daylineDate(this.plugin.settings, new Date(this._now()));
+  _buildWeatherUrl(lat, lng, dateStr, units, context = this._requestContext()) {
+    const timezone = context.settings.weatherTimezone || 'auto';
+    const today = context.today;
     const isToday = dateStr === today;
     const isArchive = dateStr < today;
     const params = new URLSearchParams({
@@ -398,7 +417,7 @@ export class WeatherService {
     return dates.indexOf(dateStr);
   }
 
-  _dailySnapshot(daily, idx, lat, lng, dateStr, units, locationName, fetchedAt = this._nowIso()) {
+  _dailySnapshot(daily, idx, lat, lng, dateStr, units, locationName, configKey, fetchedAt = this._nowIso()) {
     if (!daily || idx < 0) return null;
     const code = numberAt(daily.weathercode || daily.weather_code, idx);
     if (typeof code !== 'number') return null;
@@ -426,11 +445,11 @@ export class WeatherService {
       sunrise: stringAt(daily.sunrise, idx),
       sunset: stringAt(daily.sunset, idx),
       units,
-      configKey: this._configKey(),
+      configKey,
     };
   }
 
-  _currentSnapshot(json, lat, lng, dateStr, units, locationName, fetchedAt) {
+  _currentSnapshot(json, lat, lng, dateStr, units, locationName, configKey, fetchedAt) {
     const cur = json?.current;
     const daily = json?.daily;
     if (!cur || typeof cur !== 'object') return null;
@@ -462,13 +481,13 @@ export class WeatherService {
       sunrise: stringAt(daily?.sunrise, idx),
       sunset: stringAt(daily?.sunset, idx),
       units,
-      configKey: this._configKey(),
+      configKey,
     };
   }
 
   /** Call Open-Meteo once per operation, with all retry attempts inside it. */
-  async _fetchFromOpenMeteoResult(lat, lng, dateStr, units, locationName) {
-    const url = this._buildWeatherUrl(lat, lng, dateStr, units);
+  async _fetchFromOpenMeteoResult(lat, lng, dateStr, units, locationName, context = this._requestContext()) {
+    const url = this._buildWeatherUrl(lat, lng, dateStr, units, context);
     let response;
     try {
       response = await this._requestWeather(url);
@@ -480,15 +499,15 @@ export class WeatherService {
     if (!response?.json || typeof response.json !== 'object') return { snapshot: null, offline: false };
     try {
       const fetchedAt = this._nowIso();
-      const today = daylineDate(this.plugin.settings, new Date(this._now()));
+      const today = context.today;
       if (dateStr === today) {
-        const current = this._currentSnapshot(response.json, lat, lng, dateStr, units, locationName, fetchedAt);
+        const current = this._currentSnapshot(response.json, lat, lng, dateStr, units, locationName, context.configKey, fetchedAt);
         if (current) return { snapshot: current, offline: false };
       }
       const daily = response.json.daily;
       const idx = this._dailyIndex(daily, dateStr);
       return {
-        snapshot: this._dailySnapshot(daily, idx, lat, lng, dateStr, units, locationName, fetchedAt),
+        snapshot: this._dailySnapshot(daily, idx, lat, lng, dateStr, units, locationName, context.configKey, fetchedAt),
         offline: false,
       };
     } catch (err) {
@@ -531,7 +550,8 @@ export class WeatherService {
     const s = this.plugin.settings;
     if (!s.weatherEnabled) return null;
     if (!validateWeatherCoordinates(s.weatherLatitude, s.weatherLongitude)) return null;
-    return this._runDeduplicated(dateStr, () => this._fetchOrUseCached(dateStr, true));
+    const context = this._requestContext();
+    return this._runDeduplicated(dateStr, context.configKey, () => this._fetchOrUseCached(dateStr, true, context));
   }
 
   /** Check if a date has a compatible cached snapshot. */

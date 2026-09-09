@@ -1,6 +1,6 @@
 import { normalizeVaultPath } from './date-utils';
 import type { MoodMetadata, MoodRecord } from './types';
-import { MOOD_LABELS } from './mood';
+import { MOOD_LABELS, parseMoodScore } from './mood';
 import { serializeMoodCsv, serializeMoodJson } from './mood-export';
 
 /** Current on-disk mood metadata contract. v1 remains readable and is migrated on load. */
@@ -24,6 +24,13 @@ export interface MoodMigrationResult {
   warnings: string[];
 }
 
+export interface MoodMirrorFailure {
+  path: string;
+  operation: 'write' | 'delete';
+  message: string;
+  failedAt: string;
+}
+
 export interface MoodIntegrityReport {
   valid: boolean;
   invalidRecords: string[];
@@ -34,6 +41,10 @@ export interface MoodIntegrityReport {
 }
 
 type MoodListener = (path: string, record: MoodRecord | undefined) => void;
+type MoodMirrorFailureListener = (failure: MoodMirrorFailure | undefined) => void;
+type StoreContext = { path: string; generation: number };
+type MoodTombstone = { deletedAt: string; [key: string]: unknown };
+type MoodMetadataWithTombstones = MoodMetadata & { tombstones?: Record<string, MoodTombstone> };
 
 const DEFAULT_PATH = 'Calendar/journal-metadata.json';
 const BUILT_IN_LABEL_IDS = new Set(MOOD_LABELS.map((item) => item.id));
@@ -45,7 +56,7 @@ function safeVaultPath(path: string): string {
 }
 
 function emptyMetadata(): MoodMetadata {
-  return { schemaVersion: MOOD_SCHEMA_VERSION, entries: {}, orphans: {}, customLabels: [] };
+  return { schemaVersion: MOOD_SCHEMA_VERSION, entries: {}, orphans: {}, customLabels: [], tombstones: {} };
 }
 
 function isScore(value: unknown): value is MoodRecord['score'] {
@@ -153,12 +164,24 @@ export function migrateMoodMetadata(value: unknown): MoodMigrationResult {
     ...(Array.isArray(raw.customLabels) ? raw.customLabels.map(String) : []),
     ...customLabelsFrom(entries, orphans),
   ]);
+  const tombstones: Record<string, MoodTombstone> = {};
+  const rawTombstones = raw.tombstones && typeof raw.tombstones === 'object' && !Array.isArray(raw.tombstones)
+    ? raw.tombstones as Record<string, unknown>
+    : {};
+  for (const [path, value] of Object.entries(rawTombstones)) {
+    const normalizedPath = normalizeVaultPath(path);
+    if (!normalizedPath || !value || typeof value !== 'object' || Array.isArray(value)) continue;
+    const tombstone = value as Record<string, unknown>;
+    if (typeof tombstone.deletedAt !== 'string' || !tombstone.deletedAt.trim()) continue;
+    tombstones[normalizedPath] = cloneUnknown(tombstone) as MoodTombstone;
+  }
   const metadata: MoodMetadata = {
     ...cloneUnknown(raw),
     schemaVersion: MOOD_SCHEMA_VERSION,
     entries,
     orphans,
     customLabels,
+    tombstones,
   };
   if (fromVersion !== LEGACY_MOOD_SCHEMA_VERSION && fromVersion !== MOOD_SCHEMA_VERSION) {
     warnings.push(`Unknown mood metadata schema ${fromVersion}; normalized as schema ${MOOD_SCHEMA_VERSION}`);
@@ -201,6 +224,16 @@ export function validateMoodMetadata(value: unknown): MoodIntegrityReport {
       if (!normalizeVaultPath(path) || !validMoodRecord(orphan.record) || typeof orphan.orphanedAt !== 'string') invalidOrphans.push(path);
     }
   }
+  if (raw.tombstones !== undefined && (!raw.tombstones || typeof raw.tombstones !== 'object' || Array.isArray(raw.tombstones))) {
+    invalidMetadata.push('tombstones');
+  } else if (raw.tombstones && typeof raw.tombstones === 'object') {
+    for (const [path, value] of Object.entries(raw.tombstones)) {
+      const tombstone = value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
+      if (!normalizeVaultPath(path) || typeof tombstone.deletedAt !== 'string' || !tombstone.deletedAt.trim()) {
+        invalidMetadata.push(`tombstone:${path}`);
+      }
+    }
+  }
   return {
     valid: invalidRecords.length === 0 && invalidOrphans.length === 0 && invalidMetadata.length === 0,
     invalidRecords,
@@ -220,14 +253,54 @@ function parentPath(path: string): string {
   return index > 0 ? path.slice(0, index) : '';
 }
 
+function sameValue(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (!a || !b || typeof a !== 'object' || typeof b !== 'object') return false;
+  if (Array.isArray(a) !== Array.isArray(b)) return false;
+  const left = a as Record<string, unknown>;
+  const right = b as Record<string, unknown>;
+  const keys = Object.keys(left);
+  return keys.length === Object.keys(right).length
+    && keys.every((key) => Object.hasOwn(right, key) && sameValue(left[key], right[key]));
+}
+
+/** Apply local changes to the latest disk snapshot, rejecting overlapping edits. */
+function mergeMetadata(base: MoodMetadata, local: MoodMetadata, remote: MoodMetadata): MoodMetadata {
+  const result = cloneUnknown(remote);
+  const mergeMap = (before: Record<string, unknown>, after: Record<string, unknown>, disk: Record<string, unknown>, label: string) => {
+    const merged = cloneUnknown(disk);
+    for (const key of new Set([...Object.keys(before), ...Object.keys(after)])) {
+      if (sameValue(before[key], after[key])) continue;
+      if (!sameValue(before[key], disk[key])) throw new Error(`Mood metadata conflict: ${label}${key}`);
+      if (Object.hasOwn(after, key)) Object.defineProperty(merged, key, { value: cloneUnknown(after[key]), enumerable: true, configurable: true, writable: true });
+      else delete merged[key];
+    }
+    return merged;
+  };
+  result.entries = mergeMap(base.entries, local.entries, remote.entries, 'entries/') as MoodMetadata['entries'];
+  result.orphans = mergeMap(base.orphans ?? {}, local.orphans ?? {}, remote.orphans ?? {}, 'orphans/') as MoodMetadata['orphans'];
+  (result as MoodMetadataWithTombstones).tombstones = mergeMap(
+    (base as MoodMetadataWithTombstones).tombstones ?? {},
+    (local as MoodMetadataWithTombstones).tombstones ?? {},
+    (remote as MoodMetadataWithTombstones).tombstones ?? {},
+    'tombstones/',
+  ) as Record<string, MoodTombstone>;
+  result.customLabels = normalizeCustomLabels([...(remote.customLabels ?? []), ...(local.customLabels ?? [])]);
+  return result;
+}
+
 export class MoodStore {
   private readonly app: any;
   private readonly listeners = new Set<MoodListener>();
+  private readonly mirrorFailureListeners = new Set<MoodMirrorFailureListener>();
+  private readonly mirrorFailures = new Map<string, MoodMirrorFailure>();
   private data: MoodMetadata = emptyMetadata();
   private path = DEFAULT_PATH;
   private loaded = false;
   private loadError: Error | undefined;
   private recoveredFromBackup = false;
+  private primaryRaw: string | null = null;
+  private generation = 0;
   private writeQueue: Promise<void> = Promise.resolve();
 
   constructor(app: any, settings: MoodStoreSettings = {}) {
@@ -238,9 +311,13 @@ export class MoodStore {
   configure(settings: MoodStoreSettings): void {
     const nextPath = safeVaultPath(settings.moodMetadataPath || DEFAULT_PATH);
     if (nextPath !== this.path) {
+      this.generation++;
+      this.data = emptyMetadata();
+      this.primaryRaw = null;
       this.loaded = false;
       this.loadError = undefined;
       this.recoveredFromBackup = false;
+      this.mirrorFailures.clear();
     }
     this.path = nextPath;
   }
@@ -250,44 +327,68 @@ export class MoodStore {
   }
 
   async load(): Promise<void> {
+    return this.enqueue((context) => this.loadState(context));
+  }
+
+  private async loadState(context: StoreContext): Promise<void> {
+    this.assertContext(context);
     this.loaded = false;
     this.loadError = undefined;
     this.recoveredFromBackup = false;
-    const adapter = this.adapter();
+    let raw: string | null = null;
     try {
-      if (!(await adapter.exists(this.path))) {
-        this.data = emptyMetadata();
-        this.loaded = true;
-        return;
+      raw = await this.readPrimary(context.path);
+      this.assertContext(context);
+      if (raw === null) {
+        const recoveryExists = await this.adapter().exists(`${context.path}.bak`)
+          || await this.adapter().exists(`${context.path}.tmp`);
+        if (recoveryExists) throw new Error('Mood metadata primary file is missing');
       }
-      const parsed = JSON.parse(await adapter.read(this.path));
+      const parsed = raw === null ? emptyMetadata() : JSON.parse(raw);
       const validation = validateMoodMetadata(parsed);
       if (!validation.valid) throw new Error(`Invalid mood metadata: ${formatValidation(validation)}`);
       const migration = migrateMoodMetadata(parsed);
-      this.data = migration.metadata;
-      this.loaded = true;
-      const serialized = JSON.stringify(this.data, null, 2);
-      if (migration.migrated || serialized !== JSON.stringify(parsed, null, 2)) {
-        // Keep the prior primary in .bak while atomically replacing it with the normalized data.
-        await this.writeJsonAtomically(this.path, serialized);
+      const serialized = JSON.stringify(migration.metadata, null, 2);
+      if (raw !== null && (migration.migrated || serialized !== JSON.stringify(parsed, null, 2))) {
+        try {
+          await this.writeJsonAtomically(context.path, serialized, () => this.verifyPrimary(context, raw));
+          raw = serialized;
+        } catch (error) {
+          this.assertContext(context);
+          // A failed normalization write does not make the valid primary corrupt.
+          console.warn('[Dayline] Mood metadata normalization could not be persisted:', error);
+        }
       }
+      this.assertContext(context);
+      this.data = migration.metadata;
+      this.primaryRaw = raw;
+      this.loaded = true;
     } catch (error) {
-      const restored = await this.readBackup();
+      this.assertContext(context);
+      const restored = await this.readRecovery(context.path);
+      this.assertContext(context);
       if (restored) {
         this.data = restored;
         this.loaded = true;
         this.recoveredFromBackup = true;
+        this.primaryRaw = raw;
         try {
           // Repair the primary file while keeping the known-good .bak intact.
-          await this.writeJson(this.path, JSON.stringify(this.data, null, 2));
+          const content = JSON.stringify(restored, null, 2);
+          await this.verifyPrimary(context, raw);
+          await this.writeJson(context.path, content);
+          this.assertContext(context);
+          this.primaryRaw = content;
           this.recoveredFromBackup = false;
         } catch (repairError) {
+          this.assertContext(context);
           console.warn('[Dayline] Mood metadata primary file could not be repaired:', repairError);
         }
         return;
       }
       console.warn('[Dayline] Mood metadata could not be read:', error);
       this.data = emptyMetadata();
+      this.primaryRaw = raw;
       this.loaded = true;
       this.loadError = error instanceof Error ? error : new Error(String(error));
     }
@@ -295,6 +396,13 @@ export class MoodStore {
 
   get(path: string): MoodRecord | undefined {
     return this.data.entries[normalizeVaultPath(path)];
+  }
+
+  getForIndex(path: string): MoodRecord | null | undefined {
+    const key = normalizeVaultPath(path);
+    const record = this.data.entries[key];
+    if (record) return record;
+    return Object.hasOwn((this.data as MoodMetadataWithTombstones).tombstones ?? {}, key) ? null : undefined;
   }
 
   getAll(): Record<string, MoodRecord> {
@@ -316,6 +424,25 @@ export class MoodStore {
   subscribe(listener: MoodListener): () => void {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
+  }
+
+  subscribeMirrorFailures(listener: MoodMirrorFailureListener): () => void {
+    this.mirrorFailureListeners.add(listener);
+    return () => this.mirrorFailureListeners.delete(listener);
+  }
+
+  getMirrorFailure(path: string): MoodMirrorFailure | undefined {
+    const failure = this.mirrorFailures.get(normalizeVaultPath(path));
+    return failure ? { ...failure } : undefined;
+  }
+
+  async retryMirror(path: string): Promise<boolean> {
+    const key = normalizeVaultPath(path);
+    const failure = this.mirrorFailures.get(key);
+    if (!failure) return true;
+    const record = failure.operation === 'write' ? this.data.entries[key] : undefined;
+    if (failure.operation === 'write' && !record) return false;
+    return this.attemptMirror(key, failure.operation, record);
   }
 
   async set(path: string, score: MoodRecord['score'], labels: string[], settingsOrNote: MoodStoreSettings | string | null = {}, note?: string | null): Promise<MoodRecord> {
@@ -340,9 +467,10 @@ export class MoodStore {
       data.entries[normalizedPath] = record;
       data.customLabels = normalizeCustomLabels([...(data.customLabels ?? []), ...record.labels]);
       if (data.orphans) delete data.orphans[normalizedPath];
+      delete (data as MoodMetadataWithTombstones).tombstones?.[normalizedPath];
     });
-    if (settings.mirrorMoodToFrontmatter) await this.mirrorToFrontmatter(normalizedPath, record);
     this.emit(normalizedPath, record);
+    if (settings.mirrorMoodToFrontmatter) await this.attemptMirror(normalizedPath, 'write', record);
     return record;
   }
 
@@ -350,13 +478,16 @@ export class MoodStore {
     const oldKey = normalizeVaultPath(oldPath);
     const newKey = normalizeVaultPath(newPath);
     if (oldKey === newKey) return;
-    const record = this.data.entries[oldKey];
-    const orphan = this.data.orphans?.[oldKey];
-    if (!record && !orphan) return;
     await this.mutate((data) => {
+      if ((data.entries[oldKey] && data.entries[newKey]) || (data.orphans?.[oldKey] && data.orphans?.[newKey])) {
+        throw new Error(`Mood rename target already has a record: ${newKey}`);
+      }
       if (data.entries[oldKey]) {
         data.entries[newKey] = data.entries[oldKey];
         delete data.entries[oldKey];
+        (data as MoodMetadataWithTombstones).tombstones ??= {};
+        (data as MoodMetadataWithTombstones).tombstones![oldKey] = { deletedAt: new Date().toISOString() };
+        delete (data as MoodMetadataWithTombstones).tombstones?.[newKey];
       }
       if (data.orphans?.[oldKey]) {
         data.orphans[newKey] = data.orphans[oldKey];
@@ -368,12 +499,14 @@ export class MoodStore {
 
   async removeToOrphan(path: string): Promise<void> {
     const key = normalizeVaultPath(path);
-    const record = this.data.entries[key];
-    if (!record) return;
     await this.mutate((data) => {
+      const record = data.entries[key];
+      if (!record) return;
       data.orphans ??= {};
       data.orphans[key] = { record, orphanedAt: new Date().toISOString() };
       delete data.entries[key];
+      (data as MoodMetadataWithTombstones).tombstones ??= {};
+      (data as MoodMetadataWithTombstones).tombstones![key] = { deletedAt: new Date().toISOString() };
     });
     this.emit(key, undefined);
   }
@@ -381,22 +514,24 @@ export class MoodStore {
   /** Delete a single mood while retaining it in the recovery list by default. */
   async deleteRecord(path: string, preserveRecovery = true, fallbackRecord?: MoodRecord): Promise<MoodRecord | undefined> {
     const key = normalizeVaultPath(path);
-    if (!this.loaded) await this.load();
-    if (this.loadError) throw this.loadError;
-    const record = this.data.entries[key]
-      || (fallbackRecord && validMoodRecord(fallbackRecord) ? normalizeRecord(cloneUnknown(fallbackRecord)) : undefined);
-    if (!record) return undefined;
+    let record: MoodRecord | undefined;
     await this.mutate((data) => {
+      record = data.entries[key]
+        || (fallbackRecord && validMoodRecord(fallbackRecord) ? normalizeRecord(cloneUnknown(fallbackRecord)) : undefined);
       if (preserveRecovery) {
-        data.orphans ??= {};
-        data.orphans[key] = { record: cloneUnknown(record), orphanedAt: new Date().toISOString() };
+        if (record) {
+          data.orphans ??= {};
+          data.orphans[key] = { record: cloneUnknown(record), orphanedAt: new Date().toISOString() };
+        }
       } else if (data.orphans) {
         delete data.orphans[key];
       }
       delete data.entries[key];
+      (data as MoodMetadataWithTombstones).tombstones ??= {};
+      (data as MoodMetadataWithTombstones).tombstones![key] = { deletedAt: new Date().toISOString() };
     });
-    await this.removeMoodFromFrontmatter(key);
     this.emit(key, undefined);
+    await this.attemptMirror(key, 'delete');
     return record;
   }
 
@@ -410,19 +545,25 @@ export class MoodStore {
 
   async restoreOrphan(orphanKey: string, destinationPath = orphanKey, options: MoodRestoreOptions = {}): Promise<MoodRecord | undefined> {
     const sourceKey = normalizeVaultPath(orphanKey);
-    const source = this.data.orphans?.[sourceKey];
-    if (!source) return undefined;
     const destination = safeVaultPath(destinationPath);
-    const existing = this.data.entries[destination];
-    if (existing && !options.replace) {
-      throw new Error(`Mood restore target already has a record: ${destination}`);
-    }
+    let record: MoodRecord | undefined;
     await this.mutate((data) => {
+      const source = data.orphans?.[sourceKey];
+      if (!source) return;
+      const file = this.app.vault.getAbstractFileByPath(destination);
+      if (!destination.toLowerCase().endsWith('.md') || !file) {
+        throw new Error(`Mood restore target Markdown does not exist: ${destination}`);
+      }
+      if (data.entries[destination] && !options.replace) {
+        throw new Error(`Mood restore target already has a record: ${destination}`);
+      }
+      record = source.record;
       data.entries[destination] = source.record;
       delete data.orphans?.[sourceKey];
+      delete (data as MoodMetadataWithTombstones).tombstones?.[destination];
     });
-    this.emit(destination, source.record);
-    return source.record;
+    if (record) this.emit(destination, record);
+    return record;
   }
 
   async importFrontmatter(filePaths: string[], metadataCache: any): Promise<number> {
@@ -430,11 +571,11 @@ export class MoodStore {
     await this.mutate((data) => {
       for (const rawPath of filePaths) {
         const path = normalizeVaultPath(rawPath);
-        if (data.entries[path]) continue;
+        if (data.entries[path] || Object.hasOwn((data as MoodMetadataWithTombstones).tombstones ?? {}, path)) continue;
         const file = this.app.vault.getAbstractFileByPath(path);
         const frontmatter = metadataCache.getFileCache(file)?.frontmatter ?? {};
-        const score = Number(frontmatter.mood);
-        if (!isScore(score)) continue;
+        const score = parseMoodScore(frontmatter.mood);
+        if (score === undefined) continue;
         const labels = normalizeMoodLabels(Array.isArray(frontmatter.mood_labels)
           ? frontmatter.mood_labels
           : typeof frontmatter.mood_labels === 'string'
@@ -489,21 +630,27 @@ export class MoodStore {
     const validation = validateMoodMetadata(parsed);
     if (!validation.valid) throw new Error(`Invalid mood metadata: ${formatValidation(validation)}`);
     const next = migrateMoodMetadata(parsed).metadata;
-    await this.replaceMetadata(next);
+    await this.enqueue((context) => this.replaceMetadata(next, context));
   }
 
   async restoreBackup(): Promise<{ entries: number; orphans: number }> {
-    const backupPath = `${this.path}.bak`;
-    if (!(await this.adapter().exists(backupPath))) throw new Error(`Backup not found: ${backupPath}`);
-    const parsed = JSON.parse(await this.adapter().read(backupPath));
-    const validation = validateMoodMetadata(parsed);
-    if (!validation.valid) throw new Error(`Invalid mood backup: ${formatValidation(validation)}`);
-    const next = migrateMoodMetadata(parsed).metadata;
-    await this.replaceMetadata(next);
-    return { entries: Object.keys(next.entries).length, orphans: Object.keys(next.orphans ?? {}).length };
+    return this.enqueue(async (context) => {
+      const backupPath = `${context.path}.bak`;
+      if (!(await this.adapter().exists(backupPath))) throw new Error(`Backup not found: ${backupPath}`);
+      const parsed = JSON.parse(await this.adapter().read(backupPath));
+      const validation = validateMoodMetadata(parsed);
+      if (!validation.valid) throw new Error(`Invalid mood backup: ${formatValidation(validation)}`);
+      const next = migrateMoodMetadata(parsed).metadata;
+      await this.replaceMetadata(next, context);
+      return { entries: Object.keys(next.entries).length, orphans: Object.keys(next.orphans ?? {}).length };
+    });
   }
 
   async checkIntegrity(): Promise<MoodIntegrityReport> {
+    return this.enqueue(() => this.checkIntegrityState());
+  }
+
+  private async checkIntegrityState(): Promise<MoodIntegrityReport> {
     const invalidRecords: string[] = [];
     const invalidOrphans: string[] = [];
     const invalidMetadata: string[] = [];
@@ -564,19 +711,61 @@ export class MoodStore {
   }
 
   private async mutate(mutator: (data: MoodMetadata) => void | MoodMetadata): Promise<void> {
-    if (!this.loaded) await this.load();
-    if (this.loadError) throw this.loadError;
-    this.writeQueue = this.writeQueue.catch(() => undefined).then(async () => {
+    return this.enqueue(async (context) => {
+      if (!this.loaded) await this.loadState(context);
+      this.assertContext(context);
+      if (this.loadError) throw this.loadError;
       if (this.recoveredFromBackup) {
-        await this.writeJson(this.path, JSON.stringify(this.data, null, 2));
+        await this.verifyPrimary(context, this.primaryRaw);
+        const content = JSON.stringify(this.data, null, 2);
+        await this.writeJson(context.path, content);
+        this.assertContext(context);
+        this.primaryRaw = content;
         this.recoveredFromBackup = false;
       }
-      const cloned = normalizeMetadata(JSON.parse(JSON.stringify(this.data)));
+      const base = this.data;
+      const cloned = normalizeMetadata(cloneUnknown(base));
       const result = mutator(cloned);
-      this.data = result && typeof result === 'object' && 'entries' in result ? result : cloned;
-      await this.writeJsonAtomically(this.path, JSON.stringify(this.data, null, 2));
+      const local = result && typeof result === 'object' && 'entries' in result ? result : cloned;
+      if (sameValue(base, local)) return;
+      const raw = await this.readPrimary(context.path);
+      this.assertContext(context);
+      if (raw === null && this.primaryRaw !== null) throw new Error('Mood metadata conflict: primary file was removed');
+      const parsed = raw === null ? emptyMetadata() : JSON.parse(raw);
+      const validation = validateMoodMetadata(parsed);
+      if (!validation.valid) throw new Error(`Invalid mood metadata: ${formatValidation(validation)}`);
+      const next = mergeMetadata(base, local, normalizeMetadata(parsed));
+      const content = JSON.stringify(next, null, 2);
+      await this.writeJsonAtomically(context.path, content, () => this.verifyPrimary(context, raw));
+      this.assertContext(context);
+      this.data = next;
+      this.primaryRaw = content;
     });
-    await this.writeQueue;
+  }
+
+  private enqueue<T>(operation: (context: StoreContext) => Promise<T>): Promise<T> {
+    const context = { path: this.path, generation: this.generation };
+    const task = this.writeQueue.then(() => {
+      this.assertContext(context);
+      return operation(context);
+    });
+    this.writeQueue = task.then(() => undefined, () => undefined);
+    return task;
+  }
+
+  private assertContext(context: StoreContext): void {
+    if (context.generation !== this.generation) throw new Error('Mood metadata path changed during operation');
+  }
+
+  private async readPrimary(path: string): Promise<string | null> {
+    return await this.adapter().exists(path) ? this.adapter().read(path) : null;
+  }
+
+  private async verifyPrimary(context: StoreContext, expected: string | null): Promise<void> {
+    this.assertContext(context);
+    const actual = await this.readPrimary(context.path);
+    this.assertContext(context);
+    if (actual !== expected) throw new Error('Mood metadata conflict: file changed during operation');
   }
 
   private async mirrorToFrontmatter(path: string, record: MoodRecord): Promise<void> {
@@ -600,15 +789,36 @@ export class MoodStore {
     });
   }
 
-  private async readBackup(): Promise<MoodMetadata | undefined> {
+  private async attemptMirror(path: string, operation: MoodMirrorFailure['operation'], record?: MoodRecord): Promise<boolean> {
     try {
-      const backup = `${this.path}.bak`;
-      if (!(await this.adapter().exists(backup))) return undefined;
-      const parsed = JSON.parse(await this.adapter().read(backup));
-      if (!validateMoodMetadata(parsed).valid) return undefined;
-      return migrateMoodMetadata(parsed).metadata;
-    } catch (_) {
-      return undefined;
+      if (operation === 'write' && record) await this.mirrorToFrontmatter(path, record);
+      else if (operation === 'delete') await this.removeMoodFromFrontmatter(path);
+      if (this.mirrorFailures.delete(path)) this.emitMirrorFailure(undefined);
+      return true;
+    } catch (error) {
+      const failure: MoodMirrorFailure = {
+        path,
+        operation,
+        message: error instanceof Error ? error.message : String(error),
+        failedAt: new Date().toISOString(),
+      };
+      this.mirrorFailures.set(path, failure);
+      console.warn(`[Dayline] Mood frontmatter mirror ${operation} failed for ${path}:`, error);
+      this.emitMirrorFailure(failure);
+      return false;
+    }
+  }
+
+  private async readRecovery(path: string): Promise<MoodMetadata | undefined> {
+    for (const suffix of ['.bak', '.tmp']) {
+      try {
+        const candidate = `${path}${suffix}`;
+        if (!(await this.adapter().exists(candidate))) continue;
+        const parsed = JSON.parse(await this.adapter().read(candidate));
+        if (validateMoodMetadata(parsed).valid) return migrateMoodMetadata(parsed).metadata;
+      } catch (_) {
+        // Try the next recovery candidate without discarding either file.
+      }
     }
     return undefined;
   }
@@ -622,21 +832,24 @@ export class MoodStore {
     await this.adapter().write(path, content);
   }
 
-  private async writeJsonAtomically(path: string, content: string): Promise<void> {
+  private async writeJsonAtomically(path: string, content: string, beforeCommit?: () => Promise<void>): Promise<void> {
     await this.ensureParent(path);
     const temp = `${path}.tmp`;
     const backup = `${path}.bak`;
     const adapter = this.adapter();
-    await adapter.write(temp, content);
+    let movedPrimary = false;
     try {
+      await adapter.write(temp, content);
+      await beforeCommit?.();
       if (await adapter.exists(path)) {
         if (await adapter.exists(backup)) await adapter.remove(backup);
         await adapter.rename(path, backup);
+        movedPrimary = true;
       }
       await adapter.rename(temp, path);
     } catch (error) {
       try {
-        if (!(await adapter.exists(path)) && await adapter.exists(backup)) await adapter.rename(backup, path);
+        if (movedPrimary && !(await adapter.exists(path)) && await adapter.exists(backup)) await adapter.rename(backup, path);
       } catch (_) {
         // Preserve the original error while leaving the backup for recovery.
       }
@@ -649,11 +862,15 @@ export class MoodStore {
     }
   }
 
-  private async replaceMetadata(next: MoodMetadata): Promise<void> {
+  private async replaceMetadata(next: MoodMetadata, context: StoreContext): Promise<void> {
     // Explicit restore keeps the existing .bak as a recovery point.
-    await this.flush();
-    await this.writeJson(this.path, JSON.stringify(next, null, 2));
+    const raw = await this.readPrimary(context.path);
+    await this.verifyPrimary(context, raw);
+    const content = JSON.stringify(next, null, 2);
+    await this.writeJson(context.path, content);
+    this.assertContext(context);
     this.data = next;
+    this.primaryRaw = content;
     this.loaded = true;
     this.loadError = undefined;
     this.recoveredFromBackup = false;
@@ -669,6 +886,16 @@ export class MoodStore {
 
   private emit(path: string, record: MoodRecord | undefined): void {
     for (const listener of this.listeners) listener(path, record);
+  }
+
+  private emitMirrorFailure(failure: MoodMirrorFailure | undefined): void {
+    for (const listener of this.mirrorFailureListeners) {
+      try {
+        listener(failure);
+      } catch (error) {
+        console.warn('[Dayline] Mood mirror failure listener failed:', error);
+      }
+    }
   }
 }
 

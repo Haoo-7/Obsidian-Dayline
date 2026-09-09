@@ -21,6 +21,18 @@ describe('weather cache', () => {
     expect(migrateCompatibleSnapshot({ ...snapshot, latitude: 1 }, settings)).toBeNull();
   });
 
+  it('rejects snapshots with an explicit config key from another timezone or API generation', () => {
+    const snapshot = {
+      latitude: 39.9042,
+      longitude: 116.4074,
+      units: 'metric' as const,
+      configKey: weatherConfigKey({ ...settings, weatherTimezone: 'Asia/Shanghai' }),
+    };
+
+    expect(migrateCompatibleSnapshot(snapshot, { ...settings, weatherTimezone: 'America/New_York' })).toBeNull();
+    expect(migrateCompatibleSnapshot({ ...snapshot, configKey: 'open-meteo-v0' }, settings)).toBeNull();
+  });
+
   it('treats invalid and expired timestamps as stale', () => {
     expect(isSnapshotStale({ fetchedAt: 'invalid' }, 2)).toBe(true);
     expect(isSnapshotStale({ fetchedAt: '2026-07-18T00:00:00.000Z' }, 2, Date.parse('2026-07-18T01:00:00.000Z'))).toBe(false);

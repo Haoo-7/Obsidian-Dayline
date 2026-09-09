@@ -15,6 +15,65 @@ function jpegWithTiff(tiff: Uint8Array): ArrayBuffer {
   return result.buffer;
 }
 
+function cameraTiff(): Uint8Array {
+  const tiff = new Uint8Array(30);
+  const view = new DataView(tiff.buffer);
+  view.setUint16(0, 0x4949, false);
+  view.setUint16(2, 42, true);
+  view.setUint32(4, 8, true);
+  view.setUint16(8, 1, true);
+  view.setUint16(10, 0x010f, true);
+  view.setUint16(12, 2, true);
+  view.setUint32(14, 4, true);
+  tiff.set([0x43, 0x41, 0x4d, 0x00], 18);
+  return tiff;
+}
+
+function webpChunk(type: string, data: Uint8Array): Uint8Array {
+  const paddedLength = data.byteLength + (data.byteLength % 2);
+  const chunk = new Uint8Array(8 + paddedLength);
+  const view = new DataView(chunk.buffer);
+  for (let index = 0; index < 4; index++) chunk[index] = type.charCodeAt(index);
+  view.setUint32(4, data.byteLength, true);
+  chunk.set(data, 8);
+  return chunk;
+}
+
+function webpWithChunks(...chunks: Uint8Array[]): ArrayBuffer {
+  const byteLength = 12 + chunks.reduce((total, chunk) => total + chunk.byteLength, 0);
+  const bytes = new Uint8Array(byteLength);
+  bytes.set([0x52, 0x49, 0x46, 0x46], 0);
+  new DataView(bytes.buffer).setUint32(4, byteLength - 8, true);
+  bytes.set([0x57, 0x45, 0x42, 0x50], 8);
+  let offset = 12;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return bytes.buffer;
+}
+
+function pngChunk(type: string, data: Uint8Array): Uint8Array {
+  const chunk = new Uint8Array(12 + data.byteLength);
+  const view = new DataView(chunk.buffer);
+  view.setUint32(0, data.byteLength, false);
+  for (let index = 0; index < 4; index++) chunk[4 + index] = type.charCodeAt(index);
+  chunk.set(data, 8);
+  return chunk;
+}
+
+function pngWithChunks(...chunks: Uint8Array[]): ArrayBuffer {
+  const byteLength = 8 + chunks.reduce((total, chunk) => total + chunk.byteLength, 0);
+  const bytes = new Uint8Array(byteLength);
+  bytes.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  let offset = 8;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return bytes.buffer;
+}
+
 describe('image metadata parser hardening', () => {
   it('rejects truncated JPEG segments without throwing', () => {
     const bytes = new Uint8Array([
@@ -39,6 +98,20 @@ describe('image metadata parser hardening', () => {
     expect(() => parseImageExif(webp.buffer)).not.toThrow();
     expect(parseImageExif(png.buffer)).toBeNull();
     expect(parseImageExif(webp.buffer)).toBeNull();
+  });
+
+  it('finds WebP EXIF after image data and after an image chunk larger than the metadata limit', () => {
+    const exif = webpChunk('EXIF', cameraTiff());
+    expect(parseImageExif(webpWithChunks(webpChunk('VP8 ', new Uint8Array(1)), exif))).toMatchObject({ make: 'CAM' });
+    expect(parseImageExif(webpWithChunks(webpChunk('VP8 ', new Uint8Array(8 * 1024 * 1024 + 1)), exif)))
+      .toMatchObject({ make: 'CAM' });
+  });
+
+  it('finds PNG EXIF after an image chunk larger than the metadata limit', () => {
+    const exif = pngChunk('eXIf', cameraTiff());
+    expect(parseImageExif(pngWithChunks(exif))).toMatchObject({ make: 'CAM' });
+    expect(parseImageExif(pngWithChunks(pngChunk('IDAT', new Uint8Array(8 * 1024 * 1024 + 1)), exif)))
+      .toMatchObject({ make: 'CAM' });
   });
 
   it('bounds malicious TIFF count and offset values', () => {

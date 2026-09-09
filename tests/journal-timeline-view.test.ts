@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { feelingLabel } from '../src/i18n';
 import { shouldOpenTimelineEntryFromKey } from '../src/journal-timeline-interaction';
-import { shouldShowTimelineMoodTrend } from '../src/journal-timeline-display';
+import { shouldShowTimelineMoodTrend, shouldShowTimelineTitles } from '../src/journal-timeline-display';
 
 describe('timeline interaction boundaries', () => {
   it('does not open an entry from Enter or Space inside interactive descendants', () => {
@@ -29,5 +29,11 @@ describe('timeline mood trend display', () => {
 
   it('hides the mood trend area when the setting is disabled', () => {
     expect(shouldShowTimelineMoodTrend({ showTimelineMoodTrend: false })).toBe(false);
+  });
+
+  it('shows timeline titles by default and respects the setting', () => {
+    expect(shouldShowTimelineTitles({})).toBe(true);
+    expect(shouldShowTimelineTitles({ showTimelineTitles: true })).toBe(true);
+    expect(shouldShowTimelineTitles({ showTimelineTitles: false })).toBe(false);
   });
 });

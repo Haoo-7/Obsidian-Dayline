@@ -86,9 +86,11 @@ export class MoodPickerModal extends Modal {
       cls: 'mod-cta journal-mood-continue',
       attr: { type: 'button' },
     });
-    next.disabled = this.score === null;
+    // Neutral is a valid default, so the user can continue immediately.
+    next.disabled = false;
     next.addEventListener('click', () => {
-      if (this.score !== null) this.renderLabels();
+      if (this.score === null) this.selectScore(0);
+      this.renderLabels();
     });
     this.fluidControl = new FluidMoodControl(controlHost, {
       initialScore: this.score,
@@ -98,7 +100,6 @@ export class MoodPickerModal extends Modal {
       onPreview: (_value, color) => this.setActiveColor(color),
       onCommit: (score) => {
         this.selectScore(score);
-        this.setActiveColor(getMoodColor(score));
         next.disabled = false;
       },
       onActivate: () => {
@@ -311,26 +312,29 @@ export class MoodRecoveryModal extends Modal {
       restore.addEventListener('click', async () => {
         restore.disabled = true;
         try {
-          await this.store.restoreOrphan(path, destination.value || path);
-        } catch (error) {
-          const message = String(error?.message || error);
-          const canReplace = /already has a record/i.test(message);
-          const confirmed = canReplace && (typeof window === 'undefined' || window.confirm(t(this.settings, 'moodRestoreConflict')));
-          if (!confirmed) {
-            new Notice(message);
-            restore.disabled = false;
-            return;
+          try {
+            await this.store.restoreOrphan(path, destination.value || path);
+          } catch (error) {
+            const message = String(error?.message || error);
+            const canReplace = /already has a record/i.test(message);
+            const confirmed = canReplace && (typeof window === 'undefined' || window.confirm(t(this.settings, 'moodRestoreConflict')));
+            if (!confirmed) throw error;
+            await this.store.restoreOrphan(path, destination.value || path, { replace: true });
           }
-          await this.store.restoreOrphan(path, destination.value || path, { replace: true });
-        }
-        try {
-          await this.onChanged?.();
+          try {
+            await this.onChanged?.();
+          } catch (error) {
+            const message = String(error?.message || error);
+            console.warn('[Dayline] Mood recovery refresh failed:', message);
+            new Notice(t(this.settings, 'viewRefreshFailed', { error: message }));
+          }
+          this.render();
         } catch (error) {
           const message = String(error?.message || error);
-          console.warn('[Dayline] Mood recovery refresh failed:', message);
-          new Notice(t(this.settings, 'viewRefreshFailed', { error: message }));
+          new Notice(message);
+        } finally {
+          restore.disabled = false;
         }
-        this.render();
       });
     }
   }

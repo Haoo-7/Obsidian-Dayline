@@ -55,6 +55,7 @@ function renderExcerptTemplate(
 export class OnThisDayProvider {
   private readonly plugin: any;
   private dateIndex: Set<string> | null = null;
+  private dateIndexYear: number | null = null;
   private readonly entryCache = new Map<string, any[]>();
 
   constructor(plugin: any) {
@@ -67,14 +68,16 @@ export class OnThisDayProvider {
 
   /** Build a set of all MM-DD values that have indexed journal entries. */
   async ensureDateIndex(): Promise<void> {
-    if (this.dateIndex) return;
     const thisYear = this.currentYear();
+    if (this.dateIndex && this.dateIndexYear === thisYear) return;
+    if (this.dateIndexYear !== null && this.dateIndexYear !== thisYear) this.entryCache.clear();
     const index = new Set<string>();
     for (const entry of this.plugin.journalIndex?.getEntries?.() || []) {
       const year = Number(entry.date.slice(0, 4));
       if (Number.isFinite(year) && year < thisYear) index.add(entry.date.slice(5));
     }
     this.dateIndex = index;
+    this.dateIndexYear = thisYear;
   }
 
   /** Quick check: does any year have a diary for this MM-DD? */
@@ -133,6 +136,7 @@ export class OnThisDayProvider {
     }
     this.entryCache.clear();
     this.dateIndex = null;
+    this.dateIndexYear = null;
   }
 
   /** Refresh one MM-DD marker without rebuilding the complete date index. */

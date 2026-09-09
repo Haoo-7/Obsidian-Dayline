@@ -31,8 +31,11 @@ export function isCalendarTapGesture(
   return Math.hypot(values[2] - values[0], values[3] - values[1]) <= values[4];
 }
 
-export function calendarCellTouchRouting(coarsePointer: boolean): CalendarCellTouchRouting {
-  if (coarsePointer) {
+export function calendarCellTouchRouting(coarsePointer: boolean, isMobile = coarsePointer): CalendarCellTouchRouting {
+  // Phone layouts keep one large date surface so scrolling never competes with
+  // nested controls. Touch-capable desktop hosts (notably Windows) still need
+  // the calendar mood affordance exposed in each cell.
+  if (coarsePointer && isMobile) {
     return {
       primary: 'date-open',
       secondary: 'external-surface',
@@ -40,6 +43,16 @@ export function calendarCellTouchRouting(coarsePointer: boolean): CalendarCellTo
       showEntryCountControl: false,
       showMediaInfoControl: false,
       focusMediaBackground: false,
+    };
+  }
+  if (coarsePointer) {
+    return {
+      primary: 'date-open',
+      secondary: 'in-cell',
+      showMoodControl: true,
+      showEntryCountControl: true,
+      showMediaInfoControl: true,
+      focusMediaBackground: true,
     };
   }
   return {

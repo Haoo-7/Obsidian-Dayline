@@ -588,6 +588,10 @@ function parseNumber(value) {
   const result = typeof value === "number" ? value : Number.parseFloat(String(value ?? ""));
   return Number.isFinite(result) ? result : void 0;
 }
+function parseCoordinate(value, minimum, maximum) {
+  const result = parseNumber(value);
+  return result !== void 0 && result >= minimum && result <= maximum ? result : void 0;
+}
 function normalizeLocation(frontmatter) {
   const raw = readField(frontmatter, "location");
   const location = typeof raw === "string" ? { name: raw.trim() } : Array.isArray(raw) ? {
@@ -595,13 +599,15 @@ function normalizeLocation(frontmatter) {
     coordinates: raw.filter((item) => typeof item === "number" || typeof item === "string")
   } : asRecord(raw);
   const coordinates = readField(frontmatter, "coordinates") ?? location.coordinates;
-  let latitude = parseNumber(readField(frontmatter, "latitude") ?? readField(frontmatter, "lat") ?? location.latitude ?? location.lat);
-  let longitude = parseNumber(readField(frontmatter, "longitude") ?? readField(frontmatter, "lng") ?? location.longitude ?? location.lon ?? location.lng);
+  let latitude = parseCoordinate(readField(frontmatter, "latitude") ?? readField(frontmatter, "lat") ?? location.latitude ?? location.lat, -90, 90);
+  let longitude = parseCoordinate(readField(frontmatter, "longitude") ?? readField(frontmatter, "lng") ?? location.longitude ?? location.lon ?? location.lng, -180, 180);
   if ((latitude === void 0 || longitude === void 0) && (typeof coordinates === "string" || Array.isArray(coordinates))) {
-    const values = (Array.isArray(coordinates) ? coordinates : coordinates.split(/[;,\s]+/)).map((value) => parseNumber(value));
-    if (values.length >= 2 && values[0] !== void 0 && values[1] !== void 0) {
-      latitude = values[0];
-      longitude = values[1];
+    const values = Array.isArray(coordinates) ? coordinates : coordinates.split(/[;,\s]+/);
+    const parsedLatitude = parseCoordinate(values[0], -90, 90);
+    const parsedLongitude = parseCoordinate(values[1], -180, 180);
+    if (parsedLatitude !== void 0 && parsedLongitude !== void 0) {
+      latitude = parsedLatitude;
+      longitude = parsedLongitude;
     }
   }
   const name = firstString(location.name ?? location.label ?? location.city ?? location.place ?? raw);
@@ -649,11 +655,13 @@ var init_journal_index = __esm({
         __publicField(this, "app");
         __publicField(this, "getMood");
         __publicField(this, "entries", /* @__PURE__ */ new Map());
-        __publicField(this, "diagnostics", []);
+        __publicField(this, "diagnostics", /* @__PURE__ */ new Map());
         __publicField(this, "listeners", /* @__PURE__ */ new Set());
         __publicField(this, "refreshToken", 0);
         __publicField(this, "mutationToken", 0);
+        __publicField(this, "nextFileRefreshToken", 0);
         __publicField(this, "fileRefreshTokens", /* @__PURE__ */ new Map());
+        __publicField(this, "sortedEntries", null);
         __publicField(this, "refreshQueue", Promise.resolve());
         __publicField(this, "initializationPromise", null);
         __publicField(this, "initialized", false);
@@ -665,7 +673,7 @@ var init_journal_index = __esm({
         return this.currentSources.slice();
       }
       getDiagnostics() {
-        return this.diagnostics.slice();
+        return Array.from(this.diagnostics.values());
       }
       get isReady() {
         return this.initialized;
@@ -675,7 +683,12 @@ var init_journal_index = __esm({
         return () => this.listeners.delete(listener);
       }
       getEntries() {
-        return Array.from(this.entries.values()).sort((a, b) => b.date.localeCompare(a.date) || a.path.localeCompare(b.path));
+        if (!this.sortedEntries) {
+          this.sortedEntries = Object.freeze(
+            Array.from(this.entries.values()).sort((a, b) => b.date.localeCompare(a.date) || a.path.localeCompare(b.path))
+          );
+        }
+        return this.sortedEntries;
       }
       filter(filter = {}) {
         return filterJournalEntries(this.getEntries(), filter);
@@ -702,8 +715,11 @@ var init_journal_index = __esm({
         const run = async () => {
           const token = ++this.refreshToken;
           const mutationToken = ++this.mutationToken;
-          const completed = await this.rebuild(settings, token, mutationToken);
-          if (completed) this.initialized = true;
+          let completed = await this.rebuild(settings, token, mutationToken);
+          while (!completed) {
+            completed = await this.rebuild(settings, token, this.mutationToken);
+          }
+          this.initialized = true;
         };
         const task = this.refreshQueue.then(run, run);
         this.refreshQueue = task.catch(() => void 0);
@@ -712,20 +728,26 @@ var init_journal_index = __esm({
       async refreshFile(path, settings) {
         const normalizedPath2 = normalizeVaultPath(path);
         const previous = this.entries.get(normalizedPath2);
+        const sources = this.resolveSources(settings);
+        if (!previous && !sourceForPath(normalizedPath2, sources)) return;
         ++this.mutationToken;
-        const token = (this.fileRefreshTokens.get(normalizedPath2) ?? 0) + 1;
+        const token = ++this.nextFileRefreshToken;
         this.fileRefreshTokens.set(normalizedPath2, token);
         const refreshToken = this.refreshToken;
-        const sources = this.resolveSources(settings);
         const file = this.app.vault.getAbstractFileByPath(normalizedPath2);
+        const diagnostics = /* @__PURE__ */ new Map();
         let entry = null;
         if (file) {
-          entry = await this.readEntry(file, sources);
+          entry = await this.readEntry(file, sources, diagnostics);
         }
         if (refreshToken !== this.refreshToken || this.fileRefreshTokens.get(normalizedPath2) !== token) return;
         this.currentSources = sources;
         if (entry) this.entries.set(entry.path, entry);
         else this.entries.delete(normalizedPath2);
+        this.sortedEntries = null;
+        this.diagnostics.delete(normalizedPath2);
+        const diagnostic = diagnostics.get(normalizedPath2);
+        if (diagnostic) this.diagnostics.set(normalizedPath2, diagnostic);
         this.fileRefreshTokens.delete(normalizedPath2);
         if (entry || previous) this.emit({ type: "file", previous, entry: entry || void 0 });
       }
@@ -733,20 +755,24 @@ var init_journal_index = __esm({
         const normalizedPath2 = normalizeVaultPath(path);
         const previous = this.entries.get(normalizedPath2);
         ++this.mutationToken;
-        this.fileRefreshTokens.set(normalizedPath2, (this.fileRefreshTokens.get(normalizedPath2) ?? 0) + 1);
+        this.fileRefreshTokens.set(normalizedPath2, ++this.nextFileRefreshToken);
         this.entries.delete(normalizedPath2);
+        this.sortedEntries = null;
+        this.diagnostics.delete(normalizedPath2);
         if (previous) this.emit({ type: "file", previous });
       }
       renameFile(oldPath, newPath) {
         const oldKey = normalizeVaultPath(oldPath);
         const newKey = normalizeVaultPath(newPath);
         ++this.mutationToken;
-        this.fileRefreshTokens.set(oldKey, (this.fileRefreshTokens.get(oldKey) ?? 0) + 1);
-        this.fileRefreshTokens.set(newKey, (this.fileRefreshTokens.get(newKey) ?? 0) + 1);
+        this.fileRefreshTokens.set(oldKey, ++this.nextFileRefreshToken);
+        this.fileRefreshTokens.set(newKey, ++this.nextFileRefreshToken);
         const previous = this.entries.get(oldKey);
         this.entries.delete(oldKey);
         const entry = previous ? { ...previous, path: newKey } : void 0;
         if (entry) this.entries.set(newKey, entry);
+        this.sortedEntries = null;
+        this.diagnostics.delete(oldKey);
         if (previous) this.emit({ type: "file", previous, entry });
       }
       async detectSources(settings) {
@@ -768,39 +794,50 @@ var init_journal_index = __esm({
       }
       resolveSources(settings) {
         const configured = Array.isArray(settings.journalSources) ? settings.journalSources : [];
-        if (configured.length > 0) {
-          return configured.map((source, index) => ({
-            ...source,
-            id: source.id || `source-${index + 1}`,
-            path: normalizeVaultPath(source.path),
-            type: String(source.type) === "journal" ? "external" : source.type
-          })).filter((source) => source.path.length > 0 && source.enabled !== false);
+        const normalized = configured.map((source, index) => ({
+          ...source,
+          id: source.id || `source-${index + 1}`,
+          path: normalizeVaultPath(source.path),
+          type: String(source.type) === "daily" ? "daily" : "external"
+        })).filter((source) => source.path.length > 0 && source.enabled !== false);
+        const explicitDaily = normalized.find((source) => source.type === "daily");
+        const daily = explicitDaily ?? {
+          ...DEFAULT_JOURNAL_SOURCES[0],
+          path: normalizeVaultPath(settings.dailyFolder || DEFAULT_JOURNAL_SOURCES[0].path)
+        };
+        const seenPaths = /* @__PURE__ */ new Set([daily.path]);
+        const result = [daily];
+        for (const source of normalized) {
+          if (source.type === "daily" || seenPaths.has(source.path)) continue;
+          seenPaths.add(source.path);
+          result.push(source);
         }
-        const dailyFolder = normalizeVaultPath(settings.dailyFolder || "Calendar/Daily");
-        const result = DEFAULT_JOURNAL_SOURCES.map((source) => ({ ...source }));
-        result[0].path = dailyFolder;
         return result;
       }
       async rebuild(settings, token, mutationToken) {
         const sources = this.resolveSources(settings);
         const next = /* @__PURE__ */ new Map();
-        this.diagnostics.length = 0;
+        const diagnostics = /* @__PURE__ */ new Map();
         const files = this.app.vault.getMarkdownFiles?.() ?? [];
         for (const file of files) {
           if (token !== this.refreshToken || mutationToken !== this.mutationToken) return false;
           const source = sourceForPath(file.path, sources);
           if (!source) continue;
-          const entry = await this.readEntry(file, sources);
+          const entry = await this.readEntry(file, sources, diagnostics);
           if (entry) next.set(entry.path, entry);
         }
         if (token !== this.refreshToken || mutationToken !== this.mutationToken) return false;
         this.currentSources = sources;
         this.entries.clear();
         for (const [path, entry] of next) this.entries.set(path, entry);
+        this.fileRefreshTokens.clear();
+        this.sortedEntries = null;
+        this.diagnostics.clear();
+        for (const [path, diagnostic] of diagnostics) this.diagnostics.set(path, diagnostic);
         this.emit({ type: "full" });
         return true;
       }
-      async readEntry(file, sources) {
+      async readEntry(file, sources, diagnostics) {
         const path = normalizeVaultPath(file.path);
         const source = sourceForPath(path, sources);
         if (!source) return null;
@@ -808,14 +845,14 @@ var init_journal_index = __esm({
         const frontmatter = asRecord(cache?.frontmatter);
         const resolved = resolveJournalDate(file.name, frontmatter, source.dateField);
         if (!resolved.date) {
-          this.diagnostics.push({ path, reason: resolved.reason ?? "missing-date" });
+          diagnostics.set(path, { path, reason: resolved.reason ?? "missing-date" });
           return null;
         }
         let content = "";
         try {
           content = await this.app.vault.cachedRead(file);
         } catch (error) {
-          this.diagnostics.push({ path, reason: "read-failed", detail: String(error) });
+          diagnostics.set(path, { path, reason: "read-failed", detail: String(error) });
         }
         const embeddedLinks = Array.isArray(cache?.embeds) ? cache.embeds.map((embed) => String(embed.link ?? "")).filter(Boolean) : [];
         const attachments = dedupeMediaLinks([
@@ -829,7 +866,8 @@ var init_journal_index = __esm({
         const creationDate = firstString(readField(frontmatter, "creationDate"));
         const modifiedDate = firstString(readField(frontmatter, "modifiedDate"));
         const weather = asRecord(readField(frontmatter, "_calendar_weather"));
-        const mood = this.getMood(path) ?? moodFromFrontmatter(frontmatter);
+        const storedMood = this.getMood(path);
+        const mood = storedMood === void 0 ? moodFromFrontmatter(frontmatter) : storedMood ?? void 0;
         const tags = parseJournalTags(frontmatter, content, Array.isArray(cache?.tags) ? cache.tags : []);
         const title = titleFromContent(file.name, content, frontmatter);
         const excerpt = extractExcerpt(content) ?? "";
@@ -922,8 +960,16 @@ __export(mood_exports, {
   filterMoodLabelsForScore: () => filterMoodLabelsForScore,
   getMoodColor: () => getMoodColor,
   moodLabelsForScore: () => moodLabelsForScore,
-  moveMoodScore: () => moveMoodScore
+  moveMoodScore: () => moveMoodScore,
+  parseMoodScore: () => parseMoodScore
 });
+function parseMoodScore(value) {
+  if (value === -2 || value === -1 || value === 0 || value === 1 || value === 2) return value;
+  if (typeof value !== "string") return void 0;
+  const normalized = value.trim();
+  if (!["-2", "-1", "0", "1", "2"].includes(normalized)) return void 0;
+  return Number(normalized);
+}
 function moodLabelsForScore(score) {
   const ids = score === null ? MOOD_LABELS.map((label) => label.id) : MOOD_LABEL_GROUPS[score];
   return ids.map((id) => MOOD_LABELS.find((label) => label.id === id)).filter((label) => Boolean(label));
@@ -1156,7 +1202,7 @@ function safeVaultPath(path) {
   return normalized.split("/").filter((part) => part && part !== "." && part !== "..").join("/") || DEFAULT_PATH;
 }
 function emptyMetadata() {
-  return { schemaVersion: MOOD_SCHEMA_VERSION, entries: {}, orphans: {}, customLabels: [] };
+  return { schemaVersion: MOOD_SCHEMA_VERSION, entries: {}, orphans: {}, customLabels: [], tombstones: {} };
 }
 function isScore(value) {
   return value === -2 || value === -1 || value === 0 || value === 1 || value === 2;
@@ -1236,12 +1282,22 @@ function migrateMoodMetadata(value) {
     ...Array.isArray(raw.customLabels) ? raw.customLabels.map(String) : [],
     ...customLabelsFrom(entries, orphans)
   ]);
+  const tombstones = {};
+  const rawTombstones = raw.tombstones && typeof raw.tombstones === "object" && !Array.isArray(raw.tombstones) ? raw.tombstones : {};
+  for (const [path, value2] of Object.entries(rawTombstones)) {
+    const normalizedPath2 = normalizeVaultPath(path);
+    if (!normalizedPath2 || !value2 || typeof value2 !== "object" || Array.isArray(value2)) continue;
+    const tombstone = value2;
+    if (typeof tombstone.deletedAt !== "string" || !tombstone.deletedAt.trim()) continue;
+    tombstones[normalizedPath2] = cloneUnknown(tombstone);
+  }
   const metadata = {
     ...cloneUnknown(raw),
     schemaVersion: MOOD_SCHEMA_VERSION,
     entries,
     orphans,
-    customLabels
+    customLabels,
+    tombstones
   };
   if (fromVersion !== LEGACY_MOOD_SCHEMA_VERSION && fromVersion !== MOOD_SCHEMA_VERSION) {
     warnings.push(`Unknown mood metadata schema ${fromVersion}; normalized as schema ${MOOD_SCHEMA_VERSION}`);
@@ -1282,6 +1338,16 @@ function validateMoodMetadata(value) {
       if (!normalizeVaultPath(path) || !validMoodRecord(orphan.record) || typeof orphan.orphanedAt !== "string") invalidOrphans.push(path);
     }
   }
+  if (raw.tombstones !== void 0 && (!raw.tombstones || typeof raw.tombstones !== "object" || Array.isArray(raw.tombstones))) {
+    invalidMetadata.push("tombstones");
+  } else if (raw.tombstones && typeof raw.tombstones === "object") {
+    for (const [path, value2] of Object.entries(raw.tombstones)) {
+      const tombstone = value2 && typeof value2 === "object" && !Array.isArray(value2) ? value2 : {};
+      if (!normalizeVaultPath(path) || typeof tombstone.deletedAt !== "string" || !tombstone.deletedAt.trim()) {
+        invalidMetadata.push(`tombstone:${path}`);
+      }
+    }
+  }
   return {
     valid: invalidRecords.length === 0 && invalidOrphans.length === 0 && invalidMetadata.length === 0,
     invalidRecords,
@@ -1297,6 +1363,38 @@ function normalizeMetadata(value) {
 function parentPath(path) {
   const index = path.lastIndexOf("/");
   return index > 0 ? path.slice(0, index) : "";
+}
+function sameValue(a, b) {
+  if (a === b) return true;
+  if (!a || !b || typeof a !== "object" || typeof b !== "object") return false;
+  if (Array.isArray(a) !== Array.isArray(b)) return false;
+  const left = a;
+  const right = b;
+  const keys = Object.keys(left);
+  return keys.length === Object.keys(right).length && keys.every((key) => Object.hasOwn(right, key) && sameValue(left[key], right[key]));
+}
+function mergeMetadata(base, local, remote) {
+  const result = cloneUnknown(remote);
+  const mergeMap = (before, after, disk, label) => {
+    const merged = cloneUnknown(disk);
+    for (const key of /* @__PURE__ */ new Set([...Object.keys(before), ...Object.keys(after)])) {
+      if (sameValue(before[key], after[key])) continue;
+      if (!sameValue(before[key], disk[key])) throw new Error(`Mood metadata conflict: ${label}${key}`);
+      if (Object.hasOwn(after, key)) Object.defineProperty(merged, key, { value: cloneUnknown(after[key]), enumerable: true, configurable: true, writable: true });
+      else delete merged[key];
+    }
+    return merged;
+  };
+  result.entries = mergeMap(base.entries, local.entries, remote.entries, "entries/");
+  result.orphans = mergeMap(base.orphans ?? {}, local.orphans ?? {}, remote.orphans ?? {}, "orphans/");
+  result.tombstones = mergeMap(
+    base.tombstones ?? {},
+    local.tombstones ?? {},
+    remote.tombstones ?? {},
+    "tombstones/"
+  );
+  result.customLabels = normalizeCustomLabels([...remote.customLabels ?? [], ...local.customLabels ?? []]);
+  return result;
 }
 function formatValidation(result) {
   const parts = [
@@ -1322,11 +1420,15 @@ var init_mood_store = __esm({
       constructor(app, settings = {}) {
         __publicField(this, "app");
         __publicField(this, "listeners", /* @__PURE__ */ new Set());
+        __publicField(this, "mirrorFailureListeners", /* @__PURE__ */ new Set());
+        __publicField(this, "mirrorFailures", /* @__PURE__ */ new Map());
         __publicField(this, "data", emptyMetadata());
         __publicField(this, "path", DEFAULT_PATH);
         __publicField(this, "loaded", false);
         __publicField(this, "loadError");
         __publicField(this, "recoveredFromBackup", false);
+        __publicField(this, "primaryRaw", null);
+        __publicField(this, "generation", 0);
         __publicField(this, "writeQueue", Promise.resolve());
         this.app = app;
         this.configure(settings);
@@ -1334,9 +1436,13 @@ var init_mood_store = __esm({
       configure(settings) {
         const nextPath = safeVaultPath(settings.moodMetadataPath || DEFAULT_PATH);
         if (nextPath !== this.path) {
+          this.generation++;
+          this.data = emptyMetadata();
+          this.primaryRaw = null;
           this.loaded = false;
           this.loadError = void 0;
           this.recoveredFromBackup = false;
+          this.mirrorFailures.clear();
         }
         this.path = nextPath;
       }
@@ -1344,48 +1450,76 @@ var init_mood_store = __esm({
         return this.path;
       }
       async load() {
+        return this.enqueue((context) => this.loadState(context));
+      }
+      async loadState(context) {
+        this.assertContext(context);
         this.loaded = false;
         this.loadError = void 0;
         this.recoveredFromBackup = false;
-        const adapter = this.adapter();
+        let raw = null;
         try {
-          if (!await adapter.exists(this.path)) {
-            this.data = emptyMetadata();
-            this.loaded = true;
-            return;
+          raw = await this.readPrimary(context.path);
+          this.assertContext(context);
+          if (raw === null) {
+            const recoveryExists = await this.adapter().exists(`${context.path}.bak`) || await this.adapter().exists(`${context.path}.tmp`);
+            if (recoveryExists) throw new Error("Mood metadata primary file is missing");
           }
-          const parsed = JSON.parse(await adapter.read(this.path));
+          const parsed = raw === null ? emptyMetadata() : JSON.parse(raw);
           const validation = validateMoodMetadata(parsed);
           if (!validation.valid) throw new Error(`Invalid mood metadata: ${formatValidation(validation)}`);
           const migration = migrateMoodMetadata(parsed);
-          this.data = migration.metadata;
-          this.loaded = true;
-          const serialized = JSON.stringify(this.data, null, 2);
-          if (migration.migrated || serialized !== JSON.stringify(parsed, null, 2)) {
-            await this.writeJsonAtomically(this.path, serialized);
+          const serialized = JSON.stringify(migration.metadata, null, 2);
+          if (raw !== null && (migration.migrated || serialized !== JSON.stringify(parsed, null, 2))) {
+            try {
+              await this.writeJsonAtomically(context.path, serialized, () => this.verifyPrimary(context, raw));
+              raw = serialized;
+            } catch (error) {
+              this.assertContext(context);
+              console.warn("[Dayline] Mood metadata normalization could not be persisted:", error);
+            }
           }
+          this.assertContext(context);
+          this.data = migration.metadata;
+          this.primaryRaw = raw;
+          this.loaded = true;
         } catch (error) {
-          const restored = await this.readBackup();
+          this.assertContext(context);
+          const restored = await this.readRecovery(context.path);
+          this.assertContext(context);
           if (restored) {
             this.data = restored;
             this.loaded = true;
             this.recoveredFromBackup = true;
+            this.primaryRaw = raw;
             try {
-              await this.writeJson(this.path, JSON.stringify(this.data, null, 2));
+              const content = JSON.stringify(restored, null, 2);
+              await this.verifyPrimary(context, raw);
+              await this.writeJson(context.path, content);
+              this.assertContext(context);
+              this.primaryRaw = content;
               this.recoveredFromBackup = false;
             } catch (repairError) {
+              this.assertContext(context);
               console.warn("[Dayline] Mood metadata primary file could not be repaired:", repairError);
             }
             return;
           }
           console.warn("[Dayline] Mood metadata could not be read:", error);
           this.data = emptyMetadata();
+          this.primaryRaw = raw;
           this.loaded = true;
           this.loadError = error instanceof Error ? error : new Error(String(error));
         }
       }
       get(path) {
         return this.data.entries[normalizeVaultPath(path)];
+      }
+      getForIndex(path) {
+        const key = normalizeVaultPath(path);
+        const record = this.data.entries[key];
+        if (record) return record;
+        return Object.hasOwn(this.data.tombstones ?? {}, key) ? null : void 0;
       }
       getAll() {
         return { ...this.data.entries };
@@ -1402,6 +1536,22 @@ var init_mood_store = __esm({
       subscribe(listener) {
         this.listeners.add(listener);
         return () => this.listeners.delete(listener);
+      }
+      subscribeMirrorFailures(listener) {
+        this.mirrorFailureListeners.add(listener);
+        return () => this.mirrorFailureListeners.delete(listener);
+      }
+      getMirrorFailure(path) {
+        const failure = this.mirrorFailures.get(normalizeVaultPath(path));
+        return failure ? { ...failure } : void 0;
+      }
+      async retryMirror(path) {
+        const key = normalizeVaultPath(path);
+        const failure = this.mirrorFailures.get(key);
+        if (!failure) return true;
+        const record = failure.operation === "write" ? this.data.entries[key] : void 0;
+        if (failure.operation === "write" && !record) return false;
+        return this.attemptMirror(key, failure.operation, record);
       }
       async set(path, score, labels, settingsOrNote = {}, note) {
         const settings = settingsOrNote && typeof settingsOrNote === "object" ? settingsOrNote : {};
@@ -1425,22 +1575,26 @@ var init_mood_store = __esm({
           data.entries[normalizedPath2] = record;
           data.customLabels = normalizeCustomLabels([...data.customLabels ?? [], ...record.labels]);
           if (data.orphans) delete data.orphans[normalizedPath2];
+          delete data.tombstones?.[normalizedPath2];
         });
-        if (settings.mirrorMoodToFrontmatter) await this.mirrorToFrontmatter(normalizedPath2, record);
         this.emit(normalizedPath2, record);
+        if (settings.mirrorMoodToFrontmatter) await this.attemptMirror(normalizedPath2, "write", record);
         return record;
       }
       async rename(oldPath, newPath) {
         const oldKey = normalizeVaultPath(oldPath);
         const newKey = normalizeVaultPath(newPath);
         if (oldKey === newKey) return;
-        const record = this.data.entries[oldKey];
-        const orphan = this.data.orphans?.[oldKey];
-        if (!record && !orphan) return;
         await this.mutate((data) => {
+          if (data.entries[oldKey] && data.entries[newKey] || data.orphans?.[oldKey] && data.orphans?.[newKey]) {
+            throw new Error(`Mood rename target already has a record: ${newKey}`);
+          }
           if (data.entries[oldKey]) {
             data.entries[newKey] = data.entries[oldKey];
             delete data.entries[oldKey];
+            data.tombstones ?? (data.tombstones = {});
+            data.tombstones[oldKey] = { deletedAt: (/* @__PURE__ */ new Date()).toISOString() };
+            delete data.tombstones?.[newKey];
           }
           if (data.orphans?.[oldKey]) {
             data.orphans[newKey] = data.orphans[oldKey];
@@ -1451,33 +1605,37 @@ var init_mood_store = __esm({
       }
       async removeToOrphan(path) {
         const key = normalizeVaultPath(path);
-        const record = this.data.entries[key];
-        if (!record) return;
         await this.mutate((data) => {
+          const record = data.entries[key];
+          if (!record) return;
           data.orphans ?? (data.orphans = {});
           data.orphans[key] = { record, orphanedAt: (/* @__PURE__ */ new Date()).toISOString() };
           delete data.entries[key];
+          data.tombstones ?? (data.tombstones = {});
+          data.tombstones[key] = { deletedAt: (/* @__PURE__ */ new Date()).toISOString() };
         });
         this.emit(key, void 0);
       }
       /** Delete a single mood while retaining it in the recovery list by default. */
       async deleteRecord(path, preserveRecovery = true, fallbackRecord) {
         const key = normalizeVaultPath(path);
-        if (!this.loaded) await this.load();
-        if (this.loadError) throw this.loadError;
-        const record = this.data.entries[key] || (fallbackRecord && validMoodRecord(fallbackRecord) ? normalizeRecord(cloneUnknown(fallbackRecord)) : void 0);
-        if (!record) return void 0;
+        let record;
         await this.mutate((data) => {
+          record = data.entries[key] || (fallbackRecord && validMoodRecord(fallbackRecord) ? normalizeRecord(cloneUnknown(fallbackRecord)) : void 0);
           if (preserveRecovery) {
-            data.orphans ?? (data.orphans = {});
-            data.orphans[key] = { record: cloneUnknown(record), orphanedAt: (/* @__PURE__ */ new Date()).toISOString() };
+            if (record) {
+              data.orphans ?? (data.orphans = {});
+              data.orphans[key] = { record: cloneUnknown(record), orphanedAt: (/* @__PURE__ */ new Date()).toISOString() };
+            }
           } else if (data.orphans) {
             delete data.orphans[key];
           }
           delete data.entries[key];
+          data.tombstones ?? (data.tombstones = {});
+          data.tombstones[key] = { deletedAt: (/* @__PURE__ */ new Date()).toISOString() };
         });
-        await this.removeMoodFromFrontmatter(key);
         this.emit(key, void 0);
+        await this.attemptMirror(key, "delete");
         return record;
       }
       async remove(path, options = {}) {
@@ -1488,30 +1646,36 @@ var init_mood_store = __esm({
       }
       async restoreOrphan(orphanKey, destinationPath = orphanKey, options = {}) {
         const sourceKey = normalizeVaultPath(orphanKey);
-        const source = this.data.orphans?.[sourceKey];
-        if (!source) return void 0;
         const destination = safeVaultPath(destinationPath);
-        const existing = this.data.entries[destination];
-        if (existing && !options.replace) {
-          throw new Error(`Mood restore target already has a record: ${destination}`);
-        }
+        let record;
         await this.mutate((data) => {
+          const source = data.orphans?.[sourceKey];
+          if (!source) return;
+          const file = this.app.vault.getAbstractFileByPath(destination);
+          if (!destination.toLowerCase().endsWith(".md") || !file) {
+            throw new Error(`Mood restore target Markdown does not exist: ${destination}`);
+          }
+          if (data.entries[destination] && !options.replace) {
+            throw new Error(`Mood restore target already has a record: ${destination}`);
+          }
+          record = source.record;
           data.entries[destination] = source.record;
           delete data.orphans?.[sourceKey];
+          delete data.tombstones?.[destination];
         });
-        this.emit(destination, source.record);
-        return source.record;
+        if (record) this.emit(destination, record);
+        return record;
       }
       async importFrontmatter(filePaths, metadataCache) {
         let imported = 0;
         await this.mutate((data) => {
           for (const rawPath of filePaths) {
             const path = normalizeVaultPath(rawPath);
-            if (data.entries[path]) continue;
+            if (data.entries[path] || Object.hasOwn(data.tombstones ?? {}, path)) continue;
             const file = this.app.vault.getAbstractFileByPath(path);
             const frontmatter = metadataCache.getFileCache(file)?.frontmatter ?? {};
-            const score = Number(frontmatter.mood);
-            if (!isScore(score)) continue;
+            const score = parseMoodScore(frontmatter.mood);
+            if (score === void 0) continue;
             const labels = normalizeMoodLabels(Array.isArray(frontmatter.mood_labels) ? frontmatter.mood_labels : typeof frontmatter.mood_labels === "string" ? frontmatter.mood_labels.split(",") : []);
             const rawNote = frontmatter.mood_note ?? frontmatter.mood_comment;
             const now = (/* @__PURE__ */ new Date()).toISOString();
@@ -1559,19 +1723,24 @@ var init_mood_store = __esm({
         const validation = validateMoodMetadata(parsed);
         if (!validation.valid) throw new Error(`Invalid mood metadata: ${formatValidation(validation)}`);
         const next = migrateMoodMetadata(parsed).metadata;
-        await this.replaceMetadata(next);
+        await this.enqueue((context) => this.replaceMetadata(next, context));
       }
       async restoreBackup() {
-        const backupPath = `${this.path}.bak`;
-        if (!await this.adapter().exists(backupPath)) throw new Error(`Backup not found: ${backupPath}`);
-        const parsed = JSON.parse(await this.adapter().read(backupPath));
-        const validation = validateMoodMetadata(parsed);
-        if (!validation.valid) throw new Error(`Invalid mood backup: ${formatValidation(validation)}`);
-        const next = migrateMoodMetadata(parsed).metadata;
-        await this.replaceMetadata(next);
-        return { entries: Object.keys(next.entries).length, orphans: Object.keys(next.orphans ?? {}).length };
+        return this.enqueue(async (context) => {
+          const backupPath = `${context.path}.bak`;
+          if (!await this.adapter().exists(backupPath)) throw new Error(`Backup not found: ${backupPath}`);
+          const parsed = JSON.parse(await this.adapter().read(backupPath));
+          const validation = validateMoodMetadata(parsed);
+          if (!validation.valid) throw new Error(`Invalid mood backup: ${formatValidation(validation)}`);
+          const next = migrateMoodMetadata(parsed).metadata;
+          await this.replaceMetadata(next, context);
+          return { entries: Object.keys(next.entries).length, orphans: Object.keys(next.orphans ?? {}).length };
+        });
       }
       async checkIntegrity() {
+        return this.enqueue(() => this.checkIntegrityState());
+      }
+      async checkIntegrityState() {
         const invalidRecords = [];
         const invalidOrphans = [];
         const invalidMetadata = [];
@@ -1630,19 +1799,57 @@ var init_mood_store = __esm({
         await this.writeQueue;
       }
       async mutate(mutator) {
-        if (!this.loaded) await this.load();
-        if (this.loadError) throw this.loadError;
-        this.writeQueue = this.writeQueue.catch(() => void 0).then(async () => {
+        return this.enqueue(async (context) => {
+          if (!this.loaded) await this.loadState(context);
+          this.assertContext(context);
+          if (this.loadError) throw this.loadError;
           if (this.recoveredFromBackup) {
-            await this.writeJson(this.path, JSON.stringify(this.data, null, 2));
+            await this.verifyPrimary(context, this.primaryRaw);
+            const content2 = JSON.stringify(this.data, null, 2);
+            await this.writeJson(context.path, content2);
+            this.assertContext(context);
+            this.primaryRaw = content2;
             this.recoveredFromBackup = false;
           }
-          const cloned = normalizeMetadata(JSON.parse(JSON.stringify(this.data)));
+          const base = this.data;
+          const cloned = normalizeMetadata(cloneUnknown(base));
           const result = mutator(cloned);
-          this.data = result && typeof result === "object" && "entries" in result ? result : cloned;
-          await this.writeJsonAtomically(this.path, JSON.stringify(this.data, null, 2));
+          const local = result && typeof result === "object" && "entries" in result ? result : cloned;
+          if (sameValue(base, local)) return;
+          const raw = await this.readPrimary(context.path);
+          this.assertContext(context);
+          if (raw === null && this.primaryRaw !== null) throw new Error("Mood metadata conflict: primary file was removed");
+          const parsed = raw === null ? emptyMetadata() : JSON.parse(raw);
+          const validation = validateMoodMetadata(parsed);
+          if (!validation.valid) throw new Error(`Invalid mood metadata: ${formatValidation(validation)}`);
+          const next = mergeMetadata(base, local, normalizeMetadata(parsed));
+          const content = JSON.stringify(next, null, 2);
+          await this.writeJsonAtomically(context.path, content, () => this.verifyPrimary(context, raw));
+          this.assertContext(context);
+          this.data = next;
+          this.primaryRaw = content;
         });
-        await this.writeQueue;
+      }
+      enqueue(operation) {
+        const context = { path: this.path, generation: this.generation };
+        const task = this.writeQueue.then(() => {
+          this.assertContext(context);
+          return operation(context);
+        });
+        this.writeQueue = task.then(() => void 0, () => void 0);
+        return task;
+      }
+      assertContext(context) {
+        if (context.generation !== this.generation) throw new Error("Mood metadata path changed during operation");
+      }
+      async readPrimary(path) {
+        return await this.adapter().exists(path) ? this.adapter().read(path) : null;
+      }
+      async verifyPrimary(context, expected) {
+        this.assertContext(context);
+        const actual = await this.readPrimary(context.path);
+        this.assertContext(context);
+        if (actual !== expected) throw new Error("Mood metadata conflict: file changed during operation");
       }
       async mirrorToFrontmatter(path, record) {
         const file = this.app.vault.getAbstractFileByPath(path);
@@ -1663,15 +1870,34 @@ var init_mood_store = __esm({
           }
         });
       }
-      async readBackup() {
+      async attemptMirror(path, operation, record) {
         try {
-          const backup = `${this.path}.bak`;
-          if (!await this.adapter().exists(backup)) return void 0;
-          const parsed = JSON.parse(await this.adapter().read(backup));
-          if (!validateMoodMetadata(parsed).valid) return void 0;
-          return migrateMoodMetadata(parsed).metadata;
-        } catch (_) {
-          return void 0;
+          if (operation === "write" && record) await this.mirrorToFrontmatter(path, record);
+          else if (operation === "delete") await this.removeMoodFromFrontmatter(path);
+          if (this.mirrorFailures.delete(path)) this.emitMirrorFailure(void 0);
+          return true;
+        } catch (error) {
+          const failure = {
+            path,
+            operation,
+            message: error instanceof Error ? error.message : String(error),
+            failedAt: (/* @__PURE__ */ new Date()).toISOString()
+          };
+          this.mirrorFailures.set(path, failure);
+          console.warn(`[Dayline] Mood frontmatter mirror ${operation} failed for ${path}:`, error);
+          this.emitMirrorFailure(failure);
+          return false;
+        }
+      }
+      async readRecovery(path) {
+        for (const suffix of [".bak", ".tmp"]) {
+          try {
+            const candidate = `${path}${suffix}`;
+            if (!await this.adapter().exists(candidate)) continue;
+            const parsed = JSON.parse(await this.adapter().read(candidate));
+            if (validateMoodMetadata(parsed).valid) return migrateMoodMetadata(parsed).metadata;
+          } catch (_) {
+          }
         }
         return void 0;
       }
@@ -1682,21 +1908,24 @@ var init_mood_store = __esm({
         await this.ensureParent(path);
         await this.adapter().write(path, content);
       }
-      async writeJsonAtomically(path, content) {
+      async writeJsonAtomically(path, content, beforeCommit) {
         await this.ensureParent(path);
         const temp = `${path}.tmp`;
         const backup = `${path}.bak`;
         const adapter = this.adapter();
-        await adapter.write(temp, content);
+        let movedPrimary = false;
         try {
+          await adapter.write(temp, content);
+          await beforeCommit?.();
           if (await adapter.exists(path)) {
             if (await adapter.exists(backup)) await adapter.remove(backup);
             await adapter.rename(path, backup);
+            movedPrimary = true;
           }
           await adapter.rename(temp, path);
         } catch (error) {
           try {
-            if (!await adapter.exists(path) && await adapter.exists(backup)) await adapter.rename(backup, path);
+            if (movedPrimary && !await adapter.exists(path) && await adapter.exists(backup)) await adapter.rename(backup, path);
           } catch (_) {
           }
           try {
@@ -1706,10 +1935,14 @@ var init_mood_store = __esm({
           throw error;
         }
       }
-      async replaceMetadata(next) {
-        await this.flush();
-        await this.writeJson(this.path, JSON.stringify(next, null, 2));
+      async replaceMetadata(next, context) {
+        const raw = await this.readPrimary(context.path);
+        await this.verifyPrimary(context, raw);
+        const content = JSON.stringify(next, null, 2);
+        await this.writeJson(context.path, content);
+        this.assertContext(context);
         this.data = next;
+        this.primaryRaw = content;
         this.loaded = true;
         this.loadError = void 0;
         this.recoveredFromBackup = false;
@@ -1723,6 +1956,15 @@ var init_mood_store = __esm({
       }
       emit(path, record) {
         for (const listener of this.listeners) listener(path, record);
+      }
+      emitMirrorFailure(failure) {
+        for (const listener of this.mirrorFailureListeners) {
+          try {
+            listener(failure);
+          } catch (error) {
+            console.warn("[Dayline] Mood mirror failure listener failed:", error);
+          }
+        }
       }
     };
   }
@@ -1939,7 +2181,7 @@ var init_fluid_mood_control = __esm({
           this.releasePointer(event.pointerId);
           this.activePointerId = null;
           this.root.classList.remove("is-dragging");
-          this.commitScore(snapMoodScore(this.displayValue));
+          this.commitScore(snapMoodScore(this.targetValue));
         });
         __publicField(this, "handlePointerCancel", (event) => {
           if (event.pointerId !== this.activePointerId) return;
@@ -1987,11 +2229,10 @@ var init_fluid_mood_control = __esm({
           }
           const elapsed = Math.min(48, Math.max(0, time - this.lastFrame));
           this.lastFrame = time;
-          if (this.activePointerId === null) {
-            const distance = this.targetValue - this.displayValue;
-            this.displayValue = Math.abs(distance) < 2e-3 ? this.targetValue : this.displayValue + distance * 0.18;
-            this.updatePresentation(false, false);
-          }
+          const distance = this.targetValue - this.displayValue;
+          const easing = Math.min(0.48, Math.max(0.08, 1 - Math.exp(-elapsed / 72)));
+          this.displayValue = Math.abs(distance) < 2e-3 ? this.targetValue : this.displayValue + distance * easing;
+          this.updatePresentation(false, false);
           this.phase += elapsed * 42e-5;
           this.renderFrame();
           this.animationFrame = requestAnimationFrame(this.animate);
@@ -2084,8 +2325,10 @@ var init_fluid_mood_control = __esm({
       }
       updateFromPointer(clientX) {
         const rect = this.track.getBoundingClientRect();
-        this.displayValue = moodValueFromPosition(clientX, rect.left, rect.width);
-        this.targetValue = this.displayValue;
+        this.targetValue = moodValueFromPosition(clientX, rect.left, rect.width);
+        if (this.activePointerId !== null || this.prefersReducedMotion()) {
+          this.displayValue = this.targetValue;
+        }
         this.updatePresentation(false);
       }
       commitScore(score) {
@@ -2108,7 +2351,8 @@ var init_fluid_mood_control = __esm({
           this.options.onPreview?.(this.displayValue, color);
         }
         this.root.classList.toggle("is-empty", this.selectedScore === null && this.activePointerId === null);
-        this.root.setAttribute("aria-valuenow", String(this.selectedScore ?? 0));
+        const ariaValue = this.activePointerId === null ? this.selectedScore ?? 0 : this.displayValue;
+        this.root.setAttribute("aria-valuenow", String(Number(ariaValue.toFixed(3))));
         this.root.setAttribute("aria-valuetext", label);
         this.valueLabel.textContent = label;
         this.handle.setAttribute("data-label", label);
@@ -2246,6 +2490,9 @@ var init_i18n = __esm({
       zh: {
         calendarTitle: "\u65E5\u5386",
         timelineTitle: "\u65E5\u8BB0\u65F6\u95F4\u7EBF",
+        addJournalTitle: "\u6DFB\u52A0\u6807\u9898",
+        editJournalTitle: "\u7F16\u8F91\u65E5\u8BB0\u6807\u9898",
+        journalTitleSaveFailed: "\u65E5\u8BB0\u6807\u9898\u4FDD\u5B58\u5931\u8D25\uFF1A{error}",
         journalIndexLoading: "\u6B63\u5728\u52A0\u8F7D\u65E5\u8BB0\u2026",
         journalIndexLoadFailed: "\u65E5\u8BB0\u52A0\u8F7D\u5931\u8D25\uFF1A{error}",
         searchJournal: "\u641C\u7D22\u65E5\u8BB0",
@@ -2403,6 +2650,8 @@ var init_i18n = __esm({
         detectImportsResult: "\u627E\u5230 {files} \u4E2A\u6587\u4EF6\uFF0C\u5176\u4E2D {noDate} \u4E2A\u6CA1\u6709\u65E5\u671F\u3002",
         showTimelineMoodTrend: "\u663E\u793A\u65F6\u95F4\u7EBF\u5FC3\u60C5\u8D8B\u52BF",
         showTimelineMoodTrendDesc: "\u5728\u65E5\u8BB0\u65F6\u95F4\u7EBF\u9876\u90E8\u663E\u793A\u8FD1\u4E03\u5929\u7684\u5FC3\u60C5\u8F68\u8FF9\u3002",
+        showTimelineTitles: "\u663E\u793A\u65F6\u95F4\u8F74\u65E5\u8BB0\u6807\u9898",
+        showTimelineTitlesDesc: "\u5728\u65E5\u8BB0\u65F6\u95F4\u8F74\u4E2D\u663E\u793A\u6807\u9898\u548C\u65E0\u6807\u9898\u65F6\u7684 Title \u5360\u4F4D\u7B26\u3002",
         moodExport: "\u5FC3\u60C5\u5BFC\u51FA",
         moodExportDesc: "\u5BFC\u51FA\u5FC3\u60C5\u8BB0\u5F55\u4E3A CSV \u6216 JSON\u3002",
         metadataBackup: "\u5143\u6570\u636E\u5907\u4EFD",
@@ -2454,6 +2703,9 @@ var init_i18n = __esm({
       en: {
         calendarTitle: "Calendar",
         timelineTitle: "Journal timeline",
+        addJournalTitle: "Add title",
+        editJournalTitle: "Edit journal title",
+        journalTitleSaveFailed: "Could not save journal title: {error}",
         journalIndexLoading: "Loading journal\u2026",
         journalIndexLoadFailed: "Could not load the journal: {error}",
         searchJournal: "Search journal",
@@ -2611,6 +2863,8 @@ var init_i18n = __esm({
         detectImportsResult: "Found {files} files; {noDate} have no date.",
         showTimelineMoodTrend: "Show timeline mood trend",
         showTimelineMoodTrendDesc: "Show the recent seven-day mood trajectory at the top of the journal timeline.",
+        showTimelineTitles: "Show timeline journal titles",
+        showTimelineTitlesDesc: "Show journal titles and the Title placeholder when a note has no title.",
         moodExport: "Mood export",
         moodExportDesc: "Export mood records as CSV or JSON.",
         metadataBackup: "Metadata backup",
@@ -2754,9 +3008,10 @@ var init_mood_picker_modal = __esm({
           cls: "mod-cta journal-mood-continue",
           attr: { type: "button" }
         });
-        next.disabled = this.score === null;
+        next.disabled = false;
         next.addEventListener("click", () => {
-          if (this.score !== null) this.renderLabels();
+          if (this.score === null) this.selectScore(0);
+          this.renderLabels();
         });
         this.fluidControl = new FluidMoodControl(controlHost, {
           initialScore: this.score,
@@ -2766,7 +3021,6 @@ var init_mood_picker_modal = __esm({
           onPreview: (_value, color) => this.setActiveColor(color),
           onCommit: (score) => {
             this.selectScore(score);
-            this.setActiveColor(getMoodColor(score));
             next.disabled = false;
           },
           onActivate: () => {
@@ -2970,26 +3224,29 @@ var init_mood_picker_modal = __esm({
           restore.addEventListener("click", async () => {
             restore.disabled = true;
             try {
-              await this.store.restoreOrphan(path, destination.value || path);
-            } catch (error) {
-              const message = String(error?.message || error);
-              const canReplace = /already has a record/i.test(message);
-              const confirmed = canReplace && (typeof window === "undefined" || window.confirm(t(this.settings, "moodRestoreConflict")));
-              if (!confirmed) {
-                new import_obsidian.Notice(message);
-                restore.disabled = false;
-                return;
+              try {
+                await this.store.restoreOrphan(path, destination.value || path);
+              } catch (error) {
+                const message = String(error?.message || error);
+                const canReplace = /already has a record/i.test(message);
+                const confirmed = canReplace && (typeof window === "undefined" || window.confirm(t(this.settings, "moodRestoreConflict")));
+                if (!confirmed) throw error;
+                await this.store.restoreOrphan(path, destination.value || path, { replace: true });
               }
-              await this.store.restoreOrphan(path, destination.value || path, { replace: true });
-            }
-            try {
-              await this.onChanged?.();
+              try {
+                await this.onChanged?.();
+              } catch (error) {
+                const message = String(error?.message || error);
+                console.warn("[Dayline] Mood recovery refresh failed:", message);
+                new import_obsidian.Notice(t(this.settings, "viewRefreshFailed", { error: message }));
+              }
+              this.render();
             } catch (error) {
               const message = String(error?.message || error);
-              console.warn("[Dayline] Mood recovery refresh failed:", message);
-              new import_obsidian.Notice(t(this.settings, "viewRefreshFailed", { error: message }));
+              new import_obsidian.Notice(message);
+            } finally {
+              restore.disabled = false;
             }
-            this.render();
           });
         }
       }
@@ -3052,7 +3309,7 @@ function normalizeEntries(input) {
 }
 function makeReport(info, entries) {
   const scoreCounts = emptyScoreCounts();
-  const labelCounts = {};
+  const labelCounts = /* @__PURE__ */ new Map();
   let total = 0;
   let minScore = null;
   let maxScore = null;
@@ -3063,7 +3320,7 @@ function makeReport(info, entries) {
     total += score;
     minScore = minScore === null ? score : Math.min(minScore, score);
     maxScore = maxScore === null ? score : Math.max(maxScore, score);
-    for (const label of entry.mood?.labels || []) labelCounts[label] = (labelCounts[label] || 0) + 1;
+    for (const label of entry.mood?.labels || []) labelCounts.set(label, (labelCounts.get(label) ?? 0) + 1);
   }
   const recordCount = entries.filter((entry) => entry.mood).length;
   return {
@@ -3073,7 +3330,7 @@ function makeReport(info, entries) {
     minScore,
     maxScore,
     scoreCounts,
-    labelCounts: Object.fromEntries(Object.entries(labelCounts).sort(([a], [b]) => a.localeCompare(b)))
+    labelCounts: Object.fromEntries(Array.from(labelCounts.entries()).sort(([a], [b]) => a.localeCompare(b)))
   };
 }
 function expandPeriodKeys(from, to, period, weekStartsOn) {
@@ -3103,35 +3360,30 @@ function buildMoodPeriodReport(input, period, options = {}) {
 }
 function summarizeMoodLabelTrends(input, period = "month", options = {}) {
   const entries = normalizeEntries(input);
-  const labels = /* @__PURE__ */ new Set();
   const totals = /* @__PURE__ */ new Map();
   for (const entry of entries) {
     if (options.from && entry.date < options.from) continue;
     if (options.to && entry.date > options.to) continue;
-    for (const label of entry.mood?.labels || []) {
-      labels.add(label);
-      const current = totals.get(label) || { count: 0, score: 0 };
+    const mood = entry.mood;
+    if (!mood) continue;
+    const key = periodInfo(entry.date, period, options.weekStartsOn ?? 1).key;
+    for (const label of mood.labels) {
+      const current = totals.get(label) || { count: 0, score: 0, trend: /* @__PURE__ */ new Map() };
       current.count++;
-      current.score += entry.mood?.score ?? 0;
+      current.score += mood.score;
+      const point = current.trend.get(key) || { count: 0, score: 0 };
+      point.count++;
+      point.score += mood.score;
+      current.trend.set(key, point);
       totals.set(label, current);
     }
   }
-  return Array.from(labels).sort((a, b) => a.localeCompare(b)).map((label) => {
+  return Array.from(totals.keys()).sort((a, b) => a.localeCompare(b)).map((label) => {
     const total = totals.get(label);
-    const trendMap = /* @__PURE__ */ new Map();
-    for (const entry of entries) {
-      if (options.from && entry.date < options.from) continue;
-      if (options.to && entry.date > options.to) continue;
-      if (!entry.mood?.labels.includes(label)) continue;
-      const key = periodInfo(entry.date, period, options.weekStartsOn ?? 1).key;
-      const group = trendMap.get(key) || [];
-      group.push(entry);
-      trendMap.set(key, group);
-    }
-    const trend = Array.from(trendMap.entries()).sort(([a], [b]) => a.localeCompare(b)).map(([key, group]) => ({
+    const trend = Array.from(total.trend.entries()).sort(([a], [b]) => a.localeCompare(b)).map(([key, point]) => ({
       key,
-      count: group.length,
-      averageScore: group.length ? Math.round(group.reduce((sum, entry) => sum + (entry.mood?.score || 0), 0) / group.length * 100) / 100 : null
+      count: point.count,
+      averageScore: Math.round(point.score / point.count * 100) / 100
     }));
     return { label, count: total.count, averageScore: Math.round(total.score / total.count * 100) / 100, trend };
   });
@@ -3268,6 +3520,9 @@ var init_journal_stats = __esm({
 // src/journal-timeline-display.ts
 function shouldShowTimelineMoodTrend(settings = {}) {
   return settings.showTimelineMoodTrend !== false;
+}
+function shouldShowTimelineTitles(settings = {}) {
+  return settings.showTimelineTitles !== false;
 }
 var init_journal_timeline_display = __esm({
   "src/journal-timeline-display.ts"() {
@@ -3418,7 +3673,27 @@ __export(journal_timeline_view_exports, {
   JOURNAL_TIMELINE_VIEW: () => JOURNAL_TIMELINE_VIEW,
   JournalTimelineView: () => JournalTimelineView
 });
-var import_obsidian2, JOURNAL_TIMELINE_VIEW, JournalTimelineView;
+function timelineDateParts(date, settings) {
+  const value = /* @__PURE__ */ new Date(`${date}T12:00:00`);
+  const locale = getDisplayLanguage(settings) === "en" ? "en-US" : "zh-CN";
+  const parts = new Intl.DateTimeFormat(locale, { weekday: "short", day: "numeric" }).formatToParts(value);
+  return {
+    weekday: parts.find((part) => part.type === "weekday")?.value || "",
+    day: parts.find((part) => part.type === "day")?.value || ""
+  };
+}
+function timelineEntryTime(entry, settings) {
+  const source = entry.modifiedAt || entry.createdAt;
+  if (!source) return "";
+  const value = new Date(source);
+  if (!Number.isFinite(value.getTime())) return "";
+  return new Intl.DateTimeFormat(getDisplayLanguage(settings) === "en" ? "en-US" : "zh-CN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false
+  }).format(value);
+}
+var import_obsidian2, JOURNAL_TIMELINE_VIEW, TIMELINE_PAGE_SIZE, JournalTimelineView;
 var init_journal_timeline_view = __esm({
   "src/journal-timeline-view.ts"() {
     "use strict";
@@ -3434,6 +3709,7 @@ var init_journal_timeline_view = __esm({
     init_journal_index();
     init_dayline_mobile();
     JOURNAL_TIMELINE_VIEW = "journal-timeline-view";
+    TIMELINE_PAGE_SIZE = 50;
     JournalTimelineView = class extends import_obsidian2.ItemView {
       constructor(leaf, plugin) {
         super(leaf);
@@ -3447,8 +3723,12 @@ var init_journal_timeline_view = __esm({
         this.thumbnailObserver = null;
         this.thumbnailLayoutObserver = null;
         this.thumbnailVisibilityChecks = /* @__PURE__ */ new Map();
+        this.thumbnailLoaders = /* @__PURE__ */ new Map();
         this.thumbnailScrollTimer = null;
         this.mediaRefreshTimer = null;
+        this.visibleEntryLimit = TIMELINE_PAGE_SIZE;
+        this.renderScheduled = false;
+        this.renderScheduleTimer = null;
         this.thumbnailScrollHandler = () => {
           if (this.thumbnailScrollTimer) return;
           this.thumbnailScrollTimer = setTimeout(() => {
@@ -3505,7 +3785,7 @@ var init_journal_timeline_view = __esm({
           });
           this.thumbnailLayoutObserver.observe(root);
         }
-        this.unsubscribe = this.index.subscribe(() => this.render());
+        this.unsubscribe = this.index.subscribe(() => this.scheduleRender());
         this.render();
         startJournalIndexLoad(
           () => this.plugin.ensureJournalIndexReady ? this.plugin.ensureJournalIndexReady() : this.index.refresh(this.plugin.settings),
@@ -3534,7 +3814,11 @@ var init_journal_timeline_view = __esm({
         this.thumbnailScrollTimer = null;
         if (this.mediaRefreshTimer) clearTimeout(this.mediaRefreshTimer);
         this.mediaRefreshTimer = null;
+        if (this.renderScheduleTimer) clearTimeout(this.renderScheduleTimer);
+        this.renderScheduleTimer = null;
+        this.renderScheduled = false;
         this.thumbnailVisibilityChecks.clear();
+        this.thumbnailLoaders.clear();
         this.unsubscribe?.();
         this.unsubscribe = null;
         if (!this.plugin.capabilities?.isMobile) {
@@ -3544,6 +3828,15 @@ var init_journal_timeline_view = __esm({
         }
         this.containerEl.removeClass("dayline-mobile-native-view");
         this.contentEl.removeClass("journal-timeline-view");
+      }
+      scheduleRender() {
+        if (this.renderScheduled || this.closed) return;
+        this.renderScheduled = true;
+        this.renderScheduleTimer = setTimeout(() => {
+          this.renderScheduleTimer = null;
+          this.renderScheduled = false;
+          if (!this.closed) this.render();
+        }, 0);
       }
       render() {
         const root = this.contentEl;
@@ -3783,6 +4076,7 @@ var init_journal_timeline_view = __esm({
         this._persistMobileTimelineFilter();
         const count = root.querySelector(".journal-timeline-count");
         const entries = this.index.filter(this.filter);
+        this.visibleEntryLimit = TIMELINE_PAGE_SIZE;
         if (count) count.setText(String(entries.length));
         const list = root.querySelector(".journal-timeline-list");
         if (list) this.renderList(list, entries);
@@ -3798,12 +4092,25 @@ var init_journal_timeline_view = __esm({
         this.thumbnailObserver?.disconnect();
         this.thumbnailObserver = null;
         this.thumbnailVisibilityChecks.clear();
+        this.thumbnailLoaders.clear();
         list.empty();
         if (entries.length === 0) {
           list.createDiv({ cls: "journal-timeline-empty", text: t(this.plugin.settings, "noResults") });
           return;
         }
-        for (const entry of entries) this.renderEntry(list, entry, this.renderToken);
+        for (const entry of entries.slice(0, this.visibleEntryLimit)) this.renderEntry(list, entry, this.renderToken);
+        if (entries.length > this.visibleEntryLimit) {
+          const remaining = Math.min(TIMELINE_PAGE_SIZE, entries.length - this.visibleEntryLimit);
+          const button = list.createEl("button", {
+            cls: "journal-timeline-load-more",
+            text: getDisplayLanguage(this.plugin.settings) === "en" ? `Show ${remaining} more` : `\u518D\u663E\u793A ${remaining} \u6761`,
+            attr: { type: "button" }
+          });
+          button.addEventListener("click", () => {
+            this.visibleEntryLimit += TIMELINE_PAGE_SIZE;
+            this.renderList(list, entries);
+          });
+        }
       }
       renderEntry(list, entry, token) {
         const media = displayableJournalMedia(entry);
@@ -3818,24 +4125,45 @@ var init_journal_timeline_view = __esm({
         const card = list.createEl("article", { cls: `journal-timeline-entry ${scoreClass}${thumbnailMedia.length ? " has-thumbnail" : ""}` });
         card.tabIndex = 0;
         card.dataset.path = entry.path;
+        const dateColumn = card.createDiv({ cls: "journal-timeline-entry-date-column" });
+        const dateParts = timelineDateParts(entry.date, this.plugin.settings);
+        dateColumn.createSpan({ cls: "journal-timeline-entry-weekday", text: dateParts.weekday });
+        dateColumn.createSpan({ cls: "journal-timeline-entry-day", text: dateParts.day });
         const body = card.createDiv({ cls: "journal-timeline-entry-body" });
-        const top = body.createDiv({ cls: "journal-timeline-entry-top" });
-        top.createEl("h3", { cls: "journal-timeline-entry-date", text: formatJournalDate(entry.date, this.plugin.settings) });
-        top.createEl("time", { cls: "journal-timeline-entry-iso", text: entry.date, attr: { datetime: entry.date } });
-        if (entry.favorite) top.createSpan({ cls: "journal-timeline-favorite", text: t(this.plugin.settings, "favorite") });
-        if (entry.title && !isGenericJournalTitle(entry.title, entry.date)) body.createDiv({ cls: "journal-timeline-title", text: entry.title });
-        if (entry.excerpt) body.createDiv({ cls: "journal-timeline-excerpt", text: entry.excerpt });
-        const meta = body.createDiv({ cls: "journal-timeline-meta" });
-        if (entry.location?.name) meta.createSpan({ text: `${t(this.plugin.settings, "journalLocation")}: ${entry.location.name}` });
-        else if (entry.location && (entry.location.latitude !== void 0 || entry.location.longitude !== void 0)) {
-          meta.createSpan({
-            text: `${t(this.plugin.settings, "journalLocation")}: ${[entry.location.latitude, entry.location.longitude].filter((value) => value !== void 0).join(", ")}`
+        const title = entry.title && !isGenericJournalTitle(entry.title, entry.date) ? entry.title : "";
+        const titleEditor = shouldShowTimelineTitles(this.plugin.settings) ? body.createEl("h3", {
+          cls: `journal-timeline-entry-title${title ? "" : " is-placeholder"}`,
+          text: title,
+          attr: {
+            role: "button",
+            tabindex: "0",
+            "aria-label": title ? `${t(this.plugin.settings, "editJournalTitle")}: ${title}` : t(this.plugin.settings, "addJournalTitle"),
+            title: title ? t(this.plugin.settings, "editJournalTitle") : t(this.plugin.settings, "addJournalTitle")
+          }
+        }) : null;
+        if (titleEditor) {
+          if (!title) titleEditor.dataset.placeholder = t(this.plugin.settings, "addJournalTitle");
+          titleEditor.addEventListener("click", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            this.editTitleInline(titleEditor, entry.path, title);
+          });
+          titleEditor.addEventListener("keydown", (event) => {
+            if (event.target !== titleEditor) return;
+            if (event.key !== "Enter" && event.key !== " ") return;
+            event.preventDefault();
+            event.stopPropagation();
+            this.editTitleInline(titleEditor, entry.path, title);
           });
         }
-        const mediaCount = Math.max(media.length, imageLinks.length);
-        if (mediaCount > 0) meta.createSpan({ text: `${mediaCount}${t(this.plugin.settings, "media")}` });
-        if (entry.sourceLabel || entry.sourcePath) {
-          meta.createSpan({ text: entry.sourceId === "daily" ? t(this.plugin.settings, "dailyNotes") : entry.sourceLabel || entry.sourcePath });
+        const top = body.createDiv({ cls: "journal-timeline-entry-top" });
+        top.createEl("time", { cls: "journal-timeline-entry-iso", text: entry.date, attr: { datetime: entry.date } });
+        if (entry.favorite) top.createSpan({ cls: "journal-timeline-favorite", text: t(this.plugin.settings, "favorite") });
+        if (entry.excerpt) body.createDiv({ cls: "journal-timeline-excerpt", text: entry.excerpt });
+        const time = timelineEntryTime(entry, this.plugin.settings);
+        if (time) {
+          const meta = body.createDiv({ cls: "journal-timeline-meta" });
+          meta.createEl("time", { text: time, attr: { datetime: entry.modifiedAt || entry.createdAt } });
         }
         let thumbnail;
         if (thumbnailMedia.length > 0) {
@@ -3859,11 +4187,56 @@ var init_journal_timeline_view = __esm({
           }
         });
       }
+      editTitleInline(editor, path, initialTitle) {
+        if (editor.dataset.editing === "true") return;
+        editor.dataset.editing = "true";
+        editor.classList.add("is-editing");
+        editor.textContent = "";
+        const input = document.createElement("input");
+        input.type = "text";
+        input.value = initialTitle;
+        input.maxLength = 200;
+        input.setAttribute("aria-label", t(this.plugin.settings, "editJournalTitle"));
+        editor.append(input);
+        let settled = false;
+        const finish = async (save) => {
+          if (settled) return;
+          settled = true;
+          if (!save) {
+            this.render();
+            return;
+          }
+          try {
+            await this.plugin.saveJournalTitle(path, input.value);
+          } catch (error) {
+            new import_obsidian2.Notice(t(this.plugin.settings, "journalTitleSaveFailed", { error: error?.message || error }));
+            this.render();
+          }
+        };
+        input.addEventListener("keydown", (event) => {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            void finish(true);
+          } else if (event.key === "Escape") {
+            event.preventDefault();
+            void finish(false);
+          }
+        });
+        input.addEventListener("blur", () => {
+          void finish(true);
+        });
+        input.addEventListener("click", (event) => event.stopPropagation());
+        input.addEventListener("pointerdown", (event) => event.stopPropagation());
+        input.focus();
+        input.select();
+      }
       observeThumbnail(card, container, image, entry, links, token) {
         let started = false;
         const load = async () => {
           if (started) return;
           started = true;
+          this.thumbnailLoaders.delete(container);
+          this.thumbnailVisibilityChecks.delete(container);
           const explicitCover = entry.cover ? createMediaAttachment(entry.cover, entry.path) : null;
           const validCover = explicitCover?.kind !== "unknown" ? explicitCover : void 0;
           const result = this.plugin.mediaService?.loadFirstCover ? await this.plugin.mediaService.loadFirstCover(links, validCover) : await this.plugin.thumbnailService.loadFirst(links.map((item) => item.link || item.normalizedLink), entry.path);
@@ -3884,10 +4257,11 @@ var init_journal_timeline_view = __esm({
           for (const observation of observations) {
             if (!observation.isIntersecting) continue;
             this.thumbnailObserver.unobserve(observation.target);
-            load();
+            this.thumbnailLoaders.get(observation.target)?.();
           }
         }, { root: this.contentEl, rootMargin: "160px" }));
         this.thumbnailObserver.observe(container);
+        this.thumbnailLoaders.set(container, load);
         const checkVisible = () => {
           if (token !== this.renderToken || !container.isConnected) return;
           const rootRect = this.contentEl.getBoundingClientRect();
@@ -4239,6 +4613,7 @@ var init_on_this_day = __esm({
       constructor(plugin) {
         __publicField(this, "plugin");
         __publicField(this, "dateIndex", null);
+        __publicField(this, "dateIndexYear", null);
         __publicField(this, "entryCache", /* @__PURE__ */ new Map());
         this.plugin = plugin;
       }
@@ -4247,14 +4622,16 @@ var init_on_this_day = __esm({
       }
       /** Build a set of all MM-DD values that have indexed journal entries. */
       async ensureDateIndex() {
-        if (this.dateIndex) return;
         const thisYear = this.currentYear();
+        if (this.dateIndex && this.dateIndexYear === thisYear) return;
+        if (this.dateIndexYear !== null && this.dateIndexYear !== thisYear) this.entryCache.clear();
         const index = /* @__PURE__ */ new Set();
         for (const entry of this.plugin.journalIndex?.getEntries?.() || []) {
           const year = Number(entry.date.slice(0, 4));
           if (Number.isFinite(year) && year < thisYear) index.add(entry.date.slice(5));
         }
         this.dateIndex = index;
+        this.dateIndexYear = thisYear;
       }
       /** Quick check: does any year have a diary for this MM-DD? */
       async hasEntries(month, day) {
@@ -4305,6 +4682,7 @@ var init_on_this_day = __esm({
         }
         this.entryCache.clear();
         this.dateIndex = null;
+        this.dateIndexYear = null;
       }
       /** Refresh one MM-DD marker without rebuilding the complete date index. */
       refreshDateIndexFor(mmdd) {
@@ -4496,12 +4874,20 @@ __export(settings_tab_exports, {
   SETTINGS_ACTION_ROWS: () => SETTINGS_ACTION_ROWS,
   SETTINGS_SECTION_IDS: () => SETTINGS_SECTION_IDS,
   SETTINGS_SECTION_LABEL_KEYS: () => SETTINGS_SECTION_LABEL_KEYS,
+  commitJournalSourceSettings: () => commitJournalSourceSettings,
   shouldShowCalendarWeatherOptions: () => shouldShowCalendarWeatherOptions,
   shouldShowExifGeocoding: () => shouldShowExifGeocoding,
   shouldShowOnThisDayExcerptSettings: () => shouldShowOnThisDayExcerptSettings,
   shouldShowWeatherLocationOption: () => shouldShowWeatherLocationOption,
   shouldShowWeatherSettings: () => shouldShowWeatherSettings
 });
+async function commitJournalSourceSettings(plugin, save = () => plugin.saveSettings()) {
+  const saved = await save();
+  if (saved === false) return false;
+  await plugin.journalIndex.refresh(plugin.settings);
+  plugin.refreshJournalViews();
+  return true;
+}
 function shouldShowWeatherSettings(settings) {
   return settings.weatherEnabled === true;
 }
@@ -4654,13 +5040,13 @@ var init_settings_tab = __esm({
           this.folderInput = cb;
           cb.setValue(this.plugin.settings.dailyFolder).setPlaceholder("Calendar/Daily").onChange(async (value) => {
             this.plugin.settings.dailyFolder = value.replace(/\/+$/, "");
-            if (!await this._saveSettings()) return;
+            if (!await commitJournalSourceSettings(this.plugin, () => this._saveSettings())) return;
             await this._refreshViews({ resetSource: true });
           });
         }).addExtraButton((btn) => btn.setIcon("folder-search").setTooltip(_s("s_browseFolders")).onClick(() => {
           new FolderSuggestModal(this.app, (path) => {
             this.plugin.settings.dailyFolder = path;
-            void this._saveSettings().then((saved) => {
+            void commitJournalSourceSettings(this.plugin, () => this._saveSettings()).then((saved) => {
               if (saved) return this._refreshViews({ resetSource: true });
             }).catch((error) => this._notifyViewRefreshFailure(error));
             this.folderInput.setValue(path);
@@ -4680,9 +5066,7 @@ var init_settings_tab = __esm({
               const parsed = JSON.parse(value || "[]");
               if (!Array.isArray(parsed)) throw new Error("Sources must be an array");
               this.plugin.settings.journalSources = parsed;
-              if (!await this._saveSettings()) return;
-              await this.plugin.journalIndex.refresh(this.plugin.settings);
-              this.plugin.refreshJournalViews();
+              await commitJournalSourceSettings(this.plugin, () => this._saveSettings());
             } catch (_) {
               new import_obsidian3.Notice(t(this.plugin.settings, "invalidJournalSources"));
             }
@@ -4694,6 +5078,11 @@ var init_settings_tab = __esm({
         }));
         new import_obsidian3.Setting(containerEl).setName(t(this.plugin.settings, "showTimelineMoodTrend")).setDesc(t(this.plugin.settings, "showTimelineMoodTrendDesc")).addToggle((toggle) => toggle.setValue(shouldShowTimelineMoodTrend(this.plugin.settings)).onChange(async (value) => {
           this.plugin.settings.showTimelineMoodTrend = value;
+          if (!await this._saveSettings()) return;
+          this.plugin.refreshJournalViews();
+        }));
+        new import_obsidian3.Setting(containerEl).setName(t(this.plugin.settings, "showTimelineTitles")).setDesc(t(this.plugin.settings, "showTimelineTitlesDesc")).addToggle((toggle) => toggle.setValue(shouldShowTimelineTitles(this.plugin.settings)).onChange(async (value) => {
+          this.plugin.settings.showTimelineTitles = value;
           if (!await this._saveSettings()) return;
           this.plugin.refreshJournalViews();
         }));
@@ -4981,6 +5370,7 @@ function migrateCompatibleSnapshot(snapshot, settings) {
   if (!snapshot || typeof snapshot !== "object") return null;
   const expected = weatherConfigKey(settings);
   if (snapshot.configKey === expected) return { ...snapshot };
+  if (snapshot.configKey !== void 0 && snapshot.configKey !== null) return null;
   const latitude = Number.parseFloat(String(settings.weatherLatitude));
   const longitude = Number.parseFloat(String(settings.weatherLongitude));
   const snapshotLatitude = Number.parseFloat(String(snapshot.latitude));
@@ -5181,11 +5571,25 @@ var init_weather_service = __esm({
       _nowIso() {
         return new Date(this._now()).toISOString();
       }
-      _requestKey(dateStr) {
-        return `${dateStr}|${this._configKey()}`;
+      _requestContext() {
+        const source = this.plugin.settings;
+        const settings = {
+          weatherLatitude: source.weatherLatitude,
+          weatherLongitude: source.weatherLongitude,
+          weatherUnits: source.weatherUnits,
+          weatherTimezone: source.weatherTimezone,
+          weatherTtlHours: source.weatherTtlHours,
+          weatherLocationName: source.weatherLocationName,
+          dailyFolder: source.dailyFolder
+        };
+        return {
+          settings,
+          configKey: weatherConfigKey(settings),
+          today: daylineDate2(settings, new Date(this._now()))
+        };
       }
-      _runDeduplicated(dateStr, operation) {
-        const requestKey = this._requestKey(dateStr);
+      _runDeduplicated(dateStr, configKey, operation) {
+        const requestKey = `${dateStr}|${configKey}`;
         if (this._inFlight.has(requestKey)) return this._inFlight.get(requestKey);
         const promise = Promise.resolve().then(operation).finally(() => {
           if (this._inFlight.get(requestKey) === promise) this._inFlight.delete(requestKey);
@@ -5198,7 +5602,8 @@ var init_weather_service = __esm({
         const s = this.plugin.settings;
         if (!s.weatherEnabled) return null;
         if (!validateWeatherCoordinates(s.weatherLatitude, s.weatherLongitude)) return null;
-        return this._runDeduplicated(dateStr, () => this._fetchOrUseCached(dateStr, false));
+        const context = this._requestContext();
+        return this._runDeduplicated(dateStr, context.configKey, () => this._fetchOrUseCached(dateStr, false, context));
       }
       /** Check whether a frontmatter snapshot or memory cache record needs refresh. */
       _shouldFetch(record, ttlHours) {
@@ -5213,9 +5618,9 @@ var init_weather_service = __esm({
       isSnapshotCompatible(snapshot) {
         return !!compatibleSnapshot(snapshot, this.plugin.settings);
       }
-      _readLegacySnapshots(dateStr, sourcePath) {
+      _readLegacySnapshots(dateStr, sourcePath, settings = this.plugin.settings) {
         const app = this.plugin.app;
-        const candidatePaths = [sourcePath, `${this.plugin.settings.dailyFolder}/${dateStr}.md`].filter((path, index, paths) => path && paths.indexOf(path) === index);
+        const candidatePaths = [sourcePath, `${settings.dailyFolder}/${dateStr}.md`].filter((path, index, paths) => path && paths.indexOf(path) === index);
         const snapshots = [];
         for (const path of candidatePaths) {
           const existingFile = app?.vault?.getAbstractFileByPath?.(path);
@@ -5223,15 +5628,15 @@ var init_weather_service = __esm({
           const TFile3 = getObsidianWeatherDeps().TFile;
           if (!(existingFile instanceof TFile3)) continue;
           const cache = app.metadataCache?.getFileCache?.(existingFile);
-          const snapshot = compatibleSnapshot(cache?.frontmatter?._calendar_weather, this.plugin.settings);
+          const snapshot = compatibleSnapshot(cache?.frontmatter?._calendar_weather, settings);
           if (snapshot) snapshots.push({ snapshot: normalizeIcon(snapshot), source: "frontmatter" });
         }
         return snapshots;
       }
-      _cachedCandidates(dateStr, sourcePath) {
+      _cachedCandidates(dateStr, sourcePath, settings = this.plugin.settings, configKey = weatherConfigKey(settings)) {
         const candidates = [];
         const cacheEntry = this.plugin.weatherCache?.[dateStr];
-        const cacheSnapshot = compatibleSnapshot(cacheEntry, this.plugin.settings);
+        const cacheSnapshot = compatibleSnapshot(cacheEntry, settings);
         if (cacheSnapshot) {
           if (cacheEntry?.offline || cacheEntry?.stale) {
             const canonical = toCanonicalWeatherSnapshot(cacheEntry);
@@ -5242,10 +5647,10 @@ var init_weather_service = __esm({
           }
           candidates.push({ snapshot: normalizeIcon(cacheSnapshot), source: "weatherCache" });
         }
-        candidates.push(...this._readLegacySnapshots(dateStr, sourcePath));
+        candidates.push(...this._readLegacySnapshots(dateStr, sourcePath, settings));
         const memoryRecord = this._memoryCache.get(dateStr);
-        if (memoryRecord?.configKey === this._configKey() && memoryRecord.snapshot) {
-          const memorySnapshot = compatibleSnapshot(memoryRecord.snapshot, this.plugin.settings);
+        if (memoryRecord?.configKey === configKey && memoryRecord.snapshot) {
+          const memorySnapshot = compatibleSnapshot(memoryRecord.snapshot, settings);
           if (memorySnapshot) {
             candidates.push({
               snapshot: normalizeIcon(memorySnapshot),
@@ -5256,8 +5661,8 @@ var init_weather_service = __esm({
         }
         return candidates;
       }
-      _selectCached(dateStr, sourcePath, ttlHours) {
-        const candidates = this._cachedCandidates(dateStr, sourcePath);
+      _selectCached(dateStr, sourcePath, ttlHours, settings = this.plugin.settings, configKey = weatherConfigKey(settings)) {
+        const candidates = this._cachedCandidates(dateStr, sourcePath, settings, configKey);
         if (candidates.length === 0) return null;
         const fresh = candidates.find((candidate) => !this._shouldFetch(candidate.record || candidate.snapshot, ttlHours));
         return fresh || candidates[0];
@@ -5271,31 +5676,35 @@ var init_weather_service = __esm({
         this.plugin.weatherCache[dateStr] = { ...candidate.snapshot };
         this.plugin._saveWeatherCache?.();
       }
-      async _fetchOrUseCached(dateStr, forceRefresh) {
-        const s = this.plugin.settings;
+      async _fetchOrUseCached(dateStr, forceRefresh, context = this._requestContext()) {
+        const s = context.settings;
         const lat = parseFloat(s.weatherLatitude);
         const lng = parseFloat(s.weatherLongitude);
         const units = s.weatherUnits === "imperial" ? "imperial" : "metric";
         const ttlHours = s.weatherTtlHours || 2;
         const locationName = s.weatherLocationName || "";
         const memoryRecord = this._memoryCache.get(dateStr);
-        const cached = this._selectCached(dateStr, void 0, ttlHours);
-        if (!forceRefresh && memoryRecord?.configKey === this._configKey() && memoryRecord.snapshot === null && !cached && !this._shouldFetch(memoryRecord, ttlHours)) {
+        const cached = this._selectCached(dateStr, void 0, ttlHours, s, context.configKey);
+        if (!forceRefresh && memoryRecord?.configKey === context.configKey && memoryRecord.snapshot === null && !cached && !this._shouldFetch(memoryRecord, ttlHours)) {
           return null;
         }
         if (!forceRefresh && cached && !this._shouldFetch(cached.record || cached.snapshot, ttlHours)) {
           this._migrateFrontmatterCache(dateStr, cached);
           return cached.snapshot;
         }
-        const fetchResult = await this._fetchFromOpenMeteoResult(lat, lng, dateStr, units, locationName);
+        const fetchResult = await this._fetchFromOpenMeteoResult(lat, lng, dateStr, units, locationName, context);
         const weather = fetchResult.snapshot;
         if (!weather) {
           if (cached?.snapshot) return cloneStaleSnapshot(cached.snapshot, fetchResult.offline);
-          this._memoryCache.set(dateStr, { snapshot: null, cachedAt: this._nowIso(), configKey: this._configKey() });
+          if (context.configKey === this._configKey()) {
+            this._memoryCache.set(dateStr, { snapshot: null, cachedAt: this._nowIso(), configKey: context.configKey });
+          }
           return null;
         }
-        await this._persistSnapshot(dateStr, weather);
-        this._memoryCache.set(dateStr, { snapshot: weather, cachedAt: this._nowIso(), configKey: this._configKey() });
+        if (context.configKey === this._configKey()) {
+          await this._persistSnapshot(dateStr, weather);
+          this._memoryCache.set(dateStr, { snapshot: weather, cachedAt: this._nowIso(), configKey: context.configKey });
+        }
         return weather;
       }
       _dailyFields(isArchive) {
@@ -5312,9 +5721,9 @@ var init_weather_service = __esm({
         if (!isArchive) fields.push("precipitation_probability_max");
         return fields.join(",");
       }
-      _buildWeatherUrl(lat, lng, dateStr, units) {
-        const timezone = this.plugin.settings.weatherTimezone || "auto";
-        const today = daylineDate2(this.plugin.settings, new Date(this._now()));
+      _buildWeatherUrl(lat, lng, dateStr, units, context = this._requestContext()) {
+        const timezone = context.settings.weatherTimezone || "auto";
+        const today = context.today;
         const isToday = dateStr === today;
         const isArchive = dateStr < today;
         const params = new URLSearchParams({
@@ -5351,7 +5760,7 @@ var init_weather_service = __esm({
         const dates = Array.isArray(daily?.time) ? daily.time : [];
         return dates.indexOf(dateStr);
       }
-      _dailySnapshot(daily, idx, lat, lng, dateStr, units, locationName, fetchedAt = this._nowIso()) {
+      _dailySnapshot(daily, idx, lat, lng, dateStr, units, locationName, configKey, fetchedAt = this._nowIso()) {
         if (!daily || idx < 0) return null;
         const code = numberAt(daily.weathercode || daily.weather_code, idx);
         if (typeof code !== "number") return null;
@@ -5379,10 +5788,10 @@ var init_weather_service = __esm({
           sunrise: stringAt(daily.sunrise, idx),
           sunset: stringAt(daily.sunset, idx),
           units,
-          configKey: this._configKey()
+          configKey
         };
       }
-      _currentSnapshot(json, lat, lng, dateStr, units, locationName, fetchedAt) {
+      _currentSnapshot(json, lat, lng, dateStr, units, locationName, configKey, fetchedAt) {
         const cur = json?.current;
         const daily = json?.daily;
         if (!cur || typeof cur !== "object") return null;
@@ -5412,12 +5821,12 @@ var init_weather_service = __esm({
           sunrise: stringAt(daily?.sunrise, idx),
           sunset: stringAt(daily?.sunset, idx),
           units,
-          configKey: this._configKey()
+          configKey
         };
       }
       /** Call Open-Meteo once per operation, with all retry attempts inside it. */
-      async _fetchFromOpenMeteoResult(lat, lng, dateStr, units, locationName) {
-        const url = this._buildWeatherUrl(lat, lng, dateStr, units);
+      async _fetchFromOpenMeteoResult(lat, lng, dateStr, units, locationName, context = this._requestContext()) {
+        const url = this._buildWeatherUrl(lat, lng, dateStr, units, context);
         let response;
         try {
           response = await this._requestWeather(url);
@@ -5428,15 +5837,15 @@ var init_weather_service = __esm({
         if (!response?.json || typeof response.json !== "object") return { snapshot: null, offline: false };
         try {
           const fetchedAt = this._nowIso();
-          const today = daylineDate2(this.plugin.settings, new Date(this._now()));
+          const today = context.today;
           if (dateStr === today) {
-            const current = this._currentSnapshot(response.json, lat, lng, dateStr, units, locationName, fetchedAt);
+            const current = this._currentSnapshot(response.json, lat, lng, dateStr, units, locationName, context.configKey, fetchedAt);
             if (current) return { snapshot: current, offline: false };
           }
           const daily = response.json.daily;
           const idx = this._dailyIndex(daily, dateStr);
           return {
-            snapshot: this._dailySnapshot(daily, idx, lat, lng, dateStr, units, locationName, fetchedAt),
+            snapshot: this._dailySnapshot(daily, idx, lat, lng, dateStr, units, locationName, context.configKey, fetchedAt),
             offline: false
           };
         } catch (err) {
@@ -5473,7 +5882,8 @@ var init_weather_service = __esm({
         const s = this.plugin.settings;
         if (!s.weatherEnabled) return null;
         if (!validateWeatherCoordinates(s.weatherLatitude, s.weatherLongitude)) return null;
-        return this._runDeduplicated(dateStr, () => this._fetchOrUseCached(dateStr, true));
+        const context = this._requestContext();
+        return this._runDeduplicated(dateStr, context.configKey, () => this._fetchOrUseCached(dateStr, true, context));
       }
       /** Check if a date has a compatible cached snapshot. */
       hasCachedSnapshot(dateStr, sourcePath) {
@@ -22187,8 +22597,9 @@ function parsePngExif(arrayBuffer) {
   while (offset <= dv.byteLength - 12) {
     const len = dv.getUint32(offset);
     const type = dv.getUint32(offset + 4);
-    if (len > MAX_EXIF_BLOCK_BYTES || offset + 12 + len > dv.byteLength) break;
-    if (type === 1699305574) {
+    if (len > dv.byteLength - offset - 12) break;
+    if (type === 1700284774) {
+      if (len > MAX_EXIF_BLOCK_BYTES) return null;
       return _parseExifData(arrayBuffer.slice(offset + 8, offset + 8 + len));
     }
     if (type === 1229278788) break;
@@ -22205,12 +22616,10 @@ function parseWebpExif(arrayBuffer) {
   while (offset <= dv.byteLength - 8) {
     const fourCC = dv.getUint32(offset);
     const chunkSize = dv.getUint32(offset + 4, true);
-    if (chunkSize > MAX_EXIF_BLOCK_BYTES || offset + 8 + chunkSize > dv.byteLength) break;
+    if (chunkSize > dv.byteLength - offset - 8) break;
     if (fourCC === 1163413830) {
+      if (chunkSize > MAX_EXIF_BLOCK_BYTES) return null;
       return _parseExifData(arrayBuffer.slice(offset + 8, offset + 8 + chunkSize));
-    }
-    if (fourCC === 1448097824) {
-      break;
     }
     offset += 8 + chunkSize + chunkSize % 2;
   }
@@ -22373,6 +22782,7 @@ var init_image_metadata = __esm({
         this._cache = /* @__PURE__ */ new Map();
         this._pending = /* @__PURE__ */ new Map();
         this._libheifReady = null;
+        this._conversionQueue = Promise.resolve();
       }
       _getLibheif() {
         if (!this._libheifReady) {
@@ -22400,7 +22810,7 @@ var init_image_metadata = __esm({
           return value;
         }
         if (this._pending.has(key)) return this._pending.get(key);
-        const promise = this._convert(file);
+        const promise = this._scheduleConversion(file);
         this._pending.set(key, promise);
         try {
           const result = await promise;
@@ -22414,8 +22824,19 @@ var init_image_metadata = __esm({
           if (this._pending.get(key) === promise) this._pending.delete(key);
         }
       }
+      _scheduleConversion(file) {
+        const operation = this._conversionQueue.then(() => this._convert(file));
+        this._conversionQueue = operation.then(() => void 0, () => void 0);
+        return operation;
+      }
       async _convert(file) {
+        let images = [];
         try {
+          const fileSize = Number(file.stat?.size);
+          if (Number.isFinite(fileSize) && fileSize > MAX_HEIC_BYTES) {
+            console.warn("[Dayline] HEIC conversion skipped: file exceeds 100 MiB limit");
+            return null;
+          }
           if (!this._hasLibheifFactory()) return null;
           const buf = await this.app.vault.readBinary(file);
           if (!buf || buf.byteLength > MAX_HEIC_BYTES) {
@@ -22424,7 +22845,7 @@ var init_image_metadata = __esm({
           }
           const libheif = await this._getLibheif();
           const decoder = new libheif.HeifDecoder();
-          const images = decoder.decode(new Uint8Array(buf));
+          images = decoder.decode(new Uint8Array(buf)) || [];
           if (!images || !images.length) return null;
           const img = images[0];
           const origW = img.get_width();
@@ -22462,6 +22883,13 @@ var init_image_metadata = __esm({
         } catch (e) {
           console.warn("[Dayline] HEIC conversion failed:", e.message || e);
           return null;
+        } finally {
+          for (const image of images) {
+            try {
+              image?.free?.();
+            } catch (_) {
+            }
+          }
         }
       }
       _hasLibheifFactory() {
@@ -22896,8 +23324,8 @@ function isCalendarTapGesture(startX, startY, endX, endY, threshold = CALENDAR_P
   if (!values.every(Number.isFinite) || values[4] < 0) return false;
   return Math.hypot(values[2] - values[0], values[3] - values[1]) <= values[4];
 }
-function calendarCellTouchRouting(coarsePointer) {
-  if (coarsePointer) {
+function calendarCellTouchRouting(coarsePointer, isMobile = coarsePointer) {
+  if (coarsePointer && isMobile) {
     return {
       primary: "date-open",
       secondary: "external-surface",
@@ -22905,6 +23333,16 @@ function calendarCellTouchRouting(coarsePointer) {
       showEntryCountControl: false,
       showMediaInfoControl: false,
       focusMediaBackground: false
+    };
+  }
+  if (coarsePointer) {
+    return {
+      primary: "date-open",
+      secondary: "in-cell",
+      showMoodControl: true,
+      showEntryCountControl: true,
+      showMediaInfoControl: true,
+      focusMediaBackground: true
     };
   }
   return {
@@ -23066,7 +23504,7 @@ var { cachedMonthsReferencingMedia: cachedMonthsReferencingMedia2 } = (init_cale
 var { MEDIA_EXTENSIONS: MEDIA_EXTENSIONS2, IMAGE_EXTENSIONS: MEDIA_IMAGE_EXTENSIONS, classifyMediaLink: classifyMediaLink2, createMediaAttachment: createMediaAttachment2, normalizeMediaLink: normalizeMediaLink2 } = (init_media_links(), __toCommonJS(media_links_exports));
 var { OverlayRegistry: OverlayRegistry2 } = (init_overlay_registry(), __toCommonJS(overlay_registry_exports));
 var { SerialTaskQueue: SerialTaskQueue2 } = (init_task_queue(), __toCommonJS(task_queue_exports));
-var { formatCalendarMonth: formatCalendarMonth2, getCalendarGridOffset: getCalendarGridOffset2, getCalendarWeekdays: getCalendarWeekdays2, getDisplayLanguage: getDisplayLanguage3, moodLabel: moodLabel2, t: t2 } = (init_i18n(), __toCommonJS(i18n_exports));
+var { formatCalendarMonth: formatCalendarMonth2, getCalendarGridOffset: getCalendarGridOffset2, getCalendarWeekdays: getCalendarWeekdays2, getDisplayLanguage: getDisplayLanguage2, moodLabel: moodLabel2, t: t2 } = (init_i18n(), __toCommonJS(i18n_exports));
 var { getMoodColor: getMoodColor2 } = (init_mood(), __toCommonJS(mood_exports));
 var { shouldHandleCalendarMonthShortcut: shouldHandleCalendarMonthShortcut2 } = (init_calendar_keyboard(), __toCommonJS(calendar_keyboard_exports));
 var { calendarEntryAffectsDisplay: calendarEntryAffectsDisplay2, calendarMediaAccessibilityLabel: calendarMediaAccessibilityLabel2, shouldShowCalendarMood: shouldShowCalendarMood2, shouldShowCalendarWeatherCard: shouldShowCalendarWeatherCard2, shouldShowCalendarWeatherBadge: shouldShowCalendarWeatherBadge2, shouldShowCalendarWeatherLocation: shouldShowCalendarWeatherLocation2 } = (init_calendar_display(), __toCommonJS(calendar_display_exports));
@@ -23126,6 +23564,7 @@ var DEFAULT_SETTINGS = {
   showCalendarView: true,
   showTimelineView: false,
   showTimelineMoodTrend: true,
+  showTimelineTitles: true,
   // Legacy combined weather visibility setting; retained for migration/downgrade compatibility.
   showCalendarWeather: true,
   // --- EXIF metadata ---
@@ -23174,7 +23613,7 @@ var DaylinePlugin = class extends Plugin {
     this._applyCapabilityClasses();
     this.moodStore = new MoodStore2(this.app, this.settings);
     await this.moodStore.load();
-    this.journalIndex = new JournalIndex2(this.app, (path) => this.moodStore.get(path));
+    this.journalIndex = new JournalIndex2(this.app, (path) => this.moodStore.getForIndex(path));
     if (!this.capabilities.isMobile) {
       this._desktopJournalIndexStartup = waitForJournalIndexStartup2(this.app).then(() => this.journalIndex.ensureReady(this.settings));
       this._desktopJournalIndexStartup.catch((error) => {
@@ -23193,7 +23632,7 @@ var DaylinePlugin = class extends Plugin {
     });
     this.geocoder = new ReverseGeocoder2({
       cache: this.geocoderCache,
-      getLanguage: () => this.settings.weatherLanguage || getDisplayLanguage3(this.settings),
+      getLanguage: () => this.settings.weatherLanguage || getDisplayLanguage2(this.settings),
       onChange: () => this._saveGeocoderCache()
     });
     this._libheifFactory = null;
@@ -23569,7 +24008,7 @@ var DaylinePlugin = class extends Plugin {
     const date = _daylineDate(this.settings);
     const path = `${this.settings.dailyFolder}/${date}.md`;
     try {
-      const file = await this.ensureJournalFile(path, "");
+      const file = await this.createDailyNoteForDate(date);
       await this.openJournalFile(file);
       await this.journalIndex.refreshFile(path, this.settings);
     } catch (error) {
@@ -23583,6 +24022,20 @@ var DaylinePlugin = class extends Plugin {
     const activeIsJournal = activeFile?.extension === "md" && sources.some((source) => activeFile.path === source.path || activeFile.path.startsWith(`${source.path}/`));
     const path = activeIsJournal ? activeFile.path : `${this.settings.dailyFolder}/${_daylineDate(this.settings)}.md`;
     this.openMoodPicker(path, { allowDateSelection: true, ensureFile: false });
+  }
+  async saveJournalTitle(path, title) {
+    const file = this.app.vault.getAbstractFileByPath(path);
+    if (!(file instanceof TFile2)) throw new Error(`Journal file not found: ${path}`);
+    const sources = this.journalIndex.resolveSources(this.settings);
+    const isJournal = sources.some((source) => path === source.path || path.startsWith(`${source.path}/`));
+    if (!isJournal) throw new Error(`Not a journal file: ${path}`);
+    await this.app.fileManager.processFrontMatter(file, (frontmatter) => {
+      const value = String(title || "").trim();
+      if (value) frontmatter.title = value;
+      else delete frontmatter.title;
+    });
+    await this.journalIndex.refreshFile(file.path, this.settings);
+    this.refreshJournalViews();
   }
   async openMoodPicker(path, options = {}) {
     if (path && options.ensureFile !== false) await this.ensureJournalFile(path, "");
@@ -23666,6 +24119,29 @@ ${path}`)) return false;
     const date = _daylineDate(this.settings, now);
     if (this.journalIndex.getEntries().some((entry) => entry.date === date)) return;
     new Notice4(t2(this.settings, "dailyReminder"));
+  }
+  async createDailyNoteForDate(dateStr) {
+    const path = `${this.settings.dailyFolder}/${dateStr}.md`;
+    const existing = this.app.vault.getAbstractFileByPath(path);
+    if (existing instanceof TFile2) return existing;
+    await this.ensureFolder(this.settings.dailyFolder);
+    const dnPlugin = this.app.internalPlugins?.getPluginById?.("daily-notes");
+    const templatePath = dnPlugin?.instance?.options?.template;
+    if (templatePath) {
+      const templateFile = this.app.vault.getAbstractFileByPath(String(templatePath).replace(/\.md$/, "") + ".md");
+      if (templateFile instanceof TFile2) {
+        const tp = this.app.plugins?.getPlugin?.("templater-obsidian")?.templater;
+        if (tp?.create_new_note_from_template) {
+          await tp.create_new_note_from_template(templateFile, this.settings.dailyFolder, dateStr, false);
+          const created = this.app.vault.getAbstractFileByPath(path);
+          if (created instanceof TFile2) return created;
+        }
+        const content = await this.app.vault.read(templateFile);
+        const resolved = content.replace(/\{\{date\}\}/g, dateStr).replace(/\{\{title\}\}/g, dateStr);
+        return this.app.vault.create(path, resolved);
+      }
+    }
+    return this.app.vault.create(path, "");
   }
   async ensureFolder(path) {
     const normalized = String(path || "").replace(/\\/g, "/").replace(/\/$/, "");
@@ -23861,7 +24337,7 @@ ${path}`)) return false;
     if (data.showCalendarWeatherBadge === void 0) this.settings.showCalendarWeatherBadge = legacyWeatherVisible;
     const rawDisplayLanguage = data.displayLanguage;
     this.settings.displayLanguage = rawDisplayLanguage === "system" || rawDisplayLanguage === "en" || rawDisplayLanguage === "zh" ? rawDisplayLanguage : data.weatherLanguage === "en" ? "en" : "zh";
-    this.settings.weatherLanguage = getDisplayLanguage3({
+    this.settings.weatherLanguage = getDisplayLanguage2({
       displayLanguage: this.settings.displayLanguage,
       weatherLanguage: data.weatherLanguage
     });
@@ -23870,7 +24346,7 @@ ${path}`)) return false;
   }
   async saveSettings() {
     const settings = { ...this.settings };
-    settings.weatherLanguage = getDisplayLanguage3(settings);
+    settings.weatherLanguage = getDisplayLanguage2(settings);
     settings.showCalendarWeather = settings.showCalendarWeatherCard !== false || settings.showCalendarWeatherBadge !== false;
     settings.showCalendarView = settings.showCalendarView !== false;
     settings.showTimelineView = settings.showTimelineView === true;
@@ -24473,11 +24949,20 @@ button.cal-weather-refresh:hover {
   position: absolute;
   top: 2px;
   right: 2px;
-  width: 16px;
-  height: 16px;
+  width: 17px;
+  height: 17px;
+  padding: 0;
+  box-sizing: border-box;
   object-fit: contain;
   z-index: 3;
   pointer-events: none;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.48));
+}
+.cal-day.cal-has-image .cal-weather-badge {
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.58));
 }
 
 /* --- Daily note weather overlay (Day One style frosted-glass chip) --- */
@@ -24785,8 +25270,8 @@ button.cal-weather-refresh:hover {
   left: 2px;
   bottom: 2px;
   z-index: 4;
-  width: 16px;
-  height: 16px;
+  width: 20px;
+  height: 20px;
   padding: 0;
   border: 0;
   background: transparent;
@@ -24797,13 +25282,26 @@ button.cal-weather-refresh:hover {
 .cal-mood-empty { opacity: 0; }
 .cal-day:hover .cal-mood-empty, .cal-mood-empty:focus-visible { opacity: 1; }
 .cal-mood-empty .cal-mood-dot { width: 8px; height: 8px; border: 1px solid var(--text-faint); background: transparent; }
-.cal-mood-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--journal-mood-color); }
-.cal-mood-button:hover .cal-mood-dot { box-shadow: 0 0 0 2px color-mix(in srgb, var(--journal-mood-color) 35%, transparent); }
+.cal-mood-dot { width: 10px; height: 10px; border: 2px solid color-mix(in srgb, var(--background-primary) 78%, transparent); border-radius: 50%; background: var(--journal-mood-color); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.22); }
+.cal-mood-button:hover .cal-mood-dot, .cal-mood-button:focus-visible .cal-mood-dot { box-shadow: 0 0 0 3px color-mix(in srgb, var(--journal-mood-color) 30%, transparent), 0 1px 3px rgba(0, 0, 0, 0.22); }
 .cal-mood-button.mood-2 { --journal-mood-color: #ee6a54; }
 .cal-mood-button.mood-1 { --journal-mood-color: #f0b34f; }
 .cal-mood-button.mood-0 { --journal-mood-color: #55b6c9; }
 .cal-mood-button.mood--1 { --journal-mood-color: #4d6fb8; }
 .cal-mood-button.mood--2 { --journal-mood-color: #7652c7; }
+@media (pointer: coarse) {
+  /* Touch-capable desktop hosts do not have a hover state to reveal an empty mood entry. */
+  .dayline-coarse-pointer:not(.dayline-mobile) .cal-mood-button {
+    width: 28px;
+    height: 28px;
+    left: 0;
+    bottom: 0;
+  }
+  .dayline-coarse-pointer:not(.dayline-mobile) .cal-mood-empty { opacity: 0.78; }
+  .dayline-coarse-pointer:not(.dayline-mobile) .cal-mood-empty .cal-mood-dot { width: 12px; height: 12px; }
+  .dayline-coarse-pointer:not(.dayline-mobile) .cal-mood-dot { width: 12px; height: 12px; }
+  .journal-timeline-entry-title.is-placeholder { opacity: 0.42; }
+}
 .journal-timeline-view { box-sizing: border-box; width: 100%; min-width: 0; padding: 14px; overflow-x: hidden; overflow-y: auto; }
 .journal-index-loading { display: flex; align-items: center; justify-content: center; min-height: 160px; padding: 24px; color: var(--text-muted); text-align: center; overflow-wrap: anywhere; }
 .journal-index-load-error { color: var(--text-error); }
@@ -24842,27 +25340,37 @@ button.cal-weather-refresh:hover {
 .journal-stat-label-trend-row span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .journal-stat-label-trend-row span:last-child { flex: 0 0 auto; color: var(--text-faint); }
 .journal-timeline-list { display: grid; grid-template-columns: minmax(0, 1fr); width: 100%; min-width: 0; gap: 8px; }
-.journal-timeline-entry { display: grid; grid-template-columns: minmax(0, 1fr); width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box; overflow: hidden; gap: 10px; padding: 10px; border: 1px solid var(--background-modifier-border); border-radius: 7px; box-shadow: inset 3px 0 0 var(--background-modifier-border); cursor: pointer; background: var(--background-primary); }
-.journal-timeline-entry.has-thumbnail { grid-template-columns: minmax(0, 1fr) 88px; }
+.journal-timeline-entry { display: grid; grid-template-columns: 30px minmax(0, 1fr); width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box; overflow: hidden; gap: 4px; padding: 12px; border: 1px solid var(--background-modifier-border); border-radius: 7px; box-shadow: inset 3px 0 0 var(--background-modifier-border); cursor: pointer; background: var(--background-primary); }
+.journal-timeline-entry.has-thumbnail { grid-template-columns: 30px minmax(0, 1fr) 104px; }
 .journal-timeline-entry.mood-score-2 { box-shadow: inset 3px 0 0 #ee6a54; }
 .journal-timeline-entry.mood-score-1 { box-shadow: inset 3px 0 0 #f0b34f; }
 .journal-timeline-entry.mood-score-0 { box-shadow: inset 3px 0 0 #55b6c9; }
 .journal-timeline-entry.mood-score--1 { box-shadow: inset 3px 0 0 #4d6fb8; }
 .journal-timeline-entry.mood-score--2 { box-shadow: inset 3px 0 0 #7652c7; }
 .journal-timeline-entry:hover, .journal-timeline-entry:focus-visible { border-right-color: var(--interactive-accent); outline: none; }
-.journal-timeline-entry-body { min-width: 0; overflow: hidden; }
+.journal-timeline-entry-body { display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
+.journal-timeline-entry-date-column { display: flex; flex-direction: column; justify-content: center; align-items: flex-start; min-width: 0; padding-top: 2px; color: var(--text-muted); }
+.journal-timeline-entry-weekday { margin-bottom: 4px; font-size: 11px; font-weight: 600; line-height: 1.25; }
+.journal-timeline-entry-day { color: var(--text-normal); font-size: 24px; font-weight: 700; line-height: 1.05; }
 .journal-timeline-entry-top { flex-wrap: wrap; gap: 4px 7px; min-width: 0; color: var(--text-muted); }
-.journal-timeline-entry-actions { display: inline-flex; align-items: center; gap: 2px; margin-left: auto; }
-.journal-timeline-entry-actions button { width: 24px; height: 24px; padding: 4px; }
 .journal-timeline-entry-date { flex: 0 1 auto; min-width: 0; max-width: 100%; margin: 0; overflow: hidden; color: var(--text-normal); font-size: 14px; font-weight: 600; }
 .journal-timeline-entry-iso { display: none; }
 .journal-timeline-favorite { flex: 0 0 auto; color: var(--text-accent); font-size: 11px; }
-.journal-timeline-title { min-width: 0; margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-normal); font-size: 13px; }
-.journal-timeline-excerpt { min-width: 0; max-width: 100%; margin-top: 4px; overflow: hidden; overflow-wrap: anywhere; color: var(--text-muted); font-size: 12px; line-height: 1.45; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
-.journal-timeline-meta { flex-wrap: wrap; gap: 5px 10px; min-width: 0; margin-top: 6px; overflow-wrap: anywhere; color: var(--text-faint); font-size: 11px; }
+.journal-timeline-entry-title { position: relative; display: block; width: 100%; min-width: 0; margin: 0 0 4px; padding: 0; overflow: hidden; color: var(--text-normal); font-size: 15px; font-weight: 600; line-height: 1.3; text-align: left; text-overflow: ellipsis; white-space: nowrap; cursor: text; }
+.journal-timeline-entry-title:hover, .journal-timeline-entry-title:focus-visible { color: var(--text-accent); outline: none; }
+.journal-timeline-entry-title:focus-visible { text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--journal-mood-active, var(--interactive-accent)) 60%, transparent); text-underline-offset: 3px; }
+.journal-timeline-entry-title.is-placeholder { color: var(--text-muted); font-size: 13px; font-weight: 500; opacity: 0.56; transition: opacity 160ms ease, color 160ms ease; }
+.journal-timeline-entry:hover .journal-timeline-entry-title.is-placeholder,
+.journal-timeline-entry:focus-within .journal-timeline-entry-title.is-placeholder,
+.journal-timeline-entry-title.is-placeholder:focus-visible { opacity: 0.72; }
+.journal-timeline-entry-title.is-placeholder::before { content: attr(data-placeholder); }
+.journal-timeline-entry-title.is-editing { overflow: visible; cursor: text; }
+.journal-timeline-entry-title input { display: block; width: 100%; min-width: 0; height: 24px; margin: 0; padding: 0 0 3px; border: 0; border-bottom: 1px solid var(--interactive-accent); border-radius: 0; color: var(--text-normal); background: transparent; box-shadow: none; font: inherit; font-size: 15px; font-weight: 600; line-height: 1.3; outline: none; }
+.journal-timeline-excerpt { min-width: 0; max-width: 100%; margin-top: 2px; overflow: hidden; overflow-wrap: anywhere; color: var(--text-muted); font-size: 12px; line-height: 1.35; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
+.journal-timeline-meta { flex-wrap: wrap; gap: 5px 10px; min-width: 0; min-height: 10px; margin-top: auto; padding-top: 4px; overflow-wrap: anywhere; color: var(--text-faint); font-size: 10px; line-height: 1; }
 .journal-timeline-mood-note { margin-top: 6px; overflow-wrap: anywhere; color: var(--text-muted); font-size: 12px; white-space: pre-wrap; }
-.journal-timeline-thumbnail { position: relative; width: 88px; height: 88px; min-width: 88px; overflow: hidden; border-radius: 5px; background: var(--background-secondary); }
-.journal-timeline-thumbnail img { display: block; width: 88px; height: 88px; object-fit: cover; opacity: 0; transition: opacity 0.15s ease; }
+.journal-timeline-thumbnail { position: relative; width: 104px; height: 92px; min-width: 104px; overflow: hidden; border-radius: 7px; background: var(--background-secondary); }
+.journal-timeline-thumbnail img { display: block; width: 104px; height: 92px; object-fit: cover; opacity: 0; transition: opacity 0.15s ease; }
 .journal-timeline-thumbnail.is-loaded img { opacity: 1; }
 .journal-timeline-thumbnail-count { position: absolute; right: 4px; bottom: 4px; padding: 1px 4px; border-radius: 4px; background: rgba(0, 0, 0, 0.65); color: #fff; font-size: 10px; }
 .journal-timeline-empty { min-width: 0; padding: 28px 8px; overflow-wrap: anywhere; color: var(--text-muted); text-align: center; }
@@ -24891,14 +25399,20 @@ button.cal-weather-refresh:hover {
 .journal-fluid-track::before { content: ''; position: absolute; top: 50%; left: 0; width: 100%; height: 8px; border: 1px solid color-mix(in srgb, var(--text-normal) 10%, transparent); border-radius: 4px; background: var(--background-modifier-border); transform: translateY(-50%); box-sizing: border-box; }
 .journal-fluid-track-spectrum { position: absolute; top: 50%; left: 0; width: 100%; height: 6px; border-radius: 3px; background: linear-gradient(90deg, #7652c7 0%, #4f50c0 12.5%, #4d6fb8 25%, #5191c1 37.5%, #55b6c9 50%, #73c56a 62.5%, #f0b34f 75%, #ef8e52 87.5%, #ee6a54 100%); opacity: 0.86; transform: translateY(-50%); }
 .journal-fluid-handle { position: absolute; top: 50%; left: var(--journal-mood-position); width: 28px; height: 28px; border: 4px solid var(--background-primary); border-radius: 50%; background: var(--journal-mood-active); box-shadow: 0 5px 14px color-mix(in srgb, var(--journal-mood-active) 40%, rgba(0, 0, 0, 0.3)); transform: translate(-50%, -50%); transition: background-color 160ms ease, box-shadow 160ms ease; box-sizing: border-box; }
-.journal-fluid-mood-control.is-dragging .journal-fluid-handle { width: 32px; height: 32px; }
+.journal-fluid-mood-control.is-dragging .journal-fluid-handle { width: 32px; height: 32px; transition-duration: 120ms; }
 .journal-fluid-endpoints { display: flex; justify-content: space-between; gap: 24px; margin: -1px 18px 0; color: var(--text-muted); font-size: 11px; line-height: 1.35; }
 .journal-fluid-endpoints span { min-width: 0; max-width: 45%; overflow-wrap: anywhere; }
 .journal-fluid-endpoints span:last-child { text-align: right; }
 .journal-visually-hidden { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: -1px !important; overflow: hidden !important; clip: rect(0, 0, 0, 0) !important; white-space: nowrap !important; border: 0 !important; }
 .journal-mood-scale-actions { justify-content: flex-end !important; }
+.journal-mood-actions button { appearance: none; min-height: 36px; padding: 7px 16px; border: 0; border-radius: 999px; color: var(--text-normal); background: color-mix(in srgb, var(--background-primary) 90%, var(--journal-mood-active) 10%); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--journal-mood-active) 12%, transparent); font: inherit; line-height: 1.2; transition: color 180ms ease, background-color 180ms ease, box-shadow 180ms ease, transform 120ms ease; }
+.journal-mood-actions button:hover { background: color-mix(in srgb, var(--background-primary) 78%, var(--journal-mood-active) 22%); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--journal-mood-active) 24%, transparent); }
+.journal-mood-actions button:active { transform: translateY(1px); }
+.journal-mood-actions button:focus-visible { outline: 2px solid color-mix(in srgb, var(--journal-mood-active) 68%, var(--interactive-accent)); outline-offset: 2px; }
 .journal-mood-continue { min-width: 104px; }
-.journal-mood-picker .mod-cta:not(:disabled) { border-color: color-mix(in srgb, var(--journal-mood-active) 74%, #202124); color: #fff; background: color-mix(in srgb, var(--journal-mood-active) 76%, #202124); }
+.journal-mood-picker .mod-cta:not(:disabled) { color: var(--text-on-accent, #fff); background: color-mix(in srgb, var(--journal-mood-active) 78%, var(--background-primary)); box-shadow: 0 4px 12px color-mix(in srgb, var(--journal-mood-active) 24%, transparent); }
+.journal-mood-picker .mod-cta:not(:disabled):hover { background: color-mix(in srgb, var(--journal-mood-active) 88%, var(--background-primary)); box-shadow: 0 5px 16px color-mix(in srgb, var(--journal-mood-active) 32%, transparent); }
+.journal-mood-picker .mod-cta:disabled { color: var(--text-faint); background: color-mix(in srgb, var(--background-primary) 94%, var(--background-modifier-border) 6%); box-shadow: none; }
 .journal-mood-summary { display: flex; align-items: center; gap: 14px; min-width: 0; margin-bottom: 18px; padding: 8px 14px 8px 8px; border: 1px solid color-mix(in srgb, var(--journal-mood-active) 26%, var(--background-modifier-border)); border-radius: 8px; background: color-mix(in srgb, var(--journal-mood-active) 7%, var(--background-secondary)); }
 .journal-mood-summary-canvas { display: block; width: 76px; height: 76px; flex: 0 0 76px; }
 .journal-mood-summary-copy { display: flex; flex-direction: column; min-width: 0; gap: 3px; }
@@ -24908,8 +25422,10 @@ button.cal-weather-refresh:hover {
 .journal-mood-field-group { min-width: 0; }
 .journal-mood-field-label, .journal-mood-note-field label { display: block; margin-bottom: 8px; color: var(--text-normal); font-size: 12px; font-weight: 600; }
 .journal-mood-labels { display: flex; flex-wrap: wrap; gap: 7px; }
-.journal-mood-label { min-height: 34px; border-radius: 6px; }
-.journal-mood-label[aria-pressed='true'] { border-color: var(--journal-mood-active); color: var(--text-normal); background: color-mix(in srgb, var(--journal-mood-active) 16%, var(--background-secondary)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--journal-mood-active) 28%, transparent); }
+.journal-mood-label { appearance: none; min-height: 34px; padding: 7px 13px; border: 0; border-radius: 999px; color: var(--text-muted); background: color-mix(in srgb, var(--background-primary) 90%, var(--journal-mood-active) 10%); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--journal-mood-active) 10%, transparent); font: inherit; line-height: 1.2; transition: color 180ms ease, background-color 180ms ease, box-shadow 180ms ease, transform 120ms ease; }
+.journal-mood-label:hover { color: var(--text-normal); background: color-mix(in srgb, var(--background-primary) 78%, var(--journal-mood-active) 22%); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--journal-mood-active) 22%, transparent); }
+.journal-mood-label:active { transform: translateY(1px); }
+.journal-mood-label[aria-pressed='true'] { color: var(--text-normal); background: color-mix(in srgb, var(--journal-mood-active) 22%, var(--background-primary)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--journal-mood-active) 38%, transparent), 0 3px 10px color-mix(in srgb, var(--journal-mood-active) 12%, transparent); }
 .journal-mood-label:focus-visible { outline: 2px solid var(--interactive-accent); outline-offset: 2px; }
 .journal-mood-custom-label-field { display: flex; gap: 7px; min-width: 0; margin-top: 10px; }
 .journal-mood-custom-label-field input { flex: 1 1 auto; min-width: 0; }
@@ -24943,8 +25459,10 @@ button.cal-weather-refresh:hover {
 .journal-mood-actions { justify-content: space-between; gap: 8px; margin-top: 22px; }
 @media (max-width: 420px) {
   .journal-timeline-view { padding: 10px; }
-  .journal-timeline-entry.has-thumbnail { grid-template-columns: minmax(0, 1fr) 72px; }
-  .journal-timeline-thumbnail, .journal-timeline-thumbnail img { width: 72px; height: 72px; min-width: 72px; }
+  .journal-timeline-entry { grid-template-columns: 32px minmax(0, 1fr); gap: 5px; padding: 9px; }
+  .journal-timeline-entry.has-thumbnail { grid-template-columns: 32px minmax(0, 1fr) 96px; }
+  .journal-timeline-thumbnail, .journal-timeline-thumbnail img { width: 96px; height: 82px; min-width: 96px; }
+  .journal-timeline-entry-day { font-size: 20px; }
   .journal-stat-periods { grid-template-columns: minmax(0, 1fr); }
   .journal-stat-mood-reports { grid-template-columns: minmax(0, 1fr); }
   .journal-mood-recovery-row { grid-template-columns: minmax(0, 1fr); }
@@ -24961,7 +25479,7 @@ button.cal-weather-refresh:hover {
   .cal-otd-button, .cal-filter-field input, .cal-filter-field select,
   .journal-timeline-actions button, .journal-timeline-filter-row > button,
   .journal-timeline-view input, .journal-timeline-view select,
-  .journal-timeline-entry-actions button, .journal-mood-picker button,
+  .journal-mood-picker button,
   .journal-mood-picker input, .journal-mood-picker textarea,
   .journal-mood-picker select, .journal-mood-recovery-row button,
   .cal-jump-apply, .cal-otd-close, .dayline-mobile-mode-button {
@@ -24969,9 +25487,8 @@ button.cal-weather-refresh:hover {
     min-height: 44px;
   }
   .cal-day-bg { outline-offset: 2px; }
-  .journal-timeline-entry-actions { gap: 4px; }
-  .journal-timeline-entry-actions button { width: 44px; height: 44px; padding: 10px; }
   .journal-timeline-actions button, .journal-timeline-filter-row > button { width: 44px; height: 44px; flex-basis: 44px; padding: 10px; }
+  .journal-timeline-entry-title { min-height: 44px; padding-top: 7px; padding-bottom: 7px; }
   .cal-sidebar { padding-left: max(8px, env(safe-area-inset-left)); padding-right: max(8px, env(safe-area-inset-right)); }
 }
 @media (max-width: 420px) {
@@ -24982,9 +25499,10 @@ button.cal-weather-refresh:hover {
   .journal-timeline-header { align-items: flex-start; }
   .journal-timeline-actions { flex-wrap: wrap; justify-content: flex-end; }
   .dayline-mobile-native-view .journal-timeline-view { padding-left: 8px; padding-right: 8px; }
-  .dayline-mobile-native-view .journal-timeline-entry.has-thumbnail { grid-template-columns: minmax(0, 1fr) 76px; }
+  .dayline-mobile-native-view .journal-timeline-entry { grid-template-columns: 32px minmax(0, 1fr); }
+  .dayline-mobile-native-view .journal-timeline-entry.has-thumbnail { grid-template-columns: 32px minmax(0, 1fr) 96px; }
   .dayline-mobile-native-view .journal-timeline-thumbnail,
-  .dayline-mobile-native-view .journal-timeline-thumbnail img { width: 76px; height: 76px; min-width: 76px; }
+  .dayline-mobile-native-view .journal-timeline-thumbnail img { width: 96px; height: 82px; min-width: 96px; }
 }
 body.dayline-mobile.dayline-phone .journal-mood-picker-modal {
   width: calc(100vw - 20px);
@@ -25108,7 +25626,7 @@ body.dayline-mobile.dayline-phone .journal-mood-custom-label-field button,
 body.dayline-mobile.dayline-phone .journal-mood-actions > button:not(.mod-cta) {
   border-color: transparent;
   color: var(--text-normal);
-  background: color-mix(in srgb, var(--background-secondary) 88%, var(--journal-mood-active) 12%);
+  background: color-mix(in srgb, var(--background-primary) 82%, var(--journal-mood-active) 18%);
   box-shadow: none;
 }
 body.dayline-mobile.dayline-phone .journal-mood-label[aria-pressed='true'] {
@@ -25137,9 +25655,9 @@ body.dayline-mobile.dayline-phone .journal-mood-picker .mod-cta:disabled {
   background: color-mix(in srgb, var(--background-secondary) 90%, var(--journal-mood-active) 10%);
 }
 body.dayline-mobile.dayline-phone .journal-mood-picker .mod-cta:not(:disabled) {
-  border-color: color-mix(in srgb, var(--journal-mood-active) 42%, transparent);
-  color: #fff;
-  background: color-mix(in srgb, var(--journal-mood-active) 78%, #202124);
+  border-color: color-mix(in srgb, var(--journal-mood-active) 62%, var(--background-modifier-border));
+  color: var(--text-normal);
+  background: color-mix(in srgb, var(--background-primary) 68%, var(--journal-mood-active) 32%);
 }
 @container (max-width: 420px) {
   .journal-mood-scale { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -25233,7 +25751,9 @@ var CalendarView = class extends ItemView2 {
     this._fetchToken = 0;
     this._overlayLeaves = /* @__PURE__ */ new WeakSet();
     this._overlayInFlight = /* @__PURE__ */ new WeakMap();
+    this._overlayDates = /* @__PURE__ */ new WeakMap();
     this._overlayVersions = /* @__PURE__ */ new WeakMap();
+    this._overlayGeneration = 0;
     this._hostPositionMarkers = /* @__PURE__ */ new Set();
     this._overlayContainers = /* @__PURE__ */ new Set();
     this.exifCache = plugin.exifCache;
@@ -25322,6 +25842,8 @@ var CalendarView = class extends ItemView2 {
   }
   onClose() {
     this.closed = true;
+    this._overlayGeneration = (this._overlayGeneration || 0) + 1;
+    this._fetchToken++;
     const root = this.contentEl;
     if (this._calendarKeydownHandler) root.removeEventListener("keydown", this._calendarKeydownHandler);
     this._calendarKeydownHandler = null;
@@ -25397,8 +25919,12 @@ var CalendarView = class extends ItemView2 {
       await this.refresh();
       return;
     }
-    if (!calendarEntryAffectsDisplay2(change.previous, change.entry)) return;
     const entries = [change.previous, change.entry].filter(Boolean);
+    const otdDates = Array.from(new Set(entries.map((entry) => entry.date).filter(Boolean)));
+    if (!calendarEntryAffectsDisplay2(change.previous, change.entry)) {
+      for (const date of otdDates) this._otdProvider?.invalidate?.(date.slice(5));
+      return;
+    }
     const dates = Array.from(new Set(entries.map((entry) => entry.date).filter(Boolean)));
     for (const path of new Set(entries.map((entry) => entry.path).filter(Boolean))) this.mediaService?.invalidate(path);
     if (!dates.length) return;
@@ -25565,7 +26091,10 @@ var CalendarView = class extends ItemView2 {
       wd.createEl("span", { cls: "cal-weekday", text: day });
     }
     const grid = el.createDiv({ cls: "cal-grid" });
-    const touchRouting = calendarCellTouchRouting2(Boolean(this.plugin.capabilities?.coarsePointer));
+    const touchRouting = calendarCellTouchRouting2(
+      Boolean(this.plugin.capabilities?.coarsePointer),
+      Boolean(this.plugin.capabilities?.isMobile)
+    );
     const firstDay = getCalendarGridOffset2(year, month, this.plugin.settings);
     const daysInMonth2 = new Date(year, month + 1, 0).getDate();
     const todayStr = _daylineDate(this.plugin.settings);
@@ -25660,7 +26189,7 @@ var CalendarView = class extends ItemView2 {
         const snap = this._readCachedWeather(dateStr, weatherPath);
         if (snap) {
           const badge = cell.createEl("img", { cls: "cal-weather-badge" });
-          badge.src = _iconUrl(snap.icon) || "";
+          badge.src = _iconUrl(snap.icon) || _iconUrl("overcast.svg") || "";
           badge.alt = snap.condition;
           badge.setAttribute("aria-label", `${snap.condition}, ${snap.temperature}${this._unitSymbol(snap.units)}`);
           badge.title = `${snap.condition} \xB7 ${snap.temperature}${this._unitSymbol(snap.units)}`;
@@ -25756,7 +26285,7 @@ var CalendarView = class extends ItemView2 {
     const monthLabel = panel.createEl("label", { cls: "cal-filter-field" });
     monthLabel.createSpan({ text: t2(this.plugin.settings, "month") });
     const monthSelect = monthLabel.createEl("select", { attr: { "aria-label": t2(this.plugin.settings, "month") } });
-    const locale = getDisplayLanguage3(this.plugin.settings) === "en" ? "en-US" : "zh-CN";
+    const locale = getDisplayLanguage2(this.plugin.settings) === "en" ? "en-US" : "zh-CN";
     const monthFormatter = new Intl.DateTimeFormat(locale, { month: "long", timeZone: "UTC" });
     for (let index = 0; index < 12; index++) {
       const option = monthSelect.createEl("option", {
@@ -25811,7 +26340,7 @@ var CalendarView = class extends ItemView2 {
         if (!(file instanceof TFile2)) return;
         if (!this.plugin._isCurrentExifHover(hoverToken)) return;
         this.plugin._showExifTooltip(cell, null, true);
-        const fields = await this.exifCache.get(file);
+        const fields = await this._getPersistedExifFields(file, notePath, imageLink);
         if (!this.plugin._isCurrentExifHover(hoverToken)) return;
         this.plugin._showExifTooltip(cell, fields, false);
         if (this.plugin.settings.exifReverseGeocode && fields && this.plugin.geocoder) {
@@ -25852,6 +26381,42 @@ var CalendarView = class extends ItemView2 {
   _onExifLeave(anchor) {
     if (this.plugin._exifTouchAnchor && (!anchor || this.plugin._exifTouchAnchor === anchor)) return;
     this.plugin._endExifHover();
+  }
+  async _getPersistedExifFields(file, notePath, imageLink) {
+    const note = this.app.vault.getAbstractFileByPath(notePath);
+    const normalizedLink = normalizeMediaLink2(imageLink);
+    const frontmatter = note instanceof TFile2 ? this.app.metadataCache.getFileCache(note)?.frontmatter : null;
+    const records = Array.isArray(frontmatter?._dayline_media_metadata) ? frontmatter._dayline_media_metadata : [];
+    const cached = records.find((record) => record && (record.normalizedLink === normalizedLink || record.link === imageLink));
+    const statPromise = this.app.vault?.adapter?.stat?.(file.path);
+    const stat = statPromise ? await statPromise.catch(() => null) : null;
+    const version = stat ? { mtime: Number(stat.mtime) || 0, size: Number(stat.size) || 0 } : null;
+    if (Array.isArray(cached?.fields) && (!version || Number(cached.mtime) === version.mtime && Number(cached.size) === version.size)) {
+      return cached.fields;
+    }
+    const fields = await this.exifCache.get(file);
+    if (note instanceof TFile2 && fields?.length) void this._persistExifFields(note, normalizedLink, fields, version);
+    return fields;
+  }
+  async _persistExifFields(note, normalizedLink, fields, version = null) {
+    if (!(note instanceof TFile2) || !Array.isArray(fields) || fields.length === 0) return;
+    await this.app.fileManager.processFrontMatter(note, (frontmatter) => {
+      const records = Array.isArray(frontmatter._dayline_media_metadata) ? frontmatter._dayline_media_metadata.filter((record2) => record2?.normalizedLink !== normalizedLink) : [];
+      const record = { normalizedLink, fields };
+      if (version) {
+        record.mtime = version.mtime;
+        record.size = version.size;
+      }
+      frontmatter._dayline_media_metadata = [...records, record];
+      const gps = fields.find((field) => field.key === "exif_gps")?.value;
+      if (gps && frontmatter.latitude == null && frontmatter.longitude == null) {
+        const [latitude, longitude] = String(gps).split(",").map((value) => Number.parseFloat(value.trim()));
+        if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
+          frontmatter.latitude = latitude;
+          frontmatter.longitude = longitude;
+        }
+      }
+    });
   }
   /* ----- Read cached weather from plugin data (no more YAML pollution) ----- */
   _readCachedWeather(dateStr, sourcePath) {
@@ -26155,10 +26720,8 @@ var CalendarView = class extends ItemView2 {
         return;
       }
       leaf.openFile(f).then(async () => {
-        if (this.plugin.capabilities?.isMobile) {
-          await this.app.workspace.revealLeaf?.(leaf);
-          this.app.workspace.setActiveLeaf?.(leaf, { focus: true });
-        }
+        await this.app.workspace.revealLeaf?.(leaf);
+        this.app.workspace.setActiveLeaf?.(leaf, { focus: true });
         this._syncActiveDate(leaf);
         this.render();
         this._triggerWeatherAfterOpen(dateStr);
@@ -26200,6 +26763,7 @@ var CalendarView = class extends ItemView2 {
   }
   /* ----- Sync weather overlays on all markdown leaves ----- */
   _syncNoteOverlays() {
+    if (this.closed) return;
     const s = this.plugin.settings;
     this._scheduleExifNoteAttach();
     if (!s.weatherEnabled) {
@@ -26221,6 +26785,7 @@ var CalendarView = class extends ItemView2 {
       const entry = indexedEntries.get(file.path);
       if (!entry) continue;
       validJournalFiles.add(file.path);
+      this._overlayDates.set(leaf, entry.date);
       if (this._overlayInFlight.has(leaf)) {
         continue;
       }
@@ -26230,10 +26795,12 @@ var CalendarView = class extends ItemView2 {
       const file = leaf.view?.file;
       const path = file ? file.path : null;
       if (path && validJournalFiles.has(path)) continue;
+      this._overlayDates.delete(leaf);
       this._releaseOverlay(leaf.containerEl);
     }
   }
   _invalidateOverlayRequests() {
+    this._overlayGeneration = (this._overlayGeneration || 0) + 1;
     for (const leaf of this.app.workspace.getLeavesOfType("markdown")) {
       this._overlayVersions.set(leaf, (this._overlayVersions.get(leaf) || 0) + 1);
     }
@@ -26481,9 +27048,11 @@ var CalendarView = class extends ItemView2 {
   }
   /* ----- Mount or update weather overlay on a single markdown leaf ----- */
   async _createOrUpdateOverlay(leaf, file, indexedDate) {
+    if (this.closed) return;
     const dateStr = indexedDate || file.name.replace(/\.md$/, "");
     const container = leaf.containerEl;
     if (!container) return;
+    const generation = this._overlayGeneration || 0;
     const inFlightPromise = (async () => {
       try {
         await this._buildOverlayForLeaf(leaf, file, dateStr);
@@ -26491,7 +27060,7 @@ var CalendarView = class extends ItemView2 {
         console.warn("[Dayline] Overlay build failed:", err.message);
       } finally {
         this._overlayInFlight.delete(leaf);
-        if (leaf.view?.file === file && !leaf.containerEl?.querySelector(`[${OVERLAY_ATTR}]`)) {
+        if (!this.closed && (leaf.view?.file !== file || generation !== (this._overlayGeneration || 0) || this._overlayDates.get(leaf) !== dateStr)) {
           this._syncNoteOverlays();
         }
       }
@@ -26501,7 +27070,8 @@ var CalendarView = class extends ItemView2 {
   /* ----- Build overlay content and mount it into the given leaf ----- */
   async _buildOverlayForLeaf(leaf, file, dateStr) {
     const container = leaf.containerEl;
-    if (!container) return;
+    if (!container || this.closed) return;
+    const generation = this._overlayGeneration || 0;
     const myVersion = (this._overlayVersions.get(leaf) || 0) + 1;
     this._overlayVersions.set(leaf, myVersion);
     const currentFile = leaf.view?.file;
@@ -26519,7 +27089,7 @@ var CalendarView = class extends ItemView2 {
     }
     if (snap && !this.weather.isSnapshotCompatible(snap)) snap = null;
     const latestFile = leaf.view?.file;
-    if (latestFile !== file || !(latestFile instanceof TFile2)) return;
+    if (this.closed || generation !== (this._overlayGeneration || 0) || this._overlayDates.get(leaf) !== dateStr || latestFile !== file || !(latestFile instanceof TFile2)) return;
     if (myVersion < (this._overlayVersions.get(leaf) || 0)) return;
     if (!snap) return;
     this._claimOverlay(container);
@@ -26629,22 +27199,7 @@ var CalendarView = class extends ItemView2 {
   }
   /* ----- Create daily note from template ----- */
   async _createDailyNote(path, dateStr) {
-    const dnPlugin = this.app.internalPlugins.getPluginById("daily-notes");
-    const templatePath = dnPlugin?.instance?.options?.template;
-    if (templatePath) {
-      const templateFile = this.app.vault.getAbstractFileByPath(templatePath + ".md");
-      if (templateFile instanceof TFile2) {
-        const tp = this.app.plugins.getPlugin("templater-obsidian")?.templater;
-        if (tp && tp.create_new_note_from_template) {
-          await tp.create_new_note_from_template(templateFile, this.plugin.settings.dailyFolder, dateStr, false);
-          const created = this.app.vault.getAbstractFileByPath(path);
-          if (created instanceof TFile2) return created;
-        }
-        const content = await this.app.vault.read(templateFile);
-        return this.app.vault.create(path, content);
-      }
-    }
-    return this.app.vault.create(path, "");
+    return this.plugin.createDailyNoteForDate(dateStr);
   }
   /* ----- Sync active date from the currently viewed leaf ----- */
   _syncActiveDate(leaf) {
@@ -26776,6 +27331,22 @@ var SVG_ICONS = {
   "snow.svg": `data:image/svg+xml,${encodeURIComponent('<svg viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(#snc)"><g id="Clouds"><path d="M55.2623 48.4746C60.1227 40.6111 70.2975 37.38 78.8151 40.9434C87.3214 44.5023 92.138 54.0026 89.903 62.9648L89.7418 63.6143L90.4108 63.585C97.4203 63.2791 103.5 68.9917 103.5 76.0283C103.5 82.8395 97.7717 88.4997 90.9772 88.5H37.9537C31.1275 88.5018 25.2029 83.1709 24.5592 76.3604C23.9158 69.5518 28.7369 63.2124 35.443 61.9453L35.9264 61.8535L35.8424 61.3691C35.0256 56.6239 37.1258 51.7168 41.1051 49.0127C45.0951 46.3014 50.4459 46.1537 54.5797 48.6396L55.0026 48.8945L55.2623 48.4746Z" fill="url(#sng1)" stroke="#E6EFFC"/></g><g id="Snowflakes"><path d="M52.578 98.366l-1.205-.689c.106-.444.105-.908-.003-1.353l1.208-.69c.095-.054.18-.126.247-.214.067-.087.117-.186.146-.292.028-.107.036-.218.021-.326a.72.72 0 00-.106-.31.63.63 0 00-.514-.39.63.63 0 00-.639.084L51.528 94.876c-.335-.317-.741-.55-1.184-.676V92.82a.62.62 0 00-.187-.582.647.647 0 00-.876 0 .62.62 0 00-.187.582v1.38c-.442.128-.848.36-1.185.674L47.266 94.185a.63.63 0 00-.639-.084.63.63 0 00-.514.39.72.72 0 00-.106.31.692.692 0 00.021.326.62.62 0 00.146.293c.068.087.152.16.248.214l1.204.688c-.106.445-.105.909.003 1.353l-1.208.69a.632.632 0 00-.247.214.62.62 0 00-.146.293.692.692 0 00-.021.326.72.72 0 00.106.31.63.63 0 00.514.39c.216.057.445.027.639-.084l1.206-.69c.334.318.74.55 1.184.675v1.382a.62.62 0 00.187.582.647.647 0 00.876 0 .62.62 0 00.187-.582v-1.382c.441-.13.847-.36 1.184-.674l1.206.69a.63.63 0 00.639.084.63.63 0 00.514-.39.72.72 0 00.106-.31.692.692 0 00-.021-.326.62.62 0 00-.146-.293.632.632 0 00-.247-.214zm-4.712-.28a.75.75 0 01-.37-.32.785.785 0 01-.096-.384.69.69 0 01.033-.284.66.66 0 01.159-.265.721.721 0 011.03-.02.78.78 0 01.37.32c.082.143.125.302.126.464 0 .162-.044.321-.126.464a.721.721 0 01-1.03-.02.78.78 0 01-.096.045zm15.002.28l-1.205-.689c.106-.444.105-.908-.003-1.353l1.208-.69c.095-.054.18-.126.247-.214.067-.087.117-.186.146-.292.028-.107.036-.218.021-.326a.72.72 0 00-.106-.31.63.63 0 00-.514-.39.63.63 0 00-.639.084L66.528 94.876c-.335-.317-.741-.55-1.184-.676V92.82a.62.62 0 00-.187-.582.647.647 0 00-.876 0 .62.62 0 00-.187.582v1.38c-.442.128-.848.36-1.185.674L62.266 94.185a.63.63 0 00-.639-.084.63.63 0 00-.514.39.72.72 0 00-.106.31.692.692 0 00.021.326.62.62 0 00.146.293c.068.087.152.16.248.214l1.204.688c-.106.445-.105.909.003 1.353l-1.208.69a.632.632 0 00-.247.214.62.62 0 00-.146.293.692.692 0 00-.021.326.72.72 0 00.106.31.63.63 0 00.514.39c.216.057.445.027.639-.084l1.206-.69c.334.318.74.55 1.184.675v1.382a.62.62 0 00.187.582.647.647 0 00.876 0 .62.62 0 00.187-.582v-1.382c.441-.13.847-.36 1.184-.674l1.206.69a.63.63 0 00.639.084.63.63 0 00.514-.39.72.72 0 00.106-.31.692.692 0 00-.021-.326.62.62 0 00-.146-.293.632.632 0 00-.247-.214zm-4.712-.28a.75.75 0 01-.37-.32.785.785 0 01-.096-.384.69.69 0 01.033-.284.66.66 0 01.159-.265.721.721 0 011.03-.02.78.78 0 01.37.32c.082.143.125.302.126.464 0 .162-.044.321-.126.464a.721.721 0 01-1.03-.02.78.78 0 01-.096.045zm15.002.28l-1.205-.689c.106-.444.105-.908-.003-1.353l1.208-.69c.095-.054.18-.126.247-.214.067-.087.117-.186.146-.292.028-.107.036-.218.021-.326a.72.72 0 00-.106-.31.63.63 0 00-.514-.39.63.63 0 00-.639.084L81.528 94.876c-.335-.317-.741-.55-1.184-.676V92.82a.62.62 0 00-.187-.582.647.647 0 00-.876 0 .62.62 0 00-.187.582v1.38c-.442.128-.848.36-1.185.674L77.266 94.185a.63.63 0 00-.639-.084.63.63 0 00-.514.39.72.72 0 00-.106.31.692.692 0 00.021.326.62.62 0 00.146.293c.068.087.152.16.248.214l1.204.688c-.106.445-.105.909.003 1.353l-1.208.69a.632.632 0 00-.247.214.62.62 0 00-.146.293.692.692 0 00-.021.326.72.72 0 00.106.31.63.63 0 00.514.39c.216.057.445.027.639-.084l1.206-.69c.334.318.74.55 1.184.675v1.382a.62.62 0 00.187.582.647.647 0 00.876 0 .62.62 0 00.187-.582v-1.382c.441-.13.847-.36 1.184-.674l1.206.69a.63.63 0 00.639.084.63.63 0 00.514-.39.72.72 0 00.106-.31.692.692 0 00-.021-.326.62.62 0 00-.146-.293.632.632 0 00-.247-.214zm-4.712-.28a.75.75 0 01-.37-.32.785.785 0 01-.096-.384.69.69 0 01.033-.284.66.66 0 01.159-.265.721.721 0 011.03-.02.78.78 0 01.37.32c.082.143.125.302.126.464 0 .162-.044.321-.126.464a.721.721 0 01-1.03-.02.78.78 0 01-.096.045z" fill="#86C3DB"/></g></g><defs><linearGradient id="sng1" x1="64.0008" y1="39" x2="64.0008" y2="89" gradientUnits="userSpaceOnUse"><stop stop-color="#F3F7FE"/><stop offset="1" stop-color="#E6EFFC"/></linearGradient><clipPath id="snc"><rect width="128" height="128" fill="white"/></clipPath></defs></svg>')}`,
   "thunderstorms.svg": `data:image/svg+xml,${encodeURIComponent('<svg viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(#tsc)"><g id="Clouds"><path d="M55.2625 48.4746C60.1228 40.6111 70.2976 37.38 78.8152 40.9434C87.3215 44.5023 92.1381 54.0026 89.9031 62.9648L89.7419 63.6143L90.4109 63.585C97.4205 63.2791 103.5 68.9917 103.5 76.0283C103.5 82.8395 97.7719 88.4997 90.9773 88.5H37.9539C31.1276 88.5018 25.203 83.1709 24.5593 76.3604C23.9159 69.5518 28.7371 63.2124 35.4431 61.9453L35.9265 61.8535L35.8425 61.3691C35.0258 56.6239 37.1259 51.7168 41.1052 49.0127C45.0952 46.3014 50.4461 46.1537 54.5798 48.6396L55.0027 48.8945L55.2625 48.4746Z" fill="url(#tsg1)" stroke="#E6EFFC"/></g><g id="Lightning"><path d="M71.1729 68.5L63.5566 83.041L63.1729 83.7725H75.002L56.9521 107.892L60.4893 91.0117L60.6162 90.4092H52.7041L60.3555 68.5H71.1729Z" fill="url(#tsg2)" stroke="#F6A823"/></g></g><defs><linearGradient id="tsg1" x1="64.0009" y1="39" x2="64.0009" y2="89" gradientUnits="userSpaceOnUse"><stop stop-color="#F3F7FE"/><stop offset="1" stop-color="#E6EFFC"/></linearGradient><linearGradient id="tsg2" x1="64.528" y1="66.0377" x2="84.4144" y2="77.4572" gradientUnits="userSpaceOnUse"><stop stop-color="#F7B23B"/><stop offset="1" stop-color="#F6A823"/></linearGradient><clipPath id="tsc"><rect width="128" height="128" fill="white"/></clipPath></defs></svg>')}`
 };
+var CALENDAR_BADGE_MARKUP = {
+  "clear-day.svg": '<circle cx="24" cy="24" r="8" fill="#F7B955"/><g stroke="#F7B955" stroke-width="3" stroke-linecap="round"><path d="M24 4v6"/><path d="M24 38v6"/><path d="m4 24 6 0"/><path d="m38 24 6 0"/><path d="m10 10 4 4"/><path d="m34 34 4 4"/><path d="m38 10-4 4"/><path d="m14 34-4 4"/></g>',
+  "partly-cloudy-day.svg": '<circle cx="17" cy="16" r="6" fill="#F7B955"/><g stroke="#F7B955" stroke-width="2" stroke-linecap="round"><path d="M17 6v3"/><path d="M17 23v3"/><path d="M7 16h3"/><path d="M24 16h3"/><path d="m10 9 2 2"/><path d="m22 21 2 2"/></g><path d="M14 35h20a7 7 0 0 0 .4-14 10 10 0 0 0-19-1A7.5 7.5 0 0 0 14 35Z" fill="#F4F7FC" stroke="#71839A" stroke-width="2.6" stroke-linejoin="round"/>',
+  "overcast.svg": '<path d="M12 34h24a7.5 7.5 0 0 0 .3-15 10 10 0 0 0-19.2-1A7.8 7.8 0 0 0 12 34Z" fill="#F4F7FC" stroke="#71839A" stroke-width="2.8" stroke-linejoin="round"/><path d="M24 28h12a5.5 5.5 0 0 0 .2-11 7.5 7.5 0 0 0-14.2-1" fill="#D9E2ED" stroke="#71839A" stroke-width="2.4" stroke-linejoin="round"/>',
+  "fog.svg": '<path d="M12 29h24a7 7 0 0 0 .3-14 10 10 0 0 0-19-1A7.5 7.5 0 0 0 12 29Z" fill="#E8EEF5" stroke="#71839A" stroke-width="2.6" stroke-linejoin="round"/><g stroke="#71839A" stroke-width="2.6" stroke-linecap="round"><path d="M9 36h30"/><path d="M13 42h22"/></g>',
+  "drizzle.svg": '<path d="M12 29h24a7 7 0 0 0 .3-14 10 10 0 0 0-19-1A7.5 7.5 0 0 0 12 29Z" fill="#F4F7FC" stroke="#71839A" stroke-width="2.6" stroke-linejoin="round"/><g stroke="#2F8FCE" stroke-width="3" stroke-linecap="round"><path d="m17 35-.8 3"/><path d="m24 34-.8 3"/><path d="m31 35-.8 3"/></g>',
+  "rain.svg": '<path d="M12 29h24a7 7 0 0 0 .3-14 10 10 0 0 0-19-1A7.5 7.5 0 0 0 12 29Z" fill="#F4F7FC" stroke="#71839A" stroke-width="2.6" stroke-linejoin="round"/><g fill="#2F8FCE"><path d="m16 34 3 0-2 7-3 0Z"/><path d="m23 32 3 0-2 7-3 0Z"/><path d="m30 34 3 0-2 7-3 0Z"/></g>',
+  "snow.svg": '<path d="M12 29h24a7 7 0 0 0 .3-14 10 10 0 0 0-19-1A7.5 7.5 0 0 0 12 29Z" fill="#F4F7FC" stroke="#71839A" stroke-width="2.6" stroke-linejoin="round"/><g stroke="#65A9C8" stroke-width="2" stroke-linecap="round"><path d="M17 35v7"/><path d="m14 38.5 6 0"/><path d="m15 36 4 5"/><path d="m19 36-4 5"/><path d="M31 35v7"/><path d="m28 38.5 6 0"/><path d="m29 36 4 5"/><path d="m33 36-4 5"/></g>',
+  "thunderstorms.svg": '<path d="M12 29h24a7 7 0 0 0 .3-14 10 10 0 0 0-19-1A7.5 7.5 0 0 0 12 29Z" fill="#F4F7FC" stroke="#71839A" stroke-width="2.6" stroke-linejoin="round"/><path d="M26 25h7l-5 7h4L22 44l2.5-8H20Z" fill="#F4B544" stroke="#B97517" stroke-width="1.5" stroke-linejoin="round"/>'
+};
+var CALENDAR_BADGE_ICONS = Object.fromEntries(
+  Object.entries(CALENDAR_BADGE_MARKUP).map(([name, markup]) => [
+    name,
+    "data:image/svg+xml," + encodeURIComponent('<svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">' + markup + "</svg>")
+  ])
+);
 function _iconUrl(iconFile) {
   return SVG_ICONS[iconFile] || "";
 }

@@ -112,7 +112,7 @@ function normalizeEntries(input: MoodReportEntry[] | Record<string, MoodRecord> 
 
 function makeReport(info: { key: string; startDate: string; endDate: string }, entries: MoodReportEntry[]): MoodPeriodReport {
   const scoreCounts = emptyScoreCounts();
-  const labelCounts: Record<string, number> = {};
+  const labelCounts = new Map<string, number>();
   let total = 0;
   let minScore: number | null = null;
   let maxScore: number | null = null;
@@ -123,7 +123,7 @@ function makeReport(info: { key: string; startDate: string; endDate: string }, e
     total += score;
     minScore = minScore === null ? score : Math.min(minScore, score);
     maxScore = maxScore === null ? score : Math.max(maxScore, score);
-    for (const label of entry.mood?.labels || []) labelCounts[label] = (labelCounts[label] || 0) + 1;
+    for (const label of entry.mood?.labels || []) labelCounts.set(label, (labelCounts.get(label) ?? 0) + 1);
   }
   const recordCount = entries.filter((entry) => entry.mood).length;
   return {
@@ -133,7 +133,7 @@ function makeReport(info: { key: string; startDate: string; endDate: string }, e
     minScore,
     maxScore,
     scoreCounts,
-    labelCounts: Object.fromEntries(Object.entries(labelCounts).sort(([a], [b]) => a.localeCompare(b))),
+    labelCounts: Object.fromEntries(Array.from(labelCounts.entries()).sort(([a], [b]) => a.localeCompare(b))),
   };
 }
 
@@ -166,35 +166,30 @@ export function buildMoodPeriodReport(input: MoodReportEntry[] | Record<string, 
 
 export function summarizeMoodLabelTrends(input: MoodReportEntry[] | Record<string, MoodRecord> | MoodRecord[], period: MoodReportPeriod = 'month', options: MoodReportOptions = {}): MoodLabelTrendSummary[] {
   const entries = normalizeEntries(input);
-  const labels = new Set<string>();
-  const totals = new Map<string, { count: number; score: number }>();
+  const totals = new Map<string, { count: number; score: number; trend: Map<string, { count: number; score: number }> }>();
   for (const entry of entries) {
     if (options.from && entry.date < options.from) continue;
     if (options.to && entry.date > options.to) continue;
-    for (const label of entry.mood?.labels || []) {
-      labels.add(label);
-      const current = totals.get(label) || { count: 0, score: 0 };
+    const mood = entry.mood;
+    if (!mood) continue;
+    const key = periodInfo(entry.date, period, options.weekStartsOn ?? 1).key;
+    for (const label of mood.labels) {
+      const current = totals.get(label) || { count: 0, score: 0, trend: new Map() };
       current.count++;
-      current.score += entry.mood?.score ?? 0;
+      current.score += mood.score;
+      const point = current.trend.get(key) || { count: 0, score: 0 };
+      point.count++;
+      point.score += mood.score;
+      current.trend.set(key, point);
       totals.set(label, current);
     }
   }
-  return Array.from(labels).sort((a, b) => a.localeCompare(b)).map((label) => {
+  return Array.from(totals.keys()).sort((a, b) => a.localeCompare(b)).map((label) => {
     const total = totals.get(label)!;
-    const trendMap = new Map<string, MoodReportEntry[]>();
-    for (const entry of entries) {
-      if (options.from && entry.date < options.from) continue;
-      if (options.to && entry.date > options.to) continue;
-      if (!entry.mood?.labels.includes(label)) continue;
-      const key = periodInfo(entry.date, period, options.weekStartsOn ?? 1).key;
-      const group = trendMap.get(key) || [];
-      group.push(entry);
-      trendMap.set(key, group);
-    }
-    const trend = Array.from(trendMap.entries()).sort(([a], [b]) => a.localeCompare(b)).map(([key, group]) => ({
+    const trend = Array.from(total.trend.entries()).sort(([a], [b]) => a.localeCompare(b)).map(([key, point]) => ({
       key,
-      count: group.length,
-      averageScore: group.length ? Math.round((group.reduce((sum, entry) => sum + (entry.mood?.score || 0), 0) / group.length) * 100) / 100 : null,
+      count: point.count,
+      averageScore: Math.round((point.score / point.count) * 100) / 100,
     }));
     return { label, count: total.count, averageScore: Math.round((total.score / total.count) * 100) / 100, trend };
   });

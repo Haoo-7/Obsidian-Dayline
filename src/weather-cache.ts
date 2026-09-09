@@ -21,6 +21,7 @@ export function migrateCompatibleSnapshot(
   if (!snapshot || typeof snapshot !== 'object') return null;
   const expected = weatherConfigKey(settings);
   if (snapshot.configKey === expected) return { ...snapshot };
+  if (snapshot.configKey !== undefined && snapshot.configKey !== null) return null;
 
   const latitude = Number.parseFloat(String(settings.weatherLatitude));
   const longitude = Number.parseFloat(String(settings.weatherLongitude));

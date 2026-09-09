@@ -2,6 +2,8 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { JSDOM } from 'jsdom';
 
+const notices: string[] = [];
+
 vi.mock('obsidian', () => ({
   Modal: class {
     app: unknown;
@@ -21,11 +23,11 @@ vi.mock('obsidian', () => ({
     }
   },
   Notice: class {
-    constructor(_message: string) {}
+    constructor(message: string) { notices.push(message); }
   },
 }));
 
-import { MoodPickerModal } from '../src/mood-picker-modal';
+import { MoodPickerModal, MoodRecoveryModal } from '../src/mood-picker-modal';
 
 function installObsidianDomHelpers(): void {
   const prototype = HTMLElement.prototype as HTMLElement & Record<string, unknown>;
@@ -97,6 +99,7 @@ describe('MoodPickerModal fluid flow', () => {
   });
 
   beforeEach(() => {
+    notices.length = 0;
     vi.stubGlobal('ResizeObserver', class {
       observe() {}
       disconnect() {}
@@ -142,7 +145,7 @@ describe('MoodPickerModal fluid flow', () => {
     });
     expect(slider.getAttribute('aria-label')).toBe('今天的感受如何？');
     const next = modal.contentEl.querySelector<HTMLButtonElement>('.journal-mood-continue')!;
-    expect(next.disabled).toBe(true);
+    expect(next.disabled).toBe(false);
 
     slider.dispatchEvent(pointerEvent('pointerdown', 390));
     slider.dispatchEvent(pointerEvent('pointerup', 390));
@@ -167,6 +170,32 @@ describe('MoodPickerModal fluid flow', () => {
       labels: ['joyful'],
       note: '今天完成了重要工作。',
       customLabels: ['散步'],
+    });
+  });
+
+  it('allows a fresh mood entry to continue with the neutral default', async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    const modal = new MoodPickerModal({}, {
+      filePath: 'Daily/2026-09-02.md',
+      settings: { displayLanguage: 'en' },
+      onSave,
+    });
+    modal.onOpen();
+
+    const next = modal.contentEl.querySelector<HTMLButtonElement>('.journal-mood-continue')!;
+    expect(next.disabled).toBe(false);
+    next.click();
+    expect(modal.score).toBe(0);
+    expect(modal.contentEl.querySelector('.journal-mood-labels')).not.toBeNull();
+    modal.contentEl.querySelector<HTMLButtonElement>('.journal-mood-actions .mod-cta')!.click();
+
+    await vi.waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave).toHaveBeenCalledWith({
+      filePath: 'Daily/2026-09-02.md',
+      score: 0,
+      labels: [],
+      note: null,
+      customLabels: [],
     });
   });
 
@@ -256,5 +285,35 @@ describe('MoodPickerModal fluid flow', () => {
       note: null,
       customLabels: ['walked'],
     });
+  });
+});
+
+describe('MoodRecoveryModal failure handling', () => {
+  it('re-enables restore after a confirmed replacement retry also fails', async () => {
+    const restoreOrphan = vi.fn()
+      .mockRejectedValueOnce(new Error('Mood restore target already has a record: target.md'))
+      .mockRejectedValueOnce(new Error('retry failed'));
+    const modal = new MoodRecoveryModal({}, {
+      settings: { displayLanguage: 'en' },
+      store: {
+        getOrphans: () => ({
+          'deleted.md': {
+            record: { score: 1, labels: [], recordedAt: 'now', updatedAt: 'now' },
+            orphanedAt: 'now',
+          },
+        }),
+        restoreOrphan,
+      },
+    });
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    modal.onOpen();
+    const destination = modal.contentEl.querySelector<HTMLInputElement>('input')!;
+    destination.value = 'target.md';
+    const restore = modal.contentEl.querySelector<HTMLButtonElement>('button')!;
+
+    restore.click();
+    await vi.waitFor(() => expect(restoreOrphan).toHaveBeenCalledTimes(2));
+    await vi.waitFor(() => expect(restore.disabled).toBe(false));
+    expect(notices.at(-1)).toContain('retry failed');
   });
 });

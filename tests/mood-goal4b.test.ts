@@ -166,6 +166,20 @@ describe('Goal 4B mood schema and recovery', () => {
     expect(store.getCustomLabels()).toEqual(['custom', 'focus']);
   });
 
+  it('imports numeric zero but rejects empty and boolean frontmatter moods', async () => {
+    const fixture = makeApp();
+    const values = [0, '0', null, false, '', '   ', '-0'];
+    const paths = values.map((_, index) => `Daily/strict-${index}.md`);
+    paths.forEach((path, index) => fixture.frontmatter.set(path, { mood: values[index] }));
+    const metadataCache = { getFileCache: (file: any) => ({ frontmatter: fixture.frontmatter.get(file.path) }) };
+    const store = new MoodStore(fixture.app);
+
+    await expect(store.importFrontmatter(paths, metadataCache)).resolves.toBe(2);
+    expect(store.get(paths[0])?.score).toBe(0);
+    expect(store.get(paths[1])?.score).toBe(0);
+    expect(paths.slice(2).map((path) => store.get(path))).toEqual([undefined, undefined, undefined, undefined, undefined]);
+  });
+
   it('adopts frontmatter-only mood into recovery and clears all mood keys', async () => {
     const fixture = makeApp();
     const path = 'Daily/2026-08-08.md';
@@ -267,5 +281,38 @@ describe('Goal 4B mood exports and reports', () => {
     }).map((item) => item.key)).toEqual(['2025-12-28', '2026-01-04']);
     expect(buildMoodPeriodReport(entries, 'month', { from: '2025-12-31', to: '2026-01-05', includeEmpty: true }).map((item) => item.key)).toEqual(['2025-12', '2026-01']);
     expect(buildMoodPeriodReport(entries, 'year', { from: '2025-12-31', to: '2026-01-05', includeEmpty: true }).map((item) => item.key)).toEqual(['2025', '2026']);
+  });
+
+  it('counts prototype-shaped labels as ordinary labels', () => {
+    const entries = [
+      { date: '2026-01-03', mood: { score: 1 as const, labels: ['constructor', '__proto__'], recordedAt: '', updatedAt: '' } },
+      { date: '2026-01-04', mood: { score: 2 as const, labels: ['constructor', '__proto__'], recordedAt: '', updatedAt: '' } },
+    ];
+
+    const report = buildMoodPeriodReport(entries, 'month')[0];
+    expect(report.labelCounts['__proto__']).toBe(2);
+    expect(report.labelCounts.constructor).toBe(2);
+    expect(Object.keys(report.labelCounts).sort()).toEqual(['__proto__', 'constructor']);
+    expect(Object.hasOwn(report.labelCounts, '__proto__')).toBe(true);
+  });
+
+  it('builds all label trends without rescanning every record per label', () => {
+    let labelReads = 0;
+    const entries = Array.from({ length: 80 }, (_, index) => ({
+      date: `2026-01-${String((index % 28) + 1).padStart(2, '0')}`,
+      mood: {
+        score: (index % 5 - 2) as -2 | -1 | 0 | 1 | 2,
+        get labels() {
+          labelReads++;
+          return [`label-${index}`, 'shared'];
+        },
+        recordedAt: '',
+        updatedAt: '',
+      },
+    }));
+
+    const trends = summarizeMoodLabelTrends(entries);
+    expect(trends).toHaveLength(81);
+    expect(labelReads).toBeLessThanOrEqual(entries.length * 2);
   });
 });
