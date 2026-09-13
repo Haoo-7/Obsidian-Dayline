@@ -14,6 +14,8 @@
 
 Dayline is a visual journal for calendars, timelines, moods, memories, weather, and photos.
 
+Dayline runs in Obsidian on desktop and in the mobile app, with responsive views for phones.
+
 ## Public showcase
 
 The repository includes a synthetic, privacy-safe showcase vault with calendar and timeline data. Its July 1-21 sample has 21 image-backed dates with mood markers; July 22 onward is intentionally empty:
@@ -28,6 +30,7 @@ The timeline also supports full-text search and multi-dimensional filters:
 The screenshots use fictional entries, a fictional location, generated audio/video, and resized public photographs. See [`showcase/README.md`](showcase/README.md) for the sandbox setup and [`showcase/MEDIA_ATTRIBUTIONS.md`](showcase/MEDIA_ATTRIBUTIONS.md) for media sources.
 
 - Monthly calendar in the left sidebar
+- Mobile Dayline view with calendar/timeline switching, touch-friendly controls, keyboard-aware mood editing, and quick entry from Markdown notes
 - Image thumbnails from daily notes as date cell backgrounds
 - Today highlight (full accent fill) + browsing-date highlight (accent border)
 - One-click open daily notes
@@ -59,7 +62,10 @@ Calendar display can be simplified in Dayline settings with three independent sw
 
 Dayline 是一个集日历、日记时间线、心情记录、去年今日、天气和照片于一体的可视化日记工具。
 
+Dayline 可在 Obsidian 桌面端和手机端使用，手机应用内提供响应式界面。
+
 - **月历视图** — 显示在左侧侧边栏文件管理器上方
+- **手机端** — 提供日历/时间线切换、触控友好的控件、键盘自适应心情编辑，并可从 Markdown 笔记快速进入
 - **图片缩略图** — 自动提取日记中嵌入的图片作为日期格子背景
 - **今日与浏览日期高亮** — 分别使用全色块和边框标识
 - **单击打开与自动创建** — 点击日期打开日记；没有日记时可确认后从 Daily Notes 模板创建（支持 Templater）

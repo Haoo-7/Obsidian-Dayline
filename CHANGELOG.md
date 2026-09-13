@@ -1,5 +1,61 @@
 # Changelog
 
+## 2.3.0 (2026-09-13)
+
+### Added
+- Added full phone support on iOS and Android: a native mobile Dayline view, calendar/timeline switching, a Markdown header quick-entry action, and return navigation to the original note.
+- Added the structured Journal sources editor with folder browsing, source type/date-field controls, per-source enable/remove actions, validation, staged apply, and advanced JSON as a fallback.
+- Added month grouping and compact statistics to the journal timeline.
+- Added per-date mood drafts, explicit custom-label state, save locking/retry, and keyboard-accessible date and mood controls.
+- Added privacy-safe mobile diagnostics and a mobile quick-entry action for Markdown notes.
+
+### Changed
+- Reworked the timeline and mood picker around theme variables, container queries, touch targets, visible field labels, stable filter nodes, and complete focus outlines.
+- Improved the phone mood picker with keyboard-aware sizing, a compact landscape layout, reliable focus transfer between custom labels and notes, and direct close behavior without an unsaved-changes confirmation layer.
+- Kept the note weather overlay as a frosted-glass chip and positioned it below the mobile view header so it no longer competes with toolbar buttons.
+- Localized the new journal-source, timeline, mood, and empty/error states across English and Chinese.
+
+### Fixed
+- Fixed the mobile mood modal collapsing after keyboard animation and the first-tap failure when moving from a custom feeling to the mood note.
+- Fixed mobile weather overlapping host controls, mobile toolbar/card spacing, and mood slider changes during vertical touch scrolling.
+- Fixed journal-index mutation races, timeline draft/focus loss, holiday/date-context ambiguity, mood metadata recovery and atomic writes, weather-cache compatibility, and bounded EXIF/HEIC/media handling.
+
+### Verification
+- `npm test` passed: 47 test files and 399 tests.
+- `npm run typecheck`, `npm run build`, and `git diff --check` passed.
+- Mobile flows were exercised in Obsidian Sandbox and on an iPhone 13 mini, including mobile navigation, timeline filters, mood editing, keyboard focus transfer, landscape layout, and weather overlay placement.
+- Release artifacts are built from the tagged source with no vault data or mood metadata included.
+
+---
+
+## 2.3.0（2026-09-13）
+
+### 新增
+- 正式支持 iOS 和 Android 手机端：原生 Dayline 手机视图、日历/时间线切换、Markdown 标题栏快速入口，以及返回原笔记。
+- 新增结构化 Journal sources 编辑器，支持文件夹浏览、来源类型/日期字段配置、单条启用/删除、校验、分步应用，并保留高级 JSON 作为备用入口。
+- 日记时间线新增按月份分组和紧凑统计。
+- 心情编辑器新增按日期草稿、自定义标签状态、保存锁定/重试，以及可键盘操作的日期和心情控件。
+- 新增隐私安全的手机诊断信息和 Markdown 笔记快速入口。
+
+### 变更
+- 时间线和心情弹窗围绕主题变量、容器查询、触控尺寸、可见字段名、稳定筛选节点和完整焦点轮廓进行了重构。
+- 手机心情弹窗支持键盘自适应尺寸和横屏紧凑布局，自定义感受与备注之间可可靠切换焦点；关闭时不再弹出未保存更改确认层。
+- 笔记天气浮层保留毛玻璃质感，并定位到手机视图 header 下方，不再与工具栏按钮争抢位置。
+- 新增的 Journal sources、时间线、心情和空/错误状态均已接入中英文文案。
+
+### 修复
+- 修复手机心情弹窗在键盘动画后塌缩，以及从自定义感受切换到心情备注时首次点击失效的问题。
+- 修复手机天气遮挡宿主控件、手机工具栏/卡片间距，以及纵向触摸滚动误调心情值的问题。
+- 修复日记索引变更竞态、时间线草稿/焦点丢失、日期上下文不明确、心情元数据恢复与原子写入、天气缓存兼容性，以及 EXIF/HEIC/媒体处理缺少上限的问题。
+
+### 验证
+- `npm test` 通过：47 个测试文件、399 项测试。
+- `npm run typecheck`、`npm run build` 和 `git diff --check` 通过。
+- 已在 Obsidian Sandbox 和 iPhone 13 mini 上跑过手机导航、时间线筛选、心情编辑、键盘焦点切换、横屏布局和天气浮层定位等流程。
+- 发布产物由打标签的源码构建，不包含 Vault 数据或心情元数据。
+
+---
+
 ## 2.2.0 (2026-08-30)
 
 ### Added

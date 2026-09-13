@@ -12,6 +12,8 @@
 
 Dayline is a visual journal for calendars, timelines, moods, memories, weather, and photos. It includes the monthly calendar, journal timeline, mood metadata, On This Day review, and media thumbnails. The Dayline wordmark is also shown in the plugin settings for a consistent branded entry point.
 
+Dayline runs in both Obsidian desktop and the mobile app. The phone view includes calendar/timeline switching, touch-friendly controls, keyboard-aware mood editing, and quick entry from Markdown notes.
+
 ## Public showcase
 
 The repository includes a synthetic, privacy-safe showcase vault with a populated calendar and journal timeline. The July 1-21 sample has 21 image-backed dates with mood markers; July 22 onward is intentionally empty:
@@ -29,6 +31,7 @@ The screenshots use fictional entries, a fictional location, generated audio/vid
 ## Features
 
 - **Monthly calendar** in the left sidebar, above the file manager
+- **Mobile view** — calendar/timeline switching, touch-friendly controls, keyboard-aware mood editing, and quick entry from Markdown notes
 - **Image thumbnails** — embedded images from daily notes as date cell backgrounds
 - **Today highlight** — full accent color fill for today's date
 - **Browsing-date highlight** — accent border for the date currently being viewed
