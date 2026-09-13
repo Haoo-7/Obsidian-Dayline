@@ -35,6 +35,9 @@ function timelineEntryTime(entry, settings) {
   const value = new Date(source);
   if (!Number.isFinite(value.getTime())) return '';
   return new Intl.DateTimeFormat(getDisplayLanguage(settings) === 'en' ? 'en-US' : 'zh-CN', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
     hour12: false,
@@ -101,6 +104,7 @@ export class JournalTimelineView extends ItemView {
 
   setDateFilter(date) {
     this.filter = { from: date, to: date };
+    this.syncFilterControls();
     this._persistMobileTimelineFilter();
     this.render();
   }
@@ -140,6 +144,7 @@ export class JournalTimelineView extends ItemView {
 
   onClose() {
     this.closed = true;
+    this.titleEdit = null;
     this.renderToken++;
     this.thumbnailObserver?.disconnect();
     this.thumbnailObserver = null;
@@ -181,7 +186,25 @@ export class JournalTimelineView extends ItemView {
   render() {
     const root = this.contentEl;
     this._persistMobileTimelineFilter();
+    const language = getDisplayLanguage(this.plugin.settings);
+    if ((this.titleEdit || (this.index.isReady && !this.journalIndexError && this.renderLanguage === language))
+      && root.querySelector('.journal-timeline-list')) {
+      this.updateResults(false);
+      this.updateFilterOptions();
+      const stats = root.querySelector('.journal-timeline-stats-details');
+      if (stats) {
+        const open = stats.open;
+        const focused = stats.contains(document.activeElement);
+        stats.remove();
+        this.renderStats(root, root.querySelector('.journal-timeline-pending-edit') || root.querySelector('.journal-timeline-list'));
+        const replacement = root.querySelector('.journal-timeline-stats-details');
+        replacement.open = open;
+        if (focused) replacement.querySelector('summary').focus();
+      }
+      return;
+    }
     root.empty();
+    this.renderLanguage = language;
     root.addClass('journal-timeline-view');
     this.renderToken++;
     this._renderMobileModeControls(root);
@@ -216,9 +239,14 @@ export class JournalTimelineView extends ItemView {
     this.renderList(root.createDiv({ cls: 'journal-timeline-list' }), entries);
   }
 
-  renderStats(root) {
+  renderStats(root, before = null) {
     const stats = calculateJournalStats(this.index.getEntries());
-    const section = root.createDiv({ cls: 'journal-timeline-stats', attr: { 'aria-label': t(this.plugin.settings, 'moodTrend') } });
+    const details = root.createEl('details', { cls: 'journal-timeline-stats-details' });
+    if (before) root.insertBefore(details, before);
+    const summary = details.createEl('summary');
+    summary.createSpan({ text: t(this.plugin.settings, 'allJournalStats') });
+    summary.createSpan({ cls: 'journal-timeline-stats-summary', text: `${t(this.plugin.settings, 'thisMonth')} ${stats.monthCompletionRate}%` });
+    const section = details.createDiv({ cls: 'journal-timeline-stats' });
     const values = [
       [t(this.plugin.settings, 'currentStreak'), `${stats.currentStreak}`],
       [t(this.plugin.settings, 'longestStreak'), `${stats.longestStreak}`],
@@ -270,20 +298,38 @@ export class JournalTimelineView extends ItemView {
       },
     });
     setIcon(filterButton, 'list-filter');
+    this.filterButton = filterButton;
     filterButton.addEventListener('click', () => {
       this.filterMenuOpen = !this.filterMenuOpen;
-      this.render();
+      menu.hidden = !this.filterMenuOpen;
+      filterButton.setAttribute('aria-expanded', String(this.filterMenuOpen));
+      const label = t(this.plugin.settings, this.filterMenuOpen ? 'closeFilters' : 'openFilters');
+      filterButton.setAttribute('aria-label', label);
+      filterButton.title = label;
+      if (!this.filterMenuOpen && menu.contains(document.activeElement)) filterButton.focus();
     });
 
     const menu = filters.createDiv({ cls: 'journal-timeline-filter-menu' });
-    if (!this.filterMenuOpen) menu.addClass('is-hidden');
-    const from = menu.createEl('input', { attr: { type: 'date', 'aria-label': t(this.plugin.settings, 'fromDate'), title: t(this.plugin.settings, 'fromDate') } });
+    menu.hidden = !this.filterMenuOpen;
+    menu.addEventListener('keydown', (event) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (this.filterMenuOpen) filterButton.click();
+      filterButton.focus();
+    });
+    const field = (key) => {
+      const label = menu.createEl('label', { cls: 'journal-timeline-filter-field' });
+      label.createSpan({ text: t(this.plugin.settings, key) });
+      return label;
+    };
+    const from = field('fromDate').createEl('input', { attr: { type: 'date', 'aria-label': t(this.plugin.settings, 'fromDate'), title: t(this.plugin.settings, 'fromDate') } });
     from.value = this.filter.from ?? '';
     from.addEventListener('change', () => { this.filter.from = from.value || undefined; this.updateResults(); });
-    const to = menu.createEl('input', { attr: { type: 'date', 'aria-label': t(this.plugin.settings, 'toDate'), title: t(this.plugin.settings, 'toDate') } });
+    const to = field('toDate').createEl('input', { attr: { type: 'date', 'aria-label': t(this.plugin.settings, 'toDate'), title: t(this.plugin.settings, 'toDate') } });
     to.value = this.filter.to ?? '';
     to.addEventListener('change', () => { this.filter.to = to.value || undefined; this.updateResults(); });
-    const source = menu.createEl('select', { attr: { 'aria-label': t(this.plugin.settings, 'source'), title: t(this.plugin.settings, 'source') } });
+    const source = field('source').createEl('select', { attr: { 'aria-label': t(this.plugin.settings, 'source'), title: t(this.plugin.settings, 'source') } });
     source.createEl('option', { text: t(this.plugin.settings, 'allSources'), attr: { value: '' } });
     for (const item of this.sourceOptions()) {
       const option = source.createEl('option', { text: item.label, attr: { value: item.id } });
@@ -291,7 +337,7 @@ export class JournalTimelineView extends ItemView {
     }
     source.value = this.filter.sourceId ?? '';
     source.addEventListener('change', () => { this.filter.sourceId = source.value || undefined; this.updateResults(); });
-    const mood = menu.createEl('select', { attr: { 'aria-label': t(this.plugin.settings, 'allMoods'), title: t(this.plugin.settings, 'allMoods') } });
+    const mood = field('mood').createEl('select', { attr: { 'aria-label': t(this.plugin.settings, 'allMoods'), title: t(this.plugin.settings, 'allMoods') } });
     mood.createEl('option', { text: t(this.plugin.settings, 'allMoods'), attr: { value: '' } });
     for (const level of MOOD_LEVELS) {
       const option = mood.createEl('option', { text: moodLabel(this.plugin.settings, level.score), attr: { value: String(level.score) } });
@@ -299,7 +345,7 @@ export class JournalTimelineView extends ItemView {
     }
     mood.value = this.filter.moodScore === undefined ? '' : String(this.filter.moodScore);
     mood.addEventListener('change', () => { this.filter.moodScore = mood.value === '' ? undefined : Number(mood.value); this.updateResults(); });
-    const media = menu.createEl('select', { attr: { 'aria-label': t(this.plugin.settings, 'mediaFilter'), title: t(this.plugin.settings, 'mediaFilter') } });
+    const media = field('mediaFilter').createEl('select', { attr: { 'aria-label': t(this.plugin.settings, 'mediaFilter'), title: t(this.plugin.settings, 'mediaFilter') } });
     for (const [value, key] of [
       ['all', 'mediaAll'], ['any', 'mediaAny'], ['image', 'mediaImage'],
       ['video', 'mediaVideo'], ['audio', 'mediaAudio'], ['none', 'mediaNone'],
@@ -309,7 +355,7 @@ export class JournalTimelineView extends ItemView {
     }
     media.value = this.filter.media || 'all';
     media.addEventListener('change', () => { this.filter.media = media.value === 'all' ? undefined : media.value; this.updateResults(); });
-    const location = menu.createEl('select', { attr: { 'aria-label': t(this.plugin.settings, 'locationFilter'), title: t(this.plugin.settings, 'locationFilter') } });
+    const location = field('locationFilter').createEl('select', { attr: { 'aria-label': t(this.plugin.settings, 'locationFilter'), title: t(this.plugin.settings, 'locationFilter') } });
     location.createEl('option', { text: t(this.plugin.settings, 'allLocations'), attr: { value: '' } });
     for (const item of buildJournalLocationOptions(this.index.getEntries())) {
       const option = location.createEl('option', {
@@ -320,7 +366,7 @@ export class JournalTimelineView extends ItemView {
     }
     location.value = this.filter.location || '';
     location.addEventListener('change', () => { this.filter.location = location.value || undefined; this.updateResults(); });
-    const tag = menu.createEl('select', { attr: { 'aria-label': t(this.plugin.settings, 'tagFilter'), title: t(this.plugin.settings, 'tagFilter') } });
+    const tag = field('tagFilter').createEl('select', { attr: { 'aria-label': t(this.plugin.settings, 'tagFilter'), title: t(this.plugin.settings, 'tagFilter') } });
     tag.createEl('option', { text: t(this.plugin.settings, 'allTags'), attr: { value: '' } });
     for (const item of buildJournalTagOptions(this.index.getEntries())) {
       const option = tag.createEl('option', { text: item.label, attr: { value: item.value } });
@@ -333,10 +379,48 @@ export class JournalTimelineView extends ItemView {
     checkbox.checked = Boolean(this.filter.favoriteOnly);
     favorite.createSpan({ text: t(this.plugin.settings, 'favoritesOnly') });
     checkbox.addEventListener('change', () => { this.filter.favoriteOnly = checkbox.checked; this.updateResults(); });
-    const clear = menu.createEl('button', { attr: { type: 'button', 'aria-label': t(this.plugin.settings, 'clearFilters'), title: t(this.plugin.settings, 'clearFilters') } });
-    setIcon(clear, 'x');
-    clear.addEventListener('click', () => { this.filter = {}; this.updateResults(); this.render(); });
+    const clear = menu.createEl('button', { cls: 'journal-timeline-clear-filters', text: t(this.plugin.settings, 'clearFilters'), attr: { type: 'button' } });
+    clear.addEventListener('click', () => this.clearFilters());
+    this.filterControls = { query, from, to, sourceId: source, moodScore: mood, media, location, tag, favoriteOnly: checkbox };
+    for (const select of [source, location, tag]) {
+      select.addEventListener('blur', () => this.updateFilterOptions());
+    }
     this.renderFilterSummary(filters);
+  }
+
+  syncFilterControls() {
+    for (const [key, control] of Object.entries(this.filterControls || {})) {
+      if (key === 'favoriteOnly') control.checked = Boolean(this.filter[key]);
+      else control.value = this.filter[key] ?? (key === 'media' ? 'all' : '');
+    }
+  }
+
+  updateFilterOptions() {
+    const sources = this.sourceOptions().map(item => ({ value: item.id, label: item.label }));
+    const locations = buildJournalLocationOptions(this.index.getEntries()).map(item => ({
+      value: item.value,
+      label: item.value === MISSING_LOCATION_FILTER ? t(this.plugin.settings, 'noLocation') : item.label,
+    }));
+    const tags = buildJournalTagOptions(this.index.getEntries());
+    for (const [key, options] of [['sourceId', sources], ['location', locations], ['tag', tags]]) {
+      const select = this.filterControls?.[key];
+      if (!select || select === document.activeElement) continue;
+      const current = this.filter[key] || '';
+      const nextOptions = [{ value: '', label: select.options[0].textContent }, ...options];
+      if (current && !nextOptions.some(item => item.value === current)) nextOptions.push({ value: current, label: current });
+      if (JSON.stringify([...select.options].map(item => [item.value, item.textContent]))
+        === JSON.stringify(nextOptions.map(item => [item.value, item.label]))) continue;
+      select.empty();
+      for (const item of nextOptions) select.createEl('option', { text: item.label, attr: { value: item.value } });
+      select.value = current;
+    }
+  }
+
+  clearFilters() {
+    this.filter = {};
+    this.syncFilterControls();
+    this.updateResults();
+    this.filterButton?.focus();
   }
 
   renderFilterSummary(root) {
@@ -356,11 +440,23 @@ export class JournalTimelineView extends ItemView {
     }
     if (this.filter.tag) active.push({ key: 'tag', label: `${t(this.plugin.settings, 'tagFilter')}: #${this.filter.tag}` });
     if (this.filter.favoriteOnly) active.push({ key: 'favoriteOnly', label: t(this.plugin.settings, 'favorite') });
+    this.filterButton?.classList.toggle('is-active', active.length > 0);
+    if (this.filterButton) this.filterButton.dataset.count = String(active.length);
     if (active.length === 0) return;
     const summary = root.createDiv({ cls: 'journal-timeline-filter-summary' });
     for (const item of active) {
-      const chip = summary.createEl('button', { cls: 'journal-filter-chip', text: `${item.label} ×`, attr: { type: 'button', 'aria-label': `${t(this.plugin.settings, 'clearFilters')}: ${item.label}` } });
-      chip.addEventListener('click', () => { delete this.filter[item.key]; this.render(); });
+      const chip = summary.createEl('button', { cls: 'journal-filter-chip', attr: { type: 'button', 'aria-label': `${t(this.plugin.settings, 'clearFilters')}: ${item.label}` } });
+      chip.dataset.filterKey = item.key;
+      chip.createSpan({ text: item.label });
+      setIcon(chip.createSpan({ cls: 'journal-filter-chip-remove', attr: { 'aria-hidden': 'true' } }), 'x');
+      chip.addEventListener('click', () => {
+        const position = active.indexOf(item);
+        delete this.filter[item.key];
+        this.syncFilterControls();
+        this.updateResults();
+        const chips = this.contentEl.querySelectorAll('.journal-filter-chip');
+        (chips[Math.min(position, chips.length - 1)] || this.filterButton)?.focus();
+      });
     }
   }
 
@@ -390,35 +486,99 @@ export class JournalTimelineView extends ItemView {
     return t(this.plugin.settings, key);
   }
 
-  updateResults() {
+  updateResults(resetPage = true) {
     const root = this.contentEl;
     this._persistMobileTimelineFilter();
     const count = root.querySelector('.journal-timeline-count');
     const entries = this.index.filter(this.filter);
-    this.visibleEntryLimit = TIMELINE_PAGE_SIZE;
+    if (resetPage) this.visibleEntryLimit = TIMELINE_PAGE_SIZE;
     if (count) count.setText(String(entries.length));
     const list = root.querySelector('.journal-timeline-list');
     if (list) this.renderList(list, entries);
     const area = root.querySelector('.journal-timeline-filter-area');
     if (area) {
       const oldSummary = area.querySelector('.journal-timeline-filter-summary');
+      const focusedKey = oldSummary?.contains(document.activeElement)
+        ? document.activeElement.closest('.journal-filter-chip')?.dataset.filterKey : null;
       oldSummary?.remove();
       this.renderFilterSummary(area);
+      if (focusedKey) {
+        [...area.querySelectorAll('.journal-filter-chip')]
+          .find(chip => chip.dataset.filterKey === focusedKey)?.focus();
+      }
     }
   }
 
   renderList(list, entries = this.index.filter(this.filter)) {
+    const edit = this.titleEdit;
+    const focused = list.contains(document.activeElement) ? document.activeElement : null;
+    const editingFocused = edit?.card.contains(document.activeElement);
+    const focusedPath = focused?.closest('.journal-timeline-entry')?.dataset.path;
+    const focusedTitle = focused?.classList.contains('journal-timeline-entry-title');
+    const loadingMore = focused?.classList.contains('journal-timeline-load-more');
+    const previousCount = list.querySelectorAll('.journal-timeline-entry').length;
     this.renderToken++;
-    this.thumbnailObserver?.disconnect();
-    this.thumbnailObserver = null;
-    this.thumbnailVisibilityChecks.clear();
-    this.thumbnailLoaders.clear();
-    list.empty();
+    if (!edit) {
+      this.thumbnailObserver?.disconnect();
+      this.thumbnailObserver = null;
+      this.thumbnailVisibilityChecks.clear();
+      this.thumbnailLoaders.clear();
+    } else {
+      for (const map of [this.thumbnailVisibilityChecks, this.thumbnailLoaders]) {
+        for (const container of map.keys()) {
+          if (edit.card.contains(container)) continue;
+          this.thumbnailObserver?.unobserve(container);
+          map.delete(container);
+        }
+      }
+    }
+    const editIndex = edit ? entries.findIndex(entry => entry.path === edit.path) : -1;
+    // A matching draft stays in the results, even if a refresh moves it beyond the current page.
+    if (editIndex >= this.visibleEntryLimit) this.visibleEntryLimit = editIndex + 1;
+    let pending = this.contentEl.querySelector('.journal-timeline-pending-edit');
+    if (edit && editIndex === -1) {
+      if (!pending) {
+        pending = this.contentEl.createDiv({ cls: 'journal-timeline-pending-edit' });
+        this.contentEl.insertBefore(pending, list);
+        pending.createDiv({ text: t(this.plugin.settings, 'unsavedTitle'), attr: { role: 'status' } });
+      }
+      this.moveTitleEditCard(pending);
+    }
+    for (const child of [...list.childNodes]) {
+      if (child !== edit?.card) child.remove();
+    }
+    if (!edit) pending?.remove();
     if (entries.length === 0) {
-      list.createDiv({ cls: 'journal-timeline-empty', text: t(this.plugin.settings, 'noResults') });
+      const empty = list.createDiv({ cls: 'journal-timeline-empty' });
+      const hasEntries = this.index.getEntries().length > 0;
+      empty.createDiv({ text: t(this.plugin.settings, hasEntries ? 'noResults' : 'noJournalEntries') });
+      const action = empty.createEl('button', { text: t(this.plugin.settings, hasEntries ? 'clearFilters' : 'createDailyNote'), attr: { type: 'button' } });
+      action.addEventListener('click', () => hasEntries ? this.clearFilters() : this.plugin.createDailyNoteForToday());
+      if (focused && !editingFocused) action.focus();
       return;
     }
-    for (const entry of entries.slice(0, this.visibleEntryLimit)) this.renderEntry(list, entry, this.renderToken);
+    let month;
+    let beforeEdit = editIndex >= 0 && edit.card.parentElement === list;
+    const positionNewNode = (node) => {
+      if (beforeEdit) list.insertBefore(node, edit.card);
+    };
+    for (const entry of entries.slice(0, this.visibleEntryLimit)) {
+      const key = entry.date.slice(0, 7);
+      if (key !== month) {
+        month = key;
+        const label = new Intl.DateTimeFormat(getDisplayLanguage(this.plugin.settings) === 'en' ? 'en-US' : 'zh-CN',
+          { year: 'numeric', month: 'long' }).format(new Date(`${key}-01T12:00:00`));
+        positionNewNode(list.createEl('h3', { cls: 'journal-timeline-month', text: label }));
+      }
+      if (edit && entry.path === edit.path) {
+        this.moveTitleEditCard(list);
+        beforeEdit = false;
+      } else {
+        this.renderEntry(list, entry, this.renderToken);
+        positionNewNode(list.lastElementChild);
+      }
+    }
+    if (editIndex >= 0) pending?.remove();
     if (entries.length > this.visibleEntryLimit) {
       const remaining = Math.min(TIMELINE_PAGE_SIZE, entries.length - this.visibleEntryLimit);
       const button = list.createEl('button', {
@@ -430,6 +590,30 @@ export class JournalTimelineView extends ItemView {
         this.visibleEntryLimit += TIMELINE_PAGE_SIZE;
         this.renderList(list, entries);
       });
+    }
+    if (focused && !editingFocused) {
+      const cards = [...list.querySelectorAll('.journal-timeline-entry')];
+      const card = loadingMore ? cards[previousCount] : cards.find(item => item.dataset.path === focusedPath);
+      ((focusedTitle && card?.querySelector('.journal-timeline-entry-title')) || card || this.filterButton)?.focus();
+    }
+  }
+
+  moveTitleEditCard(parent) {
+    const edit = this.titleEdit;
+    if (!edit || edit.card.parentElement === parent) return;
+    const active = document.activeElement;
+    const focused = edit.card.contains(active);
+    const selection = [edit.input.selectionStart, edit.input.selectionEnd, edit.input.selectionDirection];
+    // Moving a focused editor can blur it; that blur must not submit the draft.
+    edit.moving = true;
+    try {
+      parent.append(edit.card);
+      if (focused && document.activeElement !== active) {
+        active.focus({ preventScroll: true });
+        if (active === edit.input) edit.input.setSelectionRange(...selection);
+      }
+    } finally {
+      edit.moving = false;
     }
   }
 
@@ -448,6 +632,7 @@ export class JournalTimelineView extends ItemView {
     const card = list.createEl('article', { cls: `journal-timeline-entry ${scoreClass}${thumbnailMedia.length ? ' has-thumbnail' : ''}` });
     card.tabIndex = 0;
     card.dataset.path = entry.path;
+    card.setAttribute('aria-label', `${entry.date}, ${formatJournalDate(entry.date, this.plugin.settings)}${entry.title ? `: ${entry.title}` : ''}`);
     const dateColumn = card.createDiv({ cls: 'journal-timeline-entry-date-column' });
     const dateParts = timelineDateParts(entry.date, this.plugin.settings);
     dateColumn.createSpan({ cls: 'journal-timeline-entry-weekday', text: dateParts.weekday });
@@ -467,7 +652,10 @@ export class JournalTimelineView extends ItemView {
       },
     }) : null;
     if (titleEditor) {
-      if (!title) titleEditor.dataset.placeholder = t(this.plugin.settings, 'addJournalTitle');
+      if (!title) {
+        setIcon(titleEditor, 'pencil');
+        titleEditor.classList.add('journal-timeline-add-title');
+      }
       titleEditor.addEventListener('click', (event) => {
         event.preventDefault();
         event.stopPropagation();
@@ -489,7 +677,10 @@ export class JournalTimelineView extends ItemView {
     const time = timelineEntryTime(entry, this.plugin.settings);
     if (time) {
       const meta = body.createDiv({ cls: 'journal-timeline-meta' });
-      meta.createEl('time', { text: time, attr: { datetime: entry.modifiedAt || entry.createdAt } });
+      meta.createEl('time', {
+        text: t(this.plugin.settings, entry.modifiedAt ? 'updatedAt' : 'createdAt', { time }),
+        attr: { datetime: new Date(entry.modifiedAt || entry.createdAt).toISOString() },
+      });
     }
     let thumbnail;
     if (thumbnailMedia.length > 0) {
@@ -500,7 +691,9 @@ export class JournalTimelineView extends ItemView {
     }
 
     const open = () => this.openEntry(entry.path);
-    card.addEventListener('click', open);
+    card.addEventListener('click', (event) => {
+      if (!isInteractiveTimelineTarget(event.target)) open();
+    });
     card.addEventListener('keydown', (event) => {
       if (shouldOpenTimelineEntryFromKey(event)) { event.preventDefault(); open(); return; }
       if (isInteractiveTimelineTarget(event.target)) return;
@@ -509,9 +702,11 @@ export class JournalTimelineView extends ItemView {
   }
 
   editTitleInline(editor, path, initialTitle) {
-    if (editor.dataset.editing === 'true') return;
+    if (this.titleEdit || editor.dataset.editing === 'true') return;
     editor.dataset.editing = 'true';
     editor.classList.add('is-editing');
+    editor.setAttribute('role', 'group');
+    editor.removeAttribute('tabindex');
     editor.textContent = '';
     const input = document.createElement('input');
     input.type = 'text';
@@ -519,32 +714,71 @@ export class JournalTimelineView extends ItemView {
     input.maxLength = 200;
     input.setAttribute('aria-label', t(this.plugin.settings, 'editJournalTitle'));
     editor.append(input);
+    const edit = this.titleEdit = { path, card: editor.closest('.journal-timeline-entry'), editor, input };
 
     let settled = false;
-    const finish = async (save) => {
-      if (settled) return;
+    let saving = false;
+    let failed = false;
+    const restore = (focus) => {
       settled = true;
-      if (!save) {
-        this.render();
+      this.titleEdit = null;
+      if (this.closed) return;
+      this.render();
+      if (!focus) return;
+      const card = [...this.contentEl.querySelectorAll('.journal-timeline-entry')].find(item => item.dataset.path === path);
+      (card?.querySelector('.journal-timeline-entry-title') || card || this.filterButton)?.focus();
+    };
+    const finish = async (save) => {
+      if (settled || saving) return;
+      if (!save || input.value === initialTitle) {
+        restore(document.activeElement === input);
         return;
       }
+      saving = true;
+      const disabledFocusedInput = document.activeElement === input;
+      let focusMovedAway = false;
+      const trackFocus = (event) => {
+        if (!editor.contains(event.target) && event.target !== document.body) focusMovedAway = true;
+      };
+      document.addEventListener('focusin', trackFocus);
+      const shouldRestoreFocus = () => editor.contains(document.activeElement)
+        || (disabledFocusedInput && !focusMovedAway && document.activeElement === document.body);
+      input.disabled = true;
+      editor.setAttribute('aria-busy', 'true');
+      editor.querySelector('.journal-title-save-error')?.remove();
       try {
         await this.plugin.saveJournalTitle(path, input.value);
+        restore(shouldRestoreFocus());
       } catch (error) {
-        new Notice(t(this.plugin.settings, 'journalTitleSaveFailed', { error: error?.message || error }));
-        this.render();
+        if (this.closed) return;
+        const focus = shouldRestoreFocus();
+        failed = true;
+        input.disabled = false;
+        const message = editor.createDiv({ cls: 'journal-title-save-error' });
+        message.createDiv({ text: t(this.plugin.settings, 'journalTitleSaveFailed', { error: error?.message || error }), attr: { role: 'alert' } });
+        const retry = message.createEl('button', { text: t(this.plugin.settings, 'retry'), attr: { type: 'button' } });
+        retry.addEventListener('click', (event) => { event.stopPropagation(); void finish(true); });
+        const cancel = message.createEl('button', { text: t(this.plugin.settings, 'cancel'), attr: { type: 'button' } });
+        cancel.addEventListener('click', (event) => { event.stopPropagation(); restore(true); });
+        if (focus) input.focus();
+      } finally {
+        document.removeEventListener('focusin', trackFocus);
+        saving = false;
+        editor.removeAttribute('aria-busy');
       }
     };
     input.addEventListener('keydown', (event) => {
       if (event.key === 'Enter') {
         event.preventDefault();
+        event.stopPropagation();
         void finish(true);
       } else if (event.key === 'Escape') {
         event.preventDefault();
+        event.stopPropagation();
         void finish(false);
       }
     });
-    input.addEventListener('blur', () => { void finish(true); });
+    input.addEventListener('blur', () => { if (!failed && !edit.moving) void finish(true); });
     input.addEventListener('click', (event) => event.stopPropagation());
     input.addEventListener('pointerdown', (event) => event.stopPropagation());
     input.focus();
@@ -563,7 +797,7 @@ export class JournalTimelineView extends ItemView {
       const result = this.plugin.mediaService?.loadFirstCover
         ? await this.plugin.mediaService.loadFirstCover(links, validCover)
         : await this.plugin.thumbnailService.loadFirst(links.map((item) => item.link || item.normalizedLink), entry.path);
-      if (token !== this.renderToken || !container.isConnected || !card.isConnected) return;
+      if ((token !== this.renderToken && card !== this.titleEdit?.card) || !container.isConnected || !card.isConnected) return;
       if (!result) {
         card.removeClass('has-thumbnail');
         container.remove();
@@ -576,14 +810,14 @@ export class JournalTimelineView extends ItemView {
     this.thumbnailObserver ??= new IntersectionObserver((observations) => {
       for (const observation of observations) {
         if (!observation.isIntersecting) continue;
-        this.thumbnailObserver.unobserve(observation.target);
+        this.thumbnailObserver?.unobserve(observation.target);
         this.thumbnailLoaders.get(observation.target)?.();
       }
     }, { root: this.contentEl, rootMargin: '160px' });
     this.thumbnailObserver.observe(container);
     this.thumbnailLoaders.set(container, load);
     const checkVisible = () => {
-      if (token !== this.renderToken || !container.isConnected) return;
+      if ((token !== this.renderToken && card !== this.titleEdit?.card) || !container.isConnected) return;
       const rootRect = this.contentEl.getBoundingClientRect();
       const rect = container.getBoundingClientRect();
       if (rect.bottom >= rootRect.top - 160 && rect.top <= rootRect.bottom + 160) load();

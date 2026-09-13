@@ -2150,6 +2150,7 @@ var init_fluid_mood_control = __esm({
         __publicField(this, "resizeObserver", null);
         __publicField(this, "animationFrame", null);
         __publicField(this, "activePointerId", null);
+        __publicField(this, "pendingTouch", null);
         __publicField(this, "dragStartScore", null);
         __publicField(this, "dragStartValue", 0);
         __publicField(this, "selectedScore");
@@ -2160,33 +2161,44 @@ var init_fluid_mood_control = __esm({
         __publicField(this, "lastPreviewColor", null);
         __publicField(this, "destroyed", false);
         __publicField(this, "handlePointerDown", (event) => {
-          if (event.button !== 0 || this.activePointerId !== null) return;
-          event.preventDefault();
-          this.activePointerId = event.pointerId;
-          this.dragStartScore = this.selectedScore;
-          this.dragStartValue = this.displayValue;
-          this.root.classList.add("is-dragging");
-          this.capturePointer(event.pointerId);
-          this.updateFromPointer(event.clientX);
+          if (event.button !== 0 || event.isPrimary === false || this.activePointerId !== null || this.pendingTouch) return;
+          if (event.pointerType === "touch") {
+            this.pendingTouch = {
+              pointerId: event.pointerId,
+              x: event.clientX,
+              y: event.clientY,
+              onTrack: event.target instanceof Node && this.track.contains(event.target)
+            };
+            return;
+          }
+          this.beginPointerDrag(event);
         });
         __publicField(this, "handlePointerMove", (event) => {
+          this.resolveTouch(event);
           if (event.pointerId !== this.activePointerId) return;
           event.preventDefault();
           this.updateFromPointer(event.clientX);
         });
         __publicField(this, "handlePointerUp", (event) => {
+          this.resolveTouch(event, true);
           if (event.pointerId !== this.activePointerId) return;
           event.preventDefault();
           this.updateFromPointer(event.clientX);
-          this.releasePointer(event.pointerId);
           this.activePointerId = null;
+          this.releasePointer(event.pointerId);
           this.root.classList.remove("is-dragging");
           this.commitScore(snapMoodScore(this.targetValue));
         });
         __publicField(this, "handlePointerCancel", (event) => {
+          if (event.type === "lostpointercapture" && this.activePointerId !== null && event.target !== this.root) return;
+          if (event.pointerId === this.pendingTouch?.pointerId) {
+            this.pendingTouch = null;
+            this.releasePointer(event.pointerId);
+            return;
+          }
           if (event.pointerId !== this.activePointerId) return;
-          this.releasePointer(event.pointerId);
           this.activePointerId = null;
+          this.releasePointer(event.pointerId);
           this.root.classList.remove("is-dragging");
           this.selectedScore = this.dragStartScore;
           this.displayValue = this.dragStartValue;
@@ -2284,6 +2296,7 @@ var init_fluid_mood_control = __esm({
         root.addEventListener("pointermove", this.handlePointerMove);
         root.addEventListener("pointerup", this.handlePointerUp);
         root.addEventListener("pointercancel", this.handlePointerCancel);
+        root.addEventListener("lostpointercapture", this.handlePointerCancel);
         root.addEventListener("keydown", this.handleKeydown);
         document.addEventListener("visibilitychange", this.handleVisibilityChange);
         this.mediaQuery?.addEventListener?.("change", this.handleMotionChange);
@@ -2300,15 +2313,46 @@ var init_fluid_mood_control = __esm({
       destroy() {
         if (this.destroyed) return;
         this.destroyed = true;
+        const pointerId = this.activePointerId ?? this.pendingTouch?.pointerId;
+        this.activePointerId = null;
+        this.pendingTouch = null;
+        if (pointerId !== void 0 && pointerId !== null) this.releasePointer(pointerId);
+        this.root.classList.remove("is-dragging");
         this.stopAnimation();
         this.resizeObserver?.disconnect();
         this.root.removeEventListener("pointerdown", this.handlePointerDown);
         this.root.removeEventListener("pointermove", this.handlePointerMove);
         this.root.removeEventListener("pointerup", this.handlePointerUp);
         this.root.removeEventListener("pointercancel", this.handlePointerCancel);
+        this.root.removeEventListener("lostpointercapture", this.handlePointerCancel);
         this.root.removeEventListener("keydown", this.handleKeydown);
         document.removeEventListener("visibilitychange", this.handleVisibilityChange);
         this.mediaQuery?.removeEventListener?.("change", this.handleMotionChange);
+      }
+      beginPointerDrag(event) {
+        event.preventDefault();
+        this.activePointerId = event.pointerId;
+        this.dragStartScore = this.selectedScore;
+        this.dragStartValue = this.displayValue;
+        this.root.classList.add("is-dragging");
+        this.capturePointer(event.pointerId);
+        this.updateFromPointer(event.clientX);
+      }
+      resolveTouch(event, ending = false) {
+        const pending = this.pendingTouch;
+        if (!pending || pending.pointerId !== event.pointerId) return;
+        const dx = Math.abs(event.clientX - pending.x);
+        const dy = Math.abs(event.clientY - pending.y);
+        if (Math.max(dx, dy) < 8) {
+          if (!ending) return;
+          this.pendingTouch = null;
+          if (pending.onTrack) this.beginPointerDrag(event);
+          else this.releasePointer(event.pointerId);
+          return;
+        }
+        this.pendingTouch = null;
+        if (dx > dy) this.beginPointerDrag(event);
+        else this.releasePointer(event.pointerId);
       }
       capturePointer(pointerId) {
         try {
@@ -2493,6 +2537,11 @@ var init_i18n = __esm({
         addJournalTitle: "\u6DFB\u52A0\u6807\u9898",
         editJournalTitle: "\u7F16\u8F91\u65E5\u8BB0\u6807\u9898",
         journalTitleSaveFailed: "\u65E5\u8BB0\u6807\u9898\u4FDD\u5B58\u5931\u8D25\uFF1A{error}",
+        unsavedTitle: "\u672A\u4FDD\u5B58\u7684\u6807\u9898",
+        allJournalStats: "\u5168\u90E8\u65E5\u8BB0\u7EDF\u8BA1",
+        updatedAt: "\u66F4\u65B0\u4E8E {time}",
+        createdAt: "\u521B\u5EFA\u4E8E {time}",
+        noJournalEntries: "\u8FD8\u6CA1\u6709\u65E5\u8BB0",
         journalIndexLoading: "\u6B63\u5728\u52A0\u8F7D\u65E5\u8BB0\u2026",
         journalIndexLoadFailed: "\u65E5\u8BB0\u52A0\u8F7D\u5931\u8D25\uFF1A{error}",
         searchJournal: "\u641C\u7D22\u65E5\u8BB0",
@@ -2563,6 +2612,11 @@ var init_i18n = __esm({
         continue: "\u7EE7\u7EED",
         back: "\u8FD4\u56DE",
         save: "\u4FDD\u5B58",
+        saving: "\u4FDD\u5B58\u4E2D\u2026",
+        retry: "\u91CD\u8BD5",
+        discardChanges: "\u820D\u5F03\u66F4\u6539",
+        moodSaveFailed: "\u5FC3\u60C5\u4FDD\u5B58\u5931\u8D25\uFF1A{error}",
+        moodDateChangeFailed: "\u65E5\u671F\u5207\u6362\u5931\u8D25\uFF1A{error}",
         selected: "\u5DF2\u9009\u62E9",
         veryLow: "\u5F88\u4F4E",
         low: "\u8F83\u4F4E",
@@ -2633,6 +2687,41 @@ var init_i18n = __esm({
         chinese: "\u4E2D\u6587",
         english: "English",
         journalSources: "\u65E5\u8BB0\u6765\u6E90\u76EE\u5F55",
+        sourceDailyFolder: "\u9ED8\u8BA4\u65E5\u8BB0\u76EE\u5F55",
+        sourceFolder: "\u76EE\u5F55",
+        sourceBrowse: "\u9009\u62E9\u76EE\u5F55",
+        sourceName: "\u540D\u79F0\uFF08\u53EF\u9009\uFF09",
+        sourceType: "\u7C7B\u578B",
+        sourceExternal: "\u5916\u90E8\u5BFC\u5165",
+        sourceDaily: "\u6BCF\u65E5\u7B14\u8BB0",
+        sourceDateField: "\u65E5\u671F\u5B57\u6BB5\uFF08\u53EF\u9009\uFF09",
+        sourceEnabled: "\u542F\u7528",
+        sourceRemove: "\u79FB\u9664\u6765\u6E90",
+        sourceAdd: "\u6DFB\u52A0\u6765\u6E90",
+        sourceNumber: "\u6765\u6E90 {number}",
+        sourceNoAdditional: "\u6CA1\u6709\u989D\u5916\u6765\u6E90",
+        sourceAdvanced: "\u9AD8\u7EA7 JSON",
+        sourceApply: "\u5E94\u7528",
+        sourceSaved: "\u6765\u6E90\u5DF2\u4FDD\u5B58",
+        sourceUnsaved: "\u6709\u672A\u5E94\u7528\u7684\u66F4\u6539",
+        sourceInvalidArray: "\u8BF7\u8F93\u5165\u6709\u6548\u7684 JSON \u6570\u7EC4\u3002",
+        sourceInvalidRow: "\u6BCF\u4E2A\u6765\u6E90\u5FC5\u987B\u662F\u5BF9\u8C61\uFF0C\u540D\u79F0\u548C\u65E5\u671F\u5B57\u6BB5\u5E94\u4E3A\u6587\u672C\uFF0C\u542F\u7528\u72B6\u6001\u5E94\u4E3A\u5E03\u5C14\u503C\u3002",
+        sourcePathRequired: "\u8BF7\u586B\u5199\u7B14\u8BB0\u5E93\u5185\u7684\u76EE\u5F55\u8DEF\u5F84\uFF0C\u4E0D\u8981\u5305\u542B . \u6216 .. \u8DEF\u5F84\u6BB5\u3002",
+        sourceDailyRequired: "\u8BF7\u586B\u5199\u7B14\u8BB0\u5E93\u5185\u7684\u9ED8\u8BA4\u65E5\u8BB0\u76EE\u5F55\u3002",
+        sourceInvalidType: "\u6765\u6E90\u7C7B\u578B\u5FC5\u987B\u662F daily \u6216 external\u3002",
+        sourceDuplicateId: "\u6765\u6E90 ID \u91CD\u590D\uFF0C\u8BF7\u4F7F\u7528\u4E0D\u540C\u7684 ID\u3002",
+        sourceDuplicatePath: "\u542F\u7528\u7684\u6765\u6E90\u76EE\u5F55\u91CD\u590D\u3002",
+        sourceMultipleDaily: "\u53EA\u80FD\u542F\u7528\u4E00\u4E2A\u6BCF\u65E5\u7B14\u8BB0\u6765\u6E90\u3002",
+        sourceRowError: "\u6765\u6E90 {row}\uFF1A{error}",
+        sourceSaveRejected: "\u672A\u80FD\u4FDD\u5B58\u6765\u6E90\u8BBE\u7F6E\u3002",
+        sourceRefreshFailed: "\u6765\u6E90\u5DF2\u4FDD\u5B58\uFF0C\u4F46\u65E5\u8BB0\u5237\u65B0\u5931\u8D25\u3002\u8BF7\u91CD\u8BD5\uFF1A{error}",
+        calendarEntryCountOne: "{count} \u6761\u65E5\u8BB0",
+        calendarEntryCount: "{count} \u6761\u65E5\u8BB0",
+        calendarWeatherAvailable: "\u6709\u5929\u6C14\u8BB0\u5F55",
+        calendarEntriesOnDate: "{date}\uFF1A{entries}",
+        createNoteTitle: "\u521B\u5EFA\u65E5\u8BB0",
+        createNotePrompt: "{date} \u8FD8\u6CA1\u6709\u65E5\u8BB0\uFF0C\u662F\u5426\u521B\u5EFA\uFF1F",
+        createNoteAction: "\u521B\u5EFA",
         journalSourcesDesc: "\u914D\u7F6E\u6BCF\u65E5\u7B14\u8BB0\u76EE\u5F55\u548C\u53EF\u9009\u5916\u90E8\u5BFC\u5165\u76EE\u5F55\u3002\u65E7\u7248\u72EC\u7ACB\u6761\u76EE\u6765\u6E90\u4E0D\u518D\u9ED8\u8BA4\u542F\u7528\u3002",
         moodMetadataPath: "\u5FC3\u60C5\u5143\u6570\u636E\u8DEF\u5F84",
         moodMetadataPathDesc: "vault \u5185 JSON \u8DEF\u5F84\uFF0CJSON \u662F\u5FC3\u60C5\u4E3B\u6570\u636E\u6E90\u3002",
@@ -2651,7 +2740,7 @@ var init_i18n = __esm({
         showTimelineMoodTrend: "\u663E\u793A\u65F6\u95F4\u7EBF\u5FC3\u60C5\u8D8B\u52BF",
         showTimelineMoodTrendDesc: "\u5728\u65E5\u8BB0\u65F6\u95F4\u7EBF\u9876\u90E8\u663E\u793A\u8FD1\u4E03\u5929\u7684\u5FC3\u60C5\u8F68\u8FF9\u3002",
         showTimelineTitles: "\u663E\u793A\u65F6\u95F4\u8F74\u65E5\u8BB0\u6807\u9898",
-        showTimelineTitlesDesc: "\u5728\u65E5\u8BB0\u65F6\u95F4\u8F74\u4E2D\u663E\u793A\u6807\u9898\u548C\u65E0\u6807\u9898\u65F6\u7684 Title \u5360\u4F4D\u7B26\u3002",
+        showTimelineTitlesDesc: "\u5728\u65E5\u8BB0\u65F6\u95F4\u7EBF\u4E2D\u663E\u793A\u6807\u9898\u53CA\u6807\u9898\u7F16\u8F91\u5165\u53E3\u3002",
         moodExport: "\u5FC3\u60C5\u5BFC\u51FA",
         moodExportDesc: "\u5BFC\u51FA\u5FC3\u60C5\u8BB0\u5F55\u4E3A CSV \u6216 JSON\u3002",
         metadataBackup: "\u5143\u6570\u636E\u5907\u4EFD",
@@ -2706,6 +2795,11 @@ var init_i18n = __esm({
         addJournalTitle: "Add title",
         editJournalTitle: "Edit journal title",
         journalTitleSaveFailed: "Could not save journal title: {error}",
+        unsavedTitle: "Unsaved title",
+        allJournalStats: "All journal statistics",
+        updatedAt: "Updated {time}",
+        createdAt: "Created {time}",
+        noJournalEntries: "No journal entries yet",
         journalIndexLoading: "Loading journal\u2026",
         journalIndexLoadFailed: "Could not load the journal: {error}",
         searchJournal: "Search journal",
@@ -2776,6 +2870,11 @@ var init_i18n = __esm({
         continue: "Continue",
         back: "Back",
         save: "Save",
+        saving: "Saving\u2026",
+        retry: "Retry",
+        discardChanges: "Discard changes",
+        moodSaveFailed: "Could not save mood: {error}",
+        moodDateChangeFailed: "Could not change date: {error}",
         selected: "Selected",
         veryLow: "Very low",
         low: "Low",
@@ -2846,6 +2945,41 @@ var init_i18n = __esm({
         chinese: "\u4E2D\u6587",
         english: "English",
         journalSources: "Journal source directories",
+        sourceDailyFolder: "Default daily-note folder",
+        sourceFolder: "Folder",
+        sourceBrowse: "Choose folder",
+        sourceName: "Name (optional)",
+        sourceType: "Type",
+        sourceExternal: "External import",
+        sourceDaily: "Daily notes",
+        sourceDateField: "Date field (optional)",
+        sourceEnabled: "Enabled",
+        sourceRemove: "Remove source",
+        sourceAdd: "Add source",
+        sourceNumber: "Source {number}",
+        sourceNoAdditional: "No additional sources",
+        sourceAdvanced: "Advanced JSON",
+        sourceApply: "Apply",
+        sourceSaved: "Sources saved",
+        sourceUnsaved: "Unapplied changes",
+        sourceInvalidArray: "Enter a valid JSON array.",
+        sourceInvalidRow: "Each source must be an object with text names and date fields, and a boolean enabled state.",
+        sourcePathRequired: "Enter a vault folder path without . or .. segments.",
+        sourceDailyRequired: "Enter a default daily-note folder within the vault.",
+        sourceInvalidType: "Source type must be daily or external.",
+        sourceDuplicateId: "Source IDs must be unique.",
+        sourceDuplicatePath: "Enabled source folders must be unique.",
+        sourceMultipleDaily: "Only one daily-note source can be enabled.",
+        sourceRowError: "Source {row}: {error}",
+        sourceSaveRejected: "Could not save source settings.",
+        sourceRefreshFailed: "Sources saved, but the journal could not refresh. Retry: {error}",
+        calendarEntryCountOne: "{count} entry",
+        calendarEntryCount: "{count} entries",
+        calendarWeatherAvailable: "Weather available",
+        calendarEntriesOnDate: "{date}: {entries}",
+        createNoteTitle: "Create daily note",
+        createNotePrompt: "No daily note found for {date}. Create one?",
+        createNoteAction: "Create",
         journalSourcesDesc: "Configure the daily-notes directory and optional external import directories.",
         moodMetadataPath: "Mood metadata path",
         moodMetadataPathDesc: "Vault-relative JSON path. JSON is the primary mood store.",
@@ -2864,7 +2998,7 @@ var init_i18n = __esm({
         showTimelineMoodTrend: "Show timeline mood trend",
         showTimelineMoodTrendDesc: "Show the recent seven-day mood trajectory at the top of the journal timeline.",
         showTimelineTitles: "Show timeline journal titles",
-        showTimelineTitlesDesc: "Show journal titles and the Title placeholder when a note has no title.",
+        showTimelineTitlesDesc: "Show journal titles and title-editing controls in the timeline.",
         moodExport: "Mood export",
         moodExportDesc: "Export mood records as CSV or JSON.",
         metadataBackup: "Metadata backup",
@@ -2917,6 +3051,154 @@ var init_i18n = __esm({
   }
 });
 
+// src/mood-modal-viewport.ts
+function bindMoodModalViewport(modalEl, contentEl) {
+  const doc = modalEl.ownerDocument;
+  const view = doc.defaultView;
+  if (!view || !doc.body.matches(".dayline-mobile.dayline-phone")) return () => {
+  };
+  const viewport = view.visualViewport;
+  const probe = doc.createElement("div");
+  probe.className = "journal-mood-viewport-probe";
+  probe.setAttribute("aria-hidden", "true");
+  probe.style.cssText = "all: initial; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; min-width: 0; min-height: 0; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; box-sizing: border-box; visibility: hidden; pointer-events: none; contain: strict;";
+  doc.body.appendChild(probe);
+  let frame = null;
+  let revealFocus = false;
+  let disposed = false;
+  let touchActive = false;
+  let deferredSync = false;
+  let baselineWidth;
+  let baselineHeight;
+  let previousDimensions;
+  const sync = () => {
+    frame = null;
+    if (disposed) return;
+    const layout = probe.getBoundingClientRect();
+    const layoutHeight = layout.height > 0 ? layout.height : view.innerHeight;
+    const layoutWidth = layout.width > 0 ? layout.width : view.innerWidth;
+    const viewportHeight = viewport && viewport.height > 0 ? viewport.height : view.innerHeight;
+    const viewportWidth = viewport && viewport.width > 0 ? viewport.width : view.innerWidth;
+    const keyboardValue = [modalEl, doc.body, doc.documentElement].map((element) => view.getComputedStyle(element).getPropertyValue("--keyboard-height").trim()).find((value) => value !== "") || "0";
+    const keyboard = /^(?:\d+(?:\.\d+)?|\.\d+)(?:px)?$/.test(keyboardValue) ? Number.parseFloat(keyboardValue) : 0;
+    if (baselineWidth !== layoutWidth) {
+      baselineWidth = layoutWidth;
+      baselineHeight = void 0;
+    }
+    const editing = doc.activeElement?.matches('input, textarea, [contenteditable="true"]');
+    if (keyboard === 0 && !editing && !doc.body.classList.contains("keyboard-animating")) {
+      baselineHeight = Math.max(baselineHeight || 0, layoutHeight);
+    }
+    const keyboardBottom = baselineHeight !== void 0 && keyboard < baselineHeight ? baselineHeight - keyboard : layoutHeight;
+    const availableBottom = Math.min(layoutHeight, keyboardBottom);
+    const top = Math.max(0, viewport?.offsetTop || 0);
+    const left = Math.max(0, viewport?.offsetLeft || 0);
+    const height = Math.max(0, Math.min(top + viewportHeight, availableBottom) - top);
+    const width = Math.max(0, Math.min(left + viewportWidth, layoutWidth) - left);
+    for (const [index, value] of [height, width, top, left].entries()) {
+      modalEl.style.setProperty(VIEWPORT_PROPERTIES[index], `${value}px`);
+    }
+    modalEl.classList.add("has-mood-viewport");
+    modalEl.classList.toggle("is-compact-viewport", height < 480);
+    const dimensions = [layoutHeight, layoutWidth, viewportHeight, viewportWidth, availableBottom];
+    const shouldReveal = revealFocus || previousDimensions !== void 0 && dimensions.some((value, index) => value !== previousDimensions[index]);
+    previousDimensions = dimensions;
+    revealFocus = false;
+    const focused = doc.activeElement;
+    if (!shouldReveal || !focused || !contentEl.contains(focused) || !focused.matches("input, textarea, select, button, [tabindex]")) return;
+    const bounds = contentEl.getBoundingClientRect();
+    const target = focused.getBoundingClientRect();
+    const visibleTop = Math.max(bounds.top + contentEl.clientTop, top) + 8;
+    const visibleBottom = Math.min(bounds.top + contentEl.clientTop + contentEl.clientHeight, top + height) - 8;
+    if (visibleBottom <= visibleTop || target.height === 0) return;
+    const fits = target.height <= visibleBottom - visibleTop;
+    let delta = 0;
+    if (target.top < visibleTop && target.bottom > visibleBottom) return;
+    if (target.top < visibleTop) delta = fits ? target.top - visibleTop : target.bottom - visibleBottom;
+    else if (target.bottom > visibleBottom) delta = fits ? target.bottom - visibleBottom : target.top - visibleTop;
+    if (delta) contentEl.scrollTop += delta;
+  };
+  const schedule = (reveal) => {
+    if (disposed) return;
+    revealFocus || (revealFocus = reveal);
+    if (touchActive) {
+      deferredSync = true;
+      return;
+    }
+    if (frame === null) frame = view.requestAnimationFrame(sync);
+  };
+  const beginTouch = () => {
+    touchActive = true;
+    deferredSync = true;
+    if (frame !== null) {
+      view.cancelAnimationFrame(frame);
+      frame = null;
+    }
+  };
+  const endTouch = () => {
+    if (!touchActive) return;
+    touchActive = false;
+    if (!deferredSync) return;
+    deferredSync = false;
+    schedule(false);
+  };
+  const onResize = () => schedule(false);
+  const onScroll = () => schedule(false);
+  const onFocus = () => schedule(true);
+  const onHostChange = () => schedule(false);
+  const onOrientationChange = () => {
+    baselineWidth = void 0;
+    baselineHeight = void 0;
+    schedule(false);
+  };
+  const resizeObserver = view.ResizeObserver ? new view.ResizeObserver(onHostChange) : null;
+  resizeObserver?.observe(probe);
+  const hostObserver = new view.MutationObserver(onHostChange);
+  for (const host of [doc.documentElement, doc.body]) {
+    hostObserver.observe(host, { attributes: true, attributeFilter: ["style", "class"] });
+  }
+  viewport?.addEventListener("resize", onResize);
+  viewport?.addEventListener("scroll", onScroll);
+  view.addEventListener("resize", onResize);
+  view.addEventListener("orientationchange", onOrientationChange);
+  contentEl.addEventListener("focusin", onFocus);
+  contentEl.addEventListener("focusout", onFocus);
+  contentEl.addEventListener("touchstart", beginTouch, { passive: true });
+  doc.addEventListener("touchend", endTouch, { passive: true });
+  doc.addEventListener("touchcancel", endTouch, { passive: true });
+  sync();
+  return () => {
+    disposed = true;
+    if (frame !== null) view.cancelAnimationFrame(frame);
+    resizeObserver?.disconnect();
+    hostObserver.disconnect();
+    probe.remove();
+    viewport?.removeEventListener("resize", onResize);
+    viewport?.removeEventListener("scroll", onScroll);
+    view.removeEventListener("resize", onResize);
+    view.removeEventListener("orientationchange", onOrientationChange);
+    contentEl.removeEventListener("focusin", onFocus);
+    contentEl.removeEventListener("focusout", onFocus);
+    contentEl.removeEventListener("touchstart", beginTouch);
+    doc.removeEventListener("touchend", endTouch);
+    doc.removeEventListener("touchcancel", endTouch);
+    for (const property of VIEWPORT_PROPERTIES) modalEl.style.removeProperty(property);
+    modalEl.classList.remove("has-mood-viewport", "is-compact-viewport");
+  };
+}
+var VIEWPORT_PROPERTIES;
+var init_mood_modal_viewport = __esm({
+  "src/mood-modal-viewport.ts"() {
+    "use strict";
+    VIEWPORT_PROPERTIES = [
+      "--journal-mood-viewport-height",
+      "--journal-mood-viewport-width",
+      "--journal-mood-viewport-top",
+      "--journal-mood-viewport-left"
+    ];
+  }
+});
+
 // src/mood-picker-modal.ts
 var mood_picker_modal_exports = {};
 __export(mood_picker_modal_exports, {
@@ -2927,6 +3209,23 @@ function normalizeCustomLabels2(value) {
   return Array.from(new Set(
     (Array.isArray(value) ? value : []).map(String).map((label) => label.trim()).filter((label) => label && !BUILT_IN_LABEL_IDS2.has(label))
   )).sort((a, b) => a.localeCompare(b));
+}
+function createMoodDraft(initial, customLabels) {
+  const labels = [...initial?.labels ?? []];
+  return {
+    score: initial?.score ?? 0,
+    labels,
+    customLabels: normalizeCustomLabels2([...customLabels || [], ...labels]),
+    note: initial?.note ?? "",
+    customText: ""
+  };
+}
+function draftFingerprint(draft) {
+  return JSON.stringify({
+    ...draft,
+    labels: [...draft.labels].sort(),
+    customLabels: [...draft.customLabels].sort()
+  });
 }
 function extractDate(filePath) {
   const match = String(filePath || "").match(/(\d{4}-\d{2}-\d{2})(?:\.md)?$/);
@@ -2942,6 +3241,7 @@ var init_mood_picker_modal = __esm({
     init_mood();
     init_fluid_mood_control();
     init_i18n();
+    init_mood_modal_viewport();
     BUILT_IN_LABEL_IDS2 = new Set(moodLabelsForScore(null).map((item) => item.id));
     MoodPickerModal = class extends import_obsidian.Modal {
       constructor(app, options = {}) {
@@ -2953,34 +3253,110 @@ var init_mood_picker_modal = __esm({
         this.onDateChange = options.onDateChange;
         this.allowDateSelection = options.allowDateSelection === true;
         this.date = options.date || extractDate(options.filePath);
-        this.score = this.initial?.score ?? null;
-        this.labels = new Set(this.initial?.labels ?? []);
-        this.customLabels = normalizeCustomLabels2(options.customLabels);
-        for (const label of this.labels) {
-          if (!BUILT_IN_LABEL_IDS2.has(label) && !this.customLabels.includes(label)) this.customLabels.push(label);
-        }
-        this.note = this.initial?.note ?? "";
+        this.restoreDraft(createMoodDraft(this.initial, options.customLabels));
+        const draft = this.snapshotDraft();
+        this.drafts = /* @__PURE__ */ new Map([[this.filePath, { draft, baseline: draftFingerprint(draft) }]]);
+        this.pendingOperation = null;
+        this.closed = false;
       }
       onOpen() {
+        this.ownerWindow = this.contentEl.ownerDocument.defaultView;
+        this.opener = this.contentEl.ownerDocument.activeElement;
         this.modalEl.addClass("journal-mood-picker-modal");
         this.contentEl.empty();
         this.contentEl.addClass("journal-mood-picker");
+        this.disposeViewport = bindMoodModalViewport(this.modalEl, this.contentEl);
         this.renderScale();
         this.keyHandler = (event) => this.handleKeydown(event);
-        this.scope?.register([], "Escape", this.keyHandler);
+        this.escapeHandler = this.scope?.register([], "Escape", this.keyHandler);
         this.contentEl.addEventListener("keydown", this.keyHandler);
+        this.lockedEvents = ["pointerdown", "pointermove", "pointerup", "pointercancel", "keydown", "click", "input", "change"];
+        this.blockLockedInteraction = (event) => {
+          if (!this.isLocked() || event.key === "Escape") return;
+          event.preventDefault();
+          event.stopImmediatePropagation();
+        };
+        for (const type of this.lockedEvents) this.contentEl.addEventListener(type, this.blockLockedInteraction, true);
       }
       onClose() {
+        this.closed = true;
+        this.ownerWindow.clearTimeout(this.focusTimer);
+        this.disposeViewport?.();
+        this.disposeViewport = null;
         this.fluidControl?.destroy();
         this.fluidControl = null;
+        if (this.escapeHandler) this.scope?.unregister?.(this.escapeHandler);
         this.contentEl.removeEventListener("keydown", this.keyHandler);
+        for (const type of this.lockedEvents || []) this.contentEl.removeEventListener(type, this.blockLockedInteraction, true);
         this.contentEl.empty();
+        this.drafts.clear();
+      }
+      snapshotDraft() {
+        return {
+          score: this.score,
+          labels: Array.from(this.labels),
+          customLabels: [...this.customLabels],
+          note: this.note,
+          customText: this.customText
+        };
+      }
+      restoreDraft(draft) {
+        this.score = draft.score;
+        this.labels = new Set(draft.labels);
+        this.customLabels = [...draft.customLabels];
+        this.note = draft.note;
+        this.customText = draft.customText;
+      }
+      cacheDraft() {
+        this.drafts.get(this.filePath).draft = this.snapshotDraft();
+      }
+      isLocked() {
+        return this.closed || Boolean(this.pendingOperation);
+      }
+      updateControls() {
+        const locked = this.isLocked();
+        for (const control of this.contentEl.querySelectorAll("button, input, textarea, select")) {
+          control.disabled = locked;
+        }
+        const slider = this.contentEl.querySelector('[role="slider"]');
+        if (slider) {
+          slider.setAttribute("aria-disabled", String(locked));
+          slider.tabIndex = locked ? -1 : 0;
+          slider.inert = locked;
+        }
+        this.contentEl.setAttribute("aria-busy", String(Boolean(this.pendingOperation)));
+        if (this.saveButton) {
+          const saving = this.pendingOperation === "saving";
+          this.saveButton.textContent = t(this.settings, saving ? "saving" : this.saveFailed ? "retry" : "save");
+          this.saveButton.classList.toggle("is-loading", saving);
+        }
+      }
+      clearError() {
+        this.errorEl?.remove();
+        this.errorEl = null;
+      }
+      showError(key, error) {
+        this.clearError();
+        this.errorEl = this.contentEl.createDiv({
+          cls: "journal-mood-error",
+          text: t(this.settings, key, { error: String(error?.message || error) }),
+          attr: { role: "alert" }
+        });
+      }
+      close() {
+        if (this.closed || this.pendingOperation) return;
+        super.close();
+        if (this.opener?.isConnected) this.opener.focus();
       }
       resetContent(step) {
+        this.ownerWindow.clearTimeout(this.focusTimer);
         this.fluidControl?.destroy();
         this.fluidControl = null;
         this.step = step;
         this.contentEl.empty();
+        this.contentEl.scrollTop = 0;
+        this.errorEl = null;
+        this.saveButton = null;
         this.contentEl.classList.toggle("is-scale-step", step === 1);
         this.contentEl.classList.toggle("is-label-step", step === 2);
         this.setActiveColor(getMoodColor(this.score ?? 0));
@@ -2992,12 +3368,13 @@ var init_mood_picker_modal = __esm({
       renderHeader(title, question) {
         const header = this.contentEl.createDiv({ cls: "journal-mood-header" });
         const copy = header.createDiv({ cls: "journal-mood-header-copy" });
-        copy.createEl("h3", { text: title });
+        copy.createEl("h3", { text: title, attr: { tabindex: "-1" } });
         copy.createEl("p", { cls: "journal-mood-step", text: question });
         if (this.allowDateSelection) this.renderDateField(header);
         return header;
       }
       renderScale() {
+        if (this.isLocked()) return;
         this.resetContent(1);
         this.renderHeader(t(this.settings, "moodTitle"), t(this.settings, "moodQuestion"));
         const panel = this.contentEl.createDiv({ cls: "journal-mood-panel journal-mood-scale-panel" });
@@ -3010,7 +3387,7 @@ var init_mood_picker_modal = __esm({
         });
         next.disabled = false;
         next.addEventListener("click", () => {
-          if (this.score === null) this.selectScore(0);
+          if (this.isLocked()) return;
           this.renderLabels();
         });
         this.fluidControl = new FluidMoodControl(controlHost, {
@@ -3027,11 +3404,10 @@ var init_mood_picker_modal = __esm({
             if (this.score !== null) this.renderLabels();
           }
         });
-        if (typeof window !== "undefined") {
-          window.setTimeout(() => this.fluidControl?.focus?.(), 0);
-        } else {
-          this.fluidControl.focus();
-        }
+        this.fluidControl.focus();
+        this.focusTimer = this.ownerWindow.setTimeout(() => {
+          if (!this.isLocked()) this.fluidControl?.focus();
+        }, 0);
       }
       renderDateField(parent = this.contentEl) {
         const field = parent.createDiv({ cls: "journal-mood-date-field" });
@@ -3040,9 +3416,7 @@ var init_mood_picker_modal = __esm({
           attr: {
             type: "date",
             value: this.date || "",
-            // Keep the date control available by touch without letting Obsidian's
-            // modal autofocus open the native picker on mobile.
-            tabindex: "-1",
+            tabindex: "0",
             "aria-label": t(this.settings, "moodDate"),
             title: t(this.settings, "moodDateDesc")
           }
@@ -3051,34 +3425,48 @@ var init_mood_picker_modal = __esm({
         input.addEventListener("change", () => this.changeDate(input.value, input));
       }
       selectScore(score) {
+        if (this.isLocked()) return;
         this.score = score;
         const builtInIds = new Set(moodLabelsForScore(null).map((item) => item.id));
         const custom = Array.from(this.labels).filter((label) => !builtInIds.has(label));
         this.labels = /* @__PURE__ */ new Set([...custom, ...filterMoodLabelsForScore(score, this.labels)]);
       }
       async changeDate(date, input) {
-        if (!date || date === this.date) return;
-        input.disabled = true;
+        if (this.isLocked()) return;
+        if (!date || date === this.date) {
+          if (input) input.value = this.date || "";
+          return;
+        }
+        this.cacheDraft();
+        const previousDate = this.date;
+        this.pendingOperation = "changing-date";
+        this.ownerWindow.clearTimeout(this.focusTimer);
+        this.clearError();
+        this.updateControls();
         try {
           const result = await this.onDateChange?.(date);
-          this.date = date;
-          if (result) {
-            this.filePath = result.filePath || this.filePath;
-            this.initial = result.initial;
-            this.score = this.initial?.score ?? null;
-            this.labels = new Set(this.initial?.labels ?? []);
-            this.customLabels = normalizeCustomLabels2(result.customLabels || this.customLabels || []);
-            for (const label of this.labels) if (!BUILT_IN_LABEL_IDS2.has(label) && !this.customLabels.includes(label)) this.customLabels.push(label);
-            this.note = this.initial?.note ?? "";
-            if (this.score !== null) this.selectScore(this.score);
+          const filePath = result?.filePath || this.filePath;
+          if (!this.drafts.has(filePath)) {
+            const draft = createMoodDraft(result?.initial, result?.customLabels || this.customLabels);
+            this.drafts.set(filePath, { draft, baseline: draftFingerprint(draft) });
           }
+          this.filePath = filePath;
+          this.date = date;
+          this.initial = result?.initial;
+          this.restoreDraft(this.drafts.get(filePath).draft);
+          this.saveFailed = false;
+          this.pendingOperation = null;
           this.renderScale();
         } catch (error) {
-          input.disabled = false;
-          new import_obsidian.Notice(`${t(this.settings, "moodTitle")}: ${error.message || error}`);
+          if (input) input.value = previousDate || "";
+          this.showError("moodDateChangeFailed", error);
+        } finally {
+          this.pendingOperation = null;
+          this.updateControls();
         }
       }
       renderLabels() {
+        if (this.isLocked()) return;
         this.resetContent(2);
         this.renderHeader(t(this.settings, "addFeelings"), t(this.settings, "chooseFeelings"));
         const summary = this.contentEl.createDiv({ cls: "journal-mood-summary" });
@@ -3091,31 +3479,31 @@ var init_mood_picker_modal = __esm({
         const feelings = form.createDiv({ cls: "journal-mood-field-group" });
         feelings.createEl("label", { cls: "journal-mood-field-label", text: t(this.settings, "chooseFeelings") });
         const group = feelings.createDiv({ cls: "journal-mood-labels", attr: { role: "group", "aria-label": t(this.settings, "addFeelings") } });
-        const builtIn = moodLabelsForScore(this.score);
-        for (const item of builtIn) {
+        const labelButtons = /* @__PURE__ */ new Map();
+        const updateLabel = (button, id) => {
+          const selected = this.labels.has(id);
+          button.setAttribute("aria-pressed", String(selected));
+        };
+        const addLabelButton = (id, text, custom = false) => {
           const button = group.createEl("button", {
-            cls: "journal-mood-label",
-            text: feelingLabel(this.settings, item.id),
-            attr: { type: "button", "aria-pressed": String(this.labels.has(item.id)) }
+            cls: `journal-mood-label${custom ? " journal-mood-label-custom" : ""}`,
+            attr: { type: "button", ...custom ? { "data-custom-label": "true" } : {} }
           });
+          button.createSpan({ cls: "journal-mood-label-text", text });
+          const icon = button.createSpan({ cls: "journal-mood-label-check", attr: { "aria-hidden": "true" } });
+          (0, import_obsidian.setIcon)(icon, "check");
+          labelButtons.set(id, button);
+          updateLabel(button, id);
           button.addEventListener("click", () => {
-            if (this.labels.has(item.id)) this.labels.delete(item.id);
-            else this.labels.add(item.id);
-            button.setAttribute("aria-pressed", String(this.labels.has(item.id)));
+            if (this.isLocked()) return;
+            if (this.labels.has(id)) this.labels.delete(id);
+            else this.labels.add(id);
+            updateLabel(button, id);
           });
-        }
-        const customIds = new Set(this.customLabels);
-        for (const item of Array.from(customIds).sort((a, b) => a.localeCompare(b))) {
-          const button = group.createEl("button", {
-            cls: "journal-mood-label journal-mood-label-custom",
-            text: item,
-            attr: { type: "button", "aria-pressed": String(this.labels.has(item)), "data-custom-label": "true" }
-          });
-          button.addEventListener("click", () => {
-            if (this.labels.has(item)) this.labels.delete(item);
-            else this.labels.add(item);
-            button.setAttribute("aria-pressed", String(this.labels.has(item)));
-          });
+        };
+        for (const item of moodLabelsForScore(this.score)) addLabelButton(item.id, feelingLabel(this.settings, item.id));
+        for (const item of [...this.customLabels].sort((a, b) => a.localeCompare(b))) {
+          addLabelButton(item, item, true);
         }
         const customField = feelings.createDiv({ cls: "journal-mood-custom-label-field" });
         const customInput = customField.createEl("input", {
@@ -3126,14 +3514,22 @@ var init_mood_picker_modal = __esm({
             "aria-label": t(this.settings, "customFeeling")
           }
         });
+        customInput.value = this.customText;
+        customInput.addEventListener("input", () => {
+          if (!this.isLocked()) this.customText = customInput.value;
+        });
         const addCustom = customField.createEl("button", { text: t(this.settings, "addCustomFeeling"), attr: { type: "button" } });
         const addLabel = () => {
+          if (this.isLocked()) return;
           const value = String(customInput.value || "").trim();
           if (!value) return;
           if (!BUILT_IN_LABEL_IDS2.has(value) && !this.customLabels.includes(value)) this.customLabels.push(value);
           this.labels.add(value);
+          if (labelButtons.has(value)) updateLabel(labelButtons.get(value), value);
+          else addLabelButton(value, feelingLabel(this.settings, value), !BUILT_IN_LABEL_IDS2.has(value));
+          this.customText = "";
           customInput.value = "";
-          this.renderLabels();
+          customInput.focus();
         };
         addCustom.addEventListener("click", addLabel);
         customInput.addEventListener("keydown", (event) => {
@@ -3154,37 +3550,55 @@ var init_mood_picker_modal = __esm({
         });
         noteInput.value = this.note || "";
         noteInput.addEventListener("input", () => {
-          this.note = noteInput.value;
+          if (!this.isLocked()) this.note = noteInput.value;
         });
         const actions = this.contentEl.createDiv({ cls: "journal-mood-actions" });
         const back = actions.createEl("button", { text: t(this.settings, "back"), attr: { type: "button" } });
         back.addEventListener("click", () => this.renderScale());
         const save = actions.createEl("button", { text: t(this.settings, "save"), cls: "mod-cta", attr: { type: "button" } });
+        this.saveButton = save;
         save.addEventListener("click", () => this.save(save));
-        save.focus();
+        this.updateControls();
+        this.contentEl.querySelector("h3")?.focus();
       }
-      async save(saveButton) {
-        if (this.score === null) return;
-        if (saveButton) {
-          saveButton.disabled = true;
-          saveButton.classList.add("is-loading");
-        }
+      async save(saveButton = this.saveButton) {
+        if (this.score === null || this.isLocked()) return;
+        const snapshot = {
+          filePath: this.filePath,
+          score: this.score,
+          labels: Array.from(this.labels),
+          note: this.note.trim() || null,
+          customLabels: [...this.customLabels]
+        };
+        this.pendingOperation = "saving";
+        this.saveFailed = false;
+        this.ownerWindow.clearTimeout(this.focusTimer);
+        this.clearError();
+        this.updateControls();
         try {
-          await this.onSave?.({ filePath: this.filePath, score: this.score, labels: Array.from(this.labels), note: this.note.trim() || null, customLabels: this.customLabels });
+          await this.onSave?.(snapshot);
+          this.pendingOperation = null;
+          this.note = snapshot.note ?? "";
+          const noteInput = this.contentEl.querySelector("textarea");
+          if (noteInput) noteInput.value = this.note;
+          const draft = this.snapshotDraft();
+          this.drafts.set(snapshot.filePath, { draft, baseline: draftFingerprint(draft) });
+          this.updateControls();
           this.close();
         } catch (error) {
-          if (saveButton) {
-            saveButton.disabled = false;
-            saveButton.classList.remove("is-loading");
-          }
-          new import_obsidian.Notice(`${t(this.settings, "moodTitle")}: ${error.message || error}`);
+          this.pendingOperation = null;
+          this.saveFailed = true;
+          this.showError("moodSaveFailed", error);
+          this.updateControls();
+          saveButton?.focus();
         }
       }
       handleKeydown(event) {
         if (event.key === "Escape") {
           event.preventDefault();
+          event.stopPropagation();
           this.close();
-          return;
+          return false;
         }
       }
     };
@@ -3688,6 +4102,9 @@ function timelineEntryTime(entry, settings) {
   const value = new Date(source);
   if (!Number.isFinite(value.getTime())) return "";
   return new Intl.DateTimeFormat(getDisplayLanguage(settings) === "en" ? "en-US" : "zh-CN", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
     hour: "2-digit",
     minute: "2-digit",
     hour12: false
@@ -3769,6 +4186,7 @@ var init_journal_timeline_view = __esm({
       }
       setDateFilter(date) {
         this.filter = { from: date, to: date };
+        this.syncFilterControls();
         this._persistMobileTimelineFilter();
         this.render();
       }
@@ -3804,6 +4222,7 @@ var init_journal_timeline_view = __esm({
       }
       onClose() {
         this.closed = true;
+        this.titleEdit = null;
         this.renderToken++;
         this.thumbnailObserver?.disconnect();
         this.thumbnailObserver = null;
@@ -3841,7 +4260,24 @@ var init_journal_timeline_view = __esm({
       render() {
         const root = this.contentEl;
         this._persistMobileTimelineFilter();
+        const language = getDisplayLanguage(this.plugin.settings);
+        if ((this.titleEdit || this.index.isReady && !this.journalIndexError && this.renderLanguage === language) && root.querySelector(".journal-timeline-list")) {
+          this.updateResults(false);
+          this.updateFilterOptions();
+          const stats = root.querySelector(".journal-timeline-stats-details");
+          if (stats) {
+            const open = stats.open;
+            const focused = stats.contains(document.activeElement);
+            stats.remove();
+            this.renderStats(root, root.querySelector(".journal-timeline-pending-edit") || root.querySelector(".journal-timeline-list"));
+            const replacement = root.querySelector(".journal-timeline-stats-details");
+            replacement.open = open;
+            if (focused) replacement.querySelector("summary").focus();
+          }
+          return;
+        }
         root.empty();
+        this.renderLanguage = language;
         root.addClass("journal-timeline-view");
         this.renderToken++;
         this._renderMobileModeControls(root);
@@ -3873,9 +4309,14 @@ var init_journal_timeline_view = __esm({
         this.renderStats(root);
         this.renderList(root.createDiv({ cls: "journal-timeline-list" }), entries);
       }
-      renderStats(root) {
+      renderStats(root, before = null) {
         const stats = calculateJournalStats(this.index.getEntries());
-        const section = root.createDiv({ cls: "journal-timeline-stats", attr: { "aria-label": t(this.plugin.settings, "moodTrend") } });
+        const details = root.createEl("details", { cls: "journal-timeline-stats-details" });
+        if (before) root.insertBefore(details, before);
+        const summary = details.createEl("summary");
+        summary.createSpan({ text: t(this.plugin.settings, "allJournalStats") });
+        summary.createSpan({ cls: "journal-timeline-stats-summary", text: `${t(this.plugin.settings, "thisMonth")} ${stats.monthCompletionRate}%` });
+        const section = details.createDiv({ cls: "journal-timeline-stats" });
         const values = [
           [t(this.plugin.settings, "currentStreak"), `${stats.currentStreak}`],
           [t(this.plugin.settings, "longestStreak"), `${stats.longestStreak}`],
@@ -3925,25 +4366,43 @@ var init_journal_timeline_view = __esm({
           }
         });
         (0, import_obsidian2.setIcon)(filterButton, "list-filter");
+        this.filterButton = filterButton;
         filterButton.addEventListener("click", () => {
           this.filterMenuOpen = !this.filterMenuOpen;
-          this.render();
+          menu.hidden = !this.filterMenuOpen;
+          filterButton.setAttribute("aria-expanded", String(this.filterMenuOpen));
+          const label = t(this.plugin.settings, this.filterMenuOpen ? "closeFilters" : "openFilters");
+          filterButton.setAttribute("aria-label", label);
+          filterButton.title = label;
+          if (!this.filterMenuOpen && menu.contains(document.activeElement)) filterButton.focus();
         });
         const menu = filters.createDiv({ cls: "journal-timeline-filter-menu" });
-        if (!this.filterMenuOpen) menu.addClass("is-hidden");
-        const from = menu.createEl("input", { attr: { type: "date", "aria-label": t(this.plugin.settings, "fromDate"), title: t(this.plugin.settings, "fromDate") } });
+        menu.hidden = !this.filterMenuOpen;
+        menu.addEventListener("keydown", (event) => {
+          if (event.key !== "Escape") return;
+          event.preventDefault();
+          event.stopPropagation();
+          if (this.filterMenuOpen) filterButton.click();
+          filterButton.focus();
+        });
+        const field = (key) => {
+          const label = menu.createEl("label", { cls: "journal-timeline-filter-field" });
+          label.createSpan({ text: t(this.plugin.settings, key) });
+          return label;
+        };
+        const from = field("fromDate").createEl("input", { attr: { type: "date", "aria-label": t(this.plugin.settings, "fromDate"), title: t(this.plugin.settings, "fromDate") } });
         from.value = this.filter.from ?? "";
         from.addEventListener("change", () => {
           this.filter.from = from.value || void 0;
           this.updateResults();
         });
-        const to = menu.createEl("input", { attr: { type: "date", "aria-label": t(this.plugin.settings, "toDate"), title: t(this.plugin.settings, "toDate") } });
+        const to = field("toDate").createEl("input", { attr: { type: "date", "aria-label": t(this.plugin.settings, "toDate"), title: t(this.plugin.settings, "toDate") } });
         to.value = this.filter.to ?? "";
         to.addEventListener("change", () => {
           this.filter.to = to.value || void 0;
           this.updateResults();
         });
-        const source = menu.createEl("select", { attr: { "aria-label": t(this.plugin.settings, "source"), title: t(this.plugin.settings, "source") } });
+        const source = field("source").createEl("select", { attr: { "aria-label": t(this.plugin.settings, "source"), title: t(this.plugin.settings, "source") } });
         source.createEl("option", { text: t(this.plugin.settings, "allSources"), attr: { value: "" } });
         for (const item of this.sourceOptions()) {
           const option = source.createEl("option", { text: item.label, attr: { value: item.id } });
@@ -3954,7 +4413,7 @@ var init_journal_timeline_view = __esm({
           this.filter.sourceId = source.value || void 0;
           this.updateResults();
         });
-        const mood = menu.createEl("select", { attr: { "aria-label": t(this.plugin.settings, "allMoods"), title: t(this.plugin.settings, "allMoods") } });
+        const mood = field("mood").createEl("select", { attr: { "aria-label": t(this.plugin.settings, "allMoods"), title: t(this.plugin.settings, "allMoods") } });
         mood.createEl("option", { text: t(this.plugin.settings, "allMoods"), attr: { value: "" } });
         for (const level of MOOD_LEVELS) {
           const option = mood.createEl("option", { text: moodLabel(this.plugin.settings, level.score), attr: { value: String(level.score) } });
@@ -3965,7 +4424,7 @@ var init_journal_timeline_view = __esm({
           this.filter.moodScore = mood.value === "" ? void 0 : Number(mood.value);
           this.updateResults();
         });
-        const media = menu.createEl("select", { attr: { "aria-label": t(this.plugin.settings, "mediaFilter"), title: t(this.plugin.settings, "mediaFilter") } });
+        const media = field("mediaFilter").createEl("select", { attr: { "aria-label": t(this.plugin.settings, "mediaFilter"), title: t(this.plugin.settings, "mediaFilter") } });
         for (const [value, key] of [
           ["all", "mediaAll"],
           ["any", "mediaAny"],
@@ -3982,7 +4441,7 @@ var init_journal_timeline_view = __esm({
           this.filter.media = media.value === "all" ? void 0 : media.value;
           this.updateResults();
         });
-        const location = menu.createEl("select", { attr: { "aria-label": t(this.plugin.settings, "locationFilter"), title: t(this.plugin.settings, "locationFilter") } });
+        const location = field("locationFilter").createEl("select", { attr: { "aria-label": t(this.plugin.settings, "locationFilter"), title: t(this.plugin.settings, "locationFilter") } });
         location.createEl("option", { text: t(this.plugin.settings, "allLocations"), attr: { value: "" } });
         for (const item of buildJournalLocationOptions(this.index.getEntries())) {
           const option = location.createEl("option", {
@@ -3996,7 +4455,7 @@ var init_journal_timeline_view = __esm({
           this.filter.location = location.value || void 0;
           this.updateResults();
         });
-        const tag = menu.createEl("select", { attr: { "aria-label": t(this.plugin.settings, "tagFilter"), title: t(this.plugin.settings, "tagFilter") } });
+        const tag = field("tagFilter").createEl("select", { attr: { "aria-label": t(this.plugin.settings, "tagFilter"), title: t(this.plugin.settings, "tagFilter") } });
         tag.createEl("option", { text: t(this.plugin.settings, "allTags"), attr: { value: "" } });
         for (const item of buildJournalTagOptions(this.index.getEntries())) {
           const option = tag.createEl("option", { text: item.label, attr: { value: item.value } });
@@ -4015,14 +4474,44 @@ var init_journal_timeline_view = __esm({
           this.filter.favoriteOnly = checkbox.checked;
           this.updateResults();
         });
-        const clear = menu.createEl("button", { attr: { type: "button", "aria-label": t(this.plugin.settings, "clearFilters"), title: t(this.plugin.settings, "clearFilters") } });
-        (0, import_obsidian2.setIcon)(clear, "x");
-        clear.addEventListener("click", () => {
-          this.filter = {};
-          this.updateResults();
-          this.render();
-        });
+        const clear = menu.createEl("button", { cls: "journal-timeline-clear-filters", text: t(this.plugin.settings, "clearFilters"), attr: { type: "button" } });
+        clear.addEventListener("click", () => this.clearFilters());
+        this.filterControls = { query, from, to, sourceId: source, moodScore: mood, media, location, tag, favoriteOnly: checkbox };
+        for (const select of [source, location, tag]) {
+          select.addEventListener("blur", () => this.updateFilterOptions());
+        }
         this.renderFilterSummary(filters);
+      }
+      syncFilterControls() {
+        for (const [key, control] of Object.entries(this.filterControls || {})) {
+          if (key === "favoriteOnly") control.checked = Boolean(this.filter[key]);
+          else control.value = this.filter[key] ?? (key === "media" ? "all" : "");
+        }
+      }
+      updateFilterOptions() {
+        const sources = this.sourceOptions().map((item) => ({ value: item.id, label: item.label }));
+        const locations = buildJournalLocationOptions(this.index.getEntries()).map((item) => ({
+          value: item.value,
+          label: item.value === MISSING_LOCATION_FILTER ? t(this.plugin.settings, "noLocation") : item.label
+        }));
+        const tags = buildJournalTagOptions(this.index.getEntries());
+        for (const [key, options] of [["sourceId", sources], ["location", locations], ["tag", tags]]) {
+          const select = this.filterControls?.[key];
+          if (!select || select === document.activeElement) continue;
+          const current = this.filter[key] || "";
+          const nextOptions = [{ value: "", label: select.options[0].textContent }, ...options];
+          if (current && !nextOptions.some((item) => item.value === current)) nextOptions.push({ value: current, label: current });
+          if (JSON.stringify([...select.options].map((item) => [item.value, item.textContent])) === JSON.stringify(nextOptions.map((item) => [item.value, item.label]))) continue;
+          select.empty();
+          for (const item of nextOptions) select.createEl("option", { text: item.label, attr: { value: item.value } });
+          select.value = current;
+        }
+      }
+      clearFilters() {
+        this.filter = {};
+        this.syncFilterControls();
+        this.updateResults();
+        this.filterButton?.focus();
       }
       renderFilterSummary(root) {
         const active = [];
@@ -4041,13 +4530,22 @@ var init_journal_timeline_view = __esm({
         }
         if (this.filter.tag) active.push({ key: "tag", label: `${t(this.plugin.settings, "tagFilter")}: #${this.filter.tag}` });
         if (this.filter.favoriteOnly) active.push({ key: "favoriteOnly", label: t(this.plugin.settings, "favorite") });
+        this.filterButton?.classList.toggle("is-active", active.length > 0);
+        if (this.filterButton) this.filterButton.dataset.count = String(active.length);
         if (active.length === 0) return;
         const summary = root.createDiv({ cls: "journal-timeline-filter-summary" });
         for (const item of active) {
-          const chip = summary.createEl("button", { cls: "journal-filter-chip", text: `${item.label} \xD7`, attr: { type: "button", "aria-label": `${t(this.plugin.settings, "clearFilters")}: ${item.label}` } });
+          const chip = summary.createEl("button", { cls: "journal-filter-chip", attr: { type: "button", "aria-label": `${t(this.plugin.settings, "clearFilters")}: ${item.label}` } });
+          chip.dataset.filterKey = item.key;
+          chip.createSpan({ text: item.label });
+          (0, import_obsidian2.setIcon)(chip.createSpan({ cls: "journal-filter-chip-remove", attr: { "aria-hidden": "true" } }), "x");
           chip.addEventListener("click", () => {
+            const position = active.indexOf(item);
             delete this.filter[item.key];
-            this.render();
+            this.syncFilterControls();
+            this.updateResults();
+            const chips = this.contentEl.querySelectorAll(".journal-filter-chip");
+            (chips[Math.min(position, chips.length - 1)] || this.filterButton)?.focus();
           });
         }
       }
@@ -4071,34 +4569,97 @@ var init_journal_timeline_view = __esm({
         const key = value === "all" ? "mediaAll" : value === "any" ? "mediaAny" : value === "image" ? "mediaImage" : value === "video" ? "mediaVideo" : value === "audio" ? "mediaAudio" : "mediaNone";
         return t(this.plugin.settings, key);
       }
-      updateResults() {
+      updateResults(resetPage = true) {
         const root = this.contentEl;
         this._persistMobileTimelineFilter();
         const count = root.querySelector(".journal-timeline-count");
         const entries = this.index.filter(this.filter);
-        this.visibleEntryLimit = TIMELINE_PAGE_SIZE;
+        if (resetPage) this.visibleEntryLimit = TIMELINE_PAGE_SIZE;
         if (count) count.setText(String(entries.length));
         const list = root.querySelector(".journal-timeline-list");
         if (list) this.renderList(list, entries);
         const area = root.querySelector(".journal-timeline-filter-area");
         if (area) {
           const oldSummary = area.querySelector(".journal-timeline-filter-summary");
+          const focusedKey = oldSummary?.contains(document.activeElement) ? document.activeElement.closest(".journal-filter-chip")?.dataset.filterKey : null;
           oldSummary?.remove();
           this.renderFilterSummary(area);
+          if (focusedKey) {
+            [...area.querySelectorAll(".journal-filter-chip")].find((chip) => chip.dataset.filterKey === focusedKey)?.focus();
+          }
         }
       }
       renderList(list, entries = this.index.filter(this.filter)) {
+        const edit = this.titleEdit;
+        const focused = list.contains(document.activeElement) ? document.activeElement : null;
+        const editingFocused = edit?.card.contains(document.activeElement);
+        const focusedPath = focused?.closest(".journal-timeline-entry")?.dataset.path;
+        const focusedTitle = focused?.classList.contains("journal-timeline-entry-title");
+        const loadingMore = focused?.classList.contains("journal-timeline-load-more");
+        const previousCount = list.querySelectorAll(".journal-timeline-entry").length;
         this.renderToken++;
-        this.thumbnailObserver?.disconnect();
-        this.thumbnailObserver = null;
-        this.thumbnailVisibilityChecks.clear();
-        this.thumbnailLoaders.clear();
-        list.empty();
+        if (!edit) {
+          this.thumbnailObserver?.disconnect();
+          this.thumbnailObserver = null;
+          this.thumbnailVisibilityChecks.clear();
+          this.thumbnailLoaders.clear();
+        } else {
+          for (const map of [this.thumbnailVisibilityChecks, this.thumbnailLoaders]) {
+            for (const container of map.keys()) {
+              if (edit.card.contains(container)) continue;
+              this.thumbnailObserver?.unobserve(container);
+              map.delete(container);
+            }
+          }
+        }
+        const editIndex = edit ? entries.findIndex((entry) => entry.path === edit.path) : -1;
+        if (editIndex >= this.visibleEntryLimit) this.visibleEntryLimit = editIndex + 1;
+        let pending = this.contentEl.querySelector(".journal-timeline-pending-edit");
+        if (edit && editIndex === -1) {
+          if (!pending) {
+            pending = this.contentEl.createDiv({ cls: "journal-timeline-pending-edit" });
+            this.contentEl.insertBefore(pending, list);
+            pending.createDiv({ text: t(this.plugin.settings, "unsavedTitle"), attr: { role: "status" } });
+          }
+          this.moveTitleEditCard(pending);
+        }
+        for (const child of [...list.childNodes]) {
+          if (child !== edit?.card) child.remove();
+        }
+        if (!edit) pending?.remove();
         if (entries.length === 0) {
-          list.createDiv({ cls: "journal-timeline-empty", text: t(this.plugin.settings, "noResults") });
+          const empty = list.createDiv({ cls: "journal-timeline-empty" });
+          const hasEntries = this.index.getEntries().length > 0;
+          empty.createDiv({ text: t(this.plugin.settings, hasEntries ? "noResults" : "noJournalEntries") });
+          const action = empty.createEl("button", { text: t(this.plugin.settings, hasEntries ? "clearFilters" : "createDailyNote"), attr: { type: "button" } });
+          action.addEventListener("click", () => hasEntries ? this.clearFilters() : this.plugin.createDailyNoteForToday());
+          if (focused && !editingFocused) action.focus();
           return;
         }
-        for (const entry of entries.slice(0, this.visibleEntryLimit)) this.renderEntry(list, entry, this.renderToken);
+        let month;
+        let beforeEdit = editIndex >= 0 && edit.card.parentElement === list;
+        const positionNewNode = (node) => {
+          if (beforeEdit) list.insertBefore(node, edit.card);
+        };
+        for (const entry of entries.slice(0, this.visibleEntryLimit)) {
+          const key = entry.date.slice(0, 7);
+          if (key !== month) {
+            month = key;
+            const label = new Intl.DateTimeFormat(
+              getDisplayLanguage(this.plugin.settings) === "en" ? "en-US" : "zh-CN",
+              { year: "numeric", month: "long" }
+            ).format(/* @__PURE__ */ new Date(`${key}-01T12:00:00`));
+            positionNewNode(list.createEl("h3", { cls: "journal-timeline-month", text: label }));
+          }
+          if (edit && entry.path === edit.path) {
+            this.moveTitleEditCard(list);
+            beforeEdit = false;
+          } else {
+            this.renderEntry(list, entry, this.renderToken);
+            positionNewNode(list.lastElementChild);
+          }
+        }
+        if (editIndex >= 0) pending?.remove();
         if (entries.length > this.visibleEntryLimit) {
           const remaining = Math.min(TIMELINE_PAGE_SIZE, entries.length - this.visibleEntryLimit);
           const button = list.createEl("button", {
@@ -4110,6 +4671,28 @@ var init_journal_timeline_view = __esm({
             this.visibleEntryLimit += TIMELINE_PAGE_SIZE;
             this.renderList(list, entries);
           });
+        }
+        if (focused && !editingFocused) {
+          const cards = [...list.querySelectorAll(".journal-timeline-entry")];
+          const card = loadingMore ? cards[previousCount] : cards.find((item) => item.dataset.path === focusedPath);
+          (focusedTitle && card?.querySelector(".journal-timeline-entry-title") || card || this.filterButton)?.focus();
+        }
+      }
+      moveTitleEditCard(parent) {
+        const edit = this.titleEdit;
+        if (!edit || edit.card.parentElement === parent) return;
+        const active = document.activeElement;
+        const focused = edit.card.contains(active);
+        const selection = [edit.input.selectionStart, edit.input.selectionEnd, edit.input.selectionDirection];
+        edit.moving = true;
+        try {
+          parent.append(edit.card);
+          if (focused && document.activeElement !== active) {
+            active.focus({ preventScroll: true });
+            if (active === edit.input) edit.input.setSelectionRange(...selection);
+          }
+        } finally {
+          edit.moving = false;
         }
       }
       renderEntry(list, entry, token) {
@@ -4125,6 +4708,7 @@ var init_journal_timeline_view = __esm({
         const card = list.createEl("article", { cls: `journal-timeline-entry ${scoreClass}${thumbnailMedia.length ? " has-thumbnail" : ""}` });
         card.tabIndex = 0;
         card.dataset.path = entry.path;
+        card.setAttribute("aria-label", `${entry.date}, ${formatJournalDate(entry.date, this.plugin.settings)}${entry.title ? `: ${entry.title}` : ""}`);
         const dateColumn = card.createDiv({ cls: "journal-timeline-entry-date-column" });
         const dateParts = timelineDateParts(entry.date, this.plugin.settings);
         dateColumn.createSpan({ cls: "journal-timeline-entry-weekday", text: dateParts.weekday });
@@ -4142,7 +4726,10 @@ var init_journal_timeline_view = __esm({
           }
         }) : null;
         if (titleEditor) {
-          if (!title) titleEditor.dataset.placeholder = t(this.plugin.settings, "addJournalTitle");
+          if (!title) {
+            (0, import_obsidian2.setIcon)(titleEditor, "pencil");
+            titleEditor.classList.add("journal-timeline-add-title");
+          }
           titleEditor.addEventListener("click", (event) => {
             event.preventDefault();
             event.stopPropagation();
@@ -4163,7 +4750,10 @@ var init_journal_timeline_view = __esm({
         const time = timelineEntryTime(entry, this.plugin.settings);
         if (time) {
           const meta = body.createDiv({ cls: "journal-timeline-meta" });
-          meta.createEl("time", { text: time, attr: { datetime: entry.modifiedAt || entry.createdAt } });
+          meta.createEl("time", {
+            text: t(this.plugin.settings, entry.modifiedAt ? "updatedAt" : "createdAt", { time }),
+            attr: { datetime: new Date(entry.modifiedAt || entry.createdAt).toISOString() }
+          });
         }
         let thumbnail;
         if (thumbnailMedia.length > 0) {
@@ -4173,7 +4763,9 @@ var init_journal_timeline_view = __esm({
           this.observeThumbnail(card, thumbnail, image, entry, thumbnailMedia, token);
         }
         const open = () => this.openEntry(entry.path);
-        card.addEventListener("click", open);
+        card.addEventListener("click", (event) => {
+          if (!isInteractiveTimelineTarget(event.target)) open();
+        });
         card.addEventListener("keydown", (event) => {
           if (shouldOpenTimelineEntryFromKey(event)) {
             event.preventDefault();
@@ -4188,9 +4780,11 @@ var init_journal_timeline_view = __esm({
         });
       }
       editTitleInline(editor, path, initialTitle) {
-        if (editor.dataset.editing === "true") return;
+        if (this.titleEdit || editor.dataset.editing === "true") return;
         editor.dataset.editing = "true";
         editor.classList.add("is-editing");
+        editor.setAttribute("role", "group");
+        editor.removeAttribute("tabindex");
         editor.textContent = "";
         const input = document.createElement("input");
         input.type = "text";
@@ -4198,32 +4792,76 @@ var init_journal_timeline_view = __esm({
         input.maxLength = 200;
         input.setAttribute("aria-label", t(this.plugin.settings, "editJournalTitle"));
         editor.append(input);
+        const edit = this.titleEdit = { path, card: editor.closest(".journal-timeline-entry"), editor, input };
         let settled = false;
-        const finish = async (save) => {
-          if (settled) return;
+        let saving = false;
+        let failed = false;
+        const restore = (focus) => {
           settled = true;
-          if (!save) {
-            this.render();
+          this.titleEdit = null;
+          if (this.closed) return;
+          this.render();
+          if (!focus) return;
+          const card = [...this.contentEl.querySelectorAll(".journal-timeline-entry")].find((item) => item.dataset.path === path);
+          (card?.querySelector(".journal-timeline-entry-title") || card || this.filterButton)?.focus();
+        };
+        const finish = async (save) => {
+          if (settled || saving) return;
+          if (!save || input.value === initialTitle) {
+            restore(document.activeElement === input);
             return;
           }
+          saving = true;
+          const disabledFocusedInput = document.activeElement === input;
+          let focusMovedAway = false;
+          const trackFocus = (event) => {
+            if (!editor.contains(event.target) && event.target !== document.body) focusMovedAway = true;
+          };
+          document.addEventListener("focusin", trackFocus);
+          const shouldRestoreFocus = () => editor.contains(document.activeElement) || disabledFocusedInput && !focusMovedAway && document.activeElement === document.body;
+          input.disabled = true;
+          editor.setAttribute("aria-busy", "true");
+          editor.querySelector(".journal-title-save-error")?.remove();
           try {
             await this.plugin.saveJournalTitle(path, input.value);
+            restore(shouldRestoreFocus());
           } catch (error) {
-            new import_obsidian2.Notice(t(this.plugin.settings, "journalTitleSaveFailed", { error: error?.message || error }));
-            this.render();
+            if (this.closed) return;
+            const focus = shouldRestoreFocus();
+            failed = true;
+            input.disabled = false;
+            const message = editor.createDiv({ cls: "journal-title-save-error" });
+            message.createDiv({ text: t(this.plugin.settings, "journalTitleSaveFailed", { error: error?.message || error }), attr: { role: "alert" } });
+            const retry = message.createEl("button", { text: t(this.plugin.settings, "retry"), attr: { type: "button" } });
+            retry.addEventListener("click", (event) => {
+              event.stopPropagation();
+              void finish(true);
+            });
+            const cancel = message.createEl("button", { text: t(this.plugin.settings, "cancel"), attr: { type: "button" } });
+            cancel.addEventListener("click", (event) => {
+              event.stopPropagation();
+              restore(true);
+            });
+            if (focus) input.focus();
+          } finally {
+            document.removeEventListener("focusin", trackFocus);
+            saving = false;
+            editor.removeAttribute("aria-busy");
           }
         };
         input.addEventListener("keydown", (event) => {
           if (event.key === "Enter") {
             event.preventDefault();
+            event.stopPropagation();
             void finish(true);
           } else if (event.key === "Escape") {
             event.preventDefault();
+            event.stopPropagation();
             void finish(false);
           }
         });
         input.addEventListener("blur", () => {
-          void finish(true);
+          if (!failed && !edit.moving) void finish(true);
         });
         input.addEventListener("click", (event) => event.stopPropagation());
         input.addEventListener("pointerdown", (event) => event.stopPropagation());
@@ -4240,7 +4878,7 @@ var init_journal_timeline_view = __esm({
           const explicitCover = entry.cover ? createMediaAttachment(entry.cover, entry.path) : null;
           const validCover = explicitCover?.kind !== "unknown" ? explicitCover : void 0;
           const result = this.plugin.mediaService?.loadFirstCover ? await this.plugin.mediaService.loadFirstCover(links, validCover) : await this.plugin.thumbnailService.loadFirst(links.map((item) => item.link || item.normalizedLink), entry.path);
-          if (token !== this.renderToken || !container.isConnected || !card.isConnected) return;
+          if (token !== this.renderToken && card !== this.titleEdit?.card || !container.isConnected || !card.isConnected) return;
           if (!result) {
             card.removeClass("has-thumbnail");
             container.remove();
@@ -4256,14 +4894,14 @@ var init_journal_timeline_view = __esm({
         this.thumbnailObserver ?? (this.thumbnailObserver = new IntersectionObserver((observations) => {
           for (const observation of observations) {
             if (!observation.isIntersecting) continue;
-            this.thumbnailObserver.unobserve(observation.target);
+            this.thumbnailObserver?.unobserve(observation.target);
             this.thumbnailLoaders.get(observation.target)?.();
           }
         }, { root: this.contentEl, rootMargin: "160px" }));
         this.thumbnailObserver.observe(container);
         this.thumbnailLoaders.set(container, load);
         const checkVisible = () => {
-          if (token !== this.renderToken || !container.isConnected) return;
+          if (token !== this.renderToken && card !== this.titleEdit?.card || !container.isConnected) return;
           const rootRect = this.contentEl.getBoundingClientRect();
           const rect = container.getBoundingClientRect();
           if (rect.bottom >= rootRect.top - 160 && rect.top <= rootRect.bottom + 160) load();
@@ -4867,6 +5505,343 @@ var init_dayline_wordmark_compact = __esm({
   }
 });
 
+// src/journal-source-settings.ts
+function validateJournalSources(value) {
+  if (!Array.isArray(value)) throw new Error("sourceInvalidArray");
+  const ids = /* @__PURE__ */ new Set();
+  const paths = /* @__PURE__ */ new Set();
+  let daily = false;
+  return value.map((source, index) => {
+    const fail = (key) => {
+      throw Object.assign(new Error(key), { row: index + 1 });
+    };
+    if (!source || typeof source !== "object" || Array.isArray(source)) fail("sourceInvalidRow");
+    if (typeof source.path !== "string" || !source.path.trim()) fail("sourcePathRequired");
+    const path = normalizeVaultPath(source.path.trim());
+    if (!path || path.split("/").some((part) => part === "." || part === "..")) fail("sourcePathRequired");
+    for (const key of ["id", "label", "dateField"]) {
+      if (source[key] !== void 0 && typeof source[key] !== "string") fail("sourceInvalidRow");
+    }
+    if (source.enabled !== void 0 && typeof source.enabled !== "boolean") fail("sourceInvalidRow");
+    const type = source.type ?? "external";
+    if (type !== "daily" && type !== "external") fail("sourceInvalidType");
+    const id = source.id?.trim() || `source-${index + 1}`;
+    if (ids.has(id)) fail("sourceDuplicateId");
+    ids.add(id);
+    if (source.enabled !== false) {
+      if (paths.has(path)) fail("sourceDuplicatePath");
+      if (type === "daily" && daily) fail("sourceMultipleDaily");
+      paths.add(path);
+      daily || (daily = type === "daily");
+    }
+    return { ...source, id, path, type };
+  });
+}
+var import_obsidian3, clone, JournalSourceSettingsEditor, SOURCE_EDITOR_CSS;
+var init_journal_source_settings = __esm({
+  "src/journal-source-settings.ts"() {
+    "use strict";
+    import_obsidian3 = require("obsidian");
+    init_date_utils();
+    init_i18n();
+    clone = (value) => JSON.parse(JSON.stringify(value));
+    JournalSourceSettingsEditor = class {
+      constructor(plugin, { chooseFolder, refreshCalendar }) {
+        this.plugin = plugin;
+        this.chooseFolder = chooseFolder;
+        this.refreshCalendar = refreshCalendar;
+        this.reset();
+      }
+      reset() {
+        this.dailyFolder = this.plugin.settings.dailyFolder || "Calendar/Daily";
+        this.sources = clone(this.plugin.settings.journalSources || []);
+        this.jsonOpen = false;
+        this.raw = "";
+        this.dirty = false;
+        this.error = null;
+        this.saved = false;
+      }
+      label(key, values = {}) {
+        return t(this.plugin.settings, key, values);
+      }
+      changed() {
+        this.dirty = true;
+        this.saved = false;
+        this.error = null;
+        this.updateState();
+      }
+      mount(container) {
+        if (!this.dirty && !this.busy) this.reset();
+        this.root = container.createDiv({ cls: "dayline-source-editor" });
+        this.root.createEl("style", { text: SOURCE_EDITOR_CSS });
+        this.fields = this.root.createDiv();
+        this.renderFields();
+        this.status = this.root.createDiv({ cls: "dayline-source-status", attr: { "aria-live": "polite" } });
+        const actions = this.root.createDiv({ cls: "dayline-source-actions" });
+        this.applyButton = actions.createEl("button", {
+          text: this.label("sourceApply"),
+          cls: "mod-cta",
+          attr: { type: "button" }
+        });
+        this.applyButton.addEventListener("click", () => {
+          void this.apply();
+        });
+        this.resetButton = actions.createEl("button", { text: this.label("discardChanges"), attr: { type: "button" } });
+        this.resetButton.addEventListener("click", () => {
+          if (this.busy) return;
+          this.reset();
+          this.renderFields();
+          this.updateState();
+          this.fields.querySelector("input")?.focus();
+        });
+        this.updateState();
+      }
+      input(parent, key, value, onChange, options = {}) {
+        const label = parent.createEl("label", { cls: "dayline-source-field" });
+        label.createSpan({ text: this.label(key) });
+        const input = label.createEl("input", { attr: { type: "text", ...options } });
+        input.value = value || "";
+        input.addEventListener("input", () => {
+          if (this.busy) return;
+          onChange(input.value);
+          this.changed();
+        });
+        return input;
+      }
+      iconButton(parent, key, icon, callback) {
+        const button = parent.createEl("button", {
+          cls: "dayline-source-icon clickable-icon",
+          attr: { type: "button", "aria-label": this.label(key), title: this.label(key) }
+        });
+        (0, import_obsidian3.setIcon)(button, icon);
+        button.addEventListener("click", () => {
+          if (!this.busy) callback();
+        });
+        return button;
+      }
+      folderField(parent, key, value, onChange) {
+        const row = parent.createDiv({ cls: "dayline-source-folder" });
+        const input = this.input(row, key, value, onChange);
+        this.iconButton(row, "sourceBrowse", "folder-search", () => this.chooseFolder((path) => {
+          if (this.busy || !input.isConnected) return;
+          input.value = path;
+          onChange(path);
+          this.changed();
+          input.focus();
+        }));
+        return input;
+      }
+      renderFields() {
+        this.fields.empty();
+        this.folderField(this.fields, "sourceDailyFolder", this.dailyFolder, (value) => {
+          this.dailyFolder = value;
+        });
+        const list = this.fields.createDiv({ cls: "dayline-source-list" });
+        list.hidden = this.jsonOpen;
+        if (!Array.isArray(this.sources)) {
+          this.jsonOpen = true;
+          this.raw = JSON.stringify(this.sources, null, 2);
+          list.hidden = true;
+        } else {
+          for (const [index, source] of this.sources.entries()) {
+            if (!source || typeof source !== "object" || Array.isArray(source)) {
+              this.jsonOpen = true;
+              this.raw = JSON.stringify(this.sources, null, 2);
+              list.hidden = true;
+              break;
+            }
+            const row = list.createEl("fieldset", { cls: "dayline-source-row" });
+            row.createEl("legend", { text: this.label("sourceNumber", { number: index + 1 }) });
+            this.folderField(row, "sourceFolder", source.path, (value) => {
+              source.path = value;
+            });
+            this.input(row, "sourceName", source.label, (value) => {
+              source.label = value;
+            });
+            const typeLabel = row.createEl("label", { cls: "dayline-source-field" });
+            typeLabel.createSpan({ text: this.label("sourceType") });
+            const type = typeLabel.createEl("select", { cls: "dropdown" });
+            for (const [value, key] of [["external", "sourceExternal"], ["daily", "sourceDaily"]]) {
+              type.createEl("option", { text: this.label(key), attr: { value } });
+            }
+            type.value = source.type || "external";
+            type.addEventListener("change", () => {
+              source.type = type.value;
+              this.changed();
+            });
+            this.input(row, "sourceDateField", source.dateField, (value) => {
+              source.dateField = value;
+            });
+            const tools = row.createDiv({ cls: "dayline-source-row-actions" });
+            const enabledLabel = tools.createEl("label", { cls: "dayline-source-enabled" });
+            const enabled = enabledLabel.createEl("input", { attr: { type: "checkbox" } });
+            enabled.checked = source.enabled !== false;
+            enabledLabel.createSpan({ text: this.label("sourceEnabled") });
+            enabled.addEventListener("change", () => {
+              source.enabled = enabled.checked;
+              this.changed();
+            });
+            this.iconButton(tools, "sourceRemove", "trash-2", () => {
+              this.sources.splice(index, 1);
+              this.renderFields();
+              this.changed();
+              const rows = this.fields.querySelectorAll(".dayline-source-row");
+              (rows[Math.min(index, rows.length - 1)]?.querySelector("input") || this.addButton).focus();
+            });
+          }
+          if (!this.sources.length) list.createEl("p", { cls: "setting-item-description", text: this.label("sourceNoAdditional") });
+        }
+        this.addButton = list.createEl("button", { attr: { type: "button" }, cls: "dayline-source-add" });
+        (0, import_obsidian3.setIcon)(this.addButton.createSpan(), "plus");
+        this.addButton.createSpan({ text: this.label("sourceAdd") });
+        this.addButton.addEventListener("click", () => {
+          const ids = new Set(this.sources.map((source, index) => source.id || `source-${index + 1}`));
+          let number = 1;
+          while (ids.has(`source-${number}`)) number++;
+          this.sources.push({ id: `source-${number}`, path: "", type: "external", enabled: true });
+          this.renderFields();
+          this.changed();
+          this.fields.querySelector(".dayline-source-row:last-of-type input")?.focus();
+        });
+        const advanced = this.fields.createEl("details", { cls: "dayline-source-advanced" });
+        advanced.open = this.jsonOpen;
+        const summary = advanced.createEl("summary", { text: this.label("sourceAdvanced") });
+        const json = advanced.createEl("textarea", {
+          attr: { rows: "7", spellcheck: "false", "aria-label": this.label("sourceAdvanced") }
+        });
+        json.value = this.jsonOpen ? this.raw : JSON.stringify(this.sources, null, 2);
+        json.addEventListener("input", () => {
+          this.raw = json.value;
+          this.changed();
+        });
+        advanced.addEventListener("toggle", () => {
+          if (!advanced.isConnected || advanced.open === this.jsonOpen) return;
+          if (this.busy) {
+            advanced.open = this.jsonOpen;
+            return;
+          }
+          if (advanced.open) {
+            this.jsonOpen = true;
+            json.value = this.raw = JSON.stringify(this.sources, null, 2);
+            list.hidden = true;
+          } else {
+            try {
+              this.sources = validateJournalSources(JSON.parse(this.raw));
+              this.jsonOpen = false;
+              this.error = null;
+              this.renderFields();
+              this.fields.querySelector("summary")?.focus();
+              this.updateState();
+            } catch (error) {
+              advanced.open = true;
+              this.showError(error);
+              json.focus();
+            }
+          }
+        });
+        summary.setAttribute("aria-label", this.label("sourceAdvanced"));
+      }
+      showError(error) {
+        const key = error instanceof SyntaxError ? "sourceInvalidArray" : error.message;
+        const message = this.label(key);
+        this.error = key.startsWith("source") ? error.row ? this.label("sourceRowError", { row: error.row, error: message }) : message : this.label("settingsSaveFailed", { error: error?.message || String(error) });
+        this.updateState();
+      }
+      updateState() {
+        if (!this.root) return;
+        this.root.setAttribute("aria-busy", String(Boolean(this.busy)));
+        for (const input of this.fields.querySelectorAll("input, select, textarea, button")) input.disabled = Boolean(this.busy);
+        this.applyButton.disabled = Boolean(this.busy) || !this.dirty && !this.refreshNeeded;
+        this.resetButton.disabled = Boolean(this.busy) || !this.dirty;
+        this.applyButton.textContent = this.label(this.busy ? "saving" : this.refreshNeeded ? "retry" : "sourceApply");
+        this.status.textContent = this.error || (this.saved ? this.label("sourceSaved") : this.dirty ? this.label("sourceUnsaved") : "");
+        this.status.classList.toggle("is-error", Boolean(this.error));
+        this.status.setAttribute("role", this.error ? "alert" : "status");
+      }
+      async apply() {
+        if (this.busy) return;
+        let sources;
+        let dailyFolder;
+        try {
+          sources = validateJournalSources(this.jsonOpen ? JSON.parse(this.raw) : this.sources);
+          dailyFolder = normalizeVaultPath(this.dailyFolder.trim());
+          if (!dailyFolder || dailyFolder.split("/").some((part) => part === "." || part === "..")) throw new Error("sourceDailyRequired");
+        } catch (error) {
+          this.showError(error);
+          return;
+        }
+        this.busy = true;
+        this.error = null;
+        this.updateState();
+        const settings = this.plugin.settings;
+        const previous = { dailyFolder: settings.dailyFolder, journalSources: settings.journalSources };
+        try {
+          if (this.dirty) {
+            settings.dailyFolder = dailyFolder;
+            settings.journalSources = clone(sources);
+            try {
+              const saved = await this.plugin.saveSettings();
+              if (saved === false) throw new Error(this.label("sourceSaveRejected"));
+            } catch (error) {
+              Object.assign(settings, previous);
+              throw error;
+            }
+            this.sources = sources;
+            this.dailyFolder = dailyFolder;
+            this.raw = JSON.stringify(sources, null, 2);
+            this.dirty = false;
+            this.renderFields();
+            this.updateState();
+          }
+          this.refreshNeeded = true;
+          await this.plugin.journalIndex.refresh(this.plugin.settings);
+          this.plugin.refreshJournalViews();
+          await this.refreshCalendar();
+          this.refreshNeeded = false;
+          this.saved = true;
+        } catch (error) {
+          if (this.refreshNeeded && !this.dirty) {
+            this.error = this.label("sourceRefreshFailed", { error: error?.message || String(error) });
+          } else {
+            this.showError(error);
+          }
+        } finally {
+          this.busy = false;
+          this.updateState();
+        }
+      }
+    };
+    SOURCE_EDITOR_CSS = `
+.dayline-source-editor { container-type: inline-size; min-width: 0; padding: 4px 0 20px; }
+.dayline-source-editor [hidden] { display: none !important; }
+.dayline-source-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; font-size: var(--font-ui-small); }
+.dayline-source-field > span { color: var(--text-muted); overflow-wrap: anywhere; }
+.dayline-source-field input, .dayline-source-field select { box-sizing: border-box; width: 100%; min-width: 0; }
+.dayline-source-folder { display: flex; align-items: end; gap: 8px; min-width: 0; }
+.dayline-source-folder .dayline-source-field { flex: 1; }
+.dayline-source-icon { flex: 0 0 32px; width: 32px; height: 32px; padding: 6px; }
+.dayline-source-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; min-width: 0; margin: 18px 0 0; padding: 12px 0 16px; border: 0; border-bottom: 1px solid var(--background-modifier-border); }
+.dayline-source-row legend { padding: 0; color: var(--text-normal); font-size: var(--font-ui-small); font-weight: 600; }
+.dayline-source-row .dayline-source-folder, .dayline-source-row-actions { grid-column: 1 / -1; }
+.dayline-source-row-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.dayline-source-enabled { display: inline-flex; align-items: center; gap: 8px; font-size: var(--font-ui-small); }
+.dayline-source-add { display: inline-flex; align-items: center; gap: 6px; margin-top: 12px; }
+.dayline-source-add span { display: flex; }
+.dayline-source-add svg { width: 16px; height: 16px; }
+.dayline-source-advanced { margin: 16px 0; font-size: var(--font-ui-small); }
+.dayline-source-advanced summary { cursor: pointer; color: var(--text-muted); }
+.dayline-source-advanced textarea { box-sizing: border-box; width: 100%; max-width: 100%; margin-top: 10px; font-family: var(--font-monospace); resize: vertical; }
+.dayline-source-status { min-height: 20px; margin: 8px 0; font-size: var(--font-ui-small); color: var(--text-muted); overflow-wrap: anywhere; }
+.dayline-source-status.is-error { color: var(--text-error); }
+.dayline-source-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.dayline-source-editor button { max-width: 100%; white-space: normal; }
+.dayline-source-editor button:focus-visible, .dayline-source-editor summary:focus-visible { outline: 2px solid var(--interactive-accent); outline-offset: 2px; }
+@container (max-width: 400px) { .dayline-source-row { grid-template-columns: minmax(0, 1fr); } }
+@media (pointer: coarse) { .dayline-source-editor input:not([type=checkbox]), .dayline-source-editor select, .dayline-source-editor button { min-height: 44px; } .dayline-source-icon { flex-basis: 44px; width: 44px; height: 44px; } }
+`;
+  }
+});
+
 // src/settings-tab.ts
 var settings_tab_exports = {};
 __export(settings_tab_exports, {
@@ -4903,15 +5878,16 @@ function shouldShowOnThisDayExcerptSettings(settings) {
 function shouldShowExifGeocoding(settings) {
   return settings.showExif === true;
 }
-var import_obsidian3, VIEW_TYPE, SETTINGS_SECTION_IDS, SETTINGS_SECTION_LABEL_KEYS, SETTINGS_ACTION_ROWS, DaylineSettingsTab, FolderSuggestModal;
+var import_obsidian4, VIEW_TYPE, SETTINGS_SECTION_IDS, SETTINGS_SECTION_LABEL_KEYS, SETTINGS_ACTION_ROWS, DaylineSettingsTab, FolderSuggestModal;
 var init_settings_tab = __esm({
   "src/settings-tab.ts"() {
     "use strict";
-    import_obsidian3 = require("obsidian");
+    import_obsidian4 = require("obsidian");
     init_i18n();
     init_locale();
     init_dayline_wordmark_compact();
     init_journal_timeline_display();
+    init_journal_source_settings();
     VIEW_TYPE = "calendar-sidebar-view";
     SETTINGS_SECTION_IDS = [
       "general",
@@ -4937,7 +5913,7 @@ var init_settings_tab = __esm({
       metadataBackup: ["exportMetadataCommand", "restoreMetadataCommand"],
       dataMaintenance: ["integrityCommand", "importFrontmatterCommand"]
     };
-    DaylineSettingsTab = class extends import_obsidian3.PluginSettingTab {
+    DaylineSettingsTab = class extends import_obsidian4.PluginSettingTab {
       constructor(app, plugin) {
         super(app, plugin);
         this.plugin = plugin;
@@ -4949,14 +5925,14 @@ var init_settings_tab = __esm({
         } catch (error) {
           const message = error?.message || String(error);
           console.warn("[Dayline] Settings save failed:", message);
-          new import_obsidian3.Notice(t(this.plugin.settings, "settingsSaveFailed", { error: message }));
+          new import_obsidian4.Notice(t(this.plugin.settings, "settingsSaveFailed", { error: message }));
           return false;
         }
       }
       _notifyViewRefreshFailure(error) {
         const message = error?.message || String(error);
         console.warn("[Dayline] Settings view refresh failed:", message);
-        new import_obsidian3.Notice(t(this.plugin.settings, "viewRefreshFailed", { error: message }));
+        new import_obsidian4.Notice(t(this.plugin.settings, "viewRefreshFailed", { error: message }));
       }
       _refreshCalendarView() {
         for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE)) {
@@ -4967,7 +5943,7 @@ var init_settings_tab = __esm({
           if (refresh?.catch) refresh.catch((error) => this._notifyViewRefreshFailure(error));
         }
       }
-      async _refreshViews({ resetSource = false } = {}) {
+      async _refreshViews({ resetSource = false, throwOnError = false } = {}) {
         try {
           const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE);
           await Promise.all(leaves.map(async (leaf) => {
@@ -4983,6 +5959,7 @@ var init_settings_tab = __esm({
             view._syncNoteOverlays?.();
           }));
         } catch (error) {
+          if (throwOnError) throw error;
           this._notifyViewRefreshFailure(error);
         }
       }
@@ -5011,18 +5988,18 @@ var init_settings_tab = __esm({
                 if (attribute.name.toLowerCase().startsWith("on")) node.removeAttribute(attribute.name);
               }
             });
-            const clone = document.importNode(svg, true);
-            clone.setAttribute("role", "img");
-            clone.setAttribute("aria-label", "Dayline");
-            clone.setAttribute("width", "132");
-            clone.setAttribute("height", "32");
-            brand.appendChild(clone);
+            const clone2 = document.importNode(svg, true);
+            clone2.setAttribute("role", "img");
+            clone2.setAttribute("aria-label", "Dayline");
+            clone2.setAttribute("width", "132");
+            clone2.setAttribute("height", "32");
+            brand.appendChild(clone2);
           }
         } catch (_) {
           brand.setText("Dayline");
         }
         this._addSection(containerEl, "general");
-        new import_obsidian3.Setting(containerEl).setName(t(this.plugin.settings, "language")).setDesc(t(this.plugin.settings, "languageDesc")).addDropdown((dd) => dd.addOption("system", t(this.plugin.settings, "system")).addOption("en", t(this.plugin.settings, "english")).addOption("zh", t(this.plugin.settings, "chinese")).setValue(this.plugin.settings.displayLanguage).onChange(async (value) => {
+        new import_obsidian4.Setting(containerEl).setName(t(this.plugin.settings, "language")).setDesc(t(this.plugin.settings, "languageDesc")).addDropdown((dd) => dd.addOption("system", t(this.plugin.settings, "system")).addOption("en", t(this.plugin.settings, "english")).addOption("zh", t(this.plugin.settings, "chinese")).setValue(this.plugin.settings.displayLanguage).onChange(async (value) => {
           this.plugin.settings.displayLanguage = value;
           this.plugin.settings.weatherLanguage = getDisplayLanguage({ displayLanguage: value });
           if (!await this._saveSettings()) return;
@@ -5030,98 +6007,73 @@ var init_settings_tab = __esm({
           this._refreshCalendarView();
           this.plugin.refreshJournalViews();
         }));
-        new import_obsidian3.Setting(containerEl).setName(t(this.plugin.settings, "weekStart")).setDesc(t(this.plugin.settings, "weekStartDesc")).addDropdown((dd) => dd.addOption("system", t(this.plugin.settings, "weekStartSystem")).addOption("monday", t(this.plugin.settings, "weekStartMonday")).addOption("sunday", t(this.plugin.settings, "weekStartSunday")).setValue(this.plugin.settings.weekStart || "system").onChange(async (value) => {
+        new import_obsidian4.Setting(containerEl).setName(t(this.plugin.settings, "weekStart")).setDesc(t(this.plugin.settings, "weekStartDesc")).addDropdown((dd) => dd.addOption("system", t(this.plugin.settings, "weekStartSystem")).addOption("monday", t(this.plugin.settings, "weekStartMonday")).addOption("sunday", t(this.plugin.settings, "weekStartSunday")).setValue(this.plugin.settings.weekStart || "system").onChange(async (value) => {
           this.plugin.settings.weekStart = value;
           if (!await this._saveSettings()) return;
           this._refreshCalendarView();
         }));
         this._addSection(containerEl, "calendar-journal");
-        new import_obsidian3.Setting(containerEl).setName(_s("s_dailyFolder")).setDesc(_s("s_dailyFolderDesc")).addSearch((cb) => {
-          this.folderInput = cb;
-          cb.setValue(this.plugin.settings.dailyFolder).setPlaceholder("Calendar/Daily").onChange(async (value) => {
-            this.plugin.settings.dailyFolder = value.replace(/\/+$/, "");
-            if (!await commitJournalSourceSettings(this.plugin, () => this._saveSettings())) return;
-            await this._refreshViews({ resetSource: true });
-          });
-        }).addExtraButton((btn) => btn.setIcon("folder-search").setTooltip(_s("s_browseFolders")).onClick(() => {
-          new FolderSuggestModal(this.app, (path) => {
-            this.plugin.settings.dailyFolder = path;
-            void commitJournalSourceSettings(this.plugin, () => this._saveSettings()).then((saved) => {
-              if (saved) return this._refreshViews({ resetSource: true });
-            }).catch((error) => this._notifyViewRefreshFailure(error));
-            this.folderInput.setValue(path);
-          }).open();
+        new import_obsidian4.Setting(containerEl).setName(t(this.plugin.settings, "journalSources"));
+        this.sourceEditor ?? (this.sourceEditor = new JournalSourceSettingsEditor(this.plugin, {
+          chooseFolder: (onSubmit) => new FolderSuggestModal(this.app, onSubmit).open(),
+          refreshCalendar: () => this._refreshViews({ resetSource: true, throwOnError: true })
         }));
-        new import_obsidian3.Setting(containerEl).setName(_s("s_thumbnailFilter")).setDesc(_s("s_thumbnailFilterDesc")).addDropdown((dd) => dd.addOption("all", _s("s_thumbnailAll")).addOption("date-prefixed", _s("s_thumbnailDate")).setValue(this.plugin.settings.thumbnailFilter).onChange(async (value) => {
+        this.sourceEditor.mount(containerEl);
+        new import_obsidian4.Setting(containerEl).setName(_s("s_thumbnailFilter")).setDesc(_s("s_thumbnailFilterDesc")).addDropdown((dd) => dd.addOption("all", _s("s_thumbnailAll")).addOption("date-prefixed", _s("s_thumbnailDate")).setValue(this.plugin.settings.thumbnailFilter).onChange(async (value) => {
           this.plugin.settings.thumbnailFilter = value;
           if (!await this._saveSettings()) return;
           this._refreshCalendarView();
         }));
-        new import_obsidian3.Setting(containerEl).setName(t(this.plugin.settings, "journalSources")).setDesc(t(this.plugin.settings, "journalSourcesDesc")).addTextArea((text) => {
-          text.setValue(JSON.stringify(this.plugin.settings.journalSources || [], null, 2));
-          text.inputEl.rows = 5;
-          text.inputEl.addClass("calendar-sidebar-source-json");
-          text.onChange(async (value) => {
-            try {
-              const parsed = JSON.parse(value || "[]");
-              if (!Array.isArray(parsed)) throw new Error("Sources must be an array");
-              this.plugin.settings.journalSources = parsed;
-              await commitJournalSourceSettings(this.plugin, () => this._saveSettings());
-            } catch (_) {
-              new import_obsidian3.Notice(t(this.plugin.settings, "invalidJournalSources"));
-            }
-          });
-        });
-        this._addActionRow(new import_obsidian3.Setting(containerEl).setName(t(this.plugin.settings, "journalTools")).setDesc(t(this.plugin.settings, "journalToolsDesc")), "journalTools").addButton((button) => button.setButtonText(t(this.plugin.settings, "openTimeline")).onClick(() => this.plugin.activateTimeline())).addButton((button) => button.setButtonText(t(this.plugin.settings, "detectImports")).onClick(async () => {
+        this._addActionRow(new import_obsidian4.Setting(containerEl).setName(t(this.plugin.settings, "journalTools")).setDesc(t(this.plugin.settings, "journalToolsDesc")), "journalTools").addButton((button) => button.setButtonText(t(this.plugin.settings, "openTimeline")).onClick(() => this.plugin.activateTimeline())).addButton((button) => button.setButtonText(t(this.plugin.settings, "detectImports")).onClick(async () => {
           const result = await this.plugin.journalIndex.detectSources(this.plugin.settings);
-          new import_obsidian3.Notice(t(this.plugin.settings, "detectImportsResult", result));
+          new import_obsidian4.Notice(t(this.plugin.settings, "detectImportsResult", result));
         }));
-        new import_obsidian3.Setting(containerEl).setName(t(this.plugin.settings, "showTimelineMoodTrend")).setDesc(t(this.plugin.settings, "showTimelineMoodTrendDesc")).addToggle((toggle) => toggle.setValue(shouldShowTimelineMoodTrend(this.plugin.settings)).onChange(async (value) => {
+        new import_obsidian4.Setting(containerEl).setName(t(this.plugin.settings, "showTimelineMoodTrend")).setDesc(t(this.plugin.settings, "showTimelineMoodTrendDesc")).addToggle((toggle) => toggle.setValue(shouldShowTimelineMoodTrend(this.plugin.settings)).onChange(async (value) => {
           this.plugin.settings.showTimelineMoodTrend = value;
           if (!await this._saveSettings()) return;
           this.plugin.refreshJournalViews();
         }));
-        new import_obsidian3.Setting(containerEl).setName(t(this.plugin.settings, "showTimelineTitles")).setDesc(t(this.plugin.settings, "showTimelineTitlesDesc")).addToggle((toggle) => toggle.setValue(shouldShowTimelineTitles(this.plugin.settings)).onChange(async (value) => {
+        new import_obsidian4.Setting(containerEl).setName(t(this.plugin.settings, "showTimelineTitles")).setDesc(t(this.plugin.settings, "showTimelineTitlesDesc")).addToggle((toggle) => toggle.setValue(shouldShowTimelineTitles(this.plugin.settings)).onChange(async (value) => {
           this.plugin.settings.showTimelineTitles = value;
           if (!await this._saveSettings()) return;
           this.plugin.refreshJournalViews();
         }));
-        new import_obsidian3.Setting(containerEl).setName(t(this.plugin.settings, "showCalendarMood")).setDesc(t(this.plugin.settings, "showCalendarMoodDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showCalendarMood !== false).onChange(async (value) => {
+        new import_obsidian4.Setting(containerEl).setName(t(this.plugin.settings, "showCalendarMood")).setDesc(t(this.plugin.settings, "showCalendarMoodDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showCalendarMood !== false).onChange(async (value) => {
           this.plugin.settings.showCalendarMood = value;
           if (!await this._saveSettings()) return;
           await this._refreshViews();
         }));
-        new import_obsidian3.Setting(containerEl).setName(t(this.plugin.settings, "showCalendarEntryCount")).setDesc(t(this.plugin.settings, "showCalendarEntryCountDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showCalendarEntryCount !== false).onChange(async (value) => {
+        new import_obsidian4.Setting(containerEl).setName(t(this.plugin.settings, "showCalendarEntryCount")).setDesc(t(this.plugin.settings, "showCalendarEntryCountDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showCalendarEntryCount !== false).onChange(async (value) => {
           this.plugin.settings.showCalendarEntryCount = value;
           if (!await this._saveSettings()) return;
           await this._refreshViews();
         }));
         if (shouldShowCalendarWeatherOptions(this.plugin.settings)) {
-          new import_obsidian3.Setting(containerEl).setName(t(this.plugin.settings, "showCalendarWeatherCard")).setDesc(t(this.plugin.settings, "showCalendarWeatherCardDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showCalendarWeatherCard !== false).onChange(async (value) => {
+          new import_obsidian4.Setting(containerEl).setName(t(this.plugin.settings, "showCalendarWeatherCard")).setDesc(t(this.plugin.settings, "showCalendarWeatherCardDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showCalendarWeatherCard !== false).onChange(async (value) => {
             this.plugin.settings.showCalendarWeatherCard = value;
             if (!await this._saveSettings()) return;
             this.display();
             await this._refreshViews();
           }));
           if (shouldShowWeatherLocationOption(this.plugin.settings)) {
-            new import_obsidian3.Setting(containerEl).setName(t(this.plugin.settings, "showCalendarWeatherLocation")).setDesc(t(this.plugin.settings, "showCalendarWeatherLocationDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showCalendarWeatherLocation === true).onChange(async (value) => {
+            new import_obsidian4.Setting(containerEl).setName(t(this.plugin.settings, "showCalendarWeatherLocation")).setDesc(t(this.plugin.settings, "showCalendarWeatherLocationDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showCalendarWeatherLocation === true).onChange(async (value) => {
               this.plugin.settings.showCalendarWeatherLocation = value;
               if (!await this._saveSettings()) return;
               await this._refreshViews();
             }));
           }
-          new import_obsidian3.Setting(containerEl).setName(t(this.plugin.settings, "showCalendarWeatherBadge")).setDesc(t(this.plugin.settings, "showCalendarWeatherBadgeDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showCalendarWeatherBadge !== false).onChange(async (value) => {
+          new import_obsidian4.Setting(containerEl).setName(t(this.plugin.settings, "showCalendarWeatherBadge")).setDesc(t(this.plugin.settings, "showCalendarWeatherBadgeDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showCalendarWeatherBadge !== false).onChange(async (value) => {
             this.plugin.settings.showCalendarWeatherBadge = value;
             if (!await this._saveSettings()) return;
             await this._refreshViews();
           }));
         }
         this._addSection(containerEl, "mood");
-        new import_obsidian3.Setting(containerEl).setName(t(this.plugin.settings, "mirrorMood")).setDesc(t(this.plugin.settings, "mirrorMoodDesc")).addToggle((toggle) => toggle.setValue(Boolean(this.plugin.settings.mirrorMoodToFrontmatter)).onChange(async (value) => {
+        new import_obsidian4.Setting(containerEl).setName(t(this.plugin.settings, "mirrorMood")).setDesc(t(this.plugin.settings, "mirrorMoodDesc")).addToggle((toggle) => toggle.setValue(Boolean(this.plugin.settings.mirrorMoodToFrontmatter)).onChange(async (value) => {
           this.plugin.settings.mirrorMoodToFrontmatter = value;
           await this._saveSettings();
         }));
-        new import_obsidian3.Setting(containerEl).setName(t(this.plugin.settings, "reminder")).setDesc(t(this.plugin.settings, "reminderDesc")).addToggle((toggle) => toggle.setValue(Boolean(this.plugin.settings.reminderEnabled)).onChange(async (value) => {
+        new import_obsidian4.Setting(containerEl).setName(t(this.plugin.settings, "reminder")).setDesc(t(this.plugin.settings, "reminderDesc")).addToggle((toggle) => toggle.setValue(Boolean(this.plugin.settings.reminderEnabled)).onChange(async (value) => {
           this.plugin.settings.reminderEnabled = value;
           await this._saveSettings();
         })).addExtraButton((button) => button.setIcon("clock-3").setTooltip(t(this.plugin.settings, "reminderHour")).onClick(() => {
@@ -5133,7 +6085,7 @@ var init_settings_tab = __esm({
           }
         }));
         this._addSection(containerEl, "weather");
-        new import_obsidian3.Setting(containerEl).setName(_s("s_weatherEnable")).setDesc(_s("s_weatherEnableDesc")).addToggle(
+        new import_obsidian4.Setting(containerEl).setName(_s("s_weatherEnable")).setDesc(_s("s_weatherEnableDesc")).addToggle(
           (toggle) => toggle.setValue(this.plugin.settings.weatherEnabled).onChange(async (value) => {
             this.plugin.settings.weatherEnabled = value;
             if (!await this._saveSettings()) return;
@@ -5142,35 +6094,35 @@ var init_settings_tab = __esm({
           })
         );
         if (shouldShowWeatherSettings(this.plugin.settings)) {
-          new import_obsidian3.Setting(containerEl).setName(_s("s_latitude")).setDesc(_s("s_latitudeDesc")).addText(
+          new import_obsidian4.Setting(containerEl).setName(_s("s_latitude")).setDesc(_s("s_latitudeDesc")).addText(
             (text) => text.setPlaceholder("39.9042").setValue(String(this.plugin.settings.weatherLatitude)).onChange(async (value) => {
               this.plugin.settings.weatherLatitude = value.trim();
               if (!await this._saveSettings()) return;
               await this._refreshViews();
             })
           );
-          new import_obsidian3.Setting(containerEl).setName(_s("s_longitude")).setDesc(_s("s_longitudeDesc")).addText(
+          new import_obsidian4.Setting(containerEl).setName(_s("s_longitude")).setDesc(_s("s_longitudeDesc")).addText(
             (text) => text.setPlaceholder("116.4074").setValue(String(this.plugin.settings.weatherLongitude)).onChange(async (value) => {
               this.plugin.settings.weatherLongitude = value.trim();
               if (!await this._saveSettings()) return;
               await this._refreshViews();
             })
           );
-          new import_obsidian3.Setting(containerEl).setName(_s("s_locationName")).setDesc(_s("s_locationNameDesc")).addText(
+          new import_obsidian4.Setting(containerEl).setName(_s("s_locationName")).setDesc(_s("s_locationNameDesc")).addText(
             (text) => text.setPlaceholder(_s("s_locationName")).setValue(String(this.plugin.settings.weatherLocationName)).onChange(async (value) => {
               this.plugin.settings.weatherLocationName = value.trim();
               if (!await this._saveSettings()) return;
               await this._refreshViews();
             })
           );
-          new import_obsidian3.Setting(containerEl).setName(_s("s_tempUnits")).setDesc(_s("s_tempUnitsDesc")).addDropdown(
+          new import_obsidian4.Setting(containerEl).setName(_s("s_tempUnits")).setDesc(_s("s_tempUnitsDesc")).addDropdown(
             (dd) => dd.addOption("metric", _s("s_celsius")).addOption("imperial", _s("s_fahrenheit")).setValue(this.plugin.settings.weatherUnits).onChange(async (value) => {
               this.plugin.settings.weatherUnits = value;
               if (!await this._saveSettings()) return;
               await this._refreshViews();
             })
           );
-          const weatherFieldsSetting = new import_obsidian3.Setting(containerEl).setName(t(this.plugin.settings, "weatherExtraFields")).setDesc(t(this.plugin.settings, "weatherExtraFieldsDesc"));
+          const weatherFieldsSetting = new import_obsidian4.Setting(containerEl).setName(t(this.plugin.settings, "weatherExtraFields")).setDesc(t(this.plugin.settings, "weatherExtraFieldsDesc"));
           weatherFieldsSetting.settingEl.addClass("dayline-weather-fields-setting");
           {
             const control = weatherFieldsSetting.controlEl.createDiv({ cls: "dayline-weather-field-options" });
@@ -5198,18 +6150,18 @@ var init_settings_tab = __esm({
               });
             }
           }
-          new import_obsidian3.Setting(containerEl).setName(t(this.plugin.settings, "weatherTimezone")).setDesc(t(this.plugin.settings, "weatherTimezoneDesc")).addText((text) => text.setPlaceholder("auto or Asia/Shanghai").setValue(String(this.plugin.settings.weatherTimezone || "auto")).onChange(async (value) => {
+          new import_obsidian4.Setting(containerEl).setName(t(this.plugin.settings, "weatherTimezone")).setDesc(t(this.plugin.settings, "weatherTimezoneDesc")).addText((text) => text.setPlaceholder("auto or Asia/Shanghai").setValue(String(this.plugin.settings.weatherTimezone || "auto")).onChange(async (value) => {
             this.plugin.settings.weatherTimezone = value.trim() || "auto";
             if (!await this._saveSettings()) return;
             await this._refreshViews();
           }));
-          new import_obsidian3.Setting(containerEl).setName(_s("s_autoFetch")).setDesc(_s("s_autoFetchDesc")).addToggle(
+          new import_obsidian4.Setting(containerEl).setName(_s("s_autoFetch")).setDesc(_s("s_autoFetchDesc")).addToggle(
             (toggle) => toggle.setValue(this.plugin.settings.weatherAutoFetch).onChange(async (value) => {
               this.plugin.settings.weatherAutoFetch = value;
               await this._saveSettings();
             })
           );
-          new import_obsidian3.Setting(containerEl).setName(_s("s_cacheTtl")).setDesc(_s("s_cacheTtlDesc")).addText(
+          new import_obsidian4.Setting(containerEl).setName(_s("s_cacheTtl")).setDesc(_s("s_cacheTtlDesc")).addText(
             (text) => text.setPlaceholder("2").setValue(String(this.plugin.settings.weatherTtlHours)).onChange(async (value) => {
               const n = parseInt(value, 10);
               this.plugin.settings.weatherTtlHours = isNaN(n) || n < 1 ? 2 : n;
@@ -5219,19 +6171,19 @@ var init_settings_tab = __esm({
           );
         }
         this._addSection(containerEl, "media-privacy");
-        new import_obsidian3.Setting(containerEl).setName(_s("s_exifEnable")).setDesc(_s("s_exifEnableDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showExif).onChange(async (value) => {
+        new import_obsidian4.Setting(containerEl).setName(_s("s_exifEnable")).setDesc(_s("s_exifEnableDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showExif).onChange(async (value) => {
           this.plugin.settings.showExif = value;
           if (!await this._saveSettings()) return;
           this.display();
         }));
         if (shouldShowExifGeocoding(this.plugin.settings)) {
-          new import_obsidian3.Setting(containerEl).setName(_s("s_exifGeocode")).setDesc(_s("s_exifGeocodeDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.exifReverseGeocode).onChange(async (value) => {
+          new import_obsidian4.Setting(containerEl).setName(_s("s_exifGeocode")).setDesc(_s("s_exifGeocodeDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.exifReverseGeocode).onChange(async (value) => {
             this.plugin.settings.exifReverseGeocode = value;
             await this._saveSettings();
           }));
         }
         this._addSection(containerEl, "on-this-day");
-        new import_obsidian3.Setting(containerEl).setName(_s("s_otdButton")).setDesc(_s("s_otdButtonDesc")).addToggle(
+        new import_obsidian4.Setting(containerEl).setName(_s("s_otdButton")).setDesc(_s("s_otdButtonDesc")).addToggle(
           (toggle) => toggle.setValue(this.plugin.settings.onThisDayButton).onChange(async (value) => {
             this.plugin.settings.onThisDayButton = value;
             if (!await this._saveSettings()) return;
@@ -5240,7 +6192,7 @@ var init_settings_tab = __esm({
             if (leaf?.view) leaf.view.render();
           })
         );
-        new import_obsidian3.Setting(containerEl).setName(_s("s_otdDot")).setDesc(_s("s_otdDotDesc")).addToggle(
+        new import_obsidian4.Setting(containerEl).setName(_s("s_otdDot")).setDesc(_s("s_otdDotDesc")).addToggle(
           (toggle) => toggle.setValue(this.plugin.settings.onThisDayDot).onChange(async (value) => {
             this.plugin.settings.onThisDayDot = value;
             if (!await this._saveSettings()) return;
@@ -5248,7 +6200,7 @@ var init_settings_tab = __esm({
           })
         );
         if (shouldShowOnThisDayExcerptSettings(this.plugin.settings)) {
-          new import_obsidian3.Setting(containerEl).setName(_s("s_otdExcerptMode")).setDesc(_s("s_otdExcerptModeDesc")).addDropdown((dropdown) => dropdown.addOptions({
+          new import_obsidian4.Setting(containerEl).setName(_s("s_otdExcerptMode")).setDesc(_s("s_otdExcerptModeDesc")).addDropdown((dropdown) => dropdown.addOptions({
             auto: _s("s_otdExcerptAuto"),
             frontmatter: _s("s_otdExcerptFrontmatter"),
             template: _s("s_otdExcerptTemplate"),
@@ -5261,14 +6213,14 @@ var init_settings_tab = __esm({
             this.display();
           }));
           if (this.plugin.settings.onThisDayExcerptMode === "frontmatter") {
-            new import_obsidian3.Setting(containerEl).setName(_s("s_otdExcerptKey")).setDesc(_s("s_otdExcerptKeyDesc")).addText((text) => text.setValue(this.plugin.settings.onThisDayExcerptKey || "excerpt").onChange(async (value) => {
+            new import_obsidian4.Setting(containerEl).setName(_s("s_otdExcerptKey")).setDesc(_s("s_otdExcerptKeyDesc")).addText((text) => text.setValue(this.plugin.settings.onThisDayExcerptKey || "excerpt").onChange(async (value) => {
               this.plugin.settings.onThisDayExcerptKey = value;
               if (!await this._saveSettings()) return;
               this.app.workspace.getLeavesOfType(VIEW_TYPE)[0]?.view?._otdProvider?.invalidate();
             }));
           }
           if (this.plugin.settings.onThisDayExcerptMode === "template") {
-            new import_obsidian3.Setting(containerEl).setName(_s("s_otdTemplate")).setDesc(_s("s_otdTemplateDesc")).addText((text) => text.setValue(this.plugin.settings.onThisDayExcerptTemplate || "{body}").onChange(async (value) => {
+            new import_obsidian4.Setting(containerEl).setName(_s("s_otdTemplate")).setDesc(_s("s_otdTemplateDesc")).addText((text) => text.setValue(this.plugin.settings.onThisDayExcerptTemplate || "{body}").onChange(async (value) => {
               this.plugin.settings.onThisDayExcerptTemplate = value;
               if (!await this._saveSettings()) return;
               this.app.workspace.getLeavesOfType(VIEW_TYPE)[0]?.view?._otdProvider?.invalidate();
@@ -5276,7 +6228,7 @@ var init_settings_tab = __esm({
           }
         }
         this._addSection(containerEl, "data-maintenance");
-        new import_obsidian3.Setting(containerEl).setName(t(this.plugin.settings, "moodMetadataPath")).setDesc(t(this.plugin.settings, "moodMetadataPathDesc")).addText((text) => text.setValue(this.plugin.settings.moodMetadataPath).setPlaceholder("Calendar/journal-metadata.json").onChange(async (value) => {
+        new import_obsidian4.Setting(containerEl).setName(t(this.plugin.settings, "moodMetadataPath")).setDesc(t(this.plugin.settings, "moodMetadataPathDesc")).addText((text) => text.setValue(this.plugin.settings.moodMetadataPath).setPlaceholder("Calendar/journal-metadata.json").onChange(async (value) => {
           const next = value.trim() || "Calendar/journal-metadata.json";
           this.plugin.settings.moodMetadataPath = next;
           if (!await this._saveSettings()) return;
@@ -5285,27 +6237,27 @@ var init_settings_tab = __esm({
           await this.plugin.journalIndex.refresh(this.plugin.settings);
           this.plugin.refreshJournalViews();
         }));
-        this._addActionRow(new import_obsidian3.Setting(containerEl).setName(t(this.plugin.settings, "moodExport")).setDesc(t(this.plugin.settings, "moodExportDesc")), "moodExport").addButton((button) => button.setButtonText(t(this.plugin.settings, "exportMoodCsvCommand")).onClick(() => this.plugin.exportMood("csv"))).addButton((button) => button.setButtonText(t(this.plugin.settings, "exportMoodJsonCommand")).onClick(() => this.plugin.exportMood("json")));
-        this._addActionRow(new import_obsidian3.Setting(containerEl).setName(t(this.plugin.settings, "metadataBackup")).setDesc(t(this.plugin.settings, "metadataBackupDesc")), "metadataBackup").addButton((button) => button.setButtonText(t(this.plugin.settings, "exportMetadataCommand")).onClick(async () => {
+        this._addActionRow(new import_obsidian4.Setting(containerEl).setName(t(this.plugin.settings, "moodExport")).setDesc(t(this.plugin.settings, "moodExportDesc")), "moodExport").addButton((button) => button.setButtonText(t(this.plugin.settings, "exportMoodCsvCommand")).onClick(() => this.plugin.exportMood("csv"))).addButton((button) => button.setButtonText(t(this.plugin.settings, "exportMoodJsonCommand")).onClick(() => this.plugin.exportMood("json")));
+        this._addActionRow(new import_obsidian4.Setting(containerEl).setName(t(this.plugin.settings, "metadataBackup")).setDesc(t(this.plugin.settings, "metadataBackupDesc")), "metadataBackup").addButton((button) => button.setButtonText(t(this.plugin.settings, "exportMetadataCommand")).onClick(async () => {
           try {
             const path = await this.plugin.moodStore.exportTo();
-            new import_obsidian3.Notice(t(this.plugin.settings, "metadataExported", { path }));
+            new import_obsidian4.Notice(t(this.plugin.settings, "metadataExported", { path }));
           } catch (error) {
-            new import_obsidian3.Notice(t(this.plugin.settings, "metadataExportFailed", { error: error?.message || error }));
+            new import_obsidian4.Notice(t(this.plugin.settings, "metadataExportFailed", { error: error?.message || error }));
           }
         })).addButton((button) => button.setButtonText(t(this.plugin.settings, "restoreMetadataCommand")).onClick(async () => {
           try {
             await this.plugin.moodStore.restoreBackup();
             await this.plugin.journalIndex.refresh(this.plugin.settings);
             this.plugin.refreshJournalViews();
-            new import_obsidian3.Notice(t(this.plugin.settings, "metadataRestored"));
+            new import_obsidian4.Notice(t(this.plugin.settings, "metadataRestored"));
           } catch (error) {
-            new import_obsidian3.Notice(t(this.plugin.settings, "metadataRestoreFailed", { error: error?.message || error }));
+            new import_obsidian4.Notice(t(this.plugin.settings, "metadataRestoreFailed", { error: error?.message || error }));
           }
         }));
-        this._addActionRow(new import_obsidian3.Setting(containerEl).setName(t(this.plugin.settings, "dataMaintenance")).setDesc(t(this.plugin.settings, "dataMaintenanceDesc")), "dataMaintenance").addButton((button) => button.setButtonText(t(this.plugin.settings, "integrityCommand")).onClick(async () => {
+        this._addActionRow(new import_obsidian4.Setting(containerEl).setName(t(this.plugin.settings, "dataMaintenance")).setDesc(t(this.plugin.settings, "dataMaintenanceDesc")), "dataMaintenance").addButton((button) => button.setButtonText(t(this.plugin.settings, "integrityCommand")).onClick(async () => {
           const result = await this.plugin.moodStore.checkIntegrity();
-          new import_obsidian3.Notice(result.valid ? t(this.plugin.settings, "metadataValid") : t(this.plugin.settings, "metadataIntegrityIssues", {
+          new import_obsidian4.Notice(result.valid ? t(this.plugin.settings, "metadataValid") : t(this.plugin.settings, "metadataIntegrityIssues", {
             metadata: result.invalidMetadata.length,
             records: result.invalidRecords.length,
             orphans: result.invalidOrphans.length,
@@ -5318,27 +6270,27 @@ var init_settings_tab = __esm({
           );
           await this.plugin.journalIndex.refresh(this.plugin.settings);
           this.plugin.refreshJournalViews();
-          new import_obsidian3.Notice(t(this.plugin.settings, "importedMoods", { count }));
+          new import_obsidian4.Notice(t(this.plugin.settings, "importedMoods", { count }));
         }));
         const orphanCount = Object.keys(this.plugin.moodStore?.getOrphans?.() || {}).length;
         if (orphanCount > 0) {
-          new import_obsidian3.Setting(containerEl).setName(t(this.plugin.settings, "moodRecoveryTitle")).setDesc(t(this.plugin.settings, "moodRecoveryDescription")).addButton((button) => button.setButtonText(t(this.plugin.settings, "moodRecoveryCommand")).onClick(() => this.plugin.openMoodRecovery()));
+          new import_obsidian4.Setting(containerEl).setName(t(this.plugin.settings, "moodRecoveryTitle")).setDesc(t(this.plugin.settings, "moodRecoveryDescription")).addButton((button) => button.setButtonText(t(this.plugin.settings, "moodRecoveryCommand")).onClick(() => this.plugin.openMoodRecovery()));
         }
         if (shouldShowWeatherSettings(this.plugin.settings)) {
-          new import_obsidian3.Setting(containerEl).setName(_s("s_backfill")).setDesc(_s("s_backfillDesc")).addButton((btn) => btn.setButtonText(_s("s_backfillBtn")).onClick(async () => {
+          new import_obsidian4.Setting(containerEl).setName(_s("s_backfill")).setDesc(_s("s_backfillDesc")).addButton((btn) => btn.setButtonText(_s("s_backfillBtn")).onClick(async () => {
             const leaf = this.app.workspace.getLeavesOfType(VIEW_TYPE)[0];
             if (leaf?.view) leaf.view.startWeatherBackfill();
           }));
         }
       }
     };
-    FolderSuggestModal = class extends import_obsidian3.SuggestModal {
+    FolderSuggestModal = class extends import_obsidian4.SuggestModal {
       constructor(app, onSubmit) {
         super(app);
         this.onSubmit = onSubmit;
       }
       getSuggestions(query) {
-        const folders = this.app.vault.getAllLoadedFiles().filter((f) => f instanceof import_obsidian3.TFolder);
+        const folders = this.app.vault.getAllLoadedFiles().filter((f) => f instanceof import_obsidian4.TFolder);
         if (!query) return folders;
         return folders.filter(
           (f) => f.path.toLowerCase().includes(query.toLowerCase())
@@ -5390,10 +6342,10 @@ function isSnapshotStale(snapshot, ttlHours, now = Date.now()) {
 }
 function cloneStaleSnapshot(snapshot, offline = false) {
   if (!snapshot || typeof snapshot !== "object") return null;
-  const clone = { ...snapshot };
-  delete clone.stale;
-  delete clone.offline;
-  return offline ? { ...clone, stale: true, offline: true } : { ...clone, stale: true };
+  const clone2 = { ...snapshot };
+  delete clone2.stale;
+  delete clone2.offline;
+  return offline ? { ...clone2, stale: true, offline: true } : { ...clone2, stale: true };
 }
 function toCanonicalWeatherSnapshot(snapshot) {
   if (!snapshot || typeof snapshot !== "object") return null;
@@ -6134,9 +7086,9 @@ var init_bitstream = __esm({
         return this.bytes.length * 8 - this.pos;
       }
       clone() {
-        const clone = new _Bitstream(this.bytes);
-        clone.pos = this.pos;
-        return clone;
+        const clone2 = new _Bitstream(this.bytes);
+        clone2.pos = this.pos;
+        return clone2;
       }
     };
   }
@@ -23484,7 +24436,7 @@ var init_mobile_diagnostics = __esm({
 });
 
 // src/plugin.ts
-var { Plugin, ItemView: ItemView2, TFile: TFile2, Notice: Notice4, Modal: Modal2, Menu, setIcon: setIcon2, Platform } = require("obsidian");
+var { Plugin, ItemView: ItemView2, TFile: TFile2, Notice: Notice4, Modal: Modal2, Menu, setIcon: setIcon4, Platform } = require("obsidian");
 var { JournalIndex: JournalIndex2, startJournalIndexLoad: startJournalIndexLoad2, waitForJournalIndexStartup: waitForJournalIndexStartup2 } = (init_journal_index(), __toCommonJS(journal_index_exports));
 var { subscribeJournalMetadataRefresh: subscribeJournalMetadataRefresh2 } = (init_journal_metadata_refresh(), __toCommonJS(journal_metadata_refresh_exports));
 var { MoodStore: MoodStore2 } = (init_mood_store(), __toCommonJS(mood_store_exports));
@@ -25054,10 +26006,9 @@ button.cal-weather-refresh:hover {
 }
 @media (max-width: 600px) {
   /* Keep the note weather chip below Obsidian's mobile title/actions row. */
-  .markdown-source-view .cal-note-overlay,
-  .markdown-preview-view .cal-note-overlay {
-    top: calc(96px + env(safe-area-inset-top));
-    right: 8px;
+  body.dayline-mobile.dayline-phone .cal-note-overlay {
+    top: calc(64px + env(safe-area-inset-top));
+    right: max(8px, env(safe-area-inset-right));
     max-width: min(280px, calc(100vw - 16px));
     z-index: 2;
   }
@@ -25302,7 +26253,7 @@ button.cal-weather-refresh:hover {
   .dayline-coarse-pointer:not(.dayline-mobile) .cal-mood-dot { width: 12px; height: 12px; }
   .journal-timeline-entry-title.is-placeholder { opacity: 0.42; }
 }
-.journal-timeline-view { box-sizing: border-box; width: 100%; min-width: 0; padding: 14px; overflow-x: hidden; overflow-y: auto; }
+.journal-timeline-view { container: journal-timeline / inline-size; box-sizing: border-box; width: 100%; min-width: 0; padding: 12px; overflow-x: hidden; overflow-y: auto; }
 .journal-index-loading { display: flex; align-items: center; justify-content: center; min-height: 160px; padding: 24px; color: var(--text-muted); text-align: center; overflow-wrap: anywhere; }
 .journal-index-load-error { color: var(--text-error); }
 .journal-timeline-header, .journal-timeline-entry-top, .journal-timeline-meta, .journal-timeline-actions, .journal-timeline-filter-row, .journal-timeline-filter-menu, .journal-mood-actions { display: flex; align-items: center; min-width: 0; }
@@ -25315,12 +26266,25 @@ button.cal-weather-refresh:hover {
 .journal-timeline-filter-area, .journal-timeline-filter-row, .journal-timeline-filter-summary { width: 100%; min-width: 0; }
 .journal-timeline-filter-row { gap: 6px; margin-bottom: 6px; }
 .journal-timeline-filter-row input[type='search'] { flex: 1 1 auto; width: 1px; min-width: 0; }
-.journal-timeline-filter-menu { flex-wrap: wrap; gap: 6px; padding: 7px; margin-bottom: 6px; border: 1px solid var(--background-modifier-border); border-radius: 6px; background: var(--background-secondary); }
-.journal-timeline-filter-menu.is-hidden { display: none; }
-.journal-timeline-filter-menu input[type='date'], .journal-timeline-filter-menu select { flex: 1 1 100px; min-width: 0; max-width: 160px; }
+.journal-timeline-filter-menu { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 8px; padding: 12px 0; margin-bottom: 8px; border-bottom: 1px solid var(--background-modifier-border); }
+.journal-timeline-filter-menu[hidden] { display: none; }
+.journal-timeline-filter-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; color: var(--text-muted); font-size: 12px; }
+.journal-timeline-filter-menu input[type='date'], .journal-timeline-filter-menu select { width: 100%; min-width: 0; max-width: 100%; box-sizing: border-box; }
+.journal-timeline-clear-filters { justify-self: end; max-width: 100%; height: auto; min-height: 28px; white-space: normal; }
+.journal-timeline-filter-row > button.is-active { color: var(--text-accent); background: var(--background-modifier-hover); }
+.journal-timeline-filter-row > button.is-active::after { content: attr(data-count); position: absolute; inset: -4px -4px auto auto; min-width: 14px; padding: 1px 3px; border-radius: 4px; background: var(--interactive-accent); color: var(--text-on-accent); font-size: 10px; line-height: 14px; }
+.journal-timeline-filter-row > button { position: relative; }
 .journal-timeline-favorite-filter { display: inline-flex; align-items: center; gap: 5px; min-width: 0; color: var(--text-muted); font-size: 12px; }
 .journal-timeline-filter-summary { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
-.journal-filter-chip { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 3px 7px; font-size: 11px; }
+.journal-filter-chip { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; padding: 4px 7px; font-size: 12px; }
+.journal-filter-chip > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.journal-filter-chip-remove { display: flex; flex: 0 0 12px; }
+.journal-filter-chip-remove svg { width: 12px; height: 12px; }
+.journal-timeline-stats-details { margin: 4px 0 12px; border-bottom: 1px solid var(--background-modifier-border); }
+.journal-timeline-stats-details > summary { padding: 8px 0; color: var(--text-muted); font-size: 12px; cursor: pointer; overflow-wrap: anywhere; }
+.journal-timeline-stats-summary { margin-inline-start: 10px; }
+.journal-timeline-month { margin: 16px 0 2px; color: var(--text-normal); font-size: 14px; font-weight: 600; line-height: 1.5; }
+.journal-timeline-month:first-child { margin-top: 0; }
 .journal-timeline-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; min-width: 0; margin-bottom: 12px; }
 .journal-stat { min-width: 0; overflow: hidden; padding: 6px 0; border-bottom: 1px solid var(--background-modifier-border); }
 .journal-stat-value { font-size: 15px; color: var(--text-normal); }
@@ -25340,46 +26304,57 @@ button.cal-weather-refresh:hover {
 .journal-stat-label-trend-row span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .journal-stat-label-trend-row span:last-child { flex: 0 0 auto; color: var(--text-faint); }
 .journal-timeline-list { display: grid; grid-template-columns: minmax(0, 1fr); width: 100%; min-width: 0; gap: 8px; }
-.journal-timeline-entry { display: grid; grid-template-columns: 30px minmax(0, 1fr); width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box; overflow: hidden; gap: 4px; padding: 12px; border: 1px solid var(--background-modifier-border); border-radius: 7px; box-shadow: inset 3px 0 0 var(--background-modifier-border); cursor: pointer; background: var(--background-primary); }
-.journal-timeline-entry.has-thumbnail { grid-template-columns: 30px minmax(0, 1fr) 104px; }
-.journal-timeline-entry.mood-score-2 { box-shadow: inset 3px 0 0 #ee6a54; }
-.journal-timeline-entry.mood-score-1 { box-shadow: inset 3px 0 0 #f0b34f; }
-.journal-timeline-entry.mood-score-0 { box-shadow: inset 3px 0 0 #55b6c9; }
-.journal-timeline-entry.mood-score--1 { box-shadow: inset 3px 0 0 #4d6fb8; }
-.journal-timeline-entry.mood-score--2 { box-shadow: inset 3px 0 0 #7652c7; }
-.journal-timeline-entry:hover, .journal-timeline-entry:focus-visible { border-right-color: var(--interactive-accent); outline: none; }
-.journal-timeline-entry-body { display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
-.journal-timeline-entry-date-column { display: flex; flex-direction: column; justify-content: center; align-items: flex-start; min-width: 0; padding-top: 2px; color: var(--text-muted); }
+.journal-timeline-entry { position: relative; display: grid; grid-template-columns: 30px minmax(0, 1fr); width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box; overflow: hidden; gap: 10px; padding: 12px 0; border: 0; border-bottom: 1px solid var(--background-modifier-border); border-radius: 0; cursor: pointer; background: transparent; transition: background-color 120ms ease; }
+.journal-timeline-entry.has-thumbnail { grid-template-columns: 30px minmax(0, 1fr) 88px; }
+.journal-timeline-entry.mood-score-2 { --journal-entry-mood: #ee6a54; }
+.journal-timeline-entry.mood-score-1 { --journal-entry-mood: #f0b34f; }
+.journal-timeline-entry.mood-score-0 { --journal-entry-mood: #55b6c9; }
+.journal-timeline-entry.mood-score--1 { --journal-entry-mood: #4d6fb8; }
+.journal-timeline-entry.mood-score--2 { --journal-entry-mood: #7652c7; }
+.journal-timeline-entry:not(.mood-score-none) .journal-timeline-entry-date-column::after { content: ''; width: 6px; height: 6px; margin-top: 8px; border-radius: 50%; background: var(--journal-entry-mood); }
+.journal-timeline-entry:hover { background: var(--background-modifier-hover); }
+.journal-timeline-entry:focus-visible,
+.journal-timeline-view button:focus-visible,
+.journal-timeline-stats-details > summary:focus-visible { outline: 2px solid var(--interactive-accent); outline-offset: -2px; }
+.journal-timeline-entry-body { position: relative; display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
+.journal-timeline-entry-date-column { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; padding-top: 2px; color: var(--text-muted); }
 .journal-timeline-entry-weekday { margin-bottom: 4px; font-size: 11px; font-weight: 600; line-height: 1.25; }
-.journal-timeline-entry-day { color: var(--text-normal); font-size: 24px; font-weight: 700; line-height: 1.05; }
+.journal-timeline-entry-day { color: var(--text-normal); font-size: 20px; font-weight: 600; line-height: 1.2; }
 .journal-timeline-entry-top { flex-wrap: wrap; gap: 4px 7px; min-width: 0; color: var(--text-muted); }
 .journal-timeline-entry-date { flex: 0 1 auto; min-width: 0; max-width: 100%; margin: 0; overflow: hidden; color: var(--text-normal); font-size: 14px; font-weight: 600; }
 .journal-timeline-entry-iso { display: none; }
 .journal-timeline-favorite { flex: 0 0 auto; color: var(--text-accent); font-size: 11px; }
 .journal-timeline-entry-title { position: relative; display: block; width: 100%; min-width: 0; margin: 0 0 4px; padding: 0; overflow: hidden; color: var(--text-normal); font-size: 15px; font-weight: 600; line-height: 1.3; text-align: left; text-overflow: ellipsis; white-space: nowrap; cursor: text; }
-.journal-timeline-entry-title:hover, .journal-timeline-entry-title:focus-visible { color: var(--text-accent); outline: none; }
-.journal-timeline-entry-title:focus-visible { text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--journal-mood-active, var(--interactive-accent)) 60%, transparent); text-underline-offset: 3px; }
+.journal-timeline-entry-title:hover, .journal-timeline-entry-title:focus-visible { color: var(--text-accent); }
+.journal-timeline-entry-title:focus-visible { outline: 2px solid var(--interactive-accent); outline-offset: -2px; }
 .journal-timeline-entry-title.is-placeholder { color: var(--text-muted); font-size: 13px; font-weight: 500; opacity: 0.56; transition: opacity 160ms ease, color 160ms ease; }
 .journal-timeline-entry:hover .journal-timeline-entry-title.is-placeholder,
 .journal-timeline-entry:focus-within .journal-timeline-entry-title.is-placeholder,
 .journal-timeline-entry-title.is-placeholder:focus-visible { opacity: 0.72; }
-.journal-timeline-entry-title.is-placeholder::before { content: attr(data-placeholder); }
-.journal-timeline-entry-title.is-editing { overflow: visible; cursor: text; }
+.journal-timeline-add-title:not(.is-editing) { position: absolute; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; margin: 0; border-radius: 4px; background: var(--background-primary); cursor: pointer; opacity: 0; }
+.journal-timeline-add-title svg { width: 14px; height: 14px; }
+.journal-timeline-entry-body:has(.journal-timeline-add-title:not(.is-editing)) { padding-bottom: 24px; }
+.journal-timeline-entry-title.is-editing { overflow: visible; cursor: text; white-space: normal; opacity: 1; }
+.journal-title-save-error { margin: 6px 0; color: var(--text-error); font-size: 12px; font-weight: 400; line-height: 1.5; overflow-wrap: anywhere; }
+.journal-title-save-error button { margin: 6px 6px 0 0; }
+.journal-timeline-pending-edit { margin: 12px 0; padding: 12px 0; border-block: 1px solid var(--background-modifier-border); color: var(--text-muted); font-size: 12px; }
+.journal-timeline-pending-edit .journal-timeline-entry { border-bottom: 0; }
 .journal-timeline-entry-title input { display: block; width: 100%; min-width: 0; height: 24px; margin: 0; padding: 0 0 3px; border: 0; border-bottom: 1px solid var(--interactive-accent); border-radius: 0; color: var(--text-normal); background: transparent; box-shadow: none; font: inherit; font-size: 15px; font-weight: 600; line-height: 1.3; outline: none; }
-.journal-timeline-excerpt { min-width: 0; max-width: 100%; margin-top: 2px; overflow: hidden; overflow-wrap: anywhere; color: var(--text-muted); font-size: 12px; line-height: 1.35; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
-.journal-timeline-meta { flex-wrap: wrap; gap: 5px 10px; min-width: 0; min-height: 10px; margin-top: auto; padding-top: 4px; overflow-wrap: anywhere; color: var(--text-faint); font-size: 10px; line-height: 1; }
+.journal-timeline-excerpt { min-width: 0; max-width: 100%; margin-top: 2px; overflow: hidden; overflow-wrap: anywhere; color: var(--text-muted); font-size: 13px; line-height: 1.5; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
+.journal-timeline-meta { flex-wrap: wrap; gap: 5px 10px; min-width: 0; margin-top: auto; padding-top: 6px; overflow-wrap: anywhere; color: var(--text-muted); font-size: 12px; line-height: 1.4; }
 .journal-timeline-mood-note { margin-top: 6px; overflow-wrap: anywhere; color: var(--text-muted); font-size: 12px; white-space: pre-wrap; }
-.journal-timeline-thumbnail { position: relative; width: 104px; height: 92px; min-width: 104px; overflow: hidden; border-radius: 7px; background: var(--background-secondary); }
-.journal-timeline-thumbnail img { display: block; width: 104px; height: 92px; object-fit: cover; opacity: 0; transition: opacity 0.15s ease; }
+.journal-timeline-thumbnail { position: relative; width: 88px; height: 88px; min-width: 0; overflow: hidden; border-radius: 6px; background: var(--background-secondary); }
+.journal-timeline-thumbnail img { display: block; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity 0.15s ease; }
 .journal-timeline-thumbnail.is-loaded img { opacity: 1; }
 .journal-timeline-thumbnail-count { position: absolute; right: 4px; bottom: 4px; padding: 1px 4px; border-radius: 4px; background: rgba(0, 0, 0, 0.65); color: #fff; font-size: 10px; }
 .journal-timeline-empty { min-width: 0; padding: 28px 8px; overflow-wrap: anywhere; color: var(--text-muted); text-align: center; }
-.journal-mood-picker-modal { --journal-mood-active: #55b6c9; width: min(700px, calc(100vw - 32px)); max-width: calc(100vw - 32px); max-height: min(820px, calc(100vh - 48px)); min-width: 0; overflow: hidden; border-color: color-mix(in srgb, var(--journal-mood-active) 42%, var(--background-modifier-border)); background: radial-gradient(circle at 50% 43%, color-mix(in srgb, var(--journal-mood-active) 54%, transparent) 0%, color-mix(in srgb, var(--journal-mood-active) 24%, transparent) 42%, transparent 72%), linear-gradient(155deg, color-mix(in srgb, var(--journal-mood-active) 30%, var(--background-primary)), color-mix(in srgb, var(--journal-mood-active) 16%, var(--background-secondary))); box-shadow: 0 24px 70px color-mix(in srgb, var(--journal-mood-active) 28%, rgba(0, 0, 0, 0.45)); box-sizing: border-box; }
+.journal-timeline-empty button { margin-top: 12px; max-width: 100%; height: auto; min-height: 32px; white-space: normal; }
+.journal-mood-picker-modal { --journal-mood-active: #55b6c9; width: min(620px, calc(100vw - 32px)); max-width: calc(100vw - 32px); max-height: min(820px, calc(100vh - 48px)); min-width: 0; overflow: hidden; border-color: var(--background-modifier-border); background: var(--background-primary); box-shadow: var(--shadow-l); box-sizing: border-box; }
 .journal-mood-picker-modal .modal-content { width: 100%; max-width: 100%; min-width: 0; max-height: calc(100vh - 72px); overflow-y: auto; background: transparent; box-sizing: border-box; }
 .journal-mood-picker-modal .modal-close-button { color: var(--text-normal); background: color-mix(in srgb, var(--background-primary) 58%, transparent); }
 .journal-mood-picker { --journal-mood-active: #55b6c9; container-type: inline-size; padding: 4px 2px 2px; }
 .journal-mood-picker h3 { margin: 0; color: var(--text-normal); font-size: 20px; font-weight: 650; letter-spacing: 0; line-height: 1.2; }
-.journal-mood-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; min-width: 0; margin-bottom: 18px; }
+.journal-mood-header { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 12px 18px; min-width: 0; margin-bottom: 18px; }
 .journal-mood-header-copy { min-width: 0; }
 .journal-mood-step { margin: 6px 0 0; color: var(--text-muted); font-size: 13px; line-height: 1.45; }
 .journal-mood-date-field { display: flex; flex: 0 1 auto; align-items: center; gap: 8px; min-width: 0; color: var(--text-muted); font-size: 12px; }
@@ -25387,7 +26362,7 @@ button.cal-weather-refresh:hover {
 .journal-mood-date-field input { width: 148px; min-width: 0; max-width: 100%; height: 34px; }
 .journal-mood-panel { min-width: 0; }
 .journal-mood-scale-panel { padding: 0 20px 16px; overflow: hidden; border: 0; background: transparent; }
-.journal-fluid-mood-control { position: relative; min-width: 0; outline: none; cursor: grab; touch-action: none; user-select: none; }
+.journal-fluid-mood-control { position: relative; min-width: 0; outline: none; cursor: grab; touch-action: pan-y; user-select: none; }
 .journal-fluid-mood-control.is-dragging { cursor: grabbing; }
 .journal-fluid-mood-control:focus-visible { outline: 2px solid var(--interactive-accent); outline-offset: 5px; border-radius: 6px; }
 .journal-fluid-visual { position: relative; width: 100%; height: clamp(230px, 42vh, 320px); min-height: 230px; overflow: hidden; }
@@ -25405,15 +26380,13 @@ button.cal-weather-refresh:hover {
 .journal-fluid-endpoints span:last-child { text-align: right; }
 .journal-visually-hidden { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: -1px !important; overflow: hidden !important; clip: rect(0, 0, 0, 0) !important; white-space: nowrap !important; border: 0 !important; }
 .journal-mood-scale-actions { justify-content: flex-end !important; }
-.journal-mood-actions button { appearance: none; min-height: 36px; padding: 7px 16px; border: 0; border-radius: 999px; color: var(--text-normal); background: color-mix(in srgb, var(--background-primary) 90%, var(--journal-mood-active) 10%); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--journal-mood-active) 12%, transparent); font: inherit; line-height: 1.2; transition: color 180ms ease, background-color 180ms ease, box-shadow 180ms ease, transform 120ms ease; }
-.journal-mood-actions button:hover { background: color-mix(in srgb, var(--background-primary) 78%, var(--journal-mood-active) 22%); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--journal-mood-active) 24%, transparent); }
+.journal-mood-actions button { min-height: 36px; height: auto; max-width: 100%; padding: 7px 16px; border-radius: 6px; font: inherit; line-height: 1.3; white-space: normal; transition: background-color 120ms ease, transform 120ms ease; }
 .journal-mood-actions button:active { transform: translateY(1px); }
 .journal-mood-actions button:focus-visible { outline: 2px solid color-mix(in srgb, var(--journal-mood-active) 68%, var(--interactive-accent)); outline-offset: 2px; }
 .journal-mood-continue { min-width: 104px; }
-.journal-mood-picker .mod-cta:not(:disabled) { color: var(--text-on-accent, #fff); background: color-mix(in srgb, var(--journal-mood-active) 78%, var(--background-primary)); box-shadow: 0 4px 12px color-mix(in srgb, var(--journal-mood-active) 24%, transparent); }
-.journal-mood-picker .mod-cta:not(:disabled):hover { background: color-mix(in srgb, var(--journal-mood-active) 88%, var(--background-primary)); box-shadow: 0 5px 16px color-mix(in srgb, var(--journal-mood-active) 32%, transparent); }
-.journal-mood-picker .mod-cta:disabled { color: var(--text-faint); background: color-mix(in srgb, var(--background-primary) 94%, var(--background-modifier-border) 6%); box-shadow: none; }
-.journal-mood-summary { display: flex; align-items: center; gap: 14px; min-width: 0; margin-bottom: 18px; padding: 8px 14px 8px 8px; border: 1px solid color-mix(in srgb, var(--journal-mood-active) 26%, var(--background-modifier-border)); border-radius: 8px; background: color-mix(in srgb, var(--journal-mood-active) 7%, var(--background-secondary)); }
+.journal-mood-picker .mod-cta:not(:disabled) { color: var(--text-on-accent, #fff); background: var(--interactive-accent); }
+.journal-mood-picker .mod-cta:not(:disabled):hover { background: var(--interactive-accent-hover); }
+.journal-mood-summary { display: flex; align-items: center; gap: 14px; min-width: 0; margin-bottom: 18px; padding: 0 0 12px; border-bottom: 1px solid var(--background-modifier-border); }
 .journal-mood-summary-canvas { display: block; width: 76px; height: 76px; flex: 0 0 76px; }
 .journal-mood-summary-copy { display: flex; flex-direction: column; min-width: 0; gap: 3px; }
 .journal-mood-summary-label { color: var(--text-muted); font-size: 11px; }
@@ -25422,10 +26395,14 @@ button.cal-weather-refresh:hover {
 .journal-mood-field-group { min-width: 0; }
 .journal-mood-field-label, .journal-mood-note-field label { display: block; margin-bottom: 8px; color: var(--text-normal); font-size: 12px; font-weight: 600; }
 .journal-mood-labels { display: flex; flex-wrap: wrap; gap: 7px; }
-.journal-mood-label { appearance: none; min-height: 34px; padding: 7px 13px; border: 0; border-radius: 999px; color: var(--text-muted); background: color-mix(in srgb, var(--background-primary) 90%, var(--journal-mood-active) 10%); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--journal-mood-active) 10%, transparent); font: inherit; line-height: 1.2; transition: color 180ms ease, background-color 180ms ease, box-shadow 180ms ease, transform 120ms ease; }
-.journal-mood-label:hover { color: var(--text-normal); background: color-mix(in srgb, var(--background-primary) 78%, var(--journal-mood-active) 22%); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--journal-mood-active) 22%, transparent); }
+.journal-mood-label { display: inline-flex; align-items: center; gap: 5px; min-height: 34px; height: auto; max-width: 100%; padding: 7px 10px; border: 1px solid var(--background-modifier-border); border-radius: 6px; color: var(--text-normal); background: var(--background-primary); box-shadow: none; font: inherit; line-height: 1.4; white-space: normal; overflow-wrap: anywhere; transition: background-color 120ms ease, transform 120ms ease; }
+.journal-mood-label:hover { background: var(--background-modifier-hover); }
+.journal-mood-label svg { flex: 0 0 14px; width: 14px; height: 14px; }
+.journal-mood-label-check { display: flex; flex: 0 0 14px; width: 14px; }
+.journal-mood-label-text { min-width: 0; overflow-wrap: anywhere; }
+.journal-mood-label[aria-pressed='false'] .journal-mood-label-check { visibility: hidden; }
 .journal-mood-label:active { transform: translateY(1px); }
-.journal-mood-label[aria-pressed='true'] { color: var(--text-normal); background: color-mix(in srgb, var(--journal-mood-active) 22%, var(--background-primary)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--journal-mood-active) 38%, transparent), 0 3px 10px color-mix(in srgb, var(--journal-mood-active) 12%, transparent); }
+.journal-mood-label[aria-pressed='true'] { color: var(--text-normal); background: color-mix(in srgb, var(--journal-mood-active) 14%, var(--background-primary)); border-color: var(--journal-mood-active); }
 .journal-mood-label:focus-visible { outline: 2px solid var(--interactive-accent); outline-offset: 2px; }
 .journal-mood-custom-label-field { display: flex; gap: 7px; min-width: 0; margin-top: 10px; }
 .journal-mood-custom-label-field input { flex: 1 1 auto; min-width: 0; }
@@ -25433,17 +26410,14 @@ button.cal-weather-refresh:hover {
 .journal-mood-note-field { display: flex; flex-direction: column; align-items: stretch; min-width: 0; gap: 0; }
 .journal-mood-note-field textarea { width: 100%; min-height: 82px; resize: vertical; box-sizing: border-box; }
 .journal-mood-actions button.is-loading { cursor: wait; opacity: 0.68; }
-.journal-mood-picker > * { animation: journal-mood-enter 360ms cubic-bezier(0.16, 1, 0.3, 1) both; }
-.journal-mood-picker > *:nth-child(2) { animation-delay: 35ms; }
-.journal-mood-picker > *:nth-child(3) { animation-delay: 65ms; }
-@keyframes journal-mood-enter { from { opacity: 0; filter: blur(5px); transform: translateY(8px); } to { opacity: 1; filter: blur(0); transform: translateY(0); } }
+.journal-mood-error { margin-top: 12px; padding: 12px 0; border-top: 1px solid var(--background-modifier-border); color: var(--text-error); font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
 .dayline-mobile-native-view { min-width: 0; min-height: 0; }
 .dayline-mobile-native-view .view-content { width: 100%; height: 100%; min-width: 0; min-height: 0; padding: 0; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; box-sizing: border-box; }
 .dayline-mobile-native-view.cal-sidebar { height: 100%; min-height: 0; overflow: hidden; box-sizing: border-box; }
 .dayline-mobile-native-view .cal-calendar-content,
 .dayline-mobile-native-view .journal-timeline-view { min-height: 100%; box-sizing: border-box; }
 .dayline-mobile-mode-controls { display: inline-flex; align-items: center; gap: 4px; min-width: 0; }
-.dayline-mobile-native-mode-controls { position: sticky; top: 0; z-index: 3; display: flex; justify-content: flex-end; min-height: 52px; padding: 4px max(8px, env(safe-area-inset-right)) 4px max(8px, env(safe-area-inset-left)); border-bottom: 1px solid var(--background-modifier-border); background: var(--background-primary); box-sizing: border-box; }
+.dayline-mobile-native-mode-controls { position: sticky; top: 0; z-index: 3; display: flex; justify-content: flex-end; min-height: 60px; margin-bottom: 12px; padding: 8px max(12px, env(safe-area-inset-right)) 8px max(12px, env(safe-area-inset-left)); border-bottom: 1px solid var(--background-modifier-border); background: var(--background-primary); box-sizing: border-box; }
 .dayline-mobile-mode-button { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; padding: 10px; border: 0; border-radius: 6px; color: var(--text-muted); background: transparent; }
 .dayline-mobile-mode-button.is-active { color: var(--text-accent); background: var(--background-modifier-hover); }
 .dayline-mobile-mode-button:focus-visible { outline: 2px solid var(--interactive-accent); outline-offset: 2px; }
@@ -25459,14 +26433,16 @@ button.cal-weather-refresh:hover {
 .journal-mood-actions { justify-content: space-between; gap: 8px; margin-top: 22px; }
 @media (max-width: 420px) {
   .journal-timeline-view { padding: 10px; }
-  .journal-timeline-entry { grid-template-columns: 32px minmax(0, 1fr); gap: 5px; padding: 9px; }
-  .journal-timeline-entry.has-thumbnail { grid-template-columns: 32px minmax(0, 1fr) 96px; }
-  .journal-timeline-thumbnail, .journal-timeline-thumbnail img { width: 96px; height: 82px; min-width: 96px; }
-  .journal-timeline-entry-day { font-size: 20px; }
   .journal-stat-periods { grid-template-columns: minmax(0, 1fr); }
   .journal-stat-mood-reports { grid-template-columns: minmax(0, 1fr); }
   .journal-mood-recovery-row { grid-template-columns: minmax(0, 1fr); }
   .journal-mood-recovery-row button { justify-self: start; }
+}
+@container journal-timeline (max-width: 360px) {
+  .journal-timeline-entry { grid-template-columns: 28px minmax(0, 1fr); gap: 8px; }
+  .journal-timeline-entry.has-thumbnail { grid-template-columns: 28px minmax(0, 1fr) 68px; }
+  .journal-timeline-thumbnail { width: 68px; height: 68px; }
+  .journal-timeline-heading h2 { font-size: 16px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .journal-mood-picker *, .journal-timeline-entry, .cal-note-overlay, .cal-note-overlay .spin {
@@ -25478,7 +26454,7 @@ button.cal-weather-refresh:hover {
   .cal-icon-button, .cal-weather-refresh, .dayline-note-media-info,
   .cal-otd-button, .cal-filter-field input, .cal-filter-field select,
   .journal-timeline-actions button, .journal-timeline-filter-row > button,
-  .journal-timeline-view input, .journal-timeline-view select,
+  .journal-timeline-view input:not([type='checkbox']), .journal-timeline-view select,
   .journal-mood-picker button,
   .journal-mood-picker input, .journal-mood-picker textarea,
   .journal-mood-picker select, .journal-mood-recovery-row button,
@@ -25487,8 +26463,13 @@ button.cal-weather-refresh:hover {
     min-height: 44px;
   }
   .cal-day-bg { outline-offset: 2px; }
+  /* Let the filter grid size touch date fields without native appearance sizing. */
+  .journal-timeline-filter-menu input[type='date'] { -webkit-appearance: none; appearance: none; }
+  .journal-timeline-favorite-filter { min-height: 44px; }
   .journal-timeline-actions button, .journal-timeline-filter-row > button { width: 44px; height: 44px; flex-basis: 44px; padding: 10px; }
   .journal-timeline-entry-title { min-height: 44px; padding-top: 7px; padding-bottom: 7px; }
+  .journal-timeline-add-title:not(.is-editing) { width: 44px; height: 44px; padding: 0; opacity: 1; }
+  .journal-timeline-entry-body:has(.journal-timeline-add-title:not(.is-editing)) { padding-bottom: 44px; }
   .cal-sidebar { padding-left: max(8px, env(safe-area-inset-left)); padding-right: max(8px, env(safe-area-inset-right)); }
 }
 @media (max-width: 420px) {
@@ -25499,19 +26480,15 @@ button.cal-weather-refresh:hover {
   .journal-timeline-header { align-items: flex-start; }
   .journal-timeline-actions { flex-wrap: wrap; justify-content: flex-end; }
   .dayline-mobile-native-view .journal-timeline-view { padding-left: 8px; padding-right: 8px; }
-  .dayline-mobile-native-view .journal-timeline-entry { grid-template-columns: 32px minmax(0, 1fr); }
-  .dayline-mobile-native-view .journal-timeline-entry.has-thumbnail { grid-template-columns: 32px minmax(0, 1fr) 96px; }
-  .dayline-mobile-native-view .journal-timeline-thumbnail,
-  .dayline-mobile-native-view .journal-timeline-thumbnail img { width: 96px; height: 82px; min-width: 96px; }
 }
 body.dayline-mobile.dayline-phone .journal-mood-picker-modal {
   width: calc(100vw - 20px);
   max-width: calc(100vw - 20px);
   max-height: calc(100vh - 24px);
   max-height: calc(100dvh - 24px);
-  padding-top: env(safe-area-inset-top);
-  padding-right: env(safe-area-inset-right);
-  padding-left: env(safe-area-inset-left);
+  padding-top: var(--safe-area-inset-top, env(safe-area-inset-top));
+  padding-right: var(--safe-area-inset-right, env(safe-area-inset-right));
+  padding-left: var(--safe-area-inset-left, env(safe-area-inset-left));
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--journal-mood-active) 18%, var(--background-modifier-border));
   border-radius: 18px;
@@ -25519,22 +26496,20 @@ body.dayline-mobile.dayline-phone .journal-mood-picker-modal {
   box-shadow: 0 16px 42px color-mix(in srgb, var(--journal-mood-active) 16%, rgba(0, 0, 0, 0.22));
   box-sizing: border-box;
 }
-body.dayline-mobile.dayline-phone .journal-mood-picker-modal .modal-content {
+body.dayline-mobile.dayline-phone .journal-mood-picker-modal .modal-content.journal-mood-picker {
   max-height: calc(100vh - 48px);
   max-height: calc(100dvh - 48px);
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
-  padding: 0;
+  padding: 2px 16px 16px;
+  box-sizing: border-box;
 }
 body.dayline-mobile.dayline-phone .journal-mood-picker-modal .modal-close-button {
   border: 0;
   box-shadow: none;
   background: color-mix(in srgb, var(--journal-mood-active) 8%, var(--background-primary));
-}
-body.dayline-mobile.dayline-phone .journal-mood-picker {
-  padding: 2px 0 0;
 }
 body.dayline-mobile.dayline-phone .journal-mood-header {
   display: grid;
@@ -25562,6 +26537,10 @@ body.dayline-mobile.dayline-phone .journal-mood-date-field input {
   min-width: 0;
   height: 44px;
   box-sizing: border-box;
+}
+body.dayline-mobile.dayline-phone .journal-mood-picker input[type='date'] {
+  -webkit-appearance: none;
+  appearance: none;
 }
 body.dayline-mobile.dayline-phone .journal-mood-scale-panel {
   padding: 0 0 10px;
@@ -25658,6 +26637,82 @@ body.dayline-mobile.dayline-phone .journal-mood-picker .mod-cta:not(:disabled) {
   border-color: color-mix(in srgb, var(--journal-mood-active) 62%, var(--background-modifier-border));
   color: var(--text-normal);
   background: color-mix(in srgb, var(--background-primary) 68%, var(--journal-mood-active) 32%);
+}
+body.dayline-mobile.dayline-phone .journal-mood-picker-modal.has-mood-viewport {
+  --journal-mood-safe-top: max(12px, env(safe-area-inset-top, 0px));
+  --journal-mood-safe-bottom: max(12px, env(safe-area-inset-bottom, 0px));
+  --journal-mood-safe-left: max(10px, env(safe-area-inset-left, 0px));
+  --journal-mood-safe-right: max(10px, env(safe-area-inset-right, 0px));
+  position: fixed;
+  inset: auto;
+  top: calc(var(--journal-mood-viewport-top) + var(--journal-mood-safe-top));
+  left: calc(var(--journal-mood-viewport-left) + var(--journal-mood-safe-left));
+  width: calc(var(--journal-mood-viewport-width) - var(--journal-mood-safe-left) - var(--journal-mood-safe-right));
+  max-width: calc(var(--journal-mood-viewport-width) - var(--journal-mood-safe-left) - var(--journal-mood-safe-right));
+  height: calc(var(--journal-mood-viewport-height) - var(--journal-mood-safe-top) - var(--journal-mood-safe-bottom));
+  max-height: calc(var(--journal-mood-viewport-height) - var(--journal-mood-safe-top) - var(--journal-mood-safe-bottom));
+  min-height: 0;
+  margin: 0;
+  transform: none;
+  display: flex;
+  flex-direction: column;
+  padding: 48px 0 0;
+}
+body.dayline-mobile.dayline-phone .journal-mood-picker-modal.has-mood-viewport .modal-content.journal-mood-picker {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+  margin: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scroll-padding-block: 8px;
+}
+body.dayline-mobile.dayline-phone .journal-mood-actions {
+  position: static;
+  bottom: auto;
+  z-index: auto;
+}
+body.dayline-mobile.dayline-phone .journal-mood-picker-modal.is-compact-viewport { padding-top: 44px; }
+body.dayline-mobile.dayline-phone .is-compact-viewport .journal-fluid-visual { height: 120px; min-height: 120px; }
+body.dayline-mobile.dayline-phone .is-compact-viewport .journal-mood-note-field textarea { height: 64px; min-height: 64px; }
+
+/* Landscape and keyboard-shrunk phones: reclaim chrome before shrinking the form. */
+@media (orientation: landscape) {
+body.dayline-mobile.dayline-phone .journal-mood-picker-modal.has-mood-viewport.is-compact-viewport {
+  --journal-mood-safe-top: env(safe-area-inset-top, 0px);
+  --journal-mood-safe-bottom: 0px;
+  padding-top: 34px;
+}
+body.dayline-mobile.dayline-phone .journal-mood-picker-modal.is-compact-viewport .modal-content.journal-mood-picker {
+  padding: 0 12px 8px;
+  scroll-padding-block: 4px;
+}
+body.dayline-mobile.dayline-phone .is-compact-viewport .journal-mood-header {
+  gap: 4px 8px;
+  margin-bottom: 4px;
+}
+body.dayline-mobile.dayline-phone .is-compact-viewport .journal-mood-step { display: none; }
+body.dayline-mobile.dayline-phone .is-compact-viewport .journal-mood-picker h3 { font-size: 16px; }
+body.dayline-mobile.dayline-phone .is-compact-viewport .journal-mood-date-field {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+}
+body.dayline-mobile.dayline-phone .is-compact-viewport .journal-mood-summary { display: none; }
+body.dayline-mobile.dayline-phone .is-compact-viewport .journal-mood-form { gap: 8px; }
+body.dayline-mobile.dayline-phone .is-compact-viewport .journal-fluid-visual { height: 76px; min-height: 76px; }
+body.dayline-mobile.dayline-phone .is-compact-viewport .journal-fluid-readout { min-height: 26px; margin-top: -6px; }
+body.dayline-mobile.dayline-phone .is-compact-viewport .journal-fluid-value { font-size: 18px; }
+body.dayline-mobile.dayline-phone .is-compact-viewport .journal-fluid-track { margin-top: 8px; }
+body.dayline-mobile.dayline-phone .is-compact-viewport .journal-fluid-endpoints { display: none; }
+body.dayline-mobile.dayline-phone .is-compact-viewport .journal-mood-note-field textarea { height: 56px; min-height: 56px; }
+body.dayline-mobile.dayline-phone .is-compact-viewport .journal-mood-actions {
+  position: static;
+  bottom: auto;
+  z-index: auto;
+  margin-top: 8px;
+  padding: 6px 0;
+}
 }
 @container (max-width: 420px) {
   .journal-mood-scale { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -25786,7 +26841,7 @@ var CalendarView = class extends ItemView2 {
         timeline: t2(this.plugin.settings, "timelineTitle")
       },
       onSelect: (mode) => mode === "timeline" ? this.plugin.activateTimeline() : this.plugin.activateView(),
-      setIcon: setIcon2,
+      setIcon: setIcon4,
       onReturn: () => this.plugin._returnToMobileMarkdown()
     });
   }
@@ -26008,6 +27063,25 @@ var CalendarView = class extends ItemView2 {
   }
   /* ----- Render the calendar ----- */
   render() {
+    if (this.closed) return;
+    const active = this.contentEl.ownerDocument.activeElement;
+    const focusKey = this.contentEl.contains(active) ? active?.getAttribute("data-calendar-focus") : null;
+    const jumpYear = this.contentEl.querySelector('[data-calendar-focus="jump-year"]');
+    const jumpMonth = this.contentEl.querySelector('[data-calendar-focus="jump-month"]');
+    const jumpDraft = this._calendarJumpOpen && jumpYear && jumpMonth ? { year: jumpYear.value, month: jumpMonth.value } : null;
+    this._renderCalendar();
+    if (jumpDraft) {
+      const year = this.contentEl.querySelector('[data-calendar-focus="jump-year"]');
+      const month = this.contentEl.querySelector('[data-calendar-focus="jump-month"]');
+      if (year) year.value = jumpDraft.year;
+      if (month) month.value = jumpDraft.month;
+    }
+    if (focusKey) {
+      const target = this.contentEl.querySelector(`[data-calendar-focus="${focusKey}"]`) || (focusKey.startsWith("jump-") ? this.contentEl.querySelector(".cal-title-button") : null);
+      target?.focus({ preventScroll: true });
+    }
+  }
+  _renderCalendar() {
     this._fetchToken = (this._fetchToken || 0) + 1;
     const el = this.contentEl;
     el.empty();
@@ -26029,17 +27103,19 @@ var CalendarView = class extends ItemView2 {
     const header = el.createDiv({ cls: "cal-header" });
     const prevBtn = header.createEl("button", {
       cls: "cal-nav cal-icon-button",
-      attr: { type: "button", "aria-label": t2(this.plugin.settings, "previousMonth"), title: t2(this.plugin.settings, "previousMonth") }
+      attr: { type: "button", "data-calendar-focus": "previous", "aria-label": t2(this.plugin.settings, "previousMonth"), title: t2(this.plugin.settings, "previousMonth") }
     });
-    setIcon2(prevBtn, "chevron-left");
+    setIcon4(prevBtn, "chevron-left");
     prevBtn.addEventListener("click", (e) => {
       e.stopPropagation();
+      prevBtn.focus({ preventScroll: true });
       this._goToMonth(-1);
     });
     const title = header.createEl("button", {
       cls: "cal-title cal-title-button",
       attr: {
         type: "button",
+        "data-calendar-focus": "title",
         "aria-label": t2(this.plugin.settings, "jumpToMonth"),
         title: t2(this.plugin.settings, "jumpToMonth"),
         "aria-expanded": String(this._calendarJumpOpen)
@@ -26048,26 +27124,36 @@ var CalendarView = class extends ItemView2 {
     title.setText(formatCalendarMonth2(year, month + 1, this.plugin.settings));
     title.addEventListener("click", (event) => {
       event.stopPropagation();
+      title.focus({ preventScroll: true });
       this._calendarJumpOpen = !this._calendarJumpOpen;
+      this.render();
+    });
+    title.addEventListener("keydown", (event) => {
+      if (event.key !== "Escape" || !this._calendarJumpOpen) return;
+      event.preventDefault();
+      event.stopPropagation();
+      this._calendarJumpOpen = false;
       this.render();
     });
     const nextBtn = header.createEl("button", {
       cls: "cal-nav cal-icon-button",
-      attr: { type: "button", "aria-label": t2(this.plugin.settings, "nextMonth"), title: t2(this.plugin.settings, "nextMonth") }
+      attr: { type: "button", "data-calendar-focus": "next", "aria-label": t2(this.plugin.settings, "nextMonth"), title: t2(this.plugin.settings, "nextMonth") }
     });
-    setIcon2(nextBtn, "chevron-right");
+    setIcon4(nextBtn, "chevron-right");
     nextBtn.addEventListener("click", (e) => {
       e.stopPropagation();
+      nextBtn.focus({ preventScroll: true });
       this._goToMonth(1);
     });
     const headerActions = header.createDiv({ cls: "cal-header-actions" });
     const todayBtn = headerActions.createEl("button", {
       cls: "cal-icon-button cal-today-button",
-      attr: { type: "button", "aria-label": t2(this.plugin.settings, "today"), title: t2(this.plugin.settings, "today") }
+      attr: { type: "button", "data-calendar-focus": "today", "aria-label": t2(this.plugin.settings, "today"), title: t2(this.plugin.settings, "today") }
     });
-    setIcon2(todayBtn, "calendar-check");
+    setIcon4(todayBtn, "calendar-check");
     todayBtn.addEventListener("click", (event) => {
       event.stopPropagation();
+      todayBtn.focus({ preventScroll: true });
       this._goToToday();
     });
     if (this._calendarJumpOpen) this._renderMonthJump(el);
@@ -26126,7 +27212,11 @@ var CalendarView = class extends ItemView2 {
       else cell.addClass("cal-no-image");
       if (dateEntry.hasRecord) cell.addClass("cal-has-record");
       if (dateEntry.hasWeather) cell.addClass("cal-has-weather");
-      cell.setAttribute("aria-label", `${dateStr}${dateEntry.entryCount ? `, ${dateEntry.entryCount} entries` : ""}${dateEntry.hasWeather ? ", weather available" : ""}`);
+      const entryCountLabel = t2(this.plugin.settings, dateEntry.entryCount === 1 ? "calendarEntryCountOne" : "calendarEntryCount", { count: dateEntry.entryCount });
+      cell.setAttribute("aria-label", [
+        dateEntry.entryCount ? t2(this.plugin.settings, "calendarEntriesOnDate", { date: dateStr, entries: entryCountLabel }) : dateStr,
+        dateEntry.hasWeather ? t2(this.plugin.settings, "calendarWeatherAvailable") : ""
+      ].filter(Boolean).join(", "));
       if (isToday) cell.addClass("cal-today");
       if (dateStr === this.activeDate && !isToday) cell.addClass("cal-active");
       if (cover) {
@@ -26179,7 +27269,7 @@ var CalendarView = class extends ItemView2 {
           cls: "cal-entry-count",
           text: `+${dateEntry.entryCount - 1}`,
           attr: {
-            "aria-label": `${dateEntry.entryCount} entries on ${dateStr}`
+            "aria-label": t2(this.plugin.settings, "calendarEntriesOnDate", { date: dateStr, entries: entryCountLabel })
           }
         });
       }
@@ -26276,15 +27366,23 @@ var CalendarView = class extends ItemView2 {
   _renderMonthJump(containerEl) {
     const panel = containerEl.createDiv({ cls: "cal-jump-panel" });
     panel.setAttribute("aria-label", t2(this.plugin.settings, "jumpToMonth"));
+    panel.addEventListener("keydown", (event) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      event.stopPropagation();
+      this._calendarJumpOpen = false;
+      this.contentEl.querySelector(".cal-title-button")?.focus({ preventScroll: true });
+      this.render();
+    });
     const yearLabel = panel.createEl("label", { cls: "cal-filter-field" });
     yearLabel.createSpan({ text: t2(this.plugin.settings, "year") });
     const yearInput = yearLabel.createEl("input", {
-      attr: { type: "number", min: "1", max: "9999", inputmode: "numeric", "aria-label": t2(this.plugin.settings, "year") }
+      attr: { type: "number", min: "1", max: "9999", inputmode: "numeric", "data-calendar-focus": "jump-year", "aria-label": t2(this.plugin.settings, "year") }
     });
     yearInput.value = String(this.displayMonth.getFullYear());
     const monthLabel = panel.createEl("label", { cls: "cal-filter-field" });
     monthLabel.createSpan({ text: t2(this.plugin.settings, "month") });
-    const monthSelect = monthLabel.createEl("select", { attr: { "aria-label": t2(this.plugin.settings, "month") } });
+    const monthSelect = monthLabel.createEl("select", { attr: { "data-calendar-focus": "jump-month", "aria-label": t2(this.plugin.settings, "month") } });
     const locale = getDisplayLanguage2(this.plugin.settings) === "en" ? "en-US" : "zh-CN";
     const monthFormatter = new Intl.DateTimeFormat(locale, { month: "long", timeZone: "UTC" });
     for (let index = 0; index < 12; index++) {
@@ -26296,11 +27394,12 @@ var CalendarView = class extends ItemView2 {
     }
     const apply = panel.createEl("button", {
       cls: "cal-icon-button cal-jump-apply",
-      attr: { type: "button", "aria-label": t2(this.plugin.settings, "apply"), title: t2(this.plugin.settings, "apply") }
+      attr: { type: "button", "data-calendar-focus": "jump-apply", "aria-label": t2(this.plugin.settings, "apply"), title: t2(this.plugin.settings, "apply") }
     });
-    setIcon2(apply, "check");
+    setIcon4(apply, "check");
     apply.addEventListener("click", (event) => {
       event.stopPropagation();
+      apply.focus({ preventScroll: true });
       const nextYear = Math.max(1, Math.min(9999, Number.parseInt(yearInput.value, 10) || this.displayMonth.getFullYear()));
       const nextMonth = Math.max(0, Math.min(11, Number.parseInt(monthSelect.value, 10) || 0));
       this._jumpToMonth(nextYear, nextMonth);
@@ -26308,14 +27407,17 @@ var CalendarView = class extends ItemView2 {
   }
   _goToToday() {
     const [year, month] = _daylineDate(this.plugin.settings).split("-").map(Number);
-    this._jumpToMonth(year, month - 1);
+    return this._jumpToMonth(year, month - 1);
   }
   _jumpToMonth(year, monthIndex) {
-    this.displayMonth = new Date(year, monthIndex, 1);
+    const targetMonth = /* @__PURE__ */ new Date(0);
+    targetMonth.setFullYear(year, monthIndex, 1);
+    targetMonth.setHours(12, 0, 0, 0);
+    this.displayMonth = targetMonth;
     this._calendarJumpOpen = false;
-    this.buildMonthCache(this.displayMonth).then(() => this.render()).catch((error) => {
+    return this.buildMonthCache(targetMonth).then(() => this.render()).catch((error) => {
       console.warn("[Dayline] Calendar month jump failed:", error?.message || error);
-      this.monthCache.delete(this._monthKey(this.displayMonth));
+      this.monthCache.delete(this._monthKey(targetMonth));
       new Notice4(t2(this.plugin.settings, "calendarMonthLoadFailed", { error: error?.message || error }));
     });
   }
@@ -26477,7 +27579,7 @@ var CalendarView = class extends ItemView2 {
       cls: "cal-weather-refresh",
       attr: { "aria-label": _l(s.weatherLanguage, "refresh"), title: _l(s.weatherLanguage, "refresh") }
     });
-    setIcon2(refreshBtn, "refresh-cw");
+    setIcon4(refreshBtn, "refresh-cw");
     refreshBtn.addEventListener("click", (e) => {
       e.stopPropagation();
       this._performRefresh(cardDate, refreshBtn).catch((err) => {
@@ -26697,9 +27799,9 @@ var CalendarView = class extends ItemView2 {
     const newMonth = new Date(this.displayMonth);
     newMonth.setMonth(newMonth.getMonth() + delta);
     this.displayMonth = newMonth;
-    this.buildMonthCache(this.displayMonth).then(() => this.render()).catch((error) => {
+    return this.buildMonthCache(newMonth).then(() => this.render()).catch((error) => {
       console.warn("[Dayline] Calendar month load failed:", error?.message || error);
-      this.monthCache.delete(this._monthKey(this.displayMonth));
+      this.monthCache.delete(this._monthKey(newMonth));
       new Notice4(t2(this.plugin.settings, "calendarMonthLoadFailed", { error: error?.message || error }));
     });
   }
@@ -26733,7 +27835,7 @@ var CalendarView = class extends ItemView2 {
     if (file instanceof TFile2) {
       openFileInLeaf(file);
     } else {
-      new CreateNoteModal(this.app, dateStr, () => {
+      new CreateNoteModal(this.app, this.plugin.settings, dateStr, () => {
         this._createDailyNote(path, dateStr).then((created) => {
           openFileInLeaf(created);
           setTimeout(() => this._triggerWeatherAfterOpen(dateStr), 500);
@@ -26978,7 +28080,7 @@ var CalendarView = class extends ItemView2 {
     button.type = "button";
     button.setAttribute("aria-label", t2(this.plugin.settings, "mediaMetadata"));
     button.title = t2(this.plugin.settings, "mediaMetadata");
-    setIcon2(button, "info");
+    setIcon4(button, "info");
     button.addEventListener("pointerdown", (event) => {
       event.preventDefault();
       event.stopPropagation();
@@ -27100,6 +28202,15 @@ var CalendarView = class extends ItemView2 {
       cls: "cal-note-overlay",
       attr: { [OVERLAY_ATTR]: "true" }
     });
+    if (this.plugin.capabilities?.isMobile) {
+      const header = container.querySelector?.(".view-header");
+      if (header?.getBoundingClientRect) {
+        const hostRect = container.getBoundingClientRect();
+        const headerRect = header.getBoundingClientRect();
+        const top = Math.max(8, headerRect.bottom - hostRect.top + 8);
+        if (Number.isFinite(top)) overlay.style.top = `${Math.round(top)}px`;
+      }
+    }
     const iconEl = overlay.createEl("img", { cls: "cal-overlay-icon" });
     iconEl.src = _iconUrl(snap.icon) || "";
     iconEl.alt = snap.condition || "";
@@ -27121,7 +28232,7 @@ var CalendarView = class extends ItemView2 {
       cls: "cal-overlay-refresh",
       attr: { "aria-label": refreshLabel, title: refreshLabel }
     });
-    setIcon2(refreshBtn, "refresh-cw");
+    setIcon4(refreshBtn, "refresh-cw");
     refreshBtn.addEventListener("click", (e) => {
       e.stopPropagation();
       this._performOverlayRefresh(dateStr, refreshBtn, overlay).catch((err) => {
@@ -27292,18 +28403,19 @@ var MobileDaylineView = class extends ItemView2 {
   }
 };
 var CreateNoteModal = class extends Modal2 {
-  constructor(app, dateStr, onConfirm) {
+  constructor(app, settings, dateStr, onConfirm) {
     super(app);
+    this.settings = settings;
     this.dateStr = dateStr;
     this.onConfirm = onConfirm;
   }
   onOpen() {
     const { contentEl } = this;
-    contentEl.createEl("h3", { text: "Create Daily Note" });
-    contentEl.createEl("p", { text: `No daily note found for ${this.dateStr}. Create one?` });
+    contentEl.createEl("h3", { text: t2(this.settings, "createNoteTitle") });
+    contentEl.createEl("p", { text: t2(this.settings, "createNotePrompt", { date: this.dateStr }) });
     const btnDiv = contentEl.createDiv({ cls: "modal-button-container" });
-    btnDiv.createEl("button", { text: "Cancel" }).addEventListener("click", () => this.close());
-    const confirmBtn = btnDiv.createEl("button", { text: "Create", cls: "mod-cta" });
+    btnDiv.createEl("button", { text: t2(this.settings, "cancel") }).addEventListener("click", () => this.close());
+    const confirmBtn = btnDiv.createEl("button", { text: t2(this.settings, "createNoteAction"), cls: "mod-cta" });
     confirmBtn.addEventListener("click", () => {
       this.onConfirm();
       this.close();

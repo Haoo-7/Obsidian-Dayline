@@ -4,6 +4,7 @@ import { getDisplayLanguage, t } from './i18n';
 import { localize as _l } from './locale';
 import compactWordmarkSvg from '../assets/dayline-wordmark-compact.svg';
 import { shouldShowTimelineMoodTrend, shouldShowTimelineTitles } from './journal-timeline-display';
+import { JournalSourceSettingsEditor } from './journal-source-settings';
 
 const VIEW_TYPE = 'calendar-sidebar-view';
 
@@ -100,7 +101,7 @@ export class DaylineSettingsTab extends PluginSettingTab {
     }
   }
 
-  async _refreshViews({ resetSource = false } = {}) {
+  async _refreshViews({ resetSource = false, throwOnError = false } = {}) {
     try {
       const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE);
       await Promise.all(leaves.map(async (leaf) => {
@@ -116,6 +117,7 @@ export class DaylineSettingsTab extends PluginSettingTab {
         view._syncNoteOverlays?.();
       }));
     } catch (error) {
+      if (throwOnError) throw error;
       this._notifyViewRefreshFailure(error);
     }
   }
@@ -195,30 +197,12 @@ export class DaylineSettingsTab extends PluginSettingTab {
     this._addSection(containerEl, 'calendar-journal');
 
     new Setting(containerEl)
-      .setName(_s('s_dailyFolder'))
-      .setDesc(_s('s_dailyFolderDesc'))
-      .addSearch((cb) => {
-        this.folderInput = cb;
-        cb.setValue(this.plugin.settings.dailyFolder)
-          .setPlaceholder('Calendar/Daily')
-          .onChange(async (value) => {
-            this.plugin.settings.dailyFolder = value.replace(/\/+$/, '');
-            if (!(await commitJournalSourceSettings(this.plugin, () => this._saveSettings()))) return;
-            await this._refreshViews({ resetSource: true });
-          });
-      })
-      .addExtraButton((btn) => btn
-        .setIcon('folder-search')
-        .setTooltip(_s('s_browseFolders'))
-        .onClick(() => {
-          new FolderSuggestModal(this.app, (path) => {
-            this.plugin.settings.dailyFolder = path;
-            void commitJournalSourceSettings(this.plugin, () => this._saveSettings()).then((saved) => {
-              if (saved) return this._refreshViews({ resetSource: true });
-            }).catch((error) => this._notifyViewRefreshFailure(error));
-            this.folderInput.setValue(path);
-          }).open();
-        }));
+      .setName(t(this.plugin.settings, 'journalSources'));
+    this.sourceEditor ??= new JournalSourceSettingsEditor(this.plugin, {
+      chooseFolder: (onSubmit) => new FolderSuggestModal(this.app, onSubmit).open(),
+      refreshCalendar: () => this._refreshViews({ resetSource: true, throwOnError: true }),
+    });
+    this.sourceEditor.mount(containerEl);
 
     new Setting(containerEl)
       .setName(_s('s_thumbnailFilter'))
@@ -232,25 +216,6 @@ export class DaylineSettingsTab extends PluginSettingTab {
           if (!(await this._saveSettings())) return;
           this._refreshCalendarView();
         }));
-
-    new Setting(containerEl)
-      .setName(t(this.plugin.settings, 'journalSources'))
-      .setDesc(t(this.plugin.settings, 'journalSourcesDesc'))
-      .addTextArea((text) => {
-        text.setValue(JSON.stringify(this.plugin.settings.journalSources || [], null, 2));
-        text.inputEl.rows = 5;
-        text.inputEl.addClass('calendar-sidebar-source-json');
-        text.onChange(async (value) => {
-          try {
-            const parsed = JSON.parse(value || '[]');
-            if (!Array.isArray(parsed)) throw new Error('Sources must be an array');
-            this.plugin.settings.journalSources = parsed;
-            await commitJournalSourceSettings(this.plugin, () => this._saveSettings());
-          } catch (_) {
-            new Notice(t(this.plugin.settings, 'invalidJournalSources'));
-          }
-        });
-      });
 
     this._addActionRow(new Setting(containerEl)
       .setName(t(this.plugin.settings, 'journalTools'))

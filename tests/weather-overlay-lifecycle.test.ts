@@ -75,6 +75,28 @@ async function settle() {
 afterEach(() => document.body.replaceChildren());
 
 describe('weather overlay request lifecycle', () => {
+  it('mounts the mobile weather chip below the view header', async () => {
+    const { view, container } = fixture(async () => ({ icon: 'sun.svg', temperature: 25, units: 'metric' }));
+    const header = element('div', { cls: 'view-header' });
+    container.append(header);
+    container.getBoundingClientRect = () => ({ top: 0, bottom: 400, left: 0, right: 390, width: 390, height: 400 });
+    header.getBoundingClientRect = () => ({ top: 0, bottom: 96, left: 0, right: 390, width: 390, height: 96 });
+    view._syncNoteOverlays();
+    await settle();
+    const overlay = container.querySelector('[data-cal-weather-overlay]');
+    expect(overlay?.parentElement).toBe(container);
+    expect(overlay?.style.top).toBe('104px');
+  });
+
+  it('keeps the desktop overlay placement unchanged', async () => {
+    const { view, container } = fixture(async () => ({ icon: 'sun.svg', temperature: 25, units: 'metric' }));
+    view.plugin.capabilities.isMobile = false;
+    view._syncNoteOverlays();
+    await settle();
+    const overlay = container.querySelector('[data-cal-weather-overlay]');
+    expect(overlay?.parentElement).toBe(container);
+  });
+
   it('treats no weather as a terminal result until another sync is requested', async () => {
     const blocked = deferred<null>();
     const getSnapshot = vi.fn().mockResolvedValueOnce(null).mockImplementation(() => blocked.promise);

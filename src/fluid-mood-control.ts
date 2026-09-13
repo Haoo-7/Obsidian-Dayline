@@ -218,6 +218,7 @@ export class FluidMoodControl {
   private resizeObserver: ResizeObserver | null = null;
   private animationFrame: number | null = null;
   private activePointerId: number | null = null;
+  private pendingTouch: { pointerId: number; x: number; y: number; onTrack: boolean } | null = null;
   private dragStartScore: MoodScore | null = null;
   private dragStartValue = 0;
   private selectedScore: MoodScore | null;
@@ -285,6 +286,7 @@ export class FluidMoodControl {
     root.addEventListener('pointermove', this.handlePointerMove);
     root.addEventListener('pointerup', this.handlePointerUp);
     root.addEventListener('pointercancel', this.handlePointerCancel);
+    root.addEventListener('lostpointercapture', this.handlePointerCancel);
     root.addEventListener('keydown', this.handleKeydown);
     document.addEventListener('visibilitychange', this.handleVisibilityChange);
     this.mediaQuery?.addEventListener?.('change', this.handleMotionChange);
@@ -304,19 +306,39 @@ export class FluidMoodControl {
   destroy(): void {
     if (this.destroyed) return;
     this.destroyed = true;
+    const pointerId = this.activePointerId ?? this.pendingTouch?.pointerId;
+    this.activePointerId = null;
+    this.pendingTouch = null;
+    if (pointerId !== undefined && pointerId !== null) this.releasePointer(pointerId);
+    this.root.classList.remove('is-dragging');
     this.stopAnimation();
     this.resizeObserver?.disconnect();
     this.root.removeEventListener('pointerdown', this.handlePointerDown);
     this.root.removeEventListener('pointermove', this.handlePointerMove);
     this.root.removeEventListener('pointerup', this.handlePointerUp);
     this.root.removeEventListener('pointercancel', this.handlePointerCancel);
+    this.root.removeEventListener('lostpointercapture', this.handlePointerCancel);
     this.root.removeEventListener('keydown', this.handleKeydown);
     document.removeEventListener('visibilitychange', this.handleVisibilityChange);
     this.mediaQuery?.removeEventListener?.('change', this.handleMotionChange);
   }
 
   private readonly handlePointerDown = (event: PointerEvent): void => {
-    if (event.button !== 0 || this.activePointerId !== null) return;
+    if (event.button !== 0 || event.isPrimary === false || this.activePointerId !== null || this.pendingTouch) return;
+    if (event.pointerType === 'touch') {
+      // Do not preview or capture until horizontal intent is established.
+      this.pendingTouch = {
+        pointerId: event.pointerId,
+        x: event.clientX,
+        y: event.clientY,
+        onTrack: event.target instanceof Node && this.track.contains(event.target),
+      };
+      return;
+    }
+    this.beginPointerDrag(event);
+  };
+
+  private beginPointerDrag(event: PointerEvent): void {
     event.preventDefault();
     this.activePointerId = event.pointerId;
     this.dragStartScore = this.selectedScore;
@@ -324,20 +346,39 @@ export class FluidMoodControl {
     this.root.classList.add('is-dragging');
     this.capturePointer(event.pointerId);
     this.updateFromPointer(event.clientX);
-  };
+  }
+
+  private resolveTouch(event: PointerEvent, ending = false): void {
+    const pending = this.pendingTouch;
+    if (!pending || pending.pointerId !== event.pointerId) return;
+    const dx = Math.abs(event.clientX - pending.x);
+    const dy = Math.abs(event.clientY - pending.y);
+    if (Math.max(dx, dy) < 8) {
+      if (!ending) return;
+      this.pendingTouch = null;
+      if (pending.onTrack) this.beginPointerDrag(event);
+      else this.releasePointer(event.pointerId);
+      return;
+    }
+    this.pendingTouch = null;
+    if (dx > dy) this.beginPointerDrag(event);
+    else this.releasePointer(event.pointerId);
+  }
 
   private readonly handlePointerMove = (event: PointerEvent): void => {
+    this.resolveTouch(event);
     if (event.pointerId !== this.activePointerId) return;
     event.preventDefault();
     this.updateFromPointer(event.clientX);
   };
 
   private readonly handlePointerUp = (event: PointerEvent): void => {
+    this.resolveTouch(event, true);
     if (event.pointerId !== this.activePointerId) return;
     event.preventDefault();
     this.updateFromPointer(event.clientX);
-    this.releasePointer(event.pointerId);
     this.activePointerId = null;
+    this.releasePointer(event.pointerId);
     this.root.classList.remove('is-dragging');
     // Persist the user's actual release position even when the visual easing
     // frame has not caught up with the latest pointer event yet.
@@ -345,9 +386,16 @@ export class FluidMoodControl {
   };
 
   private readonly handlePointerCancel = (event: PointerEvent): void => {
+    // Ignore the child's implicit capture loss when the root takes over a drag.
+    if (event.type === 'lostpointercapture' && this.activePointerId !== null && event.target !== this.root) return;
+    if (event.pointerId === this.pendingTouch?.pointerId) {
+      this.pendingTouch = null;
+      this.releasePointer(event.pointerId);
+      return;
+    }
     if (event.pointerId !== this.activePointerId) return;
-    this.releasePointer(event.pointerId);
     this.activePointerId = null;
+    this.releasePointer(event.pointerId);
     this.root.classList.remove('is-dragging');
     this.selectedScore = this.dragStartScore;
     this.displayValue = this.dragStartValue;

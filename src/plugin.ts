@@ -1702,10 +1702,9 @@ button.cal-weather-refresh:hover {
 }
 @media (max-width: 600px) {
   /* Keep the note weather chip below Obsidian's mobile title/actions row. */
-  .markdown-source-view .cal-note-overlay,
-  .markdown-preview-view .cal-note-overlay {
-    top: calc(96px + env(safe-area-inset-top));
-    right: 8px;
+  body.dayline-mobile.dayline-phone .cal-note-overlay {
+    top: calc(64px + env(safe-area-inset-top));
+    right: max(8px, env(safe-area-inset-right));
     max-width: min(280px, calc(100vw - 16px));
     z-index: 2;
   }
@@ -1950,7 +1949,7 @@ button.cal-weather-refresh:hover {
   .dayline-coarse-pointer:not(.dayline-mobile) .cal-mood-dot { width: 12px; height: 12px; }
   .journal-timeline-entry-title.is-placeholder { opacity: 0.42; }
 }
-.journal-timeline-view { box-sizing: border-box; width: 100%; min-width: 0; padding: 14px; overflow-x: hidden; overflow-y: auto; }
+.journal-timeline-view { container: journal-timeline / inline-size; box-sizing: border-box; width: 100%; min-width: 0; padding: 12px; overflow-x: hidden; overflow-y: auto; }
 .journal-index-loading { display: flex; align-items: center; justify-content: center; min-height: 160px; padding: 24px; color: var(--text-muted); text-align: center; overflow-wrap: anywhere; }
 .journal-index-load-error { color: var(--text-error); }
 .journal-timeline-header, .journal-timeline-entry-top, .journal-timeline-meta, .journal-timeline-actions, .journal-timeline-filter-row, .journal-timeline-filter-menu, .journal-mood-actions { display: flex; align-items: center; min-width: 0; }
@@ -1963,12 +1962,25 @@ button.cal-weather-refresh:hover {
 .journal-timeline-filter-area, .journal-timeline-filter-row, .journal-timeline-filter-summary { width: 100%; min-width: 0; }
 .journal-timeline-filter-row { gap: 6px; margin-bottom: 6px; }
 .journal-timeline-filter-row input[type='search'] { flex: 1 1 auto; width: 1px; min-width: 0; }
-.journal-timeline-filter-menu { flex-wrap: wrap; gap: 6px; padding: 7px; margin-bottom: 6px; border: 1px solid var(--background-modifier-border); border-radius: 6px; background: var(--background-secondary); }
-.journal-timeline-filter-menu.is-hidden { display: none; }
-.journal-timeline-filter-menu input[type='date'], .journal-timeline-filter-menu select { flex: 1 1 100px; min-width: 0; max-width: 160px; }
+.journal-timeline-filter-menu { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 8px; padding: 12px 0; margin-bottom: 8px; border-bottom: 1px solid var(--background-modifier-border); }
+.journal-timeline-filter-menu[hidden] { display: none; }
+.journal-timeline-filter-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; color: var(--text-muted); font-size: 12px; }
+.journal-timeline-filter-menu input[type='date'], .journal-timeline-filter-menu select { width: 100%; min-width: 0; max-width: 100%; box-sizing: border-box; }
+.journal-timeline-clear-filters { justify-self: end; max-width: 100%; height: auto; min-height: 28px; white-space: normal; }
+.journal-timeline-filter-row > button.is-active { color: var(--text-accent); background: var(--background-modifier-hover); }
+.journal-timeline-filter-row > button.is-active::after { content: attr(data-count); position: absolute; inset: -4px -4px auto auto; min-width: 14px; padding: 1px 3px; border-radius: 4px; background: var(--interactive-accent); color: var(--text-on-accent); font-size: 10px; line-height: 14px; }
+.journal-timeline-filter-row > button { position: relative; }
 .journal-timeline-favorite-filter { display: inline-flex; align-items: center; gap: 5px; min-width: 0; color: var(--text-muted); font-size: 12px; }
 .journal-timeline-filter-summary { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
-.journal-filter-chip { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 3px 7px; font-size: 11px; }
+.journal-filter-chip { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; padding: 4px 7px; font-size: 12px; }
+.journal-filter-chip > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.journal-filter-chip-remove { display: flex; flex: 0 0 12px; }
+.journal-filter-chip-remove svg { width: 12px; height: 12px; }
+.journal-timeline-stats-details { margin: 4px 0 12px; border-bottom: 1px solid var(--background-modifier-border); }
+.journal-timeline-stats-details > summary { padding: 8px 0; color: var(--text-muted); font-size: 12px; cursor: pointer; overflow-wrap: anywhere; }
+.journal-timeline-stats-summary { margin-inline-start: 10px; }
+.journal-timeline-month { margin: 16px 0 2px; color: var(--text-normal); font-size: 14px; font-weight: 600; line-height: 1.5; }
+.journal-timeline-month:first-child { margin-top: 0; }
 .journal-timeline-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; min-width: 0; margin-bottom: 12px; }
 .journal-stat { min-width: 0; overflow: hidden; padding: 6px 0; border-bottom: 1px solid var(--background-modifier-border); }
 .journal-stat-value { font-size: 15px; color: var(--text-normal); }
@@ -1988,46 +2000,57 @@ button.cal-weather-refresh:hover {
 .journal-stat-label-trend-row span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .journal-stat-label-trend-row span:last-child { flex: 0 0 auto; color: var(--text-faint); }
 .journal-timeline-list { display: grid; grid-template-columns: minmax(0, 1fr); width: 100%; min-width: 0; gap: 8px; }
-.journal-timeline-entry { display: grid; grid-template-columns: 30px minmax(0, 1fr); width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box; overflow: hidden; gap: 4px; padding: 12px; border: 1px solid var(--background-modifier-border); border-radius: 7px; box-shadow: inset 3px 0 0 var(--background-modifier-border); cursor: pointer; background: var(--background-primary); }
-.journal-timeline-entry.has-thumbnail { grid-template-columns: 30px minmax(0, 1fr) 104px; }
-.journal-timeline-entry.mood-score-2 { box-shadow: inset 3px 0 0 #ee6a54; }
-.journal-timeline-entry.mood-score-1 { box-shadow: inset 3px 0 0 #f0b34f; }
-.journal-timeline-entry.mood-score-0 { box-shadow: inset 3px 0 0 #55b6c9; }
-.journal-timeline-entry.mood-score--1 { box-shadow: inset 3px 0 0 #4d6fb8; }
-.journal-timeline-entry.mood-score--2 { box-shadow: inset 3px 0 0 #7652c7; }
-.journal-timeline-entry:hover, .journal-timeline-entry:focus-visible { border-right-color: var(--interactive-accent); outline: none; }
-.journal-timeline-entry-body { display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
-.journal-timeline-entry-date-column { display: flex; flex-direction: column; justify-content: center; align-items: flex-start; min-width: 0; padding-top: 2px; color: var(--text-muted); }
+.journal-timeline-entry { position: relative; display: grid; grid-template-columns: 30px minmax(0, 1fr); width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box; overflow: hidden; gap: 10px; padding: 12px 0; border: 0; border-bottom: 1px solid var(--background-modifier-border); border-radius: 0; cursor: pointer; background: transparent; transition: background-color 120ms ease; }
+.journal-timeline-entry.has-thumbnail { grid-template-columns: 30px minmax(0, 1fr) 88px; }
+.journal-timeline-entry.mood-score-2 { --journal-entry-mood: #ee6a54; }
+.journal-timeline-entry.mood-score-1 { --journal-entry-mood: #f0b34f; }
+.journal-timeline-entry.mood-score-0 { --journal-entry-mood: #55b6c9; }
+.journal-timeline-entry.mood-score--1 { --journal-entry-mood: #4d6fb8; }
+.journal-timeline-entry.mood-score--2 { --journal-entry-mood: #7652c7; }
+.journal-timeline-entry:not(.mood-score-none) .journal-timeline-entry-date-column::after { content: ''; width: 6px; height: 6px; margin-top: 8px; border-radius: 50%; background: var(--journal-entry-mood); }
+.journal-timeline-entry:hover { background: var(--background-modifier-hover); }
+.journal-timeline-entry:focus-visible,
+.journal-timeline-view button:focus-visible,
+.journal-timeline-stats-details > summary:focus-visible { outline: 2px solid var(--interactive-accent); outline-offset: -2px; }
+.journal-timeline-entry-body { position: relative; display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
+.journal-timeline-entry-date-column { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; padding-top: 2px; color: var(--text-muted); }
 .journal-timeline-entry-weekday { margin-bottom: 4px; font-size: 11px; font-weight: 600; line-height: 1.25; }
-.journal-timeline-entry-day { color: var(--text-normal); font-size: 24px; font-weight: 700; line-height: 1.05; }
+.journal-timeline-entry-day { color: var(--text-normal); font-size: 20px; font-weight: 600; line-height: 1.2; }
 .journal-timeline-entry-top { flex-wrap: wrap; gap: 4px 7px; min-width: 0; color: var(--text-muted); }
 .journal-timeline-entry-date { flex: 0 1 auto; min-width: 0; max-width: 100%; margin: 0; overflow: hidden; color: var(--text-normal); font-size: 14px; font-weight: 600; }
 .journal-timeline-entry-iso { display: none; }
 .journal-timeline-favorite { flex: 0 0 auto; color: var(--text-accent); font-size: 11px; }
 .journal-timeline-entry-title { position: relative; display: block; width: 100%; min-width: 0; margin: 0 0 4px; padding: 0; overflow: hidden; color: var(--text-normal); font-size: 15px; font-weight: 600; line-height: 1.3; text-align: left; text-overflow: ellipsis; white-space: nowrap; cursor: text; }
-.journal-timeline-entry-title:hover, .journal-timeline-entry-title:focus-visible { color: var(--text-accent); outline: none; }
-.journal-timeline-entry-title:focus-visible { text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--journal-mood-active, var(--interactive-accent)) 60%, transparent); text-underline-offset: 3px; }
+.journal-timeline-entry-title:hover, .journal-timeline-entry-title:focus-visible { color: var(--text-accent); }
+.journal-timeline-entry-title:focus-visible { outline: 2px solid var(--interactive-accent); outline-offset: -2px; }
 .journal-timeline-entry-title.is-placeholder { color: var(--text-muted); font-size: 13px; font-weight: 500; opacity: 0.56; transition: opacity 160ms ease, color 160ms ease; }
 .journal-timeline-entry:hover .journal-timeline-entry-title.is-placeholder,
 .journal-timeline-entry:focus-within .journal-timeline-entry-title.is-placeholder,
 .journal-timeline-entry-title.is-placeholder:focus-visible { opacity: 0.72; }
-.journal-timeline-entry-title.is-placeholder::before { content: attr(data-placeholder); }
-.journal-timeline-entry-title.is-editing { overflow: visible; cursor: text; }
+.journal-timeline-add-title:not(.is-editing) { position: absolute; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; margin: 0; border-radius: 4px; background: var(--background-primary); cursor: pointer; opacity: 0; }
+.journal-timeline-add-title svg { width: 14px; height: 14px; }
+.journal-timeline-entry-body:has(.journal-timeline-add-title:not(.is-editing)) { padding-bottom: 24px; }
+.journal-timeline-entry-title.is-editing { overflow: visible; cursor: text; white-space: normal; opacity: 1; }
+.journal-title-save-error { margin: 6px 0; color: var(--text-error); font-size: 12px; font-weight: 400; line-height: 1.5; overflow-wrap: anywhere; }
+.journal-title-save-error button { margin: 6px 6px 0 0; }
+.journal-timeline-pending-edit { margin: 12px 0; padding: 12px 0; border-block: 1px solid var(--background-modifier-border); color: var(--text-muted); font-size: 12px; }
+.journal-timeline-pending-edit .journal-timeline-entry { border-bottom: 0; }
 .journal-timeline-entry-title input { display: block; width: 100%; min-width: 0; height: 24px; margin: 0; padding: 0 0 3px; border: 0; border-bottom: 1px solid var(--interactive-accent); border-radius: 0; color: var(--text-normal); background: transparent; box-shadow: none; font: inherit; font-size: 15px; font-weight: 600; line-height: 1.3; outline: none; }
-.journal-timeline-excerpt { min-width: 0; max-width: 100%; margin-top: 2px; overflow: hidden; overflow-wrap: anywhere; color: var(--text-muted); font-size: 12px; line-height: 1.35; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
-.journal-timeline-meta { flex-wrap: wrap; gap: 5px 10px; min-width: 0; min-height: 10px; margin-top: auto; padding-top: 4px; overflow-wrap: anywhere; color: var(--text-faint); font-size: 10px; line-height: 1; }
+.journal-timeline-excerpt { min-width: 0; max-width: 100%; margin-top: 2px; overflow: hidden; overflow-wrap: anywhere; color: var(--text-muted); font-size: 13px; line-height: 1.5; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
+.journal-timeline-meta { flex-wrap: wrap; gap: 5px 10px; min-width: 0; margin-top: auto; padding-top: 6px; overflow-wrap: anywhere; color: var(--text-muted); font-size: 12px; line-height: 1.4; }
 .journal-timeline-mood-note { margin-top: 6px; overflow-wrap: anywhere; color: var(--text-muted); font-size: 12px; white-space: pre-wrap; }
-.journal-timeline-thumbnail { position: relative; width: 104px; height: 92px; min-width: 104px; overflow: hidden; border-radius: 7px; background: var(--background-secondary); }
-.journal-timeline-thumbnail img { display: block; width: 104px; height: 92px; object-fit: cover; opacity: 0; transition: opacity 0.15s ease; }
+.journal-timeline-thumbnail { position: relative; width: 88px; height: 88px; min-width: 0; overflow: hidden; border-radius: 6px; background: var(--background-secondary); }
+.journal-timeline-thumbnail img { display: block; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity 0.15s ease; }
 .journal-timeline-thumbnail.is-loaded img { opacity: 1; }
 .journal-timeline-thumbnail-count { position: absolute; right: 4px; bottom: 4px; padding: 1px 4px; border-radius: 4px; background: rgba(0, 0, 0, 0.65); color: #fff; font-size: 10px; }
 .journal-timeline-empty { min-width: 0; padding: 28px 8px; overflow-wrap: anywhere; color: var(--text-muted); text-align: center; }
-.journal-mood-picker-modal { --journal-mood-active: #55b6c9; width: min(700px, calc(100vw - 32px)); max-width: calc(100vw - 32px); max-height: min(820px, calc(100vh - 48px)); min-width: 0; overflow: hidden; border-color: color-mix(in srgb, var(--journal-mood-active) 42%, var(--background-modifier-border)); background: radial-gradient(circle at 50% 43%, color-mix(in srgb, var(--journal-mood-active) 54%, transparent) 0%, color-mix(in srgb, var(--journal-mood-active) 24%, transparent) 42%, transparent 72%), linear-gradient(155deg, color-mix(in srgb, var(--journal-mood-active) 30%, var(--background-primary)), color-mix(in srgb, var(--journal-mood-active) 16%, var(--background-secondary))); box-shadow: 0 24px 70px color-mix(in srgb, var(--journal-mood-active) 28%, rgba(0, 0, 0, 0.45)); box-sizing: border-box; }
+.journal-timeline-empty button { margin-top: 12px; max-width: 100%; height: auto; min-height: 32px; white-space: normal; }
+.journal-mood-picker-modal { --journal-mood-active: #55b6c9; width: min(620px, calc(100vw - 32px)); max-width: calc(100vw - 32px); max-height: min(820px, calc(100vh - 48px)); min-width: 0; overflow: hidden; border-color: var(--background-modifier-border); background: var(--background-primary); box-shadow: var(--shadow-l); box-sizing: border-box; }
 .journal-mood-picker-modal .modal-content { width: 100%; max-width: 100%; min-width: 0; max-height: calc(100vh - 72px); overflow-y: auto; background: transparent; box-sizing: border-box; }
 .journal-mood-picker-modal .modal-close-button { color: var(--text-normal); background: color-mix(in srgb, var(--background-primary) 58%, transparent); }
 .journal-mood-picker { --journal-mood-active: #55b6c9; container-type: inline-size; padding: 4px 2px 2px; }
 .journal-mood-picker h3 { margin: 0; color: var(--text-normal); font-size: 20px; font-weight: 650; letter-spacing: 0; line-height: 1.2; }
-.journal-mood-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; min-width: 0; margin-bottom: 18px; }
+.journal-mood-header { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 12px 18px; min-width: 0; margin-bottom: 18px; }
 .journal-mood-header-copy { min-width: 0; }
 .journal-mood-step { margin: 6px 0 0; color: var(--text-muted); font-size: 13px; line-height: 1.45; }
 .journal-mood-date-field { display: flex; flex: 0 1 auto; align-items: center; gap: 8px; min-width: 0; color: var(--text-muted); font-size: 12px; }
@@ -2035,7 +2058,7 @@ button.cal-weather-refresh:hover {
 .journal-mood-date-field input { width: 148px; min-width: 0; max-width: 100%; height: 34px; }
 .journal-mood-panel { min-width: 0; }
 .journal-mood-scale-panel { padding: 0 20px 16px; overflow: hidden; border: 0; background: transparent; }
-.journal-fluid-mood-control { position: relative; min-width: 0; outline: none; cursor: grab; touch-action: none; user-select: none; }
+.journal-fluid-mood-control { position: relative; min-width: 0; outline: none; cursor: grab; touch-action: pan-y; user-select: none; }
 .journal-fluid-mood-control.is-dragging { cursor: grabbing; }
 .journal-fluid-mood-control:focus-visible { outline: 2px solid var(--interactive-accent); outline-offset: 5px; border-radius: 6px; }
 .journal-fluid-visual { position: relative; width: 100%; height: clamp(230px, 42vh, 320px); min-height: 230px; overflow: hidden; }
@@ -2053,15 +2076,13 @@ button.cal-weather-refresh:hover {
 .journal-fluid-endpoints span:last-child { text-align: right; }
 .journal-visually-hidden { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: -1px !important; overflow: hidden !important; clip: rect(0, 0, 0, 0) !important; white-space: nowrap !important; border: 0 !important; }
 .journal-mood-scale-actions { justify-content: flex-end !important; }
-.journal-mood-actions button { appearance: none; min-height: 36px; padding: 7px 16px; border: 0; border-radius: 999px; color: var(--text-normal); background: color-mix(in srgb, var(--background-primary) 90%, var(--journal-mood-active) 10%); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--journal-mood-active) 12%, transparent); font: inherit; line-height: 1.2; transition: color 180ms ease, background-color 180ms ease, box-shadow 180ms ease, transform 120ms ease; }
-.journal-mood-actions button:hover { background: color-mix(in srgb, var(--background-primary) 78%, var(--journal-mood-active) 22%); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--journal-mood-active) 24%, transparent); }
+.journal-mood-actions button { min-height: 36px; height: auto; max-width: 100%; padding: 7px 16px; border-radius: 6px; font: inherit; line-height: 1.3; white-space: normal; transition: background-color 120ms ease, transform 120ms ease; }
 .journal-mood-actions button:active { transform: translateY(1px); }
 .journal-mood-actions button:focus-visible { outline: 2px solid color-mix(in srgb, var(--journal-mood-active) 68%, var(--interactive-accent)); outline-offset: 2px; }
 .journal-mood-continue { min-width: 104px; }
-.journal-mood-picker .mod-cta:not(:disabled) { color: var(--text-on-accent, #fff); background: color-mix(in srgb, var(--journal-mood-active) 78%, var(--background-primary)); box-shadow: 0 4px 12px color-mix(in srgb, var(--journal-mood-active) 24%, transparent); }
-.journal-mood-picker .mod-cta:not(:disabled):hover { background: color-mix(in srgb, var(--journal-mood-active) 88%, var(--background-primary)); box-shadow: 0 5px 16px color-mix(in srgb, var(--journal-mood-active) 32%, transparent); }
-.journal-mood-picker .mod-cta:disabled { color: var(--text-faint); background: color-mix(in srgb, var(--background-primary) 94%, var(--background-modifier-border) 6%); box-shadow: none; }
-.journal-mood-summary { display: flex; align-items: center; gap: 14px; min-width: 0; margin-bottom: 18px; padding: 8px 14px 8px 8px; border: 1px solid color-mix(in srgb, var(--journal-mood-active) 26%, var(--background-modifier-border)); border-radius: 8px; background: color-mix(in srgb, var(--journal-mood-active) 7%, var(--background-secondary)); }
+.journal-mood-picker .mod-cta:not(:disabled) { color: var(--text-on-accent, #fff); background: var(--interactive-accent); }
+.journal-mood-picker .mod-cta:not(:disabled):hover { background: var(--interactive-accent-hover); }
+.journal-mood-summary { display: flex; align-items: center; gap: 14px; min-width: 0; margin-bottom: 18px; padding: 0 0 12px; border-bottom: 1px solid var(--background-modifier-border); }
 .journal-mood-summary-canvas { display: block; width: 76px; height: 76px; flex: 0 0 76px; }
 .journal-mood-summary-copy { display: flex; flex-direction: column; min-width: 0; gap: 3px; }
 .journal-mood-summary-label { color: var(--text-muted); font-size: 11px; }
@@ -2070,10 +2091,14 @@ button.cal-weather-refresh:hover {
 .journal-mood-field-group { min-width: 0; }
 .journal-mood-field-label, .journal-mood-note-field label { display: block; margin-bottom: 8px; color: var(--text-normal); font-size: 12px; font-weight: 600; }
 .journal-mood-labels { display: flex; flex-wrap: wrap; gap: 7px; }
-.journal-mood-label { appearance: none; min-height: 34px; padding: 7px 13px; border: 0; border-radius: 999px; color: var(--text-muted); background: color-mix(in srgb, var(--background-primary) 90%, var(--journal-mood-active) 10%); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--journal-mood-active) 10%, transparent); font: inherit; line-height: 1.2; transition: color 180ms ease, background-color 180ms ease, box-shadow 180ms ease, transform 120ms ease; }
-.journal-mood-label:hover { color: var(--text-normal); background: color-mix(in srgb, var(--background-primary) 78%, var(--journal-mood-active) 22%); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--journal-mood-active) 22%, transparent); }
+.journal-mood-label { display: inline-flex; align-items: center; gap: 5px; min-height: 34px; height: auto; max-width: 100%; padding: 7px 10px; border: 1px solid var(--background-modifier-border); border-radius: 6px; color: var(--text-normal); background: var(--background-primary); box-shadow: none; font: inherit; line-height: 1.4; white-space: normal; overflow-wrap: anywhere; transition: background-color 120ms ease, transform 120ms ease; }
+.journal-mood-label:hover { background: var(--background-modifier-hover); }
+.journal-mood-label svg { flex: 0 0 14px; width: 14px; height: 14px; }
+.journal-mood-label-check { display: flex; flex: 0 0 14px; width: 14px; }
+.journal-mood-label-text { min-width: 0; overflow-wrap: anywhere; }
+.journal-mood-label[aria-pressed='false'] .journal-mood-label-check { visibility: hidden; }
 .journal-mood-label:active { transform: translateY(1px); }
-.journal-mood-label[aria-pressed='true'] { color: var(--text-normal); background: color-mix(in srgb, var(--journal-mood-active) 22%, var(--background-primary)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--journal-mood-active) 38%, transparent), 0 3px 10px color-mix(in srgb, var(--journal-mood-active) 12%, transparent); }
+.journal-mood-label[aria-pressed='true'] { color: var(--text-normal); background: color-mix(in srgb, var(--journal-mood-active) 14%, var(--background-primary)); border-color: var(--journal-mood-active); }
 .journal-mood-label:focus-visible { outline: 2px solid var(--interactive-accent); outline-offset: 2px; }
 .journal-mood-custom-label-field { display: flex; gap: 7px; min-width: 0; margin-top: 10px; }
 .journal-mood-custom-label-field input { flex: 1 1 auto; min-width: 0; }
@@ -2081,17 +2106,14 @@ button.cal-weather-refresh:hover {
 .journal-mood-note-field { display: flex; flex-direction: column; align-items: stretch; min-width: 0; gap: 0; }
 .journal-mood-note-field textarea { width: 100%; min-height: 82px; resize: vertical; box-sizing: border-box; }
 .journal-mood-actions button.is-loading { cursor: wait; opacity: 0.68; }
-.journal-mood-picker > * { animation: journal-mood-enter 360ms cubic-bezier(0.16, 1, 0.3, 1) both; }
-.journal-mood-picker > *:nth-child(2) { animation-delay: 35ms; }
-.journal-mood-picker > *:nth-child(3) { animation-delay: 65ms; }
-@keyframes journal-mood-enter { from { opacity: 0; filter: blur(5px); transform: translateY(8px); } to { opacity: 1; filter: blur(0); transform: translateY(0); } }
+.journal-mood-error { margin-top: 12px; padding: 12px 0; border-top: 1px solid var(--background-modifier-border); color: var(--text-error); font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
 .dayline-mobile-native-view { min-width: 0; min-height: 0; }
 .dayline-mobile-native-view .view-content { width: 100%; height: 100%; min-width: 0; min-height: 0; padding: 0; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; box-sizing: border-box; }
 .dayline-mobile-native-view.cal-sidebar { height: 100%; min-height: 0; overflow: hidden; box-sizing: border-box; }
 .dayline-mobile-native-view .cal-calendar-content,
 .dayline-mobile-native-view .journal-timeline-view { min-height: 100%; box-sizing: border-box; }
 .dayline-mobile-mode-controls { display: inline-flex; align-items: center; gap: 4px; min-width: 0; }
-.dayline-mobile-native-mode-controls { position: sticky; top: 0; z-index: 3; display: flex; justify-content: flex-end; min-height: 52px; padding: 4px max(8px, env(safe-area-inset-right)) 4px max(8px, env(safe-area-inset-left)); border-bottom: 1px solid var(--background-modifier-border); background: var(--background-primary); box-sizing: border-box; }
+.dayline-mobile-native-mode-controls { position: sticky; top: 0; z-index: 3; display: flex; justify-content: flex-end; min-height: 60px; margin-bottom: 12px; padding: 8px max(12px, env(safe-area-inset-right)) 8px max(12px, env(safe-area-inset-left)); border-bottom: 1px solid var(--background-modifier-border); background: var(--background-primary); box-sizing: border-box; }
 .dayline-mobile-mode-button { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; padding: 10px; border: 0; border-radius: 6px; color: var(--text-muted); background: transparent; }
 .dayline-mobile-mode-button.is-active { color: var(--text-accent); background: var(--background-modifier-hover); }
 .dayline-mobile-mode-button:focus-visible { outline: 2px solid var(--interactive-accent); outline-offset: 2px; }
@@ -2107,14 +2129,16 @@ button.cal-weather-refresh:hover {
 .journal-mood-actions { justify-content: space-between; gap: 8px; margin-top: 22px; }
 @media (max-width: 420px) {
   .journal-timeline-view { padding: 10px; }
-  .journal-timeline-entry { grid-template-columns: 32px minmax(0, 1fr); gap: 5px; padding: 9px; }
-  .journal-timeline-entry.has-thumbnail { grid-template-columns: 32px minmax(0, 1fr) 96px; }
-  .journal-timeline-thumbnail, .journal-timeline-thumbnail img { width: 96px; height: 82px; min-width: 96px; }
-  .journal-timeline-entry-day { font-size: 20px; }
   .journal-stat-periods { grid-template-columns: minmax(0, 1fr); }
   .journal-stat-mood-reports { grid-template-columns: minmax(0, 1fr); }
   .journal-mood-recovery-row { grid-template-columns: minmax(0, 1fr); }
   .journal-mood-recovery-row button { justify-self: start; }
+}
+@container journal-timeline (max-width: 360px) {
+  .journal-timeline-entry { grid-template-columns: 28px minmax(0, 1fr); gap: 8px; }
+  .journal-timeline-entry.has-thumbnail { grid-template-columns: 28px minmax(0, 1fr) 68px; }
+  .journal-timeline-thumbnail { width: 68px; height: 68px; }
+  .journal-timeline-heading h2 { font-size: 16px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .journal-mood-picker *, .journal-timeline-entry, .cal-note-overlay, .cal-note-overlay .spin {
@@ -2126,7 +2150,7 @@ button.cal-weather-refresh:hover {
   .cal-icon-button, .cal-weather-refresh, .dayline-note-media-info,
   .cal-otd-button, .cal-filter-field input, .cal-filter-field select,
   .journal-timeline-actions button, .journal-timeline-filter-row > button,
-  .journal-timeline-view input, .journal-timeline-view select,
+  .journal-timeline-view input:not([type='checkbox']), .journal-timeline-view select,
   .journal-mood-picker button,
   .journal-mood-picker input, .journal-mood-picker textarea,
   .journal-mood-picker select, .journal-mood-recovery-row button,
@@ -2135,8 +2159,13 @@ button.cal-weather-refresh:hover {
     min-height: 44px;
   }
   .cal-day-bg { outline-offset: 2px; }
+  /* Let the filter grid size touch date fields without native appearance sizing. */
+  .journal-timeline-filter-menu input[type='date'] { -webkit-appearance: none; appearance: none; }
+  .journal-timeline-favorite-filter { min-height: 44px; }
   .journal-timeline-actions button, .journal-timeline-filter-row > button { width: 44px; height: 44px; flex-basis: 44px; padding: 10px; }
   .journal-timeline-entry-title { min-height: 44px; padding-top: 7px; padding-bottom: 7px; }
+  .journal-timeline-add-title:not(.is-editing) { width: 44px; height: 44px; padding: 0; opacity: 1; }
+  .journal-timeline-entry-body:has(.journal-timeline-add-title:not(.is-editing)) { padding-bottom: 44px; }
   .cal-sidebar { padding-left: max(8px, env(safe-area-inset-left)); padding-right: max(8px, env(safe-area-inset-right)); }
 }
 @media (max-width: 420px) {
@@ -2147,19 +2176,15 @@ button.cal-weather-refresh:hover {
   .journal-timeline-header { align-items: flex-start; }
   .journal-timeline-actions { flex-wrap: wrap; justify-content: flex-end; }
   .dayline-mobile-native-view .journal-timeline-view { padding-left: 8px; padding-right: 8px; }
-  .dayline-mobile-native-view .journal-timeline-entry { grid-template-columns: 32px minmax(0, 1fr); }
-  .dayline-mobile-native-view .journal-timeline-entry.has-thumbnail { grid-template-columns: 32px minmax(0, 1fr) 96px; }
-  .dayline-mobile-native-view .journal-timeline-thumbnail,
-  .dayline-mobile-native-view .journal-timeline-thumbnail img { width: 96px; height: 82px; min-width: 96px; }
 }
 body.dayline-mobile.dayline-phone .journal-mood-picker-modal {
   width: calc(100vw - 20px);
   max-width: calc(100vw - 20px);
   max-height: calc(100vh - 24px);
   max-height: calc(100dvh - 24px);
-  padding-top: env(safe-area-inset-top);
-  padding-right: env(safe-area-inset-right);
-  padding-left: env(safe-area-inset-left);
+  padding-top: var(--safe-area-inset-top, env(safe-area-inset-top));
+  padding-right: var(--safe-area-inset-right, env(safe-area-inset-right));
+  padding-left: var(--safe-area-inset-left, env(safe-area-inset-left));
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--journal-mood-active) 18%, var(--background-modifier-border));
   border-radius: 18px;
@@ -2167,22 +2192,20 @@ body.dayline-mobile.dayline-phone .journal-mood-picker-modal {
   box-shadow: 0 16px 42px color-mix(in srgb, var(--journal-mood-active) 16%, rgba(0, 0, 0, 0.22));
   box-sizing: border-box;
 }
-body.dayline-mobile.dayline-phone .journal-mood-picker-modal .modal-content {
+body.dayline-mobile.dayline-phone .journal-mood-picker-modal .modal-content.journal-mood-picker {
   max-height: calc(100vh - 48px);
   max-height: calc(100dvh - 48px);
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
-  padding: 0;
+  padding: 2px 16px 16px;
+  box-sizing: border-box;
 }
 body.dayline-mobile.dayline-phone .journal-mood-picker-modal .modal-close-button {
   border: 0;
   box-shadow: none;
   background: color-mix(in srgb, var(--journal-mood-active) 8%, var(--background-primary));
-}
-body.dayline-mobile.dayline-phone .journal-mood-picker {
-  padding: 2px 0 0;
 }
 body.dayline-mobile.dayline-phone .journal-mood-header {
   display: grid;
@@ -2210,6 +2233,10 @@ body.dayline-mobile.dayline-phone .journal-mood-date-field input {
   min-width: 0;
   height: 44px;
   box-sizing: border-box;
+}
+body.dayline-mobile.dayline-phone .journal-mood-picker input[type='date'] {
+  -webkit-appearance: none;
+  appearance: none;
 }
 body.dayline-mobile.dayline-phone .journal-mood-scale-panel {
   padding: 0 0 10px;
@@ -2306,6 +2333,82 @@ body.dayline-mobile.dayline-phone .journal-mood-picker .mod-cta:not(:disabled) {
   border-color: color-mix(in srgb, var(--journal-mood-active) 62%, var(--background-modifier-border));
   color: var(--text-normal);
   background: color-mix(in srgb, var(--background-primary) 68%, var(--journal-mood-active) 32%);
+}
+body.dayline-mobile.dayline-phone .journal-mood-picker-modal.has-mood-viewport {
+  --journal-mood-safe-top: max(12px, env(safe-area-inset-top, 0px));
+  --journal-mood-safe-bottom: max(12px, env(safe-area-inset-bottom, 0px));
+  --journal-mood-safe-left: max(10px, env(safe-area-inset-left, 0px));
+  --journal-mood-safe-right: max(10px, env(safe-area-inset-right, 0px));
+  position: fixed;
+  inset: auto;
+  top: calc(var(--journal-mood-viewport-top) + var(--journal-mood-safe-top));
+  left: calc(var(--journal-mood-viewport-left) + var(--journal-mood-safe-left));
+  width: calc(var(--journal-mood-viewport-width) - var(--journal-mood-safe-left) - var(--journal-mood-safe-right));
+  max-width: calc(var(--journal-mood-viewport-width) - var(--journal-mood-safe-left) - var(--journal-mood-safe-right));
+  height: calc(var(--journal-mood-viewport-height) - var(--journal-mood-safe-top) - var(--journal-mood-safe-bottom));
+  max-height: calc(var(--journal-mood-viewport-height) - var(--journal-mood-safe-top) - var(--journal-mood-safe-bottom));
+  min-height: 0;
+  margin: 0;
+  transform: none;
+  display: flex;
+  flex-direction: column;
+  padding: 48px 0 0;
+}
+body.dayline-mobile.dayline-phone .journal-mood-picker-modal.has-mood-viewport .modal-content.journal-mood-picker {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+  margin: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scroll-padding-block: 8px;
+}
+body.dayline-mobile.dayline-phone .journal-mood-actions {
+  position: static;
+  bottom: auto;
+  z-index: auto;
+}
+body.dayline-mobile.dayline-phone .journal-mood-picker-modal.is-compact-viewport { padding-top: 44px; }
+body.dayline-mobile.dayline-phone .is-compact-viewport .journal-fluid-visual { height: 120px; min-height: 120px; }
+body.dayline-mobile.dayline-phone .is-compact-viewport .journal-mood-note-field textarea { height: 64px; min-height: 64px; }
+
+/* Landscape and keyboard-shrunk phones: reclaim chrome before shrinking the form. */
+@media (orientation: landscape) {
+body.dayline-mobile.dayline-phone .journal-mood-picker-modal.has-mood-viewport.is-compact-viewport {
+  --journal-mood-safe-top: env(safe-area-inset-top, 0px);
+  --journal-mood-safe-bottom: 0px;
+  padding-top: 34px;
+}
+body.dayline-mobile.dayline-phone .journal-mood-picker-modal.is-compact-viewport .modal-content.journal-mood-picker {
+  padding: 0 12px 8px;
+  scroll-padding-block: 4px;
+}
+body.dayline-mobile.dayline-phone .is-compact-viewport .journal-mood-header {
+  gap: 4px 8px;
+  margin-bottom: 4px;
+}
+body.dayline-mobile.dayline-phone .is-compact-viewport .journal-mood-step { display: none; }
+body.dayline-mobile.dayline-phone .is-compact-viewport .journal-mood-picker h3 { font-size: 16px; }
+body.dayline-mobile.dayline-phone .is-compact-viewport .journal-mood-date-field {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+}
+body.dayline-mobile.dayline-phone .is-compact-viewport .journal-mood-summary { display: none; }
+body.dayline-mobile.dayline-phone .is-compact-viewport .journal-mood-form { gap: 8px; }
+body.dayline-mobile.dayline-phone .is-compact-viewport .journal-fluid-visual { height: 76px; min-height: 76px; }
+body.dayline-mobile.dayline-phone .is-compact-viewport .journal-fluid-readout { min-height: 26px; margin-top: -6px; }
+body.dayline-mobile.dayline-phone .is-compact-viewport .journal-fluid-value { font-size: 18px; }
+body.dayline-mobile.dayline-phone .is-compact-viewport .journal-fluid-track { margin-top: 8px; }
+body.dayline-mobile.dayline-phone .is-compact-viewport .journal-fluid-endpoints { display: none; }
+body.dayline-mobile.dayline-phone .is-compact-viewport .journal-mood-note-field textarea { height: 56px; min-height: 56px; }
+body.dayline-mobile.dayline-phone .is-compact-viewport .journal-mood-actions {
+  position: static;
+  bottom: auto;
+  z-index: auto;
+  margin-top: 8px;
+  padding: 6px 0;
+}
 }
 @container (max-width: 420px) {
   .journal-mood-scale { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -2727,6 +2830,31 @@ class CalendarView extends ItemView {
 
   /* ----- Render the calendar ----- */
   render() {
+    if (this.closed) return;
+    // Capture at repaint time, not when an async navigation started.
+    const active = this.contentEl.ownerDocument.activeElement;
+    const focusKey = this.contentEl.contains(active)
+      ? active?.getAttribute('data-calendar-focus')
+      : null;
+    const jumpYear = this.contentEl.querySelector('[data-calendar-focus="jump-year"]');
+    const jumpMonth = this.contentEl.querySelector('[data-calendar-focus="jump-month"]');
+    const jumpDraft = this._calendarJumpOpen && jumpYear && jumpMonth
+      ? { year: jumpYear.value, month: jumpMonth.value } : null;
+    this._renderCalendar();
+    if (jumpDraft) {
+      const year = this.contentEl.querySelector('[data-calendar-focus="jump-year"]');
+      const month = this.contentEl.querySelector('[data-calendar-focus="jump-month"]');
+      if (year) year.value = jumpDraft.year;
+      if (month) month.value = jumpDraft.month;
+    }
+    if (focusKey) {
+      const target = this.contentEl.querySelector(`[data-calendar-focus="${focusKey}"]`)
+        || (focusKey.startsWith('jump-') ? this.contentEl.querySelector('.cal-title-button') : null);
+      target?.focus({ preventScroll: true });
+    }
+  }
+
+  _renderCalendar() {
     // Bump fetch token so stale async results are discarded
     this._fetchToken = (this._fetchToken || 0) + 1;
 
@@ -2756,11 +2884,12 @@ class CalendarView extends ItemView {
     const header = el.createDiv({ cls: 'cal-header' });
     const prevBtn = header.createEl('button', {
       cls: 'cal-nav cal-icon-button',
-      attr: { type: 'button', 'aria-label': t(this.plugin.settings, 'previousMonth'), title: t(this.plugin.settings, 'previousMonth') },
+      attr: { type: 'button', 'data-calendar-focus': 'previous', 'aria-label': t(this.plugin.settings, 'previousMonth'), title: t(this.plugin.settings, 'previousMonth') },
     });
     setIcon(prevBtn, 'chevron-left');
     prevBtn.addEventListener('click', (e) => {
       e.stopPropagation();
+      prevBtn.focus({ preventScroll: true });
       this._goToMonth(-1);
     });
 
@@ -2768,6 +2897,7 @@ class CalendarView extends ItemView {
       cls: 'cal-title cal-title-button',
       attr: {
         type: 'button',
+        'data-calendar-focus': 'title',
         'aria-label': t(this.plugin.settings, 'jumpToMonth'),
         title: t(this.plugin.settings, 'jumpToMonth'),
         'aria-expanded': String(this._calendarJumpOpen),
@@ -2776,28 +2906,38 @@ class CalendarView extends ItemView {
     title.setText(formatCalendarMonth(year, month + 1, this.plugin.settings));
     title.addEventListener('click', (event) => {
       event.stopPropagation();
+      title.focus({ preventScroll: true });
       this._calendarJumpOpen = !this._calendarJumpOpen;
+      this.render();
+    });
+    title.addEventListener('keydown', (event) => {
+      if (event.key !== 'Escape' || !this._calendarJumpOpen) return;
+      event.preventDefault();
+      event.stopPropagation();
+      this._calendarJumpOpen = false;
       this.render();
     });
 
     const nextBtn = header.createEl('button', {
       cls: 'cal-nav cal-icon-button',
-      attr: { type: 'button', 'aria-label': t(this.plugin.settings, 'nextMonth'), title: t(this.plugin.settings, 'nextMonth') },
+      attr: { type: 'button', 'data-calendar-focus': 'next', 'aria-label': t(this.plugin.settings, 'nextMonth'), title: t(this.plugin.settings, 'nextMonth') },
     });
     setIcon(nextBtn, 'chevron-right');
     nextBtn.addEventListener('click', (e) => {
       e.stopPropagation();
+      nextBtn.focus({ preventScroll: true });
       this._goToMonth(1);
     });
 
     const headerActions = header.createDiv({ cls: 'cal-header-actions' });
     const todayBtn = headerActions.createEl('button', {
       cls: 'cal-icon-button cal-today-button',
-      attr: { type: 'button', 'aria-label': t(this.plugin.settings, 'today'), title: t(this.plugin.settings, 'today') },
+      attr: { type: 'button', 'data-calendar-focus': 'today', 'aria-label': t(this.plugin.settings, 'today'), title: t(this.plugin.settings, 'today') },
     });
     setIcon(todayBtn, 'calendar-check');
     todayBtn.addEventListener('click', (event) => {
       event.stopPropagation();
+      todayBtn.focus({ preventScroll: true });
       this._goToToday();
     });
     if (this._calendarJumpOpen) this._renderMonthJump(el);
@@ -2861,7 +3001,13 @@ class CalendarView extends ItemView {
       else cell.addClass('cal-no-image');
       if (dateEntry.hasRecord) cell.addClass('cal-has-record');
       if (dateEntry.hasWeather) cell.addClass('cal-has-weather');
-      cell.setAttribute('aria-label', `${dateStr}${dateEntry.entryCount ? `, ${dateEntry.entryCount} entries` : ''}${dateEntry.hasWeather ? ', weather available' : ''}`);
+      const entryCountLabel = t(this.plugin.settings, dateEntry.entryCount === 1 ? 'calendarEntryCountOne' : 'calendarEntryCount', { count: dateEntry.entryCount });
+      cell.setAttribute('aria-label', [
+        dateEntry.entryCount
+          ? t(this.plugin.settings, 'calendarEntriesOnDate', { date: dateStr, entries: entryCountLabel })
+          : dateStr,
+        dateEntry.hasWeather ? t(this.plugin.settings, 'calendarWeatherAvailable') : '',
+      ].filter(Boolean).join(', '));
       if (isToday) cell.addClass('cal-today');
       if (dateStr === this.activeDate && !isToday) cell.addClass('cal-active');
 
@@ -2924,7 +3070,7 @@ class CalendarView extends ItemView {
           cls: 'cal-entry-count',
           text: `+${dateEntry.entryCount - 1}`,
           attr: {
-            'aria-label': `${dateEntry.entryCount} entries on ${dateStr}`,
+            'aria-label': t(this.plugin.settings, 'calendarEntriesOnDate', { date: dateStr, entries: entryCountLabel }),
           },
         });
       }
@@ -3043,17 +3189,25 @@ class CalendarView extends ItemView {
   _renderMonthJump(containerEl) {
     const panel = containerEl.createDiv({ cls: 'cal-jump-panel' });
     panel.setAttribute('aria-label', t(this.plugin.settings, 'jumpToMonth'));
+    panel.addEventListener('keydown', (event) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      event.stopPropagation();
+      this._calendarJumpOpen = false;
+      this.contentEl.querySelector('.cal-title-button')?.focus({ preventScroll: true });
+      this.render();
+    });
 
     const yearLabel = panel.createEl('label', { cls: 'cal-filter-field' });
     yearLabel.createSpan({ text: t(this.plugin.settings, 'year') });
     const yearInput = yearLabel.createEl('input', {
-      attr: { type: 'number', min: '1', max: '9999', inputmode: 'numeric', 'aria-label': t(this.plugin.settings, 'year') },
+      attr: { type: 'number', min: '1', max: '9999', inputmode: 'numeric', 'data-calendar-focus': 'jump-year', 'aria-label': t(this.plugin.settings, 'year') },
     });
     yearInput.value = String(this.displayMonth.getFullYear());
 
     const monthLabel = panel.createEl('label', { cls: 'cal-filter-field' });
     monthLabel.createSpan({ text: t(this.plugin.settings, 'month') });
-    const monthSelect = monthLabel.createEl('select', { attr: { 'aria-label': t(this.plugin.settings, 'month') } });
+    const monthSelect = monthLabel.createEl('select', { attr: { 'data-calendar-focus': 'jump-month', 'aria-label': t(this.plugin.settings, 'month') } });
     const locale = getDisplayLanguage(this.plugin.settings) === 'en' ? 'en-US' : 'zh-CN';
     const monthFormatter = new Intl.DateTimeFormat(locale, { month: 'long', timeZone: 'UTC' });
     for (let index = 0; index < 12; index++) {
@@ -3066,11 +3220,12 @@ class CalendarView extends ItemView {
 
     const apply = panel.createEl('button', {
       cls: 'cal-icon-button cal-jump-apply',
-      attr: { type: 'button', 'aria-label': t(this.plugin.settings, 'apply'), title: t(this.plugin.settings, 'apply') },
+      attr: { type: 'button', 'data-calendar-focus': 'jump-apply', 'aria-label': t(this.plugin.settings, 'apply'), title: t(this.plugin.settings, 'apply') },
     });
     setIcon(apply, 'check');
     apply.addEventListener('click', (event) => {
       event.stopPropagation();
+      apply.focus({ preventScroll: true });
       const nextYear = Math.max(1, Math.min(9999, Number.parseInt(yearInput.value, 10) || this.displayMonth.getFullYear()));
       const nextMonth = Math.max(0, Math.min(11, Number.parseInt(monthSelect.value, 10) || 0));
       this._jumpToMonth(nextYear, nextMonth);
@@ -3079,15 +3234,18 @@ class CalendarView extends ItemView {
 
   _goToToday() {
     const [year, month] = _daylineDate(this.plugin.settings).split('-').map(Number);
-    this._jumpToMonth(year, month - 1);
+    return this._jumpToMonth(year, month - 1);
   }
 
   _jumpToMonth(year, monthIndex) {
-    this.displayMonth = new Date(year, monthIndex, 1);
+    const targetMonth = new Date(0);
+    targetMonth.setFullYear(year, monthIndex, 1);
+    targetMonth.setHours(12, 0, 0, 0);
+    this.displayMonth = targetMonth;
     this._calendarJumpOpen = false;
-    this.buildMonthCache(this.displayMonth).then(() => this.render()).catch((error) => {
+    return this.buildMonthCache(targetMonth).then(() => this.render()).catch((error) => {
       console.warn('[Dayline] Calendar month jump failed:', error?.message || error);
-      this.monthCache.delete(this._monthKey(this.displayMonth));
+      this.monthCache.delete(this._monthKey(targetMonth));
       new Notice(t(this.plugin.settings, 'calendarMonthLoadFailed', { error: error?.message || error }));
     });
   }
@@ -3532,9 +3690,9 @@ class CalendarView extends ItemView {
     newMonth.setMonth(newMonth.getMonth() + delta);
     this.displayMonth = newMonth;
 
-    this.buildMonthCache(this.displayMonth).then(() => this.render()).catch((error) => {
+    return this.buildMonthCache(newMonth).then(() => this.render()).catch((error) => {
       console.warn('[Dayline] Calendar month load failed:', error?.message || error);
-      this.monthCache.delete(this._monthKey(this.displayMonth));
+      this.monthCache.delete(this._monthKey(newMonth));
       new Notice(t(this.plugin.settings, 'calendarMonthLoadFailed', { error: error?.message || error }));
     });
   }
@@ -3581,7 +3739,7 @@ class CalendarView extends ItemView {
       openFileInLeaf(file);
     } else {
       // File doesn't exist — ask user to confirm creation
-      new CreateNoteModal(this.app, dateStr, () => {
+      new CreateNoteModal(this.app, this.plugin.settings, dateStr, () => {
         this._createDailyNote(path, dateStr).then((created) => {
           openFileInLeaf(created);
           // Trigger weather after note is created and opened
@@ -4066,6 +4224,15 @@ class CalendarView extends ItemView {
       cls: 'cal-note-overlay',
       attr: { [OVERLAY_ATTR]: 'true' },
     });
+    if (this.plugin.capabilities?.isMobile) {
+      const header = container.querySelector?.('.view-header');
+      if (header?.getBoundingClientRect) {
+        const hostRect = container.getBoundingClientRect();
+        const headerRect = header.getBoundingClientRect();
+        const top = Math.max(8, headerRect.bottom - hostRect.top + 8);
+        if (Number.isFinite(top)) overlay.style.top = `${Math.round(top)}px`;
+      }
+    }
 
     // Icon
     const iconEl = overlay.createEl('img', { cls: 'cal-overlay-icon' });
@@ -4294,21 +4461,22 @@ class MobileDaylineView extends ItemView {
    Create Note Confirm Modal
    ============================================================ */
 class CreateNoteModal extends Modal {
-  constructor(app, dateStr, onConfirm) {
+  constructor(app, settings, dateStr, onConfirm) {
     super(app);
+    this.settings = settings;
     this.dateStr = dateStr;
     this.onConfirm = onConfirm;
   }
 
   onOpen() {
     const { contentEl } = this;
-    contentEl.createEl('h3', { text: 'Create Daily Note' });
-    contentEl.createEl('p', { text: `No daily note found for ${this.dateStr}. Create one?` });
+    contentEl.createEl('h3', { text: t(this.settings, 'createNoteTitle') });
+    contentEl.createEl('p', { text: t(this.settings, 'createNotePrompt', { date: this.dateStr }) });
 
     const btnDiv = contentEl.createDiv({ cls: 'modal-button-container' });
-    btnDiv.createEl('button', { text: 'Cancel' })
+    btnDiv.createEl('button', { text: t(this.settings, 'cancel') })
       .addEventListener('click', () => this.close());
-    const confirmBtn = btnDiv.createEl('button', { text: 'Create', cls: 'mod-cta' });
+    const confirmBtn = btnDiv.createEl('button', { text: t(this.settings, 'createNoteAction'), cls: 'mod-cta' });
     confirmBtn.addEventListener('click', () => {
       this.onConfirm();
       this.close();

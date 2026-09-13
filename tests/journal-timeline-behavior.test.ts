@@ -19,6 +19,7 @@ vi.mock('obsidian', () => ({
 }));
 
 import { JournalTimelineView } from '../src/journal-timeline-view';
+import { filterJournalEntries } from '../src/journal-timeline-filters';
 
 function installDomHelpers() {
   const prototype = HTMLElement.prototype;
@@ -60,7 +61,7 @@ function makeView(entries = []) {
     isReady: true,
     sources: [{ id: 'daily', path: 'Calendar/Daily' }],
     getEntries: () => entries,
-    filter: () => entries,
+    filter: (filter = {}) => filterJournalEntries(entries, filter),
     subscribe: (callback) => { listener = callback; return () => undefined; },
     refresh: async () => undefined,
   };
@@ -151,5 +152,235 @@ describe('timeline rendered behavior', () => {
     vi.runAllTimers();
 
     expect(view.render).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the filter trigger and search node focused across toggles and index refreshes', () => {
+    const { view } = makeView([makeEntry(1)]);
+    view.render();
+    const query = view.contentEl.querySelector('input[type=search]');
+    const trigger = view.contentEl.querySelector('.journal-timeline-filter-row button');
+    trigger.focus();
+    trigger.click();
+    expect(document.activeElement).toBe(trigger);
+    expect(trigger.getAttribute('aria-expanded')).toBe('true');
+    expect(view.contentEl.querySelector('.journal-timeline-filter-menu').hidden).toBe(false);
+    query.focus();
+    query.value = 'draft search';
+    query.setSelectionRange(3, 5);
+    view.render();
+    expect(view.contentEl.querySelector('input[type=search]')).toBe(query);
+    expect(document.activeElement).toBe(query);
+    expect(query.selectionStart).toBe(3);
+  });
+
+  it('removes filter chips without rebuilding the toolbar and returns focus to a surviving control', () => {
+    const { view } = makeView([makeEntry(1)]);
+    view.filter = { from: '2026-07-01', to: '2026-07-31' };
+    view.render();
+    const trigger = view.contentEl.querySelector('.journal-timeline-filter-row button');
+    const chip = view.contentEl.querySelector('.journal-filter-chip');
+    chip.focus();
+    chip.click();
+    expect(view.filter.from).toBeUndefined();
+    expect(view.contentEl.querySelector('.journal-timeline-filter-row button')).toBe(trigger);
+    expect(document.activeElement).toBe(view.contentEl.querySelector('.journal-filter-chip'));
+    document.activeElement.click();
+    expect(document.activeElement).toBe(trigger);
+    expect(view.contentEl.querySelector('input[type=date]').value).toBe('');
+  });
+
+  it('groups cross-year entries by month and labels file modification times', () => {
+    const entries = [
+      { ...makeEntry(1), date: '2026-01-02', modifiedAt: '2026-09-01T10:00:00Z' },
+      { ...makeEntry(2), date: '2025-12-31' },
+    ];
+    const { view } = makeView(entries);
+    view.render();
+    expect([...view.contentEl.querySelectorAll('.journal-timeline-month')].map(el => el.textContent))
+      .toEqual(['January 2026', 'December 2025']);
+    expect(view.contentEl.querySelector('article').getAttribute('aria-label')).toContain('2026');
+    expect(view.contentEl.querySelector('.journal-timeline-meta').textContent).toContain('Updated');
+  });
+
+  it('preserves an active title draft through refresh and failed save, then supports retry', async () => {
+    const { view } = makeView([makeEntry(1)]);
+    view.plugin.saveJournalTitle = vi.fn().mockRejectedValueOnce(new Error('disk full')).mockResolvedValueOnce(undefined);
+    view.render();
+    view.contentEl.querySelector('.journal-timeline-entry-title').click();
+    const input = view.contentEl.querySelector('.journal-timeline-entry-title input');
+    input.value = 'My unsaved title';
+    view.render();
+    expect(view.contentEl.querySelector('.journal-timeline-entry-title input')).toBe(input);
+    expect(document.activeElement).toBe(input);
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    await vi.waitFor(() => expect(view.contentEl.querySelector('[role=alert]')?.textContent).toContain('disk full'));
+    expect(input.value).toBe('My unsaved title');
+    expect(input.disabled).toBe(false);
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    await vi.waitFor(() => expect(view.plugin.saveJournalTitle).toHaveBeenCalledTimes(2));
+    await vi.waitFor(() => expect(view.contentEl.querySelector('.journal-timeline-entry-title input')).toBeNull());
+    expect(view.plugin.saveJournalTitle).toHaveBeenLastCalledWith(makeEntry(1).path, 'My unsaved title');
+  });
+
+  it('does not write an unchanged title on blur or a cancelled title on Escape', () => {
+    const { view } = makeView([makeEntry(1)]);
+    view.plugin.saveJournalTitle = vi.fn();
+    view.render();
+    view.contentEl.querySelector('.journal-timeline-entry-title').click();
+    view.contentEl.querySelector('.journal-timeline-entry-title input').blur();
+    expect(view.plugin.saveJournalTitle).not.toHaveBeenCalled();
+    view.contentEl.querySelector('.journal-timeline-entry-title').click();
+    const input = view.contentEl.querySelector('.journal-timeline-entry-title input');
+    input.value = 'discard me';
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    expect(view.plugin.saveJournalTitle).not.toHaveBeenCalled();
+    expect(view.contentEl.querySelector('.journal-timeline-entry-title input')).toBeNull();
+    expect(document.activeElement).toBe(view.contentEl.querySelector('.journal-timeline-entry-title'));
+  });
+
+  it('refreshes matching results during edits and failed saves while preserving the draft card', async () => {
+    const entries = [makeEntry(1), makeEntry(2)];
+    const { view } = makeView(entries);
+    view.plugin.saveJournalTitle = vi.fn().mockRejectedValue(new Error('disk full'));
+    view.render();
+    const card = view.contentEl.querySelector('article');
+    card.querySelector('.journal-timeline-entry-title').click();
+    const input = card.querySelector('input');
+    input.value = 'Unsaved draft';
+    input.setSelectionRange(2, 6, 'backward');
+    entries.push(makeEntry(3));
+    view.render();
+    expect(view.contentEl.querySelectorAll('.journal-timeline-list article')).toHaveLength(3);
+    expect(document.activeElement).toBe(input);
+    expect([input.selectionStart, input.selectionEnd, input.selectionDirection]).toEqual([2, 6, 'backward']);
+    expect(view.contentEl.querySelector('article')).toBe(card);
+    const search = view.filterControls.query;
+    search.value = 'Entry 2';
+    search.dispatchEvent(new window.Event('input', { bubbles: true }));
+    expect(view.contentEl.querySelector('.journal-timeline-count').textContent).toBe('1');
+    expect([...view.contentEl.querySelectorAll('.journal-timeline-list article')].map(el => el.dataset.path)).toEqual([entries[1].path]);
+    expect(view.contentEl.querySelector('.journal-timeline-pending-edit article')).toBe(card);
+    expect(view.contentEl.querySelector('.journal-timeline-pending-edit [role=status]')).not.toBeNull();
+    expect(document.activeElement).toBe(input);
+    expect([input.selectionStart, input.selectionEnd, input.selectionDirection]).toEqual([2, 6, 'backward']);
+    expect(view.plugin.saveJournalTitle).not.toHaveBeenCalled();
+    search.value = 'Entry';
+    search.dispatchEvent(new window.Event('input', { bubbles: true }));
+    expect(view.contentEl.querySelector('.journal-timeline-pending-edit')).toBeNull();
+    expect([...view.contentEl.querySelectorAll('.journal-timeline-list article')].map(el => el.dataset.path))
+      .toEqual(entries.map(entry => entry.path));
+    expect(view.contentEl.querySelector('.journal-timeline-list article')).toBe(card);
+    expect(document.activeElement).toBe(input);
+    expect([input.selectionStart, input.selectionEnd, input.selectionDirection]).toEqual([2, 6, 'backward']);
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    await vi.waitFor(() => expect(card.querySelector('[role=alert]')).not.toBeNull());
+    search.focus();
+    search.value = 'no match';
+    search.dispatchEvent(new window.Event('input', { bubbles: true }));
+    expect(view.contentEl.querySelector('.journal-timeline-count').textContent).toBe('0');
+    expect(view.contentEl.querySelectorAll('.journal-timeline-list article')).toHaveLength(0);
+    expect(view.contentEl.querySelector('.journal-timeline-empty')).not.toBeNull();
+    expect(view.contentEl.querySelector('.journal-timeline-pending-edit article')).toBe(card);
+    expect(document.activeElement).toBe(search);
+    expect(input.value).toBe('Unsaved draft');
+    input.focus();
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    expect(view.contentEl.querySelector('.journal-timeline-pending-edit')).toBeNull();
+    expect(view.contentEl.querySelector('.journal-timeline-empty')).not.toBeNull();
+  });
+
+  it.each(['resolve', 'reject'])('does not steal search focus when a title save %ss', async (outcome) => {
+    const { view } = makeView([makeEntry(1), makeEntry(2)]);
+    let resolve, reject;
+    view.plugin.saveJournalTitle = () => new Promise((yes, no) => { resolve = yes; reject = no; });
+    view.render();
+    view.contentEl.querySelector('.journal-timeline-entry-title').click();
+    const input = view.contentEl.querySelector('.journal-timeline-entry-title input');
+    input.value = 'Draft';
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    const search = view.filterControls.query;
+    search.focus();
+    search.value = 'Entry 2';
+    search.setSelectionRange(1, 4);
+    search.dispatchEvent(new window.Event('input', { bubbles: true }));
+    if (outcome === 'resolve') resolve();
+    else reject(new Error('disk full'));
+    await Promise.resolve();
+    expect(document.activeElement).toBe(search);
+    expect([search.selectionStart, search.selectionEnd]).toEqual([1, 4]);
+    expect(view.contentEl.querySelectorAll('.journal-timeline-list article')).toHaveLength(1);
+    if (outcome === 'resolve') expect(view.contentEl.querySelector('.journal-timeline-pending-edit')).toBeNull();
+    else expect(view.contentEl.querySelector('.journal-timeline-pending-edit input')).toBe(input);
+  });
+
+  it.each([
+    ['tag', 'new-tag', { tags: ['new-tag'] }],
+    ['location', 'name:paris', { location: { name: 'Paris' } }],
+    ['sourceId', 'new-source', { sourceId: 'new-source' }],
+  ])('refreshes deferred %s options on blur', (key, value, change) => {
+    const entries = [makeEntry(1)];
+    const { view } = makeView(entries);
+    view.render();
+    view.filterButton.click();
+    const select = view.filterControls[key];
+    select.focus();
+    entries.push({ ...makeEntry(2), ...change });
+    view.render();
+    expect([...select.options].some(option => option.value === value)).toBe(false);
+    view.filterControls.query.focus();
+    expect([...select.options].some(option => option.value === value)).toBe(true);
+    expect(document.activeElement).toBe(view.filterControls.query);
+  });
+
+  it('preserves the focused filter chip by key across index refreshes', () => {
+    const { view } = makeView([makeEntry(1)]);
+    view.filter = { query: 'Entry', tag: 'work' };
+    view.render();
+    const chip = view.contentEl.querySelectorAll('.journal-filter-chip')[1];
+    chip.focus();
+    view.render();
+    expect(document.activeElement).toBe(view.contentEl.querySelectorAll('.journal-filter-chip')[1]);
+    expect(document.activeElement.textContent).toContain('#work');
+  });
+
+  it.each(['resolve', 'reject'])('restores editor focus after disabled input falls to BODY and save %ss', async (outcome) => {
+    const { view } = makeView([makeEntry(1)]);
+    let resolve, reject;
+    view.plugin.saveJournalTitle = () => new Promise((yes, no) => { resolve = yes; reject = no; });
+    view.render();
+    view.contentEl.querySelector('.journal-timeline-entry-title').click();
+    const input = view.contentEl.querySelector('.journal-timeline-entry-title input');
+    input.value = 'Draft';
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    // JSDOM does not blur a disabled input as Chromium does.
+    document.body.tabIndex = -1;
+    document.body.focus();
+    document.body.removeAttribute('tabindex');
+    expect(document.activeElement).toBe(document.body);
+    if (outcome === 'resolve') resolve();
+    else reject(new Error('disk full'));
+    await Promise.resolve();
+    expect(document.activeElement).toBe(outcome === 'reject'
+      ? input : view.contentEl.querySelector('.journal-timeline-entry-title'));
+  });
+
+  it('keeps a retained editing card thumbnail loadable after a results refresh', async () => {
+    let callback;
+    globalThis.IntersectionObserver = class {
+      constructor(value) { callback = value; }
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    };
+    const entry = { ...makeEntry(1), attachments: ['cover.jpg'] };
+    const { view } = makeView([entry]);
+    view.plugin.mediaService.loadFirstCover.mockResolvedValue({ url: 'cover.jpg' });
+    view.render();
+    view.contentEl.querySelector('.journal-timeline-entry-title').click();
+    const thumbnail = view.contentEl.querySelector('.journal-timeline-thumbnail');
+    view.render();
+    callback([{ isIntersecting: true, target: thumbnail }]);
+    await Promise.resolve();
+    expect(thumbnail.querySelector('img').getAttribute('src')).toBe('cover.jpg');
   });
 });

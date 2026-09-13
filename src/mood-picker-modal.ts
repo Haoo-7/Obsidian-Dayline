@@ -1,8 +1,9 @@
 // @ts-nocheck
-import { Modal, Notice } from 'obsidian';
+import { Modal, Notice, setIcon } from 'obsidian';
 import { filterMoodLabelsForScore, getMoodColor, moodLabelsForScore } from './mood';
 import { drawFluidMood, FluidMoodControl } from './fluid-mood-control';
 import { feelingLabel, moodLabel, t } from './i18n';
+import { bindMoodModalViewport } from './mood-modal-viewport';
 
 const BUILT_IN_LABEL_IDS = new Set(moodLabelsForScore(null).map((item) => item.id));
 
@@ -15,6 +16,25 @@ function normalizeCustomLabels(value) {
   )).sort((a, b) => a.localeCompare(b));
 }
 
+function createMoodDraft(initial, customLabels) {
+  const labels = [...(initial?.labels ?? [])];
+  return {
+    score: initial?.score ?? 0,
+    labels,
+    customLabels: normalizeCustomLabels([...(customLabels || []), ...labels]),
+    note: initial?.note ?? '',
+    customText: '',
+  };
+}
+
+function draftFingerprint(draft) {
+  return JSON.stringify({
+    ...draft,
+    labels: [...draft.labels].sort(),
+    customLabels: [...draft.customLabels].sort(),
+  });
+}
+
 export class MoodPickerModal extends Modal {
   constructor(app, options = {}) {
     super(app);
@@ -25,37 +45,122 @@ export class MoodPickerModal extends Modal {
     this.onDateChange = options.onDateChange;
     this.allowDateSelection = options.allowDateSelection === true;
     this.date = options.date || extractDate(options.filePath);
-    this.score = this.initial?.score ?? null;
-    this.labels = new Set(this.initial?.labels ?? []);
-    this.customLabels = normalizeCustomLabels(options.customLabels);
-    for (const label of this.labels) {
-      if (!BUILT_IN_LABEL_IDS.has(label) && !this.customLabels.includes(label)) this.customLabels.push(label);
-    }
-    this.note = this.initial?.note ?? '';
+    this.restoreDraft(createMoodDraft(this.initial, options.customLabels));
+    const draft = this.snapshotDraft();
+    this.drafts = new Map([[this.filePath, { draft, baseline: draftFingerprint(draft) }]]);
+    this.pendingOperation = null;
+    this.closed = false;
   }
 
   onOpen() {
+    this.ownerWindow = this.contentEl.ownerDocument.defaultView;
+    this.opener = this.contentEl.ownerDocument.activeElement;
     this.modalEl.addClass('journal-mood-picker-modal');
     this.contentEl.empty();
     this.contentEl.addClass('journal-mood-picker');
+    this.disposeViewport = bindMoodModalViewport(this.modalEl, this.contentEl);
     this.renderScale();
     this.keyHandler = (event) => this.handleKeydown(event);
-    this.scope?.register([], 'Escape', this.keyHandler);
+    this.escapeHandler = this.scope?.register([], 'Escape', this.keyHandler);
     this.contentEl.addEventListener('keydown', this.keyHandler);
+    // The fluid slider is not a native input, so disabled alone cannot lock it.
+    this.lockedEvents = ['pointerdown', 'pointermove', 'pointerup', 'pointercancel', 'keydown', 'click', 'input', 'change'];
+    this.blockLockedInteraction = (event) => {
+      if (!this.isLocked() || event.key === 'Escape') return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    };
+    for (const type of this.lockedEvents) this.contentEl.addEventListener(type, this.blockLockedInteraction, true);
   }
 
   onClose() {
+    this.closed = true;
+    this.ownerWindow.clearTimeout(this.focusTimer);
+    this.disposeViewport?.();
+    this.disposeViewport = null;
     this.fluidControl?.destroy();
     this.fluidControl = null;
+    if (this.escapeHandler) this.scope?.unregister?.(this.escapeHandler);
     this.contentEl.removeEventListener('keydown', this.keyHandler);
+    for (const type of this.lockedEvents || []) this.contentEl.removeEventListener(type, this.blockLockedInteraction, true);
     this.contentEl.empty();
+    this.drafts.clear();
+  }
+
+  snapshotDraft() {
+    return {
+      score: this.score,
+      labels: Array.from(this.labels),
+      customLabels: [...this.customLabels],
+      note: this.note,
+      customText: this.customText,
+    };
+  }
+
+  restoreDraft(draft) {
+    this.score = draft.score;
+    this.labels = new Set(draft.labels);
+    this.customLabels = [...draft.customLabels];
+    this.note = draft.note;
+    this.customText = draft.customText;
+  }
+
+  cacheDraft() {
+    this.drafts.get(this.filePath).draft = this.snapshotDraft();
+  }
+
+  isLocked() {
+    return this.closed || Boolean(this.pendingOperation);
+  }
+
+  updateControls() {
+    const locked = this.isLocked();
+    for (const control of this.contentEl.querySelectorAll('button, input, textarea, select')) {
+      control.disabled = locked;
+    }
+    const slider = this.contentEl.querySelector('[role="slider"]');
+    if (slider) {
+      slider.setAttribute('aria-disabled', String(locked));
+      slider.tabIndex = locked ? -1 : 0;
+      slider.inert = locked;
+    }
+    this.contentEl.setAttribute('aria-busy', String(Boolean(this.pendingOperation)));
+    if (this.saveButton) {
+      const saving = this.pendingOperation === 'saving';
+      this.saveButton.textContent = t(this.settings, saving ? 'saving' : this.saveFailed ? 'retry' : 'save');
+      this.saveButton.classList.toggle('is-loading', saving);
+    }
+  }
+
+  clearError() {
+    this.errorEl?.remove();
+    this.errorEl = null;
+  }
+
+  showError(key, error) {
+    this.clearError();
+    this.errorEl = this.contentEl.createDiv({
+      cls: 'journal-mood-error',
+      text: t(this.settings, key, { error: String(error?.message || error) }),
+      attr: { role: 'alert' },
+    });
+  }
+
+  close() {
+    if (this.closed || this.pendingOperation) return;
+    super.close();
+    if (this.opener?.isConnected) this.opener.focus();
   }
 
   resetContent(step) {
+    this.ownerWindow.clearTimeout(this.focusTimer);
     this.fluidControl?.destroy();
     this.fluidControl = null;
     this.step = step;
     this.contentEl.empty();
+    this.contentEl.scrollTop = 0;
+    this.errorEl = null;
+    this.saveButton = null;
     this.contentEl.classList.toggle('is-scale-step', step === 1);
     this.contentEl.classList.toggle('is-label-step', step === 2);
     this.setActiveColor(getMoodColor(this.score ?? 0));
@@ -69,13 +174,14 @@ export class MoodPickerModal extends Modal {
   renderHeader(title, question) {
     const header = this.contentEl.createDiv({ cls: 'journal-mood-header' });
     const copy = header.createDiv({ cls: 'journal-mood-header-copy' });
-    copy.createEl('h3', { text: title });
+    copy.createEl('h3', { text: title, attr: { tabindex: '-1' } });
     copy.createEl('p', { cls: 'journal-mood-step', text: question });
     if (this.allowDateSelection) this.renderDateField(header);
     return header;
   }
 
   renderScale() {
+    if (this.isLocked()) return;
     this.resetContent(1);
     this.renderHeader(t(this.settings, 'moodTitle'), t(this.settings, 'moodQuestion'));
     const panel = this.contentEl.createDiv({ cls: 'journal-mood-panel journal-mood-scale-panel' });
@@ -89,7 +195,7 @@ export class MoodPickerModal extends Modal {
     // Neutral is a valid default, so the user can continue immediately.
     next.disabled = false;
     next.addEventListener('click', () => {
-      if (this.score === null) this.selectScore(0);
+      if (this.isLocked()) return;
       this.renderLabels();
     });
     this.fluidControl = new FluidMoodControl(controlHost, {
@@ -109,11 +215,10 @@ export class MoodPickerModal extends Modal {
     // Obsidian's Modal may autofocus the first form control after onOpen.
     // Restore focus to the mood control after that pass so the date input
     // remains touch-selectable without opening the native picker on launch.
-    if (typeof window !== 'undefined') {
-      window.setTimeout(() => this.fluidControl?.focus?.(), 0);
-    } else {
-      this.fluidControl.focus();
-    }
+    this.fluidControl.focus();
+    this.focusTimer = this.ownerWindow.setTimeout(() => {
+      if (!this.isLocked()) this.fluidControl?.focus();
+    }, 0);
   }
 
   renderDateField(parent = this.contentEl) {
@@ -123,9 +228,7 @@ export class MoodPickerModal extends Modal {
       attr: {
         type: 'date',
         value: this.date || '',
-        // Keep the date control available by touch without letting Obsidian's
-        // modal autofocus open the native picker on mobile.
-        tabindex: '-1',
+        tabindex: '0',
         'aria-label': t(this.settings, 'moodDate'),
         title: t(this.settings, 'moodDateDesc'),
       },
@@ -135,6 +238,7 @@ export class MoodPickerModal extends Modal {
   }
 
   selectScore(score) {
+    if (this.isLocked()) return;
     this.score = score;
     const builtInIds = new Set(moodLabelsForScore(null).map((item) => item.id));
     const custom = Array.from(this.labels).filter((label) => !builtInIds.has(label));
@@ -142,29 +246,42 @@ export class MoodPickerModal extends Modal {
   }
 
   async changeDate(date, input) {
-    if (!date || date === this.date) return;
-    input.disabled = true;
+    if (this.isLocked()) return;
+    if (!date || date === this.date) {
+      if (input) input.value = this.date || '';
+      return;
+    }
+    this.cacheDraft();
+    const previousDate = this.date;
+    this.pendingOperation = 'changing-date';
+    this.ownerWindow.clearTimeout(this.focusTimer);
+    this.clearError();
+    this.updateControls();
     try {
       const result = await this.onDateChange?.(date);
-      this.date = date;
-      if (result) {
-        this.filePath = result.filePath || this.filePath;
-        this.initial = result.initial;
-        this.score = this.initial?.score ?? null;
-        this.labels = new Set(this.initial?.labels ?? []);
-        this.customLabels = normalizeCustomLabels(result.customLabels || this.customLabels || []);
-        for (const label of this.labels) if (!BUILT_IN_LABEL_IDS.has(label) && !this.customLabels.includes(label)) this.customLabels.push(label);
-        this.note = this.initial?.note ?? '';
-        if (this.score !== null) this.selectScore(this.score);
+      const filePath = result?.filePath || this.filePath;
+      if (!this.drafts.has(filePath)) {
+        const draft = createMoodDraft(result?.initial, result?.customLabels || this.customLabels);
+        this.drafts.set(filePath, { draft, baseline: draftFingerprint(draft) });
       }
+      this.filePath = filePath;
+      this.date = date;
+      this.initial = result?.initial;
+      this.restoreDraft(this.drafts.get(filePath).draft);
+      this.saveFailed = false;
+      this.pendingOperation = null;
       this.renderScale();
     } catch (error) {
-      input.disabled = false;
-      new Notice(`${t(this.settings, 'moodTitle')}: ${error.message || error}`);
+      if (input) input.value = previousDate || '';
+      this.showError('moodDateChangeFailed', error);
+    } finally {
+      this.pendingOperation = null;
+      this.updateControls();
     }
   }
 
   renderLabels() {
+    if (this.isLocked()) return;
     this.resetContent(2);
     this.renderHeader(t(this.settings, 'addFeelings'), t(this.settings, 'chooseFeelings'));
 
@@ -179,31 +296,31 @@ export class MoodPickerModal extends Modal {
     const feelings = form.createDiv({ cls: 'journal-mood-field-group' });
     feelings.createEl('label', { cls: 'journal-mood-field-label', text: t(this.settings, 'chooseFeelings') });
     const group = feelings.createDiv({ cls: 'journal-mood-labels', attr: { role: 'group', 'aria-label': t(this.settings, 'addFeelings') } });
-    const builtIn = moodLabelsForScore(this.score);
-    for (const item of builtIn) {
+    const labelButtons = new Map();
+    const updateLabel = (button, id) => {
+      const selected = this.labels.has(id);
+      button.setAttribute('aria-pressed', String(selected));
+    };
+    const addLabelButton = (id, text, custom = false) => {
       const button = group.createEl('button', {
-        cls: 'journal-mood-label',
-        text: feelingLabel(this.settings, item.id),
-        attr: { type: 'button', 'aria-pressed': String(this.labels.has(item.id)) },
+        cls: `journal-mood-label${custom ? ' journal-mood-label-custom' : ''}`,
+        attr: { type: 'button', ...(custom ? { 'data-custom-label': 'true' } : {}) },
       });
+      button.createSpan({ cls: 'journal-mood-label-text', text });
+      const icon = button.createSpan({ cls: 'journal-mood-label-check', attr: { 'aria-hidden': 'true' } });
+      setIcon(icon, 'check');
+      labelButtons.set(id, button);
+      updateLabel(button, id);
       button.addEventListener('click', () => {
-        if (this.labels.has(item.id)) this.labels.delete(item.id);
-        else this.labels.add(item.id);
-        button.setAttribute('aria-pressed', String(this.labels.has(item.id)));
+        if (this.isLocked()) return;
+        if (this.labels.has(id)) this.labels.delete(id);
+        else this.labels.add(id);
+        updateLabel(button, id);
       });
-    }
-    const customIds = new Set(this.customLabels);
-    for (const item of Array.from(customIds).sort((a, b) => a.localeCompare(b))) {
-      const button = group.createEl('button', {
-        cls: 'journal-mood-label journal-mood-label-custom',
-        text: item,
-        attr: { type: 'button', 'aria-pressed': String(this.labels.has(item)), 'data-custom-label': 'true' },
-      });
-      button.addEventListener('click', () => {
-        if (this.labels.has(item)) this.labels.delete(item);
-        else this.labels.add(item);
-        button.setAttribute('aria-pressed', String(this.labels.has(item)));
-      });
+    };
+    for (const item of moodLabelsForScore(this.score)) addLabelButton(item.id, feelingLabel(this.settings, item.id));
+    for (const item of [...this.customLabels].sort((a, b) => a.localeCompare(b))) {
+      addLabelButton(item, item, true);
     }
     const customField = feelings.createDiv({ cls: 'journal-mood-custom-label-field' });
     const customInput = customField.createEl('input', {
@@ -214,14 +331,22 @@ export class MoodPickerModal extends Modal {
         'aria-label': t(this.settings, 'customFeeling'),
       },
     });
+    customInput.value = this.customText;
+    customInput.addEventListener('input', () => {
+      if (!this.isLocked()) this.customText = customInput.value;
+    });
     const addCustom = customField.createEl('button', { text: t(this.settings, 'addCustomFeeling'), attr: { type: 'button' } });
     const addLabel = () => {
+      if (this.isLocked()) return;
       const value = String(customInput.value || '').trim();
       if (!value) return;
       if (!BUILT_IN_LABEL_IDS.has(value) && !this.customLabels.includes(value)) this.customLabels.push(value);
       this.labels.add(value);
+      if (labelButtons.has(value)) updateLabel(labelButtons.get(value), value);
+      else addLabelButton(value, feelingLabel(this.settings, value), !BUILT_IN_LABEL_IDS.has(value));
+      this.customText = '';
       customInput.value = '';
-      this.renderLabels();
+      customInput.focus();
     };
     addCustom.addEventListener('click', addLabel);
     customInput.addEventListener('keydown', (event) => { if (event.key === 'Enter') { event.preventDefault(); addLabel(); } });
@@ -236,38 +361,58 @@ export class MoodPickerModal extends Modal {
       },
     });
     noteInput.value = this.note || '';
-    noteInput.addEventListener('input', () => { this.note = noteInput.value; });
+    noteInput.addEventListener('input', () => {
+      if (!this.isLocked()) this.note = noteInput.value;
+    });
     const actions = this.contentEl.createDiv({ cls: 'journal-mood-actions' });
     const back = actions.createEl('button', { text: t(this.settings, 'back'), attr: { type: 'button' } });
     back.addEventListener('click', () => this.renderScale());
     const save = actions.createEl('button', { text: t(this.settings, 'save'), cls: 'mod-cta', attr: { type: 'button' } });
+    this.saveButton = save;
     save.addEventListener('click', () => this.save(save));
-    save.focus();
+    this.updateControls();
+    this.contentEl.querySelector('h3')?.focus();
   }
 
-  async save(saveButton) {
-    if (this.score === null) return;
-    if (saveButton) {
-      saveButton.disabled = true;
-      saveButton.classList.add('is-loading');
-    }
+  async save(saveButton = this.saveButton) {
+    if (this.score === null || this.isLocked()) return;
+    const snapshot = {
+      filePath: this.filePath,
+      score: this.score,
+      labels: Array.from(this.labels),
+      note: this.note.trim() || null,
+      customLabels: [...this.customLabels],
+    };
+    this.pendingOperation = 'saving';
+    this.saveFailed = false;
+    this.ownerWindow.clearTimeout(this.focusTimer);
+    this.clearError();
+    this.updateControls();
     try {
-      await this.onSave?.({ filePath: this.filePath, score: this.score, labels: Array.from(this.labels), note: this.note.trim() || null, customLabels: this.customLabels });
+      await this.onSave?.(snapshot);
+      this.pendingOperation = null;
+      this.note = snapshot.note ?? '';
+      const noteInput = this.contentEl.querySelector('textarea');
+      if (noteInput) noteInput.value = this.note;
+      const draft = this.snapshotDraft();
+      this.drafts.set(snapshot.filePath, { draft, baseline: draftFingerprint(draft) });
+      this.updateControls();
       this.close();
     } catch (error) {
-      if (saveButton) {
-        saveButton.disabled = false;
-        saveButton.classList.remove('is-loading');
-      }
-      new Notice(`${t(this.settings, 'moodTitle')}: ${error.message || error}`);
+      this.pendingOperation = null;
+      this.saveFailed = true;
+      this.showError('moodSaveFailed', error);
+      this.updateControls();
+      saveButton?.focus();
     }
   }
 
   handleKeydown(event) {
     if (event.key === 'Escape') {
       event.preventDefault();
+      event.stopPropagation();
       this.close();
-      return;
+      return false;
     }
   }
 }

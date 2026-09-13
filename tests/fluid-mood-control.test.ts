@@ -25,12 +25,14 @@ function canvasContextStub(): CanvasRenderingContext2D {
   } as unknown as CanvasRenderingContext2D;
 }
 
-function pointerEvent(type: string, clientX: number, pointerId = 7): Event {
+function pointerEvent(type: string, clientX: number, pointerId = 7, clientY = 0, pointerType = 'mouse'): Event {
   const event = new Event(type, { bubbles: true, cancelable: true });
   Object.defineProperties(event, {
     button: { value: 0 },
     clientX: { value: clientX },
     pointerId: { value: pointerId },
+    clientY: { value: clientY },
+    pointerType: { value: pointerType },
   });
   return event;
 }
@@ -97,6 +99,150 @@ describe('FluidMoodControl interaction', () => {
     document.body.innerHTML = '';
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
+  });
+
+  function touchFixture(initialScore: -1 | null = -1) {
+    const root = document.createElement('div');
+    document.body.append(root);
+    root.setPointerCapture = vi.fn();
+    root.releasePointerCapture = vi.fn();
+    const onCommit = vi.fn();
+    const onPreview = vi.fn();
+    const control = new FluidMoodControl(root, {
+      initialScore,
+      accessibleLabel: 'Mood scale',
+      emptyLabel: 'Choose',
+      labelForScore: (score) => `Mood ${score}`,
+      onCommit,
+      onPreview,
+    });
+    mockTrackRect(root, 0, 400);
+    onPreview.mockClear();
+    const touch = (target: Element, type: string, x: number, y: number, id = 7) => {
+      const event = pointerEvent(type, x, id, y, 'touch');
+      target.dispatchEvent(event);
+      return event;
+    };
+    return { root, control, onCommit, onPreview, touch };
+  }
+
+  it.each(['.journal-fluid-canvas', '.journal-fluid-track', '.journal-fluid-handle'])(
+    'leaves vertical touch scrolling from %s unchanged and unprevented',
+    (selector) => {
+      const { root, control, onCommit, onPreview, touch } = touchFixture(null);
+      const target = root.querySelector(selector)!;
+      expect(touch(target, 'pointerdown', 380, 30).defaultPrevented).toBe(false);
+      expect(root.setPointerCapture).not.toHaveBeenCalled();
+      expect(root.classList.contains('is-dragging')).toBe(false);
+      expect(touch(target, 'pointermove', 383, 34).defaultPrevented).toBe(false);
+      expect(touch(target, 'pointermove', 385, 60).defaultPrevented).toBe(false);
+      // Once vertical, later horizontal movement must not reactivate the slider.
+      expect(touch(target, 'pointermove', 100, 65).defaultPrevented).toBe(false);
+      expect(touch(target, 'pointerup', 100, 65).defaultPrevented).toBe(false);
+      expect(onCommit).not.toHaveBeenCalled();
+      expect(onPreview).not.toHaveBeenCalled();
+      expect(root.getAttribute('aria-valuetext')).toBe('Choose');
+      expect(root.classList.contains('is-empty')).toBe(true);
+      expect(root.setPointerCapture).not.toHaveBeenCalled();
+      control.destroy();
+    },
+  );
+
+  it.each(['.journal-fluid-canvas', '.journal-fluid-readout', '.journal-fluid-endpoints'])(
+    'does not change mood when tapping %s',
+    (selector) => {
+      const { root, control, onCommit, onPreview, touch } = touchFixture();
+      const target = root.querySelector(selector)!;
+      touch(target, 'pointerdown', 380, 30);
+      expect(touch(target, 'pointerup', 382, 32).defaultPrevented).toBe(false);
+      expect(onCommit).not.toHaveBeenCalled();
+      expect(onPreview).not.toHaveBeenCalled();
+      expect(root.getAttribute('aria-valuenow')).toBe('-1');
+      control.destroy();
+    },
+  );
+
+  it.each(['.journal-fluid-track', '.journal-fluid-handle'])(
+    'commits an explicit %s touch tap only on release',
+    (selector) => {
+      const { root, control, onCommit, onPreview, touch } = touchFixture();
+      const target = root.querySelector(selector)!;
+      touch(target, 'pointerdown', 380, 30);
+      expect(onPreview).not.toHaveBeenCalled();
+      expect(onCommit).not.toHaveBeenCalled();
+      expect(root.setPointerCapture).not.toHaveBeenCalled();
+      touch(target, 'pointerup', 380, 30);
+      expect(onCommit.mock.calls).toEqual([[2]]);
+      expect(root.releasePointerCapture).toHaveBeenCalledWith(7);
+      expect(root.classList.contains('is-dragging')).toBe(false);
+      control.destroy();
+    },
+  );
+
+  it('captures only horizontal touch intent and ignores other pointers', () => {
+    const { root, control, onCommit, touch } = touchFixture();
+    const canvas = root.querySelector('canvas')!;
+    touch(canvas, 'pointerdown', 200, 30);
+    touch(canvas, 'pointerdown', 400, 30, 8);
+    touch(canvas, 'pointermove', 400, 30, 8);
+    touch(canvas, 'pointercancel', 400, 30, 8);
+    expect(root.setPointerCapture).not.toHaveBeenCalled();
+    expect(touch(canvas, 'pointermove', 320, 34).defaultPrevented).toBe(true);
+    expect(root.setPointerCapture).toHaveBeenCalledWith(7);
+    expect(root.getAttribute('aria-valuenow')).toBe('1.2');
+    touch(canvas, 'lostpointercapture', 320, 34);
+    expect(root.classList.contains('is-dragging')).toBe(true);
+    expect(onCommit).not.toHaveBeenCalled();
+    touch(canvas, 'pointerup', 380, 34);
+    expect(onCommit.mock.calls).toEqual([[2]]);
+    expect(root.releasePointerCapture).toHaveBeenCalledWith(7);
+    control.destroy();
+  });
+
+  it.each(['pointercancel', 'lostpointercapture'])(
+    'cleans up pending and active touch gestures on %s',
+    (ending) => {
+      const { root, control, onCommit, onPreview, touch } = touchFixture();
+      const track = root.querySelector('.journal-fluid-track')!;
+      touch(track, 'pointerdown', 200, 30);
+      touch(track, ending, 200, 30);
+      touch(track, 'pointerup', 200, 30);
+      expect(onPreview).not.toHaveBeenCalled();
+      touch(track, 'pointerdown', 200, 30);
+      touch(track, 'pointermove', 380, 32);
+      touch(root, ending, 380, 32);
+      touch(track, 'pointerup', 380, 32);
+      expect(onCommit).not.toHaveBeenCalled();
+      expect(root.getAttribute('aria-valuenow')).toBe('-1');
+      expect(root.classList.contains('is-dragging')).toBe(false);
+      touch(track, 'pointerdown', 380, 30);
+      touch(track, 'pointerup', 380, 30);
+      expect(onCommit.mock.calls).toEqual([[2]]);
+      control.destroy();
+    },
+  );
+
+  it.each([[205, 60, null], [380, 32, 2]])(
+    'resolves direction on pointerup without intervening moves (%s, %s)',
+    (x, y, score) => {
+      const { root, control, onCommit, touch } = touchFixture();
+      const track = root.querySelector('.journal-fluid-track')!;
+      touch(track, 'pointerdown', 200, 30);
+      touch(track, 'pointerup', x!, y!);
+      expect(onCommit.mock.calls).toEqual(score === null ? [] : [[score]]);
+      control.destroy();
+    },
+  );
+
+  it('releases capture and removes gesture listeners when destroyed mid-drag', () => {
+    const { root, control, onCommit, touch } = touchFixture();
+    touch(root, 'pointerdown', 200, 30);
+    touch(root, 'pointermove', 380, 32);
+    control.destroy();
+    expect(root.releasePointerCapture).toHaveBeenCalledWith(7);
+    expect(root.classList.contains('is-dragging')).toBe(false);
+    touch(root, 'pointerup', 380, 32);
+    expect(onCommit).not.toHaveBeenCalled();
   });
 
   it('previews during drag and commits only the snapped release value', () => {
