@@ -82,7 +82,9 @@ Day One 或 Apple Journal 导入请先使用专业导入插件，再把输出目
 ## 安装
 
 - **BRAT**：在 BRAT 中添加 `Haoo-7/Obsidian-Dayline`
-- **手动**：从 [Releases](https://github.com/Haoo-7/Obsidian-Dayline/releases) 下载 `dayline.zip`，解压到 vault 的 `.obsidian/plugins/dayline/`，在 Obsidian 设置中启用插件，运行命令「Open Dayline」
+- **手动**：从 [Releases](https://github.com/Haoo-7/Obsidian-Dayline/releases) 下载 `dayline.zip`，解压到 vault 的 `.obsidian/plugins/dayline-journal/`，在 Obsidian 设置中启用插件，运行命令「Open Dayline」
+
+从旧 `dayline` 目录或 Calendar Sidebar 1.x 升级时，Dayline 只会在新目录尚无 `data.json` 时复制旧设置和天气缓存；vault 内的心情元数据与 Markdown 笔记不会改动。
 
 ## 文件说明
 

@@ -1,4 +1,6 @@
 // @ts-nocheck
+import { PLUGIN_ID } from './plugin-identity';
+
 let requestUrl;
 function getRequestUrl() {
   if (!requestUrl) requestUrl = require('obsidian').requestUrl;
@@ -447,7 +449,7 @@ export class HeicCache {
 
   _getLibheif() {
     if (!this._libheifReady) {
-      const plugin = this.app.plugins?.plugins?.dayline;
+      const plugin = this.app.plugins?.plugins?.[PLUGIN_ID];
       const factory = plugin?._libheifFactory;
       if (!factory) {
         return Promise.reject(new Error('libheif not loaded'));
@@ -575,7 +577,7 @@ export class HeicCache {
   }
 
   _hasLibheifFactory() {
-    const plugin = this.app.plugins?.plugins?.dayline;
+    const plugin = this.app.plugins?.plugins?.[PLUGIN_ID];
     return typeof plugin?._libheifFactory === 'function';
   }
 

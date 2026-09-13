@@ -72,7 +72,7 @@ Use [Day One Importer](https://github.com/MarcDonald/obsidian-day-one-importer) 
 ## Installation
 
 - **BRAT**: Add `Haoo-7/Obsidian-Dayline` to BRAT
-- **Manual**: Download `dayline.zip` from [Releases](https://github.com/Haoo-7/Obsidian-Dayline/releases), extract to `.obsidian/plugins/dayline/` in your vault, enable in Obsidian settings, then run command `Open Dayline`
+- **Manual**: Download `dayline.zip` from [Releases](https://github.com/Haoo-7/Obsidian-Dayline/releases), extract to `.obsidian/plugins/dayline-journal/` in your vault, enable in Obsidian settings, then run command `Open Dayline`
 
 ## Files
 
@@ -108,7 +108,7 @@ Configured in Obsidian Settings → Community Plugins → Dayline:
 
 If you have a template configured in Obsidian's Daily Notes plugin and Templater is installed, clicking a date without a note will create one using the template with all Templater variables resolved (`tp.file.title`, date, week number, etc.).
 
-When upgrading from Calendar Sidebar 1.x, Dayline copies the old plugin `data.json` into `.obsidian/plugins/dayline/` only when the new data file does not already exist. Vault mood metadata and Markdown notes remain unchanged.
+When upgrading from an earlier `dayline` installation or Calendar Sidebar 1.x, Dayline copies the old plugin `data.json` into `.obsidian/plugins/dayline-journal/` only when the new data file does not already exist. Vault mood metadata and Markdown notes remain unchanged.
 
 ## Requirements
 

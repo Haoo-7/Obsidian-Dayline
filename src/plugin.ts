@@ -5,6 +5,7 @@
  * Click a date to open that day's daily note.
  */
 const { Plugin, ItemView, TFile, Notice, Modal, Menu, setIcon, Platform } = require('obsidian');
+const { PLUGIN_ID, LEGACY_PLUGIN_IDS } = require('./plugin-identity');
 const { JournalIndex, startJournalIndexLoad, waitForJournalIndexStartup } = require('./journal-index');
 const { subscribeJournalMetadataRefresh } = require('./journal-metadata-refresh');
 const { MoodStore } = require('./mood-store');
@@ -170,7 +171,8 @@ class DaylinePlugin extends Plugin {
         const basePath = String(this.app.vault?.adapter?.basePath || '').replace(/[\\/]+$/, '');
         const dynamicRequire = typeof require === 'function' ? require : null;
         if (basePath && dynamicRequire) {
-          this._libheifFactory = dynamicRequire(`${basePath}/.obsidian/plugins/dayline/libheif-bundle.js`);
+          const configDir = String(this.app.vault?.configDir || '.obsidian').replace(/[\\/]+$/, '');
+          this._libheifFactory = dynamicRequire(`${basePath}/${configDir}/plugins/${PLUGIN_ID}/libheif-bundle.js`);
         }
       } catch (e) {
         console.warn('[Dayline] Failed to load optional libheif:', e.message);
@@ -450,12 +452,18 @@ class DaylinePlugin extends Plugin {
   async _migrateLegacyData() {
     const adapter = this.app.vault?.adapter;
     if (!adapter?.exists || !adapter?.read || !adapter?.write) return;
-    const legacyPath = '.obsidian/plugins/calendar-sidebar/data.json';
-    const currentPath = '.obsidian/plugins/dayline/data.json';
+    const configDir = String(this.app.vault?.configDir || '.obsidian').replace(/[\\/]+$/, '');
+    const dataPath = (pluginId) => `${configDir}/plugins/${pluginId}/data.json`;
+    const currentPath = dataPath(PLUGIN_ID);
     try {
-      if (await adapter.exists(currentPath) || !(await adapter.exists(legacyPath))) return;
-      await adapter.write(currentPath, await adapter.read(legacyPath));
-      console.info('[Dayline] Migrated Calendar Sidebar settings and weather cache.');
+      if (await adapter.exists(currentPath)) return;
+      for (const legacyId of LEGACY_PLUGIN_IDS) {
+        const legacyPath = dataPath(legacyId);
+        if (!(await adapter.exists(legacyPath))) continue;
+        await adapter.write(currentPath, await adapter.read(legacyPath));
+        console.info(`[Dayline] Migrated ${legacyId} settings and weather cache.`);
+        return;
+      }
     } catch (error) {
       console.warn('[Dayline] Legacy data migration failed:', error);
     }

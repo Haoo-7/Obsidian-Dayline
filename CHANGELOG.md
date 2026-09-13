@@ -1,5 +1,29 @@
 # Changelog
 
+## 2.3.1 (2026-09-13)
+
+### Changed
+- Changed the internal community plugin ID from `dayline` to `dayline-journal` to avoid the existing marketplace entry. The public plugin name remains **Dayline**.
+- Existing settings and weather cache migrate automatically from the previous `dayline` directory when the new plugin data file is absent; Calendar Sidebar 1.x migration remains supported.
+
+### Verification
+- `npm test` passed: 48 test files and 400 tests.
+- `npm run typecheck`, `npm run build`, and `git diff --check` passed.
+
+---
+
+## 2.3.1（2026-09-13）
+
+### 变更
+- 为避免与市场中已有条目冲突，内部社区插件 ID 从 `dayline` 改为 `dayline-journal`；发布名仍保持 **Dayline**。
+- 新插件数据文件不存在时，旧 `dayline` 目录中的设置和天气缓存会自动迁移；Calendar Sidebar 1.x 的迁移仍然受支持。
+
+### 验证
+- `npm test` 通过：48 个测试文件、400 项测试。
+- `npm run typecheck`、`npm run build` 和 `git diff --check` 通过。
+
+---
+
 ## 2.3.0 (2026-09-13)
 
 ### Added

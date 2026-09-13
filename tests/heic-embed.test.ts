@@ -15,7 +15,7 @@ describe('HEIC embed conversion guard', () => {
     let factoryCalls = 0;
     const app = {
       vault: { readBinary: async () => ({ byteLength: MAX_HEIC_BYTES + 1 }) },
-      plugins: { plugins: { dayline: { _libheifFactory: () => { factoryCalls++; return {}; } } } },
+      plugins: { plugins: { 'dayline-journal': { _libheifFactory: () => { factoryCalls++; return {}; } } } },
     };
     const cache = new HeicCache(app);
     await expect(cache.getThumbnail({ path: 'huge.heic', stat: { mtime: 1 } })).resolves.toBeNull();
@@ -26,7 +26,7 @@ describe('HEIC embed conversion guard', () => {
     const readBinary = vi.fn();
     const app = {
       vault: { readBinary },
-      plugins: { plugins: { dayline: { _libheifFactory: () => ({}) } } },
+      plugins: { plugins: { 'dayline-journal': { _libheifFactory: () => ({}) } } },
     };
     const cache = new HeicCache(app);
 
@@ -42,7 +42,7 @@ describe('HEIC embed conversion guard', () => {
     ];
     const app = {
       vault: { readBinary: async () => new ArrayBuffer(4) },
-      plugins: { plugins: { dayline: { _libheifFactory: () => ({ HeifDecoder: class { decode() { return images; } } }) } } },
+      plugins: { plugins: { 'dayline-journal': { _libheifFactory: () => ({ HeifDecoder: class { decode() { return images; } } }) } } },
     };
 
     await expect(new HeicCache(app).getThumbnail({ path: 'wide.heic', stat: { mtime: 1, size: 4 } })).resolves.toBeNull();
@@ -76,7 +76,7 @@ describe('HEIC embed conversion guard', () => {
     }) as typeof document.createElement);
     const app = {
       vault: { readBinary: async () => new ArrayBuffer(4) },
-      plugins: { plugins: { dayline: { _libheifFactory: () => ({ HeifDecoder: class { decode() { return images; } } }) } } },
+      plugins: { plugins: { 'dayline-journal': { _libheifFactory: () => ({ HeifDecoder: class { decode() { return images; } } }) } } },
     };
 
     await expect(new HeicCache(app).getThumbnail({ path: 'ok.heic', stat: { mtime: 1, size: 4 } }))
@@ -100,7 +100,7 @@ describe('HEIC embed conversion guard', () => {
     } as unknown as HTMLCanvasElement);
     const app = {
       vault: { readBinary: async () => new ArrayBuffer(4) },
-      plugins: { plugins: { dayline: { _libheifFactory: () => ({ HeifDecoder: class { decode() { return [image]; } } }) } } },
+      plugins: { plugins: { 'dayline-journal': { _libheifFactory: () => ({ HeifDecoder: class { decode() { return [image]; } } }) } } },
     };
 
     await expect(new HeicCache(app).getThumbnail({ path: 'bad.heic', stat: { mtime: 1, size: 4 } })).resolves.toBeNull();
@@ -114,7 +114,7 @@ describe('HEIC embed conversion guard', () => {
     const readBinary = vi.fn().mockResolvedValue(new ArrayBuffer(4));
     const app = {
       vault: { readBinary },
-      plugins: { plugins: { dayline: { _libheifFactory: () => factoryPromise } } },
+      plugins: { plugins: { 'dayline-journal': { _libheifFactory: () => factoryPromise } } },
     };
     const cache = new HeicCache(app);
     const first = cache.getThumbnail({ path: 'first.heic', stat: { mtime: 1, size: 4 } });
@@ -131,7 +131,7 @@ describe('HEIC embed conversion guard', () => {
     let factoryCalls = 0;
     const app = {
       vault: { readBinary: async () => { reads += 1; return new ArrayBuffer(4); } },
-      plugins: { plugins: { dayline: { _libheifFactory: () => { factoryCalls += 1; return {}; } } } },
+      plugins: { plugins: { 'dayline-journal': { _libheifFactory: () => { factoryCalls += 1; return {}; } } } },
     };
     const cache = new HeicCache(app, { routes: { heic: 'disabled' } });
     await expect(cache.getThumbnail({ path: 'mobile.heic', stat: { mtime: 1 } })).resolves.toBeNull();
@@ -143,7 +143,7 @@ describe('HEIC embed conversion guard', () => {
     let reads = 0;
     const app = {
       vault: { readBinary: async () => { reads += 1; return new ArrayBuffer(4); } },
-      plugins: { plugins: { dayline: {} } },
+      plugins: { plugins: { 'dayline-journal': {} } },
     };
     const cache = new HeicCache(app);
     await expect(cache.getThumbnail({ path: 'unsupported.heic', stat: { mtime: 1 } })).resolves.toBeNull();

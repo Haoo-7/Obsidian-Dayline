@@ -23,6 +23,21 @@ var __copyProps = (to, from, except, desc2) => {
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
 
+// src/plugin-identity.ts
+var plugin_identity_exports = {};
+__export(plugin_identity_exports, {
+  LEGACY_PLUGIN_IDS: () => LEGACY_PLUGIN_IDS,
+  PLUGIN_ID: () => PLUGIN_ID
+});
+var PLUGIN_ID, LEGACY_PLUGIN_IDS;
+var init_plugin_identity = __esm({
+  "src/plugin-identity.ts"() {
+    "use strict";
+    PLUGIN_ID = "dayline-journal";
+    LEGACY_PLUGIN_IDS = ["dayline", "calendar-sidebar"];
+  }
+});
+
 // src/date-utils.ts
 var date_utils_exports = {};
 __export(date_utils_exports, {
@@ -23663,6 +23678,7 @@ var requestUrl, MAX_EXIF_BLOCK_BYTES, MAX_HEIC_TIFF_SCAN_BYTES, ImageMetadataCac
 var init_image_metadata = __esm({
   "src/image-metadata.ts"() {
     "use strict";
+    init_plugin_identity();
     MAX_EXIF_BLOCK_BYTES = 8 * 1024 * 1024;
     MAX_HEIC_TIFF_SCAN_BYTES = 16 * 1024 * 1024;
     ImageMetadataCache = class {
@@ -23738,7 +23754,7 @@ var init_image_metadata = __esm({
       }
       _getLibheif() {
         if (!this._libheifReady) {
-          const plugin = this.app.plugins?.plugins?.dayline;
+          const plugin = this.app.plugins?.plugins?.[PLUGIN_ID];
           const factory = plugin?._libheifFactory;
           if (!factory) {
             return Promise.reject(new Error("libheif not loaded"));
@@ -23845,7 +23861,7 @@ var init_image_metadata = __esm({
         }
       }
       _hasLibheifFactory() {
-        const plugin = this.app.plugins?.plugins?.dayline;
+        const plugin = this.app.plugins?.plugins?.[PLUGIN_ID];
         return typeof plugin?._libheifFactory === "function";
       }
       invalidate(filePath) {
@@ -24437,6 +24453,7 @@ var init_mobile_diagnostics = __esm({
 
 // src/plugin.ts
 var { Plugin, ItemView: ItemView2, TFile: TFile2, Notice: Notice4, Modal: Modal2, Menu, setIcon: setIcon4, Platform } = require("obsidian");
+var { PLUGIN_ID: PLUGIN_ID2, LEGACY_PLUGIN_IDS: LEGACY_PLUGIN_IDS2 } = (init_plugin_identity(), __toCommonJS(plugin_identity_exports));
 var { JournalIndex: JournalIndex2, startJournalIndexLoad: startJournalIndexLoad2, waitForJournalIndexStartup: waitForJournalIndexStartup2 } = (init_journal_index(), __toCommonJS(journal_index_exports));
 var { subscribeJournalMetadataRefresh: subscribeJournalMetadataRefresh2 } = (init_journal_metadata_refresh(), __toCommonJS(journal_metadata_refresh_exports));
 var { MoodStore: MoodStore2 } = (init_mood_store(), __toCommonJS(mood_store_exports));
@@ -24593,7 +24610,8 @@ var DaylinePlugin = class extends Plugin {
         const basePath = String(this.app.vault?.adapter?.basePath || "").replace(/[\\/]+$/, "");
         const dynamicRequire = typeof require === "function" ? require : null;
         if (basePath && dynamicRequire) {
-          this._libheifFactory = dynamicRequire(`${basePath}/.obsidian/plugins/dayline/libheif-bundle.js`);
+          const configDir = String(this.app.vault?.configDir || ".obsidian").replace(/[\\/]+$/, "");
+          this._libheifFactory = dynamicRequire(`${basePath}/${configDir}/plugins/${PLUGIN_ID2}/libheif-bundle.js`);
         }
       } catch (e) {
         console.warn("[Dayline] Failed to load optional libheif:", e.message);
@@ -24828,12 +24846,18 @@ var DaylinePlugin = class extends Plugin {
   async _migrateLegacyData() {
     const adapter = this.app.vault?.adapter;
     if (!adapter?.exists || !adapter?.read || !adapter?.write) return;
-    const legacyPath = ".obsidian/plugins/calendar-sidebar/data.json";
-    const currentPath = ".obsidian/plugins/dayline/data.json";
+    const configDir = String(this.app.vault?.configDir || ".obsidian").replace(/[\\/]+$/, "");
+    const dataPath = (pluginId) => `${configDir}/plugins/${pluginId}/data.json`;
+    const currentPath = dataPath(PLUGIN_ID2);
     try {
-      if (await adapter.exists(currentPath) || !await adapter.exists(legacyPath)) return;
-      await adapter.write(currentPath, await adapter.read(legacyPath));
-      console.info("[Dayline] Migrated Calendar Sidebar settings and weather cache.");
+      if (await adapter.exists(currentPath)) return;
+      for (const legacyId of LEGACY_PLUGIN_IDS2) {
+        const legacyPath = dataPath(legacyId);
+        if (!await adapter.exists(legacyPath)) continue;
+        await adapter.write(currentPath, await adapter.read(legacyPath));
+        console.info(`[Dayline] Migrated ${legacyId} settings and weather cache.`);
+        return;
+      }
     } catch (error) {
       console.warn("[Dayline] Legacy data migration failed:", error);
     }

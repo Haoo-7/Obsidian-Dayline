@@ -54,7 +54,7 @@ Mood metadata is authoritative in `Calendar/journal-metadata.json` by default. M
 
 Calendar display can be simplified in Dayline settings with three independent switches: mood markers, the weather card above the calendar, and weather icons in the top-right of date cells. These switches affect only the calendar view; mood records, weather cache, and the journal timeline remain available.
 
-**Installation**: Add `Haoo-7/Obsidian-Dayline` to BRAT, or download `dayline.zip` from [Releases](https://github.com/Haoo-7/Obsidian-Dayline/releases) and extract to `.obsidian/plugins/dayline/`. On first launch, Dayline migrates the old plugin `data.json` when the new directory has no data file.
+**Installation**: Add `Haoo-7/Obsidian-Dayline` to BRAT, or download `dayline.zip` from [Releases](https://github.com/Haoo-7/Obsidian-Dayline/releases) and extract to `.obsidian/plugins/dayline-journal/`. On first launch, Dayline migrates `data.json` from the previous `dayline` or Calendar Sidebar plugin directory when the new data file is absent.
 
 ---
 
@@ -100,7 +100,7 @@ Day One 或 Apple Journal 导入请先使用专业导入插件，再把输出目
 
 「显示日历心情标记」、「显示日历天气卡片」和「显示日期天气图标」是三个独立开关，只影响日历视图的视觉显示，不删除或修改心情 JSON、天气缓存、Markdown，也不影响日记时间线。
 
-**安装**：在 BRAT 中添加 `Haoo-7/Obsidian-Dayline`，或从 [Releases](https://github.com/Haoo-7/Obsidian-Dayline/releases) 下载 `dayline.zip` 解压到 `.obsidian/plugins/dayline/`。首次启动时，如果新目录没有 `data.json`，Dayline 会迁移旧插件的数据。
+**安装**：在 BRAT 中添加 `Haoo-7/Obsidian-Dayline`，或从 [Releases](https://github.com/Haoo-7/Obsidian-Dayline/releases) 下载 `dayline.zip` 解压到 `.obsidian/plugins/dayline-journal/`。首次启动时，如果新目录没有 `data.json`，Dayline 会依次迁移旧 `dayline` 或 Calendar Sidebar 插件的数据。
 
 ---
 
