@@ -1,5 +1,27 @@
 # Changelog
 
+## 2.3.3 (2026-09-13)
+
+### Changed
+- Published a maintenance release to force the Obsidian Community directory to re-evaluate the repository after the release tag format correction. No plugin runtime behavior changed.
+
+### Verification
+- `npm test` passed: 48 test files and 400 tests.
+- `npm run typecheck`, `npm run build`, and `git diff --check` passed.
+
+---
+
+## 2.3.3（2026-09-13）
+
+### 变更
+- 发布维护版本，用于在修正 Release 标签格式后强制 Obsidian 社区目录重新检查仓库；插件运行时行为没有变化。
+
+### 验证
+- `npm test` 通过：48 个测试文件、400 项测试。
+- `npm run typecheck`、`npm run build` 和 `git diff --check` 通过。
+
+---
+
 ## 2.3.2 (2026-09-13)
 
 ### Changed
