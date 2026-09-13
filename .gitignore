@@ -1,3 +1,4 @@
 .DS_Store
+.omo/
 node_modules/
 dist/

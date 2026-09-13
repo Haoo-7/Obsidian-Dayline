@@ -47,7 +47,7 @@ describe('mobile diagnostics', () => {
       journalIndex: { getEntries: () => { throw new Error('index unavailable'); } },
       _mobileDiagnosticEvents: [
         ...Array.from({ length: 18 }, () => ({ name: 'mode-request:timeline', at: '2026-08-31T00:00:00.000Z' })),
-        { name: 'Calendar/Daily/private-note.md', at: '/Users/haoo/secret.md' },
+        { name: 'Calendar/Daily/private-note.md', at: '/Users/example/secret.md' },
         null,
       ],
     });
@@ -57,7 +57,7 @@ describe('mobile diagnostics', () => {
     expect(output.events).toHaveLength(19);
     expect(output.events.at(-1)).toEqual({ name: 'unknown', at: 'unknown' });
     expect(formatMobileDiagnostics(output)).not.toContain('private-note.md');
-    expect(formatMobileDiagnostics(output)).not.toContain('/Users/haoo');
+    expect(formatMobileDiagnostics(output)).not.toContain('/Users/example');
   });
 
   it('does not expose unknown active view types or user-facing identifiers', () => {

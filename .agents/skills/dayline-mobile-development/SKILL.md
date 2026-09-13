@@ -9,10 +9,10 @@ Updated: 2026-09-05
 
 ## Environment Boundary
 
-- The Mac test Vault is `/Users/haoo/Library/Application Support/obsidian/Obsidian Sandbox`.
-- Its plugin directory is `/Users/haoo/Library/Application Support/obsidian/Obsidian Sandbox/.obsidian/plugins/dayline`.
+- The Mac test Vault is the locally configured Obsidian Sandbox vault. Resolve it from the active Obsidian setup instead of hardcoding a user path.
+- Its plugin directory is `<Sandbox Vault>/.obsidian/plugins/dayline`.
 - That path deploys only the Mac test Vault. For each phone, use the already configured Dayline test-Vault install/transfer path; if it is unknown, stop and ask instead of improvising against a personal Vault.
-- Never use `/Users/haoo/Documents/Main_Topic` as the development, deployment, reload, or QA target for this workflow.
+- Never use a personal production vault as the development, deployment, reload, or QA target for this workflow.
 - A narrow desktop window or responsive emulator is only a layout smoke test. It is not evidence that iOS or Android works.
 - Do not commit, push, publish, tag, or release unless the user separately authorizes that action.
 
