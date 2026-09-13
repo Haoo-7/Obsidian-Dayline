@@ -1,5 +1,27 @@
 # Changelog
 
+## 2.3.2 (2026-09-13)
+
+### Changed
+- Renamed the community directory listing from **Dayline** to **Dayline Journal** to satisfy the directory's unique display-name requirement. Dayline remains the product brand, and the plugin ID remains `dayline-journal`.
+
+### Verification
+- `npm test` passed: 48 test files and 400 tests.
+- `npm run typecheck`, `npm run build`, and `git diff --check` passed.
+
+---
+
+## 2.3.2（2026-09-13）
+
+### 变更
+- 为满足社区目录的展示名唯一性要求，条目名称从 **Dayline** 调整为 **Dayline Journal**；产品品牌仍为 Dayline，插件 ID 保持 `dayline-journal`。
+
+### 验证
+- `npm test` 通过：48 个测试文件、400 项测试。
+- `npm run typecheck`、`npm run build` 和 `git diff --check` 通过。
+
+---
+
 ## 2.3.1 (2026-09-13)
 
 ### Changed

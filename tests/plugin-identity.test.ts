@@ -8,7 +8,7 @@ describe('plugin identity', () => {
     const packageJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
 
     expect(manifest.id).toBe(PLUGIN_ID);
-    expect(manifest.name).toBe('Dayline');
+    expect(manifest.name).toBe('Dayline Journal');
     expect(manifest.dir).toBe(`.obsidian/plugins/${PLUGIN_ID}`);
     expect(packageJson.version).toBe(manifest.version);
   });

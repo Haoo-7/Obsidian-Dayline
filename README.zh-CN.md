@@ -4,7 +4,7 @@
 
 ---
 
-# Dayline — Obsidian 插件
+# Dayline Journal — Obsidian 插件
 
 <p align="center">
   <img src="assets/dayline-wordmark.svg" alt="Dayline 标识" width="250">
@@ -100,7 +100,7 @@ Day One 或 Apple Journal 导入请先使用专业导入插件，再把输出目
 
 ## 配置
 
-在 Obsidian 设置 → 第三方插件 → Dayline：
+在 Obsidian 设置 → 第三方插件 → Dayline Journal：
 
 | 设置项 | 说明 |
 |--------|------|

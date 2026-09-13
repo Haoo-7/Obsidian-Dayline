@@ -4,7 +4,7 @@
 
 ---
 
-# Dayline — Obsidian Plugin
+# Dayline Journal — Obsidian Plugin
 
 <p align="center">
   <img src="assets/dayline-wordmark.svg" alt="Dayline logo" width="250">
@@ -88,7 +88,7 @@ Use [Day One Importer](https://github.com/MarcDonald/obsidian-day-one-importer) 
 
 ## Settings
 
-Configured in Obsidian Settings → Community Plugins → Dayline:
+Configured in Obsidian Settings → Community Plugins → Dayline Journal:
 
 | Setting | Description |
 |---------|-------------|

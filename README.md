@@ -6,7 +6,7 @@
 
 ---
 
-# Dayline — Obsidian Plugin
+# Dayline Journal — Obsidian Plugin
 
 <p align="center">
   <img src="assets/dayline-wordmark.svg" alt="Dayline logo" width="250">
@@ -58,7 +58,7 @@ Calendar display can be simplified in Dayline settings with three independent sw
 
 ---
 
-# Dayline — Obsidian 插件
+# Dayline Journal — Obsidian 插件
 
 Dayline 是一个集日历、日记时间线、心情记录、去年今日、天气和照片于一体的可视化日记工具。
 
