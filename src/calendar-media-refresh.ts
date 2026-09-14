@@ -51,7 +51,7 @@ export function cachedMonthsReferencingMedia(
         let resolvedPath: string | undefined;
         try {
           resolvedPath = resolveAttachment(attachment);
-        } catch (_) {
+        } catch {
           // A stale metadata cache is equivalent to an unresolved attachment.
         }
         const normalizedResolvedPath = normalizedPath(resolvedPath);

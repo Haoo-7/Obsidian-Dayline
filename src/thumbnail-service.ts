@@ -46,7 +46,7 @@ export class ThumbnailService {
         ? (await this.heicCache?.getThumbnail(file))?.dataUrl
         : this.app.vault.getResourcePath(file);
       return url ? { url, path: file.path, index } : null;
-    } catch (_) {
+    } catch {
       return null;
     }
   }

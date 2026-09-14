@@ -75,7 +75,7 @@ export function formatDateInTimeZone(date: Date, timezone = 'auto'): string {
       }).formatToParts(date);
       const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
       if (values.year && values.month && values.day) return `${values.year}-${values.month}-${values.day}`;
-    } catch (_) {
+    } catch {
       // Invalid timezone settings fall back to the host local date.
     }
   }
@@ -102,7 +102,7 @@ export function getClockPartsInTimeZone(
     }).formatToParts(date);
     const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
     return { hour: Number(values.hour), minute: Number(values.minute) };
-  } catch (_) {
+  } catch {
     return { hour: date.getHours(), minute: date.getMinutes() };
   }
 }

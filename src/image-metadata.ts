@@ -409,7 +409,7 @@ export class ImageMetadataCache {
       const raw = parseImageExif(buf);
       if (!raw) return null;
       return formatExifForDisplay(raw);
-    } catch (_) {
+    } catch {
       return null;
     }
   }
@@ -569,7 +569,7 @@ export class HeicCache {
       for (const image of images) {
         try {
           image?.free?.();
-        } catch (_) {
+        } catch {
           // A failed native cleanup must not prevent the remaining handles from being released.
         }
       }
@@ -755,7 +755,7 @@ export class ReverseGeocoder {
         }
         if (data.display_name) return data.display_name.split(',')[0];
       }
-    } catch (e) {
+    } catch {
       // Silently fail — just show raw coordinates.
     }
     return null;

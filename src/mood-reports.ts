@@ -49,8 +49,6 @@ export interface MoodReportOptions {
   weekStartsOn?: 0 | 1;
 }
 
-const SCORES = [-2, -1, 0, 1, 2] as const;
-
 function dateValue(date: string): Date {
   return new Date(`${date}T12:00:00Z`);
 }

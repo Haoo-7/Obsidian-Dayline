@@ -12,7 +12,7 @@ export async function saveDaylineExport(app: any, content: string, fileName: str
   const folder = 'Dayline Exports';
   const folderPath = app.vault.getAbstractFileByPath?.(folder);
   if (!folderPath && app.vault.createFolder) {
-    try { await app.vault.createFolder(folder); } catch (_) { /* another export may have created it */ }
+    try { await app.vault.createFolder(folder); } catch { /* another export may have created it */ }
   }
   let candidate = `${folder}/${safeName}`;
   const exists = (path: string) => Boolean(app.vault.getAbstractFileByPath?.(path));

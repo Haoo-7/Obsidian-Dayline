@@ -754,7 +754,7 @@ class DaylinePlugin extends Plugin {
     if (!normalized || this.app.vault.getAbstractFileByPath(normalized)) return;
     const parent = normalized.includes('/') ? normalized.slice(0, normalized.lastIndexOf('/')) : '';
     if (parent) await this.ensureFolder(parent);
-    try { await this.app.vault.createFolder(normalized); } catch (_) { /* folder may have been created concurrently */ }
+    try { await this.app.vault.createFolder(normalized); } catch { /* folder may have been created concurrently */ }
   }
 
   async ensureJournalFile(path, content) {
@@ -1131,7 +1131,7 @@ class DaylinePlugin extends Plugin {
           );
         }
       }
-    } catch (_) {
+    } catch {
       // Non-critical — calendar still works, just at the bottom
     }
   }
@@ -1637,7 +1637,6 @@ class CalendarView extends ItemView {
         path: null, primaryEntryPath: undefined, mood: undefined, media: [], images: [], cover: undefined,
       };
       const media = dateEntry.media || [];
-      const images = dateEntry.images || media.filter((item) => item.kind === 'image');
       const cover = dateEntry.cover || media[0];
       const isToday = dateStr === todayStr;
 
@@ -1670,7 +1669,7 @@ class CalendarView extends ItemView {
             },
           })
           : cell.createDiv({ cls: 'cal-day-bg' });
-        const overlay = cell.createDiv({ cls: 'cal-day-overlay' });
+        cell.createDiv({ cls: 'cal-day-overlay' });
         if (mobileImage) {
           bg.addEventListener('load', () => bg.addClass('is-loaded'));
           bg.addEventListener('error', () => {
@@ -1771,7 +1770,7 @@ class CalendarView extends ItemView {
       }
 
       // Date number
-      const num = cell.createEl('span', { cls: 'cal-day-num', text: String(d) });
+      cell.createEl('span', { cls: 'cal-day-num', text: String(d) });
 
       // Desktop keeps the immediate pointerdown action. On coarse pointers,
       // wait for release and cancel when movement exceeds the tap threshold so
@@ -1931,7 +1930,7 @@ class CalendarView extends ItemView {
             }
           }
         }
-      } catch (_) {
+      } catch {
         this.plugin._hideExifTooltip();
       }
     }, 500);
@@ -1949,7 +1948,7 @@ class CalendarView extends ItemView {
         const fields = formatMediaMetadataForDisplay(metadata);
         if (!this.plugin._isCurrentExifHover(hoverToken)) return;
         this.plugin._showExifTooltip(cell, fields, false, 'media');
-      } catch (_) {
+      } catch {
         this.plugin._hideExifTooltip();
       }
     }, immediate ? 0 : 500);
@@ -2072,9 +2071,9 @@ class CalendarView extends ItemView {
     const locationEl = shouldShowCalendarWeatherLocation(s)
       ? infoEl.createDiv({ cls: 'cal-weather-location' })
       : null;
-    const detailEl = infoEl.createDiv({ cls: 'cal-weather-detail' });
-    const extraEl = infoEl.createDiv({ cls: 'cal-weather-extra' });
-    const statusEl = infoEl.createDiv({ cls: 'cal-weather-status' });
+    infoEl.createDiv({ cls: 'cal-weather-detail' });
+    infoEl.createDiv({ cls: 'cal-weather-extra' });
+    infoEl.createDiv({ cls: 'cal-weather-status' });
     tempEl.setText(_l(s.weatherLanguage, 'loading'));
     if (locationEl) locationEl.setText(`${_l(s.weatherLanguage, 'weatherLocation')}: ${s.weatherLocationName || `${parseFloat(s.weatherLatitude).toFixed(2)}, ${parseFloat(s.weatherLongitude).toFixed(2)}`}`);
 
@@ -2228,7 +2227,7 @@ class CalendarView extends ItemView {
       this._updateWeatherCardUI();
       // Do NOT call full render here — it would recreate the card and trigger another fetch.
       // Weather badges on day cells will appear on the next normal render cycle.
-    } catch (err) {
+    } catch {
       if (token !== this._fetchToken || this._weatherCardDate !== dateStr) return;
       this._weatherError = true;
       this._weatherLoading = false;
@@ -2307,7 +2306,7 @@ class CalendarView extends ItemView {
       if (result && bgEl.isConnected) {
         this._applyBackgroundResource(bgEl, result.url);
       }
-    } catch (_) {
+    } catch {
       // silent
     }
   }
@@ -2641,7 +2640,7 @@ class CalendarView extends ItemView {
       });
       this._addNoteMediaInfoControl(img, () => this._onNoteImageEnter(null, img, true));
       loader.replaceWith(img);
-    } catch (_) {
+    } catch {
       loader.textContent = t(this.plugin.settings, 'heicError');
     }
   }
@@ -2662,7 +2661,7 @@ class CalendarView extends ItemView {
         const fields = await this.exifCache.get(file);
         if (!this.plugin._isCurrentExifHover(hoverToken)) return;
         this.plugin._showExifTooltip(img, fields, false);
-      } catch (_) {
+      } catch {
         this.plugin._hideExifTooltip();
       }
     }, immediate ? 0 : 500);
@@ -2683,7 +2682,7 @@ class CalendarView extends ItemView {
         const metadata = await this.mediaService?.getMetadata?.(attachment);
         if (!this.plugin._isCurrentExifHover(hoverToken)) return;
         this.plugin._showExifTooltip(el, formatMediaMetadataForDisplay(metadata), false, 'media');
-      } catch (_) {
+      } catch {
         this.plugin._hideExifTooltip();
       }
     }, immediate ? 0 : 500);
@@ -3187,13 +3186,6 @@ class CreateNoteModal extends Modal {
 /* ============================================================
    Helpers
    ============================================================ */
-const IMAGE_EXTS = ['jpg', 'jpeg', 'png', 'heic', 'heif', 'webp', 'gif', 'avif', 'tiff', 'tif', 'bmp'];
-
-function _isImageLink(link) {
-  const clean = String(link || '').split('|', 1)[0].split('?', 1)[0];
-  return IMAGE_EXTS.includes(clean.split('.').pop()?.toLowerCase());
-}
-
 function _daylineDate(settings, date = new Date()) {
   return getTodayDate(settings?.weatherTimezone || 'auto', date);
 }
@@ -3212,29 +3204,6 @@ const SVG_ICONS = {
 'snow.svg':`data:image/svg+xml,${encodeURIComponent('<svg viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(#snc)"><g id="Clouds"><path d="M55.2623 48.4746C60.1227 40.6111 70.2975 37.38 78.8151 40.9434C87.3214 44.5023 92.138 54.0026 89.903 62.9648L89.7418 63.6143L90.4108 63.585C97.4203 63.2791 103.5 68.9917 103.5 76.0283C103.5 82.8395 97.7717 88.4997 90.9772 88.5H37.9537C31.1275 88.5018 25.2029 83.1709 24.5592 76.3604C23.9158 69.5518 28.7369 63.2124 35.443 61.9453L35.9264 61.8535L35.8424 61.3691C35.0256 56.6239 37.1258 51.7168 41.1051 49.0127C45.0951 46.3014 50.4459 46.1537 54.5797 48.6396L55.0026 48.8945L55.2623 48.4746Z" fill="url(#sng1)" stroke="#E6EFFC"/></g><g id="Snowflakes"><path d="M52.578 98.366l-1.205-.689c.106-.444.105-.908-.003-1.353l1.208-.69c.095-.054.18-.126.247-.214.067-.087.117-.186.146-.292.028-.107.036-.218.021-.326a.72.72 0 00-.106-.31.63.63 0 00-.514-.39.63.63 0 00-.639.084L51.528 94.876c-.335-.317-.741-.55-1.184-.676V92.82a.62.62 0 00-.187-.582.647.647 0 00-.876 0 .62.62 0 00-.187.582v1.38c-.442.128-.848.36-1.185.674L47.266 94.185a.63.63 0 00-.639-.084.63.63 0 00-.514.39.72.72 0 00-.106.31.692.692 0 00.021.326.62.62 0 00.146.293c.068.087.152.16.248.214l1.204.688c-.106.445-.105.909.003 1.353l-1.208.69a.632.632 0 00-.247.214.62.62 0 00-.146.293.692.692 0 00-.021.326.72.72 0 00.106.31.63.63 0 00.514.39c.216.057.445.027.639-.084l1.206-.69c.334.318.74.55 1.184.675v1.382a.62.62 0 00.187.582.647.647 0 00.876 0 .62.62 0 00.187-.582v-1.382c.441-.13.847-.36 1.184-.674l1.206.69a.63.63 0 00.639.084.63.63 0 00.514-.39.72.72 0 00.106-.31.692.692 0 00-.021-.326.62.62 0 00-.146-.293.632.632 0 00-.247-.214zm-4.712-.28a.75.75 0 01-.37-.32.785.785 0 01-.096-.384.69.69 0 01.033-.284.66.66 0 01.159-.265.721.721 0 011.03-.02.78.78 0 01.37.32c.082.143.125.302.126.464 0 .162-.044.321-.126.464a.721.721 0 01-1.03-.02.78.78 0 01-.096.045zm15.002.28l-1.205-.689c.106-.444.105-.908-.003-1.353l1.208-.69c.095-.054.18-.126.247-.214.067-.087.117-.186.146-.292.028-.107.036-.218.021-.326a.72.72 0 00-.106-.31.63.63 0 00-.514-.39.63.63 0 00-.639.084L66.528 94.876c-.335-.317-.741-.55-1.184-.676V92.82a.62.62 0 00-.187-.582.647.647 0 00-.876 0 .62.62 0 00-.187.582v1.38c-.442.128-.848.36-1.185.674L62.266 94.185a.63.63 0 00-.639-.084.63.63 0 00-.514.39.72.72 0 00-.106.31.692.692 0 00.021.326.62.62 0 00.146.293c.068.087.152.16.248.214l1.204.688c-.106.445-.105.909.003 1.353l-1.208.69a.632.632 0 00-.247.214.62.62 0 00-.146.293.692.692 0 00-.021.326.72.72 0 00.106.31.63.63 0 00.514.39c.216.057.445.027.639-.084l1.206-.69c.334.318.74.55 1.184.675v1.382a.62.62 0 00.187.582.647.647 0 00.876 0 .62.62 0 00.187-.582v-1.382c.441-.13.847-.36 1.184-.674l1.206.69a.63.63 0 00.639.084.63.63 0 00.514-.39.72.72 0 00.106-.31.692.692 0 00-.021-.326.62.62 0 00-.146-.293.632.632 0 00-.247-.214zm-4.712-.28a.75.75 0 01-.37-.32.785.785 0 01-.096-.384.69.69 0 01.033-.284.66.66 0 01.159-.265.721.721 0 011.03-.02.78.78 0 01.37.32c.082.143.125.302.126.464 0 .162-.044.321-.126.464a.721.721 0 01-1.03-.02.78.78 0 01-.096.045zm15.002.28l-1.205-.689c.106-.444.105-.908-.003-1.353l1.208-.69c.095-.054.18-.126.247-.214.067-.087.117-.186.146-.292.028-.107.036-.218.021-.326a.72.72 0 00-.106-.31.63.63 0 00-.514-.39.63.63 0 00-.639.084L81.528 94.876c-.335-.317-.741-.55-1.184-.676V92.82a.62.62 0 00-.187-.582.647.647 0 00-.876 0 .62.62 0 00-.187.582v1.38c-.442.128-.848.36-1.185.674L77.266 94.185a.63.63 0 00-.639-.084.63.63 0 00-.514.39.72.72 0 00-.106.31.692.692 0 00.021.326.62.62 0 00.146.293c.068.087.152.16.248.214l1.204.688c-.106.445-.105.909.003 1.353l-1.208.69a.632.632 0 00-.247.214.62.62 0 00-.146.293.692.692 0 00-.021.326.72.72 0 00.106.31.63.63 0 00.514.39c.216.057.445.027.639-.084l1.206-.69c.334.318.74.55 1.184.675v1.382a.62.62 0 00.187.582.647.647 0 00.876 0 .62.62 0 00.187-.582v-1.382c.441-.13.847-.36 1.184-.674l1.206.69a.63.63 0 00.639.084.63.63 0 00.514-.39.72.72 0 00.106-.31.692.692 0 00-.021-.326.62.62 0 00-.146-.293.632.632 0 00-.247-.214zm-4.712-.28a.75.75 0 01-.37-.32.785.785 0 01-.096-.384.69.69 0 01.033-.284.66.66 0 01.159-.265.721.721 0 011.03-.02.78.78 0 01.37.32c.082.143.125.302.126.464 0 .162-.044.321-.126.464a.721.721 0 01-1.03-.02.78.78 0 01-.096.045z" fill="#86C3DB"/></g></g><defs><linearGradient id="sng1" x1="64.0008" y1="39" x2="64.0008" y2="89" gradientUnits="userSpaceOnUse"><stop stop-color="#F3F7FE"/><stop offset="1" stop-color="#E6EFFC"/></linearGradient><clipPath id="snc"><rect width="128" height="128" fill="white"/></clipPath></defs></svg>')}`,
 'thunderstorms.svg':`data:image/svg+xml,${encodeURIComponent('<svg viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(#tsc)"><g id="Clouds"><path d="M55.2625 48.4746C60.1228 40.6111 70.2976 37.38 78.8152 40.9434C87.3215 44.5023 92.1381 54.0026 89.9031 62.9648L89.7419 63.6143L90.4109 63.585C97.4205 63.2791 103.5 68.9917 103.5 76.0283C103.5 82.8395 97.7719 88.4997 90.9773 88.5H37.9539C31.1276 88.5018 25.203 83.1709 24.5593 76.3604C23.9159 69.5518 28.7371 63.2124 35.4431 61.9453L35.9265 61.8535L35.8425 61.3691C35.0258 56.6239 37.1259 51.7168 41.1052 49.0127C45.0952 46.3014 50.4461 46.1537 54.5798 48.6396L55.0027 48.8945L55.2625 48.4746Z" fill="url(#tsg1)" stroke="#E6EFFC"/></g><g id="Lightning"><path d="M71.1729 68.5L63.5566 83.041L63.1729 83.7725H75.002L56.9521 107.892L60.4893 91.0117L60.6162 90.4092H52.7041L60.3555 68.5H71.1729Z" fill="url(#tsg2)" stroke="#F6A823"/></g></g><defs><linearGradient id="tsg1" x1="64.0009" y1="39" x2="64.0009" y2="89" gradientUnits="userSpaceOnUse"><stop stop-color="#F3F7FE"/><stop offset="1" stop-color="#E6EFFC"/></linearGradient><linearGradient id="tsg2" x1="64.528" y1="66.0377" x2="84.4144" y2="77.4572" gradientUnits="userSpaceOnUse"><stop stop-color="#F7B23B"/><stop offset="1" stop-color="#F6A823"/></linearGradient><clipPath id="tsc"><rect width="128" height="128" fill="white"/></clipPath></defs></svg>')}`,
 };
-
-/* Compact badge artwork keeps the weather category legible at calendar-cell size. */
-const CALENDAR_BADGE_MARKUP = {
-  'clear-day.svg': '<circle cx="24" cy="24" r="8" fill="#F7B955"/><g stroke="#F7B955" stroke-width="3" stroke-linecap="round"><path d="M24 4v6"/><path d="M24 38v6"/><path d="m4 24 6 0"/><path d="m38 24 6 0"/><path d="m10 10 4 4"/><path d="m34 34 4 4"/><path d="m38 10-4 4"/><path d="m14 34-4 4"/></g>',
-  'partly-cloudy-day.svg': '<circle cx="17" cy="16" r="6" fill="#F7B955"/><g stroke="#F7B955" stroke-width="2" stroke-linecap="round"><path d="M17 6v3"/><path d="M17 23v3"/><path d="M7 16h3"/><path d="M24 16h3"/><path d="m10 9 2 2"/><path d="m22 21 2 2"/></g><path d="M14 35h20a7 7 0 0 0 .4-14 10 10 0 0 0-19-1A7.5 7.5 0 0 0 14 35Z" fill="#F4F7FC" stroke="#71839A" stroke-width="2.6" stroke-linejoin="round"/>',
-  'overcast.svg': '<path d="M12 34h24a7.5 7.5 0 0 0 .3-15 10 10 0 0 0-19.2-1A7.8 7.8 0 0 0 12 34Z" fill="#F4F7FC" stroke="#71839A" stroke-width="2.8" stroke-linejoin="round"/><path d="M24 28h12a5.5 5.5 0 0 0 .2-11 7.5 7.5 0 0 0-14.2-1" fill="#D9E2ED" stroke="#71839A" stroke-width="2.4" stroke-linejoin="round"/>',
-  'fog.svg': '<path d="M12 29h24a7 7 0 0 0 .3-14 10 10 0 0 0-19-1A7.5 7.5 0 0 0 12 29Z" fill="#E8EEF5" stroke="#71839A" stroke-width="2.6" stroke-linejoin="round"/><g stroke="#71839A" stroke-width="2.6" stroke-linecap="round"><path d="M9 36h30"/><path d="M13 42h22"/></g>',
-  'drizzle.svg': '<path d="M12 29h24a7 7 0 0 0 .3-14 10 10 0 0 0-19-1A7.5 7.5 0 0 0 12 29Z" fill="#F4F7FC" stroke="#71839A" stroke-width="2.6" stroke-linejoin="round"/><g stroke="#2F8FCE" stroke-width="3" stroke-linecap="round"><path d="m17 35-.8 3"/><path d="m24 34-.8 3"/><path d="m31 35-.8 3"/></g>',
-  'rain.svg': '<path d="M12 29h24a7 7 0 0 0 .3-14 10 10 0 0 0-19-1A7.5 7.5 0 0 0 12 29Z" fill="#F4F7FC" stroke="#71839A" stroke-width="2.6" stroke-linejoin="round"/><g fill="#2F8FCE"><path d="m16 34 3 0-2 7-3 0Z"/><path d="m23 32 3 0-2 7-3 0Z"/><path d="m30 34 3 0-2 7-3 0Z"/></g>',
-  'snow.svg': '<path d="M12 29h24a7 7 0 0 0 .3-14 10 10 0 0 0-19-1A7.5 7.5 0 0 0 12 29Z" fill="#F4F7FC" stroke="#71839A" stroke-width="2.6" stroke-linejoin="round"/><g stroke="#65A9C8" stroke-width="2" stroke-linecap="round"><path d="M17 35v7"/><path d="m14 38.5 6 0"/><path d="m15 36 4 5"/><path d="m19 36-4 5"/><path d="M31 35v7"/><path d="m28 38.5 6 0"/><path d="m29 36 4 5"/><path d="m33 36-4 5"/></g>',
-  'thunderstorms.svg': '<path d="M12 29h24a7 7 0 0 0 .3-14 10 10 0 0 0-19-1A7.5 7.5 0 0 0 12 29Z" fill="#F4F7FC" stroke="#71839A" stroke-width="2.6" stroke-linejoin="round"/><path d="M26 25h7l-5 7h4L22 44l2.5-8H20Z" fill="#F4B544" stroke="#B97517" stroke-width="1.5" stroke-linejoin="round"/>',
-};
-
-const CALENDAR_BADGE_ICONS = Object.fromEntries(
-  Object.entries(CALENDAR_BADGE_MARKUP).map(([name, markup]) => [
-    name,
-    'data:image/svg+xml,' + encodeURIComponent('<svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">' + markup + '</svg>'),
-  ]),
-);
-
-function _calendarWeatherIconUrl(iconFile) {
-  return CALENDAR_BADGE_ICONS[iconFile] || CALENDAR_BADGE_ICONS['overcast.svg'];
-}
 
 /** Get data URI for a weather icon — synchronous, zero I/O. */
 function _iconUrl(iconFile) {

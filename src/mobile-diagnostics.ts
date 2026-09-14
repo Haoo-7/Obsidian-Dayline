@@ -59,7 +59,7 @@ function leavesOfType(workspace: any, viewType: string): any[] {
   try {
     const leaves = workspace?.getLeavesOfType?.(viewType);
     return Array.isArray(leaves) ? leaves : [];
-  } catch (_) {
+  } catch {
     return [];
   }
 }
@@ -68,7 +68,7 @@ function safeViewType(leaf: any): string | null {
   let viewType: unknown;
   try {
     viewType = leaf?.view?.getViewType?.();
-  } catch (_) {
+  } catch {
     viewType = undefined;
   }
   if (typeof viewType !== 'string') return null;
@@ -111,7 +111,7 @@ export function collectMobileDiagnostics(plugin: any): MobileDiagnosticsSnapshot
   let entries: unknown;
   try {
     entries = plugin?.journalIndex?.getEntries?.();
-  } catch (_) {
+  } catch {
     entries = undefined;
   }
   const events = Array.isArray(plugin?._mobileDiagnosticEvents)

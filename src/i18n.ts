@@ -534,7 +534,7 @@ function systemLocale(): string | undefined {
   if (navigatorLocale) return navigatorLocale;
   try {
     return new Intl.DateTimeFormat().resolvedOptions().locale;
-  } catch (_) {
+  } catch {
     return undefined;
   }
 }
@@ -616,7 +616,7 @@ export function resolveWeekStart(settings: LanguageSettings = {}): 0 | 1 {
     const firstDay = localeWithWeekInfo?.weekInfo?.firstDay;
     if (firstDay === 1) return 1;
     if (firstDay === 7) return 0;
-  } catch (_) {
+  } catch {
     // Older embedded Chromium versions may not expose Intl.Locale.weekInfo.
   }
 

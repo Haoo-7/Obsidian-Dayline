@@ -109,7 +109,7 @@ function formatDateInTimeZone(date, timezone = "auto") {
       }).formatToParts(date);
       const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
       if (values.year && values.month && values.day) return `${values.year}-${values.month}-${values.day}`;
-    } catch (_) {
+    } catch {
     }
   }
   return formatDate(date);
@@ -130,7 +130,7 @@ function getClockPartsInTimeZone(date, timezone = "auto") {
     }).formatToParts(date);
     const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
     return { hour: Number(values.hour), minute: Number(values.minute) };
-  } catch (_) {
+  } catch {
     return { hour: date.getHours(), minute: date.getMinutes() };
   }
 }
@@ -205,7 +205,7 @@ __export(media_links_exports, {
 function decode(value) {
   try {
     return decodeURIComponent(value);
-  } catch (_) {
+  } catch {
     return value;
   }
 }
@@ -226,7 +226,7 @@ function extensionFromLink(link) {
   let path = link;
   try {
     if (/^https?:\/\//i.test(link)) path = new URL(link).pathname;
-  } catch (_) {
+  } catch {
   }
   path = path.split(/[?#]/, 1)[0];
   const filename = path.split(/[\\/]/).pop() || "";
@@ -329,7 +329,7 @@ function normalizeJournalText(value) {
   let text = String(value);
   try {
     text = text.normalize("NFKC");
-  } catch (_) {
+  } catch {
   }
   return text.toLocaleLowerCase().replace(/\s+/gu, " ").trim();
 }
@@ -1052,7 +1052,7 @@ async function saveDaylineExport(app, content, fileName) {
   if (!folderPath && app.vault.createFolder) {
     try {
       await app.vault.createFolder(folder);
-    } catch (_) {
+    } catch {
     }
   }
   let candidate = `${folder}/${safeName}`;
@@ -1253,7 +1253,7 @@ function cloneUnknown(value) {
   if (value === void 0) return value;
   try {
     return JSON.parse(JSON.stringify(value));
-  } catch (_) {
+  } catch {
     return value;
   }
 }
@@ -1779,7 +1779,7 @@ var init_mood_store = __esm({
           } else if (Object.keys(this.data.entries).length > 0) {
             invalidMetadata.push("metadata-file-missing");
           }
-        } catch (_) {
+        } catch {
           invalidMetadata.push(this.path);
         }
         const backupPath = `${this.path}.bak`;
@@ -1791,7 +1791,7 @@ var init_mood_store = __esm({
               backupAvailable = false;
               invalidMetadata.push("backup");
             }
-          } catch (_) {
+          } catch {
             backupAvailable = false;
             invalidMetadata.push("backup");
           }
@@ -1911,7 +1911,7 @@ var init_mood_store = __esm({
             if (!await this.adapter().exists(candidate)) continue;
             const parsed = JSON.parse(await this.adapter().read(candidate));
             if (validateMoodMetadata(parsed).valid) return migrateMoodMetadata(parsed).metadata;
-          } catch (_) {
+          } catch {
           }
         }
         return void 0;
@@ -1941,11 +1941,11 @@ var init_mood_store = __esm({
         } catch (error) {
           try {
             if (movedPrimary && !await adapter.exists(path) && await adapter.exists(backup)) await adapter.rename(backup, path);
-          } catch (_) {
+          } catch {
           }
           try {
             if (await adapter.exists(temp)) await adapter.remove(temp);
-          } catch (_) {
+          } catch {
           }
           throw error;
         }
@@ -2458,7 +2458,7 @@ function systemLocale() {
   if (navigatorLocale) return navigatorLocale;
   try {
     return new Intl.DateTimeFormat().resolvedOptions().locale;
-  } catch (_) {
+  } catch {
     return void 0;
   }
 }
@@ -2522,7 +2522,7 @@ function resolveWeekStart(settings = {}) {
     const firstDay = localeWithWeekInfo?.weekInfo?.firstDay;
     if (firstDay === 1) return 1;
     if (firstDay === 7) return 0;
-  } catch (_) {
+  } catch {
   }
   const region = locale?.match(/[-_]([A-Z]{2}|\d{3})$/i)?.[1]?.toUpperCase();
   return region && ["US", "CA", "AU", "NZ", "JP", "PH", "TW", "HK", "IL", "MX"].includes(region) ? 0 : 1;
@@ -4749,6 +4749,7 @@ var init_journal_timeline_view = __esm({
           if (!title) {
             (0, import_obsidian2.setIcon)(titleEditor, "pencil");
             titleEditor.classList.add("journal-timeline-add-title");
+            body.classList.add("has-title-placeholder");
           }
           titleEditor.addEventListener("click", (event) => {
             event.preventDefault();
@@ -4803,6 +4804,7 @@ var init_journal_timeline_view = __esm({
         if (this.titleEdit || editor.dataset.editing === "true") return;
         editor.dataset.editing = "true";
         editor.classList.add("is-editing");
+        editor.closest(".journal-timeline-entry-body")?.classList.remove("has-title-placeholder");
         editor.setAttribute("role", "group");
         editor.removeAttribute("tabindex");
         editor.textContent = "";
@@ -5510,7 +5512,7 @@ var init_on_this_day = __esm({
           this.plugin.thumbnailService.load(imageLink, notePath).then((result) => {
             if (result && bgEl.isConnected) bgEl.style.backgroundImage = `url(${result.url})`;
           }).catch((error) => console.warn("[Dayline] On This Day thumbnail load failed:", error?.message || error));
-        } catch (e) {
+        } catch {
         }
       }
     };
@@ -5986,7 +5988,7 @@ var init_settings_tab = __esm({
             clone2.setAttribute("height", "32");
             brand.appendChild(clone2);
           }
-        } catch (_) {
+        } catch {
           brand.setText("Dayline");
         }
         this._addSection(containerEl, "general");
@@ -7003,7 +7005,7 @@ var init_thumbnail_service = __esm({
           const ext = String(file.extension).toLowerCase();
           const url = HEIC_EXTENSIONS.includes(ext) ? (await this.heicCache?.getThumbnail(file))?.dataUrl : this.app.vault.getResourcePath(file);
           return url ? { url, path: file.path, index } : null;
-        } catch (_) {
+        } catch {
           return null;
         }
       }
@@ -22283,7 +22285,7 @@ function rawText(value) {
   if (value instanceof Uint8Array) {
     try {
       return new TextDecoder().decode(value).replace(/\0+$/, "").trim() || void 0;
-    } catch (_) {
+    } catch {
       return void 0;
     }
   }
@@ -22540,7 +22542,7 @@ var init_media_service = __esm({
         let input;
         try {
           input = await this.inputFactory(resource);
-        } catch (_) {
+        } catch {
           input = null;
         }
         if (!input) return attachment.kind === "video" ? this.readNativeVideoMetadata(resource) : null;
@@ -22570,7 +22572,7 @@ var init_media_service = __esm({
               const stats = await video.computePacketStats?.(30);
               metadata.frameRate = Number.isFinite(stats?.averagePacketRate) ? stats.averagePacketRate : void 0;
               metadata.bitrate = Number.isFinite(stats?.averageBitrate) ? stats.averageBitrate : void 0;
-            } catch (_) {
+            } catch {
             }
           } else if (audio) {
             const [codec, bitrate, sampleRate, channels] = await Promise.all([
@@ -22621,7 +22623,7 @@ var init_media_service = __esm({
             }
           }
           return metadata;
-        } catch (_) {
+        } catch {
           return null;
         } finally {
           input.dispose?.();
@@ -22657,7 +22659,7 @@ var init_media_service = __esm({
             width: video.videoWidth || void 0,
             height: video.videoHeight || void 0
           };
-        } catch (_) {
+        } catch {
           return null;
         } finally {
           cleanup();
@@ -22802,7 +22804,7 @@ var init_media_service = __esm({
           context.drawImage(video, 0, 0, canvas.width, canvas.height);
           const url = await canvasToObjectUrl(canvas);
           return url ? { url, attachment } : null;
-        } catch (_) {
+        } catch {
           return null;
         } finally {
           cleanupMetadata();
@@ -22821,7 +22823,7 @@ var init_media_service = __esm({
           try {
             const cover = await this.loadCover(attachment);
             if (cover) return cover;
-          } catch (_) {
+          } catch {
           }
         }
         return null;
@@ -23004,7 +23006,7 @@ function cachedMonthsReferencingMedia(monthCache, filePath, resolveAttachment) {
         let resolvedPath;
         try {
           resolvedPath = resolveAttachment(attachment);
-        } catch (_) {
+        } catch {
         }
         const normalizedResolvedPath = normalizedPath(resolvedPath);
         if (normalizedResolvedPath === normalizedFilePath) {
@@ -23700,7 +23702,7 @@ var init_image_metadata = __esm({
           const raw = parseImageExif(buf);
           if (!raw) return null;
           return formatExifForDisplay(raw);
-        } catch (_) {
+        } catch {
           return null;
         }
       }
@@ -23831,7 +23833,7 @@ var init_image_metadata = __esm({
           for (const image of images) {
             try {
               image?.free?.();
-            } catch (_) {
+            } catch {
             }
           }
         }
@@ -23989,7 +23991,7 @@ var init_image_metadata = __esm({
             }
             if (data.display_name) return data.display_name.split(",")[0];
           }
-        } catch (e) {
+        } catch {
         }
         return null;
       }
@@ -24036,12 +24038,12 @@ function detectPlatformCapabilities(input = {}) {
   if (dom) {
     try {
       canvas = Boolean(doc.createElement("canvas")?.getContext?.("2d"));
-    } catch (_) {
+    } catch {
       canvas = false;
     }
     try {
       video = Boolean(doc.createElement("video")?.canPlayType);
-    } catch (_) {
+    } catch {
       video = false;
     }
   }
@@ -24324,7 +24326,7 @@ function leavesOfType(workspace, viewType) {
   try {
     const leaves = workspace?.getLeavesOfType?.(viewType);
     return Array.isArray(leaves) ? leaves : [];
-  } catch (_) {
+  } catch {
     return [];
   }
 }
@@ -24332,7 +24334,7 @@ function safeViewType(leaf) {
   let viewType;
   try {
     viewType = leaf?.view?.getViewType?.();
-  } catch (_) {
+  } catch {
     viewType = void 0;
   }
   if (typeof viewType !== "string") return null;
@@ -24367,7 +24369,7 @@ function collectMobileDiagnostics(plugin) {
   let entries;
   try {
     entries = plugin?.journalIndex?.getEntries?.();
-  } catch (_) {
+  } catch {
     entries = void 0;
   }
   const events = Array.isArray(plugin?._mobileDiagnosticEvents) ? plugin._mobileDiagnosticEvents.slice(-20).map(safeEvent).filter(Boolean) : [];
@@ -25097,7 +25099,7 @@ ${path}`)) return false;
     if (parent) await this.ensureFolder(parent);
     try {
       await this.app.vault.createFolder(normalized);
-    } catch (_) {
+    } catch {
     }
   }
   async ensureJournalFile(path, content) {
@@ -25419,7 +25421,7 @@ ${path}`)) return false;
           );
         }
       }
-    } catch (_) {
+    } catch {
     }
   }
 };
@@ -25843,7 +25845,6 @@ var CalendarView = class extends ItemView2 {
         cover: void 0
       };
       const media = dateEntry.media || [];
-      const images = dateEntry.images || media.filter((item) => item.kind === "image");
       const cover = dateEntry.cover || media[0];
       const isToday = dateStr === todayStr;
       const cell = grid.createDiv({ cls: "cal-day" });
@@ -25869,7 +25870,7 @@ var CalendarView = class extends ItemView2 {
             "aria-hidden": "true"
           }
         }) : cell.createDiv({ cls: "cal-day-bg" });
-        const overlay = cell.createDiv({ cls: "cal-day-overlay" });
+        cell.createDiv({ cls: "cal-day-overlay" });
         if (mobileImage) {
           bg.addEventListener("load", () => bg.addClass("is-loaded"));
           bg.addEventListener("error", () => {
@@ -25950,7 +25951,7 @@ var CalendarView = class extends ItemView2 {
           cell.createDiv({ cls: "cal-otd-dot" });
         }
       }
-      const num = cell.createEl("span", { cls: "cal-day-num", text: String(d) });
+      cell.createEl("span", { cls: "cal-day-num", text: String(d) });
       if (this.plugin.capabilities?.coarsePointer) {
         let gesture = null;
         const eventTarget = typeof window !== "undefined" ? window : cell;
@@ -26097,7 +26098,7 @@ var CalendarView = class extends ItemView2 {
             }
           }
         }
-      } catch (_) {
+      } catch {
         this.plugin._hideExifTooltip();
       }
     }, 500);
@@ -26114,7 +26115,7 @@ var CalendarView = class extends ItemView2 {
         const fields = formatMediaMetadataForDisplay2(metadata);
         if (!this.plugin._isCurrentExifHover(hoverToken)) return;
         this.plugin._showExifTooltip(cell, fields, false, "media");
-      } catch (_) {
+      } catch {
         this.plugin._hideExifTooltip();
       }
     }, immediate ? 0 : 500);
@@ -26209,9 +26210,9 @@ var CalendarView = class extends ItemView2 {
     const infoEl = card.createDiv({ cls: "cal-weather-info" });
     const tempEl = infoEl.createDiv({ cls: "cal-weather-temp" });
     const locationEl = shouldShowCalendarWeatherLocation2(s) ? infoEl.createDiv({ cls: "cal-weather-location" }) : null;
-    const detailEl = infoEl.createDiv({ cls: "cal-weather-detail" });
-    const extraEl = infoEl.createDiv({ cls: "cal-weather-extra" });
-    const statusEl = infoEl.createDiv({ cls: "cal-weather-status" });
+    infoEl.createDiv({ cls: "cal-weather-detail" });
+    infoEl.createDiv({ cls: "cal-weather-extra" });
+    infoEl.createDiv({ cls: "cal-weather-status" });
     tempEl.setText(_l(s.weatherLanguage, "loading"));
     if (locationEl) locationEl.setText(`${_l(s.weatherLanguage, "weatherLocation")}: ${s.weatherLocationName || `${parseFloat(s.weatherLatitude).toFixed(2)}, ${parseFloat(s.weatherLongitude).toFixed(2)}`}`);
     const refreshBtn = card.createEl("button", {
@@ -26346,7 +26347,7 @@ var CalendarView = class extends ItemView2 {
       this._weatherError = !snap;
       this._weatherLoading = false;
       this._updateWeatherCardUI();
-    } catch (err) {
+    } catch {
       if (token !== this._fetchToken || this._weatherCardDate !== dateStr) return;
       this._weatherError = true;
       this._weatherLoading = false;
@@ -26417,7 +26418,7 @@ var CalendarView = class extends ItemView2 {
       if (result && bgEl.isConnected) {
         this._applyBackgroundResource(bgEl, result.url);
       }
-    } catch (_) {
+    } catch {
     }
   }
   _applyBackgroundResource(bgEl, resource) {
@@ -26668,7 +26669,7 @@ var CalendarView = class extends ItemView2 {
       });
       this._addNoteMediaInfoControl(img, () => this._onNoteImageEnter(null, img, true));
       loader.replaceWith(img);
-    } catch (_) {
+    } catch {
       loader.textContent = t2(this.plugin.settings, "heicError");
     }
   }
@@ -26686,7 +26687,7 @@ var CalendarView = class extends ItemView2 {
         const fields = await this.exifCache.get(file);
         if (!this.plugin._isCurrentExifHover(hoverToken)) return;
         this.plugin._showExifTooltip(img, fields, false);
-      } catch (_) {
+      } catch {
         this.plugin._hideExifTooltip();
       }
     }, immediate ? 0 : 500);
@@ -26706,7 +26707,7 @@ var CalendarView = class extends ItemView2 {
         const metadata = await this.mediaService?.getMetadata?.(attachment);
         if (!this.plugin._isCurrentExifHover(hoverToken)) return;
         this.plugin._showExifTooltip(el, formatMediaMetadataForDisplay2(metadata), false, "media");
-      } catch (_) {
+      } catch {
         this.plugin._hideExifTooltip();
       }
     }, immediate ? 0 : 500);
@@ -27125,22 +27126,6 @@ var SVG_ICONS = {
   "snow.svg": `data:image/svg+xml,${encodeURIComponent('<svg viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(#snc)"><g id="Clouds"><path d="M55.2623 48.4746C60.1227 40.6111 70.2975 37.38 78.8151 40.9434C87.3214 44.5023 92.138 54.0026 89.903 62.9648L89.7418 63.6143L90.4108 63.585C97.4203 63.2791 103.5 68.9917 103.5 76.0283C103.5 82.8395 97.7717 88.4997 90.9772 88.5H37.9537C31.1275 88.5018 25.2029 83.1709 24.5592 76.3604C23.9158 69.5518 28.7369 63.2124 35.443 61.9453L35.9264 61.8535L35.8424 61.3691C35.0256 56.6239 37.1258 51.7168 41.1051 49.0127C45.0951 46.3014 50.4459 46.1537 54.5797 48.6396L55.0026 48.8945L55.2623 48.4746Z" fill="url(#sng1)" stroke="#E6EFFC"/></g><g id="Snowflakes"><path d="M52.578 98.366l-1.205-.689c.106-.444.105-.908-.003-1.353l1.208-.69c.095-.054.18-.126.247-.214.067-.087.117-.186.146-.292.028-.107.036-.218.021-.326a.72.72 0 00-.106-.31.63.63 0 00-.514-.39.63.63 0 00-.639.084L51.528 94.876c-.335-.317-.741-.55-1.184-.676V92.82a.62.62 0 00-.187-.582.647.647 0 00-.876 0 .62.62 0 00-.187.582v1.38c-.442.128-.848.36-1.185.674L47.266 94.185a.63.63 0 00-.639-.084.63.63 0 00-.514.39.72.72 0 00-.106.31.692.692 0 00.021.326.62.62 0 00.146.293c.068.087.152.16.248.214l1.204.688c-.106.445-.105.909.003 1.353l-1.208.69a.632.632 0 00-.247.214.62.62 0 00-.146.293.692.692 0 00-.021.326.72.72 0 00.106.31.63.63 0 00.514.39c.216.057.445.027.639-.084l1.206-.69c.334.318.74.55 1.184.675v1.382a.62.62 0 00.187.582.647.647 0 00.876 0 .62.62 0 00.187-.582v-1.382c.441-.13.847-.36 1.184-.674l1.206.69a.63.63 0 00.639.084.63.63 0 00.514-.39.72.72 0 00.106-.31.692.692 0 00-.021-.326.62.62 0 00-.146-.293.632.632 0 00-.247-.214zm-4.712-.28a.75.75 0 01-.37-.32.785.785 0 01-.096-.384.69.69 0 01.033-.284.66.66 0 01.159-.265.721.721 0 011.03-.02.78.78 0 01.37.32c.082.143.125.302.126.464 0 .162-.044.321-.126.464a.721.721 0 01-1.03-.02.78.78 0 01-.096.045zm15.002.28l-1.205-.689c.106-.444.105-.908-.003-1.353l1.208-.69c.095-.054.18-.126.247-.214.067-.087.117-.186.146-.292.028-.107.036-.218.021-.326a.72.72 0 00-.106-.31.63.63 0 00-.514-.39.63.63 0 00-.639.084L66.528 94.876c-.335-.317-.741-.55-1.184-.676V92.82a.62.62 0 00-.187-.582.647.647 0 00-.876 0 .62.62 0 00-.187.582v1.38c-.442.128-.848.36-1.185.674L62.266 94.185a.63.63 0 00-.639-.084.63.63 0 00-.514.39.72.72 0 00-.106.31.692.692 0 00.021.326.62.62 0 00.146.293c.068.087.152.16.248.214l1.204.688c-.106.445-.105.909.003 1.353l-1.208.69a.632.632 0 00-.247.214.62.62 0 00-.146.293.692.692 0 00-.021.326.72.72 0 00.106.31.63.63 0 00.514.39c.216.057.445.027.639-.084l1.206-.69c.334.318.74.55 1.184.675v1.382a.62.62 0 00.187.582.647.647 0 00.876 0 .62.62 0 00.187-.582v-1.382c.441-.13.847-.36 1.184-.674l1.206.69a.63.63 0 00.639.084.63.63 0 00.514-.39.72.72 0 00.106-.31.692.692 0 00-.021-.326.62.62 0 00-.146-.293.632.632 0 00-.247-.214zm-4.712-.28a.75.75 0 01-.37-.32.785.785 0 01-.096-.384.69.69 0 01.033-.284.66.66 0 01.159-.265.721.721 0 011.03-.02.78.78 0 01.37.32c.082.143.125.302.126.464 0 .162-.044.321-.126.464a.721.721 0 01-1.03-.02.78.78 0 01-.096.045zm15.002.28l-1.205-.689c.106-.444.105-.908-.003-1.353l1.208-.69c.095-.054.18-.126.247-.214.067-.087.117-.186.146-.292.028-.107.036-.218.021-.326a.72.72 0 00-.106-.31.63.63 0 00-.514-.39.63.63 0 00-.639.084L81.528 94.876c-.335-.317-.741-.55-1.184-.676V92.82a.62.62 0 00-.187-.582.647.647 0 00-.876 0 .62.62 0 00-.187.582v1.38c-.442.128-.848.36-1.185.674L77.266 94.185a.63.63 0 00-.639-.084.63.63 0 00-.514.39.72.72 0 00-.106.31.692.692 0 00.021.326.62.62 0 00.146.293c.068.087.152.16.248.214l1.204.688c-.106.445-.105.909.003 1.353l-1.208.69a.632.632 0 00-.247.214.62.62 0 00-.146.293.692.692 0 00-.021.326.72.72 0 00.106.31.63.63 0 00.514.39c.216.057.445.027.639-.084l1.206-.69c.334.318.74.55 1.184.675v1.382a.62.62 0 00.187.582.647.647 0 00.876 0 .62.62 0 00.187-.582v-1.382c.441-.13.847-.36 1.184-.674l1.206.69a.63.63 0 00.639.084.63.63 0 00.514-.39.72.72 0 00.106-.31.692.692 0 00-.021-.326.62.62 0 00-.146-.293.632.632 0 00-.247-.214zm-4.712-.28a.75.75 0 01-.37-.32.785.785 0 01-.096-.384.69.69 0 01.033-.284.66.66 0 01.159-.265.721.721 0 011.03-.02.78.78 0 01.37.32c.082.143.125.302.126.464 0 .162-.044.321-.126.464a.721.721 0 01-1.03-.02.78.78 0 01-.096.045z" fill="#86C3DB"/></g></g><defs><linearGradient id="sng1" x1="64.0008" y1="39" x2="64.0008" y2="89" gradientUnits="userSpaceOnUse"><stop stop-color="#F3F7FE"/><stop offset="1" stop-color="#E6EFFC"/></linearGradient><clipPath id="snc"><rect width="128" height="128" fill="white"/></clipPath></defs></svg>')}`,
   "thunderstorms.svg": `data:image/svg+xml,${encodeURIComponent('<svg viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(#tsc)"><g id="Clouds"><path d="M55.2625 48.4746C60.1228 40.6111 70.2976 37.38 78.8152 40.9434C87.3215 44.5023 92.1381 54.0026 89.9031 62.9648L89.7419 63.6143L90.4109 63.585C97.4205 63.2791 103.5 68.9917 103.5 76.0283C103.5 82.8395 97.7719 88.4997 90.9773 88.5H37.9539C31.1276 88.5018 25.203 83.1709 24.5593 76.3604C23.9159 69.5518 28.7371 63.2124 35.4431 61.9453L35.9265 61.8535L35.8425 61.3691C35.0258 56.6239 37.1259 51.7168 41.1052 49.0127C45.0952 46.3014 50.4461 46.1537 54.5798 48.6396L55.0027 48.8945L55.2625 48.4746Z" fill="url(#tsg1)" stroke="#E6EFFC"/></g><g id="Lightning"><path d="M71.1729 68.5L63.5566 83.041L63.1729 83.7725H75.002L56.9521 107.892L60.4893 91.0117L60.6162 90.4092H52.7041L60.3555 68.5H71.1729Z" fill="url(#tsg2)" stroke="#F6A823"/></g></g><defs><linearGradient id="tsg1" x1="64.0009" y1="39" x2="64.0009" y2="89" gradientUnits="userSpaceOnUse"><stop stop-color="#F3F7FE"/><stop offset="1" stop-color="#E6EFFC"/></linearGradient><linearGradient id="tsg2" x1="64.528" y1="66.0377" x2="84.4144" y2="77.4572" gradientUnits="userSpaceOnUse"><stop stop-color="#F7B23B"/><stop offset="1" stop-color="#F6A823"/></linearGradient><clipPath id="tsc"><rect width="128" height="128" fill="white"/></clipPath></defs></svg>')}`
 };
-var CALENDAR_BADGE_MARKUP = {
-  "clear-day.svg": '<circle cx="24" cy="24" r="8" fill="#F7B955"/><g stroke="#F7B955" stroke-width="3" stroke-linecap="round"><path d="M24 4v6"/><path d="M24 38v6"/><path d="m4 24 6 0"/><path d="m38 24 6 0"/><path d="m10 10 4 4"/><path d="m34 34 4 4"/><path d="m38 10-4 4"/><path d="m14 34-4 4"/></g>',
-  "partly-cloudy-day.svg": '<circle cx="17" cy="16" r="6" fill="#F7B955"/><g stroke="#F7B955" stroke-width="2" stroke-linecap="round"><path d="M17 6v3"/><path d="M17 23v3"/><path d="M7 16h3"/><path d="M24 16h3"/><path d="m10 9 2 2"/><path d="m22 21 2 2"/></g><path d="M14 35h20a7 7 0 0 0 .4-14 10 10 0 0 0-19-1A7.5 7.5 0 0 0 14 35Z" fill="#F4F7FC" stroke="#71839A" stroke-width="2.6" stroke-linejoin="round"/>',
-  "overcast.svg": '<path d="M12 34h24a7.5 7.5 0 0 0 .3-15 10 10 0 0 0-19.2-1A7.8 7.8 0 0 0 12 34Z" fill="#F4F7FC" stroke="#71839A" stroke-width="2.8" stroke-linejoin="round"/><path d="M24 28h12a5.5 5.5 0 0 0 .2-11 7.5 7.5 0 0 0-14.2-1" fill="#D9E2ED" stroke="#71839A" stroke-width="2.4" stroke-linejoin="round"/>',
-  "fog.svg": '<path d="M12 29h24a7 7 0 0 0 .3-14 10 10 0 0 0-19-1A7.5 7.5 0 0 0 12 29Z" fill="#E8EEF5" stroke="#71839A" stroke-width="2.6" stroke-linejoin="round"/><g stroke="#71839A" stroke-width="2.6" stroke-linecap="round"><path d="M9 36h30"/><path d="M13 42h22"/></g>',
-  "drizzle.svg": '<path d="M12 29h24a7 7 0 0 0 .3-14 10 10 0 0 0-19-1A7.5 7.5 0 0 0 12 29Z" fill="#F4F7FC" stroke="#71839A" stroke-width="2.6" stroke-linejoin="round"/><g stroke="#2F8FCE" stroke-width="3" stroke-linecap="round"><path d="m17 35-.8 3"/><path d="m24 34-.8 3"/><path d="m31 35-.8 3"/></g>',
-  "rain.svg": '<path d="M12 29h24a7 7 0 0 0 .3-14 10 10 0 0 0-19-1A7.5 7.5 0 0 0 12 29Z" fill="#F4F7FC" stroke="#71839A" stroke-width="2.6" stroke-linejoin="round"/><g fill="#2F8FCE"><path d="m16 34 3 0-2 7-3 0Z"/><path d="m23 32 3 0-2 7-3 0Z"/><path d="m30 34 3 0-2 7-3 0Z"/></g>',
-  "snow.svg": '<path d="M12 29h24a7 7 0 0 0 .3-14 10 10 0 0 0-19-1A7.5 7.5 0 0 0 12 29Z" fill="#F4F7FC" stroke="#71839A" stroke-width="2.6" stroke-linejoin="round"/><g stroke="#65A9C8" stroke-width="2" stroke-linecap="round"><path d="M17 35v7"/><path d="m14 38.5 6 0"/><path d="m15 36 4 5"/><path d="m19 36-4 5"/><path d="M31 35v7"/><path d="m28 38.5 6 0"/><path d="m29 36 4 5"/><path d="m33 36-4 5"/></g>',
-  "thunderstorms.svg": '<path d="M12 29h24a7 7 0 0 0 .3-14 10 10 0 0 0-19-1A7.5 7.5 0 0 0 12 29Z" fill="#F4F7FC" stroke="#71839A" stroke-width="2.6" stroke-linejoin="round"/><path d="M26 25h7l-5 7h4L22 44l2.5-8H20Z" fill="#F4B544" stroke="#B97517" stroke-width="1.5" stroke-linejoin="round"/>'
-};
-var CALENDAR_BADGE_ICONS = Object.fromEntries(
-  Object.entries(CALENDAR_BADGE_MARKUP).map(([name, markup]) => [
-    name,
-    "data:image/svg+xml," + encodeURIComponent('<svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">' + markup + "</svg>")
-  ])
-);
 function _iconUrl(iconFile) {
   return SVG_ICONS[iconFile] || "";
 }

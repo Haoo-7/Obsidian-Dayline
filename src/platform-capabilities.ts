@@ -63,8 +63,8 @@ export function detectPlatformCapabilities(input: DetectionInput = {}): Platform
   let canvas = false;
   let video = false;
   if (dom) {
-    try { canvas = Boolean(doc.createElement('canvas')?.getContext?.('2d')); } catch (_) { canvas = false; }
-    try { video = Boolean(doc.createElement('video')?.canPlayType); } catch (_) { video = false; }
+    try { canvas = Boolean(doc.createElement('canvas')?.getContext?.('2d')); } catch { canvas = false; }
+    try { video = Boolean(doc.createElement('video')?.canPlayType); } catch { video = false; }
   }
   const objectUrls = Boolean(typeof urlApi?.createObjectURL === 'function' && typeof urlApi?.revokeObjectURL === 'function');
   const wasm = Boolean(typeof wasmApi?.instantiate === 'function');

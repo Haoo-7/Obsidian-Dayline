@@ -352,6 +352,6 @@ export class OnThisDayModal {
           if (result && bgEl.isConnected) bgEl.style.backgroundImage = `url(${result.url})`;
         })
         .catch((error) => console.warn('[Dayline] On This Day thumbnail load failed:', error?.message || error));
-    } catch (e) { /* silently fail */ }
+    } catch { /* silently fail */ }
   }
 }

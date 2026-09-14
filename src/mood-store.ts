@@ -106,7 +106,7 @@ function normalizeRecord(record: MoodRecord): MoodRecord {
 
 function cloneUnknown<T>(value: T): T {
   if (value === undefined) return value;
-  try { return JSON.parse(JSON.stringify(value)) as T; } catch (_) { return value; }
+  try { return JSON.parse(JSON.stringify(value)) as T; } catch { return value; }
 }
 
 function customLabelsFrom(entries: Record<string, MoodRecord>, orphans: MoodMetadata['orphans']): string[] {
@@ -674,7 +674,7 @@ export class MoodStore {
       } else if (Object.keys(this.data.entries).length > 0) {
         invalidMetadata.push('metadata-file-missing');
       }
-    } catch (_) {
+    } catch {
       invalidMetadata.push(this.path);
     }
     const backupPath = `${this.path}.bak`;
@@ -686,7 +686,7 @@ export class MoodStore {
           backupAvailable = false;
           invalidMetadata.push('backup');
         }
-      } catch (_) {
+      } catch {
         backupAvailable = false;
         invalidMetadata.push('backup');
       }
@@ -816,7 +816,7 @@ export class MoodStore {
         if (!(await this.adapter().exists(candidate))) continue;
         const parsed = JSON.parse(await this.adapter().read(candidate));
         if (validateMoodMetadata(parsed).valid) return migrateMoodMetadata(parsed).metadata;
-      } catch (_) {
+      } catch {
         // Try the next recovery candidate without discarding either file.
       }
     }
@@ -850,12 +850,12 @@ export class MoodStore {
     } catch (error) {
       try {
         if (movedPrimary && !(await adapter.exists(path)) && await adapter.exists(backup)) await adapter.rename(backup, path);
-      } catch (_) {
+      } catch {
         // Preserve the original error while leaving the backup for recovery.
       }
       try {
         if (await adapter.exists(temp)) await adapter.remove(temp);
-      } catch (_) {
+      } catch {
         // Preserve the original error if a temporary file cannot be cleaned up.
       }
       throw error;

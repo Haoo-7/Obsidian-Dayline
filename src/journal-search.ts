@@ -6,7 +6,7 @@ export function normalizeJournalText(value: unknown): string {
   let text = String(value);
   try {
     text = text.normalize('NFKC');
-  } catch (_) {
+  } catch {
     // Older embedded runtimes may not expose Unicode normalization.
   }
   return text.toLocaleLowerCase().replace(/\s+/gu, ' ').trim();

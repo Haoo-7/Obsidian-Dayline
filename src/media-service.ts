@@ -64,7 +64,7 @@ function rawText(value: unknown): string | undefined {
   if (value instanceof Uint8Array) {
     try {
       return new TextDecoder().decode(value).replace(/\0+$/, '').trim() || undefined;
-    } catch (_) {
+    } catch {
       return undefined;
     }
   }
@@ -332,7 +332,7 @@ export class MediaService {
     let input: any;
     try {
       input = await this.inputFactory(resource);
-    } catch (_) {
+    } catch {
       input = null;
     }
     if (!input) return attachment.kind === 'video' ? this.readNativeVideoMetadata(resource) : null;
@@ -359,7 +359,7 @@ export class MediaService {
           const stats = await video.computePacketStats?.(30);
           metadata.frameRate = Number.isFinite(stats?.averagePacketRate) ? stats.averagePacketRate : undefined;
           metadata.bitrate = Number.isFinite(stats?.averageBitrate) ? stats.averageBitrate : undefined;
-        } catch (_) { /* optional statistics */ }
+        } catch { /* optional statistics */ }
       } else if (audio) {
         const [codec, bitrate, sampleRate, channels] = await Promise.all([
           audio.getCodec?.(), audio.getBitrate?.(), audio.getSampleRate?.(), audio.getNumberOfChannels?.(),
@@ -410,7 +410,7 @@ export class MediaService {
         }
       }
       return metadata;
-    } catch (_) {
+    } catch {
       return null;
     } finally {
       input.dispose?.();
@@ -441,7 +441,7 @@ export class MediaService {
         width: video.videoWidth || undefined,
         height: video.videoHeight || undefined,
       };
-    } catch (_) {
+    } catch {
       return null;
     } finally {
       cleanup();
@@ -576,7 +576,7 @@ export class MediaService {
       context.drawImage(video, 0, 0, canvas.width, canvas.height);
       const url = await canvasToObjectUrl(canvas);
       return url ? { url, attachment } : null;
-    } catch (_) {
+    } catch {
       return null;
     } finally {
       cleanupMetadata();
@@ -598,7 +598,7 @@ export class MediaService {
       try {
         const cover = await this.loadCover(attachment);
         if (cover) return cover;
-      } catch (_) {
+      } catch {
         // A broken/unsupported media item must not hide later attachments.
       }
     }

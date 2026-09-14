@@ -159,7 +159,7 @@ export class DaylineSettingsTab extends PluginSettingTab {
         clone.setAttribute('height', '32');
         brand.appendChild(clone);
       }
-    } catch (_) {
+    } catch {
       brand.setText('Dayline');
     }
 

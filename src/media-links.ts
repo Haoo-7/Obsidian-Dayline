@@ -8,7 +8,7 @@ export const AUDIO_EXTENSIONS = ['mp3', 'm4a', 'aac', 'wav', 'flac', 'ogg', 'oga
 export const MEDIA_EXTENSIONS = [...IMAGE_EXTENSIONS, ...VIDEO_EXTENSIONS, ...AUDIO_EXTENSIONS];
 
 function decode(value: string): string {
-  try { return decodeURIComponent(value); } catch (_) { return value; }
+  try { return decodeURIComponent(value); } catch { return value; }
 }
 
 /**
@@ -39,7 +39,7 @@ function extensionFromLink(link: string): string {
   let path = link;
   try {
     if (/^https?:\/\//i.test(link)) path = new URL(link).pathname;
-  } catch (_) {
+  } catch {
     // Keep the raw value; classification will simply return unknown.
   }
   path = path.split(/[?#]/, 1)[0];
