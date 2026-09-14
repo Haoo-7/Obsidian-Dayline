@@ -7,7 +7,10 @@
     "build": "node build.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "verify:release": "node scripts/verify-release-contents.mjs",
+    "verify:release:zip": "node scripts/verify-release-contents.mjs --zip",
+    "package:release": "node scripts/package-release.mjs"
   },
   "devDependencies": {
     "@types/jsdom": "^21.1.7",
