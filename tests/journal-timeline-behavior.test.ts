@@ -104,6 +104,20 @@ describe('timeline rendered behavior', () => {
     expect(event.defaultPrevented).toBe(false);
   });
 
+  it('marks a title-less entry body with has-title-placeholder and drops it when editing starts', () => {
+    const entry = { ...makeEntry(1), title: '' };
+    const { view } = makeView([entry]);
+    view.renderEntry(view.contentEl, entry, 1);
+    const body = view.contentEl.querySelector('.journal-timeline-entry-body');
+    expect(body.classList.contains('has-title-placeholder')).toBe(true);
+    expect(view.contentEl.querySelector('.journal-timeline-add-title')).not.toBeNull();
+
+    view.contentEl.querySelector('.journal-timeline-entry-title').click();
+
+    expect(body.classList.contains('has-title-placeholder')).toBe(false);
+    expect(view.contentEl.querySelector('.journal-timeline-entry-title.is-editing')).not.toBeNull();
+  });
+
   it('loads the thumbnail belonging to the intersecting observer target', async () => {
     let observerCallback;
     globalThis.IntersectionObserver = class {

@@ -655,6 +655,7 @@ export class JournalTimelineView extends ItemView {
       if (!title) {
         setIcon(titleEditor, 'pencil');
         titleEditor.classList.add('journal-timeline-add-title');
+        body.classList.add('has-title-placeholder');
       }
       titleEditor.addEventListener('click', (event) => {
         event.preventDefault();
@@ -705,6 +706,7 @@ export class JournalTimelineView extends ItemView {
     if (this.titleEdit || editor.dataset.editing === 'true') return;
     editor.dataset.editing = 'true';
     editor.classList.add('is-editing');
+    editor.closest('.journal-timeline-entry-body')?.classList.remove('has-title-placeholder');
     editor.setAttribute('role', 'group');
     editor.removeAttribute('tabindex');
     editor.textContent = '';

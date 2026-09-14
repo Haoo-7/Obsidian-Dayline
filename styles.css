@@ -120,7 +120,7 @@
     display: grid;
     grid-template-columns: 20px minmax(0, 1fr);
     align-items: center;
-    column-gap: 8px;
+    gap: 8px;
     min-width: 0;
     max-width: 100%;
     min-height: 44px;
@@ -580,11 +580,9 @@ button.cal-weather-refresh:hover {
   border-radius: 10px;
   /* Frosted glass — progressive enhancement with rgba fallback */
   background: rgba(40, 40, 45, 0.72);
-  background: color-mix(in srgb, var(--background-secondary) 60%, transparent);
   backdrop-filter: blur(8px) saturate(130%);
   -webkit-backdrop-filter: blur(8px) saturate(130%);
   border: 1px solid rgba(255, 255, 255, 0.10);
-  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 50%, transparent);
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.06);
   font-size: 12px;
   color: var(--text-normal);
@@ -594,6 +592,12 @@ button.cal-weather-refresh:hover {
   opacity: 0;
   transform: translateY(-4px);
   transition: opacity 0.2s ease, transform 0.2s ease;
+}
+@supports (background: color-mix(in srgb, red 50%, transparent)) {
+  .cal-note-overlay {
+    background: color-mix(in srgb, var(--background-secondary) 60%, transparent);
+    border: 1px solid color-mix(in srgb, var(--background-modifier-border) 50%, transparent);
+  }
 }
 .cal-note-overlay.is-visible {
   opacity: 1;
@@ -983,7 +987,7 @@ button.cal-weather-refresh:hover {
 .journal-timeline-entry-title.is-placeholder:focus-visible { opacity: 0.72; }
 .journal-timeline-add-title:not(.is-editing) { position: absolute; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; margin: 0; border-radius: 4px; background: var(--background-primary); cursor: pointer; opacity: 0; }
 .journal-timeline-add-title svg { width: 14px; height: 14px; }
-.journal-timeline-entry-body:has(.journal-timeline-add-title:not(.is-editing)) { padding-bottom: 24px; }
+.journal-timeline-entry-body.has-title-placeholder { padding-bottom: 24px; }
 .journal-timeline-entry-title.is-editing { overflow: visible; cursor: text; white-space: normal; opacity: 1; }
 .journal-title-save-error { margin: 6px 0; color: var(--text-error); font-size: 12px; font-weight: 400; line-height: 1.5; overflow-wrap: anywhere; }
 .journal-title-save-error button { margin: 6px 6px 0 0; }
@@ -1119,7 +1123,7 @@ button.cal-weather-refresh:hover {
   .journal-timeline-actions button, .journal-timeline-filter-row > button { width: 44px; height: 44px; flex-basis: 44px; padding: 10px; }
   .journal-timeline-entry-title { min-height: 44px; padding-top: 7px; padding-bottom: 7px; }
   .journal-timeline-add-title:not(.is-editing) { width: 44px; height: 44px; padding: 0; opacity: 1; }
-  .journal-timeline-entry-body:has(.journal-timeline-add-title:not(.is-editing)) { padding-bottom: 44px; }
+  .journal-timeline-entry-body.has-title-placeholder { padding-bottom: 44px; }
   .cal-sidebar { padding-left: max(8px, env(safe-area-inset-left)); padding-right: max(8px, env(safe-area-inset-right)); }
 }
 @media (max-width: 420px) {
@@ -1135,7 +1139,6 @@ body.dayline-mobile.dayline-phone .journal-mood-picker-modal {
   width: calc(100vw - 20px);
   max-width: calc(100vw - 20px);
   max-height: calc(100vh - 24px);
-  max-height: calc(100dvh - 24px);
   padding-top: var(--safe-area-inset-top, env(safe-area-inset-top));
   padding-right: var(--safe-area-inset-right, env(safe-area-inset-right));
   padding-left: var(--safe-area-inset-left, env(safe-area-inset-left));
@@ -1148,13 +1151,20 @@ body.dayline-mobile.dayline-phone .journal-mood-picker-modal {
 }
 body.dayline-mobile.dayline-phone .journal-mood-picker-modal .modal-content.journal-mood-picker {
   max-height: calc(100vh - 48px);
-  max-height: calc(100dvh - 48px);
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   padding: 2px 16px 16px;
   box-sizing: border-box;
+}
+@supports (height: 100dvh) {
+  body.dayline-mobile.dayline-phone .journal-mood-picker-modal {
+    max-height: calc(100dvh - 24px);
+  }
+  body.dayline-mobile.dayline-phone .journal-mood-picker-modal .modal-content.journal-mood-picker {
+    max-height: calc(100dvh - 48px);
+  }
 }
 body.dayline-mobile.dayline-phone .journal-mood-picker-modal .modal-close-button {
   border: 0;
