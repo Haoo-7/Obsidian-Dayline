@@ -290,6 +290,14 @@ The delegate must not commit, push, publish, deploy, or expand the write set wit
 - Deliberately left: unused function parameters (`_onNoteImageEnter`, `_onNoteMediaEnter`, `_createDailyNote`), because dropping a positional parameter can silently shift meaning, and the `execCommand` clipboard fallback.
 - Verification: typecheck, 50 files / 423 tests, build, `verify:release`, and `diff --check` pass; a script check confirms no rule in `styles.css` declares a property twice. Runtime check in the Obsidian Sandbox under plugin ID `dayline-journal`: 25 timeline entries rendered, the three title-less entries carried `has-title-placeholder` with computed `padding-bottom: 24px`, both `@supports` blocks were present and active (`CSS.supports` true for `color-mix` and `100dvh`), and `dev:errors` stayed empty. Sandbox state restored byte-for-byte afterwards.
 - Not yet decided: whether to ship this cleanup as a new release. The 2.3.4 review already passed, so a new release would restart the review cycle.
+
+### 2026-09-14: 2.3.5 published with the warning cleanup
+
+- Maintainer approved shipping the cleanup. Version bumped to `2.3.5` in `manifest.json`, `package.json`, and both root entries of `package-lock.json`; bilingual 2.3.5 sections added to `CHANGELOG.md`.
+- Gates before publishing: typecheck, 50 files / 423 tests, build, `verify:release`, `verify:release:zip`, and `diff --check` all passed. `main.js` did not change, because the version is not embedded in the bundle.
+- Commit `9123ad2` and tag `2.3.5` pushed; GitHub release `Dayline Journal v2.3.5` published as a non-draft, non-prerelease release with six assets. Two transient GitHub API/SSL failures occurred during push and release creation and both succeeded on retry.
+- Every remote asset digest was compared with the local file through the GitHub API and matched: `main.js` `f88244e2...`, `manifest.json` `9861278c...`, `styles.css` `85eafd47...`, `libheif-bundle.js` `793b36c9...`, `THIRD_PARTY_NOTICES.md` `37434cae...`, `dayline.zip` `2ca91957...`. Tag `2.3.5` matches the manifest version, so Obsidian's installer can resolve the release.
+- Next step is external: wait for the community directory to re-run its checks against 2.3.5 and review the remaining warning list.
 ### Previous evidence carried forward
 
 - R1-R11 and R13-R25 have recorded fixes in `docs/code-review-2026-09-07.md` and `docs/review-fix-index-timeline.md`; R12 remains intentional by product contract.
