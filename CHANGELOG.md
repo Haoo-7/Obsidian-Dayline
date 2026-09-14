@@ -1,5 +1,35 @@
 # Changelog
 
+## 2.3.5 (2026-09-14)
+
+### Changed
+- Cleared the CSS warnings the community review raised against 2.3.4. The `column-gap`-in-a-grid rule now uses `gap`, the duplicate `background`, `border`, and `max-height` declarations moved into `@supports` blocks so the fallback and the enhancement are no longer duplicates, and the two `:has()` selectors became a `has-title-placeholder` class the timeline view toggles.
+- Removed code the review flagged as unused: 39 `catch (_)` bindings became optional catch bindings, two more catch bindings lost their unread error variable, and the unreferenced `SCORES`, `_isImageLink`, `_calendarWeatherIconUrl`, `IMAGE_EXTS`, `CALENDAR_BADGE_MARKUP`, and `CALENDAR_BADGE_ICONS` were deleted. Unused local bindings such as `overlay`, `num`, `detailEl`, `extraEl`, and `statusEl` lost only their names; the calls that create those elements are unchanged.
+- The `!important` declarations, the `all: initial` viewport probe, and the deprecated `execCommand` clipboard fallback are intentionally kept.
+
+No user-visible behaviour change is intended by this release.
+
+### Verification
+- `npm test` passed: 50 test files and 423 tests.
+- `npm run typecheck`, `npm run build`, `npm run verify:release`, and `git diff --check` passed.
+- Runtime check in an Obsidian vault under plugin ID `dayline-journal`: 25 timeline entries rendered, the three title-less entries carried `has-title-placeholder` with a computed `padding-bottom` of 24px, both `@supports` blocks were active, and no errors were captured.
+
+
+---
+
+## 2.3.5（2026-09-14）
+
+### 变更
+- 清除社区审核对 2.3.4 提出的 CSS 警告：grid 规则中的 `column-gap` 改用 `gap`；重复的 `background`、`border`、`max-height` 移入 `@supports` 块，使兜底值与增强值不再重复声明；两处 `:has()` 改为由时间线视图切换的 `has-title-placeholder` class。
+- 清理审核标记为未使用的代码：39 处 `catch (_)` 改为可选 catch 绑定，另有 2 处不再声明未被读取的错误变量；删除无任何引用的 `SCORES`、`_isImageLink`、`_calendarWeatherIconUrl`、`IMAGE_EXTS`、`CALENDAR_BADGE_MARKUP` 和 `CALENDAR_BADGE_ICONS`。`overlay`、`num`、`detailEl`、`extraEl`、`statusEl` 等未使用的局部变量只去掉变量名，创建对应元素的调用保持不变。
+- `!important` 声明、视口探测节点的 `all: initial`、以及已弃用的 `execCommand` 剪贴板兜底均有意保留。
+
+本版本不包含有意的界面行为变化。
+
+### 验证
+- `npm test` 通过：50 个测试文件、423 项测试。
+- `npm run typecheck`、`npm run build`、`npm run verify:release` 和 `git diff --check` 通过。
+- Obsidian 测试库以插件 ID `dayline-journal` 完成运行时检查：时间线渲染 25 条记录，3 条无标题条目的 body 带 `has-title-placeholder`，计算出的 `padding-bottom` 为 24px；两个 `@supports` 块均生效；未捕获到错误。
 ## 2.3.4 (2026-09-14)
 
 ### Fixed
