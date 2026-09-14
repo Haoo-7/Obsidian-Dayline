@@ -65,7 +65,6 @@ export class JournalSourceSettingsEditor {
   mount(container) {
     if (!this.dirty && !this.busy) this.reset();
     this.root = container.createDiv({ cls: 'dayline-source-editor' });
-    this.root.createEl('style', { text: SOURCE_EDITOR_CSS });
     this.fields = this.root.createDiv();
     this.renderFields();
     this.status = this.root.createDiv({ cls: 'dayline-source-status', attr: { 'aria-live': 'polite' } });
@@ -286,32 +285,3 @@ export class JournalSourceSettingsEditor {
     }
   }
 }
-
-const SOURCE_EDITOR_CSS = `
-.dayline-source-editor { container-type: inline-size; min-width: 0; padding: 4px 0 20px; }
-.dayline-source-editor [hidden] { display: none !important; }
-.dayline-source-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; font-size: var(--font-ui-small); }
-.dayline-source-field > span { color: var(--text-muted); overflow-wrap: anywhere; }
-.dayline-source-field input, .dayline-source-field select { box-sizing: border-box; width: 100%; min-width: 0; }
-.dayline-source-folder { display: flex; align-items: end; gap: 8px; min-width: 0; }
-.dayline-source-folder .dayline-source-field { flex: 1; }
-.dayline-source-icon { flex: 0 0 32px; width: 32px; height: 32px; padding: 6px; }
-.dayline-source-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; min-width: 0; margin: 18px 0 0; padding: 12px 0 16px; border: 0; border-bottom: 1px solid var(--background-modifier-border); }
-.dayline-source-row legend { padding: 0; color: var(--text-normal); font-size: var(--font-ui-small); font-weight: 600; }
-.dayline-source-row .dayline-source-folder, .dayline-source-row-actions { grid-column: 1 / -1; }
-.dayline-source-row-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.dayline-source-enabled { display: inline-flex; align-items: center; gap: 8px; font-size: var(--font-ui-small); }
-.dayline-source-add { display: inline-flex; align-items: center; gap: 6px; margin-top: 12px; }
-.dayline-source-add span { display: flex; }
-.dayline-source-add svg { width: 16px; height: 16px; }
-.dayline-source-advanced { margin: 16px 0; font-size: var(--font-ui-small); }
-.dayline-source-advanced summary { cursor: pointer; color: var(--text-muted); }
-.dayline-source-advanced textarea { box-sizing: border-box; width: 100%; max-width: 100%; margin-top: 10px; font-family: var(--font-monospace); resize: vertical; }
-.dayline-source-status { min-height: 20px; margin: 8px 0; font-size: var(--font-ui-small); color: var(--text-muted); overflow-wrap: anywhere; }
-.dayline-source-status.is-error { color: var(--text-error); }
-.dayline-source-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-.dayline-source-editor button { max-width: 100%; white-space: normal; }
-.dayline-source-editor button:focus-visible, .dayline-source-editor summary:focus-visible { outline: 2px solid var(--interactive-accent); outline-offset: 2px; }
-@container (max-width: 400px) { .dayline-source-row { grid-template-columns: minmax(0, 1fr); } }
-@media (pointer: coarse) { .dayline-source-editor input:not([type=checkbox]), .dayline-source-editor select, .dayline-source-editor button { min-height: 44px; } .dayline-source-icon { flex-basis: 44px; width: 44px; height: 44px; } }
-`;

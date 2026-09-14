@@ -9,6 +9,7 @@ import {
 } from '../src/mobile-quick-entry';
 
 const pluginSource = readFileSync(join(process.cwd(), 'src/plugin.ts'), 'utf8');
+const stylesSource = readFileSync(join(process.cwd(), 'styles.css'), 'utf8');
 const quickEntrySource = readFileSync(join(process.cwd(), 'src/mobile-quick-entry.ts'), 'utf8');
 
 function phoneCapabilities(overrides: Record<string, boolean> = {}) {
@@ -185,11 +186,11 @@ describe('mobile Markdown quick entry', () => {
     expect(pluginSource).toContain('this._mobileQuickEntry?.dispose()');
     expect(pluginSource).toContain("classList.toggle('dayline-phone'");
     expect(pluginSource).toContain("classList.remove('dayline-coarse-pointer', 'dayline-mobile', 'dayline-phone')");
-    expect(pluginSource).toContain('body.dayline-mobile.dayline-phone .journal-mood-picker-modal');
-    expect(pluginSource).toContain('100dvh');
-    expect(pluginSource).toContain('env(safe-area-inset-bottom)');
-    expect(pluginSource).toContain('width: 52px');
-    expect(pluginSource).toContain('position: sticky');
+    expect(stylesSource).toContain('body.dayline-mobile.dayline-phone .journal-mood-picker-modal');
+    expect(stylesSource).toContain('100dvh');
+    expect(stylesSource).toContain('env(safe-area-inset-bottom)');
+    expect(stylesSource).toContain('width: 52px');
+    expect(stylesSource).toContain('position: sticky');
     expect(quickEntrySource).not.toContain('querySelector');
     expect(quickEntrySource).not.toContain('mobile-navbar');
     expect(quickEntrySource).not.toContain('workspace-drawer');

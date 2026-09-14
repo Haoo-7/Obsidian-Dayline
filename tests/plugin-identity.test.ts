@@ -9,7 +9,7 @@ describe('plugin identity', () => {
 
     expect(manifest.id).toBe(PLUGIN_ID);
     expect(manifest.name).toBe('Dayline Journal');
-    expect(manifest.dir).toBe(`.obsidian/plugins/${PLUGIN_ID}`);
+    expect(manifest).not.toHaveProperty('dir');
     expect(packageJson.version).toBe(manifest.version);
   });
 });

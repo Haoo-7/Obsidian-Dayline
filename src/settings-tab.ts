@@ -123,8 +123,10 @@ export class DaylineSettingsTab extends PluginSettingTab {
   }
 
   _addSection(containerEl, id) {
-    const heading = containerEl.createEl('h3', { text: t(this.plugin.settings, SETTINGS_SECTION_LABEL_KEYS[id]) });
-    heading.dataset.daylineSettingsSection = id;
+    const setting = new Setting(containerEl)
+      .setName(t(this.plugin.settings, SETTINGS_SECTION_LABEL_KEYS[id]))
+      .setHeading();
+    setting.settingEl.dataset.daylineSettingsSection = id;
   }
 
   _addActionRow(setting, id) {

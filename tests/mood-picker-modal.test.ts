@@ -144,7 +144,7 @@ describe('MoodPickerModal fluid flow', () => {
     });
     modal.onOpen();
     const selector = 'body.dayline-mobile.dayline-phone .journal-mood-picker-modal .modal-content.journal-mood-picker';
-    const source = readFileSync(new URL('../src/plugin.ts', import.meta.url), 'utf8');
+    const source = readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
     const start = source.indexOf(`${selector} {`);
     expect(start).toBeGreaterThan(-1);
     const style = document.createElement('style');

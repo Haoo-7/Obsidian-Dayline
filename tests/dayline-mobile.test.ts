@@ -362,9 +362,10 @@ describe('mobile Dayline routing', () => {
 
   it('keeps native mobile content scrollable without reintroducing an embedded host', () => {
     const pluginSource = readFileSync(new URL('../src/plugin.ts', import.meta.url), 'utf8');
-    expect(pluginSource).toContain('.dayline-mobile-native-view .view-content');
-    expect(pluginSource).toContain('overflow-y: auto;');
-    expect(pluginSource).toContain('.dayline-mobile-native-mode-controls');
+    const stylesSource = readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
+    expect(stylesSource).toContain('.dayline-mobile-native-view .view-content');
+    expect(stylesSource).toContain('overflow-y: auto;');
+    expect(stylesSource).toContain('.dayline-mobile-native-mode-controls');
     expect(pluginSource).not.toContain('dayline-mobile-embedded-host');
   });
 });

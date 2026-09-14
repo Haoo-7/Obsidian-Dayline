@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { JSDOM } from 'jsdom';
+import { readFileSync } from 'node:fs';
 import { bindMoodModalViewport } from '../src/mood-modal-viewport';
 
 describe('phone mood modal viewport', () => {
@@ -464,11 +465,16 @@ describe('phone mood modal viewport', () => {
   it('uses a noninteractive isolated probe and removes it on dispose', () => {
     dispose = bindMoodModalViewport(modal, content);
     const probe = dom.window.document.querySelector<HTMLElement>('.journal-mood-viewport-probe')!;
+    const styles = readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
+    const start = styles.indexOf('.journal-mood-viewport-probe {');
+    const rule = styles.slice(start, styles.indexOf('}', start) + 1);
     expect(probe).not.toBeNull();
     expect(probe.parentElement).toBe(dom.window.document.body);
-    expect(probe.style.height).toBe('100vh');
-    expect(probe.style.position).toBe('fixed');
-    expect(probe.style.pointerEvents).toBe('none');
+    expect(start).toBeGreaterThan(-1);
+    expect(rule).toContain('height: 100vh;');
+    expect(rule).toContain('position: fixed;');
+    expect(rule).toContain('pointer-events: none;');
+    expect(probe.style.cssText).toBe('');
     expect(probe.getAttribute('aria-hidden')).toBe('true');
     dispose();
     expect(probe.isConnected).toBe(false);

@@ -13,13 +13,18 @@ export function bindMoodModalViewport(modalEl: HTMLElement, contentEl: HTMLEleme
 
   const viewport = view.visualViewport;
   // Measure viewport units outside the keyboard-constrained app/modal hosts.
-  const probe = doc.createElement('div');
-  probe.className = 'journal-mood-viewport-probe';
-  probe.setAttribute('aria-hidden', 'true');
-  probe.style.cssText = 'all: initial; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;'
-    + ' min-width: 0; min-height: 0; max-width: none; max-height: none; margin: 0; padding: 0;'
-    + ' border: 0; box-sizing: border-box; visibility: hidden; pointer-events: none; contain: strict;';
-  doc.body.appendChild(probe);
+  const body = doc.body as HTMLElement & {
+    createDiv?: (options?: { cls?: string; attr?: Record<string, string> }) => HTMLElement;
+  };
+  const probe = body.createDiv?.({
+    cls: 'journal-mood-viewport-probe',
+    attr: { 'aria-hidden': 'true' },
+  }) ?? doc.createElement('div');
+  if (!probe.parentElement) {
+    probe.className = 'journal-mood-viewport-probe';
+    probe.setAttribute('aria-hidden', 'true');
+    doc.body.appendChild(probe);
+  }
   let frame: number | null = null;
   let revealFocus = false;
   let disposed = false;
