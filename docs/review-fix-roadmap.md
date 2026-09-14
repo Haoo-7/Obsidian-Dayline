@@ -278,9 +278,18 @@ The delegate must not commit, push, publish, deploy, or expand the write set wit
 ### 2026-09-14: author name corrected, HEIC deferred
 
 - Maintainer confirmed the author name is `Haoo`, not `Sisyphus`. The `LICENSE` copyright line was corrected to `2026 Haoo`.
-- `manifest.json` still declares `"author": "Sisyphus"`. Editing it does not change the already-published and reviewed 2.3.4 artifacts, so the change is queued for the next release instead of being slipped in under the existing tag.
+- `manifest.json` was also set to `"author": "Haoo"` in commit `20bf7ef`. Obsidian's directory reads the default-branch HEAD manifest, so the listing picks this up without a new release; the already-published 2.3.4 release asset still carries the previous value and will match again at the next release.
 - HEIC packaging was explicitly deferred rather than decided: the maintainer noted HEIC is the iPhone camera default and therefore matters for mobile. Leaving the decoder out of `main.js` remains a known gap, not a settled design.
 
+### 2026-09-14: review passed on 2.3.4; warning cleanup round
+
+- Obsidian completed the review of 2.3.4: **0 errors**. The three source errors, the license warning, and both manifest warnings are gone. Remaining: 37 warnings (30 unchanged source warnings + 7 new CSS warnings, because `styles.css` is now linted as a real stylesheet) and 17 recommendations.
+- Triaged the new CSS warnings: five were worth fixing, and the `!important` (27 refs / 17 lines) plus `all: initial` warnings were accepted as deliberate overrides of Obsidian's own styles and of inherited styles on the viewport probe.
+- Fixed those five in `styles.css`: `column-gap` → `gap` in a grid rule (the multicolumn warning was a false positive on the property name), duplicate `background`/`border` and duplicate `max-height` moved into `@supports` blocks so the fallback and the enhancement are no longer duplicate declarations, and the two `:has()` selectors replaced with a `has-title-placeholder` class that `JournalTimelineView` toggles. Delegated to Grok Build in tmux session `codex-grok-css-round2`.
+- Cleared the unused-code recommendations in a second delegated pass (dsh headless DeepSeek): 39 `catch (_)` bindings converted to optional catch bindings across 14 files, two named catch bindings converted where the error was unread, and the dead `SCORES`, `_isImageLink`, `_calendarWeatherIconUrl`, `IMAGE_EXTS`, `CALENDAR_BADGE_MARKUP`, and `CALENDAR_BADGE_ICONS` removed after `rg` proved no references. Unused locals (`images`, `overlay`, `num`, `detailEl`, `extraEl`, `statusEl`, `err`) lost only their bindings; the DOM-creating calls were preserved.
+- Deliberately left: unused function parameters (`_onNoteImageEnter`, `_onNoteMediaEnter`, `_createDailyNote`), because dropping a positional parameter can silently shift meaning, and the `execCommand` clipboard fallback.
+- Verification: typecheck, 50 files / 423 tests, build, `verify:release`, and `diff --check` pass; a script check confirms no rule in `styles.css` declares a property twice. Runtime check in the Obsidian Sandbox under plugin ID `dayline-journal`: 25 timeline entries rendered, the three title-less entries carried `has-title-placeholder` with computed `padding-bottom: 24px`, both `@supports` blocks were present and active (`CSS.supports` true for `color-mix` and `100dvh`), and `dev:errors` stayed empty. Sandbox state restored byte-for-byte afterwards.
+- Not yet decided: whether to ship this cleanup as a new release. The 2.3.4 review already passed, so a new release would restart the review cycle.
 ### Previous evidence carried forward
 
 - R1-R11 and R13-R25 have recorded fixes in `docs/code-review-2026-09-07.md` and `docs/review-fix-index-timeline.md`; R12 remains intentional by product contract.
