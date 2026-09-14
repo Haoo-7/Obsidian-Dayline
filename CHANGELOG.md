@@ -1,5 +1,41 @@
 # Changelog
 
+## 2.3.4 (2026-09-14)
+
+### Fixed
+- Obsidian review error: the plugin no longer creates and attaches `<style>` elements at runtime. The plugin and source-editor styles now live in a root `styles.css` that Obsidian loads itself, and the remaining fixed inline styles use CSS classes.
+- Obsidian review error: settings sections now use `new Setting(...).setName(...).setHeading()` instead of creating heading elements directly.
+- Obsidian review warning: removed the unsupported `dir` field from `manifest.json`.
+- Closing the Dayline calendar no longer leaves note-media listeners, `tabIndex`/`aria-label` overrides, or info buttons behind in Markdown notes, so reopening it cannot stack duplicate buttons or call into a closed view.
+
+### Changed
+- Added an MIT `LICENSE`.
+- `npm run verify:release` and `build.mjs` now fail when `main.js`, `manifest.json`, or `styles.css` is missing or empty, and `npm run package:release` rebuilds `dayline.zip` from the verified runtime set. The archive now ships `styles.css`.
+
+### Verification
+- `npm test` passed: 50 test files and 422 tests.
+- `npm run typecheck`, `npm run build`, `npm run verify:release`, `npm run verify:release:zip`, and `git diff --check` passed.
+- Runtime check in the Obsidian Sandbox vault under plugin ID `dayline-journal`: legacy settings migrated, `styles.css` was confirmed as the applied stylesheet, and calendar, timeline, and settings rendered with no captured errors.
+
+
+---
+
+## 2.3.4（2026-09-14）
+
+### 修复
+- 修复 Obsidian 审核报错：不再在运行时创建并插入 `<style>` 元素。插件与来源编辑器的样式改由根目录 `styles.css` 承载，由 Obsidian 自行加载；其余固定内联样式改用 CSS class。
+- 修复 Obsidian 审核报错：设置分区改用 `new Setting(...).setName(...).setHeading()`，不再手工创建标题元素。
+- 修复审核警告：从 `manifest.json` 移除不支持的 `dir` 字段。
+- 关闭 Dayline 日历时，不再把笔记里的媒体监听、`tabIndex`/`aria-label` 覆盖和媒体信息按钮留在 Markdown 笔记中，重复开关不会累积重复按钮，也不会再触发已关闭视图的回调。
+
+### 变更
+- 新增 MIT `LICENSE`。
+- `npm run verify:release` 与 `build.mjs` 现在会在 `main.js`、`manifest.json`、`styles.css` 缺失或为空时直接失败；`npm run package:release` 从已验证的运行文件集重新生成 `dayline.zip`，压缩包现在包含 `styles.css`。
+
+### 验证
+- `npm test` 通过：50 个测试文件、422 项测试。
+- `npm run typecheck`、`npm run build`、`npm run verify:release`、`npm run verify:release:zip` 和 `git diff --check` 通过。
+- Obsidian Sandbox 测试库以插件 ID `dayline-journal` 完成运行时验证：旧设置成功迁移，确认实际生效的样式表就是 `styles.css`，日历、时间线与设置页均正常渲染，未捕获到错误。
 ## 2.3.3 (2026-09-13)
 
 ### Changed
