@@ -187,6 +187,8 @@ Before changing sorting, notification scheduling, pagination, or DOM strategy, c
 - License: **MIT**, chosen by the maintainer on 2026-09-14; `LICENSE` is committed.
 - Package contents: individual assets plus `dayline.zip`; both are published for release 2.3.4.
 - `libheif-bundle.js`: stays a separate release asset. It cannot be downloaded and installed by the plugin at runtime — Obsidian's developer policies forbid plugins that "install or update themselves or their dependencies".
+- HEIC packaging: **deferred by the maintainer on 2026-09-14**. HEIC is the iPhone camera default, so mobile users do need decoding; do not quietly drop the feature. Revisit later as either an inlined decoder inside `main.js` or a documented manual file. Do not implement a runtime download, which the developer policies forbid.
+- `manifest.json` author field: still `Sisyphus` while `LICENSE` now credits `Haoo`. Changing the published author requires a new release, so this is queued for the next version rather than changed under the reviewed 2.3.4 tag.
 - GitHub artifact attestations: not configured. `gh release verify-asset` reports `no attestations found`, so provenance verification is unavailable until a workflow adds them.
 
 No P5 source or release-policy change should be made until these decisions are recorded here.
@@ -272,6 +274,12 @@ The delegate must not commit, push, publish, deploy, or expand the write set wit
 - Obsidian's [Submit your plugin](https://docs.obsidian.md/Plugins/Releasing/Submit+your+plugin) page states that Obsidian downloads `main.js`, `manifest.json`, and `styles.css` from the release whose tag matches the manifest version. Release 2.3.4 satisfies that: tag `2.3.4` matches manifest `2.3.4` and all three assets are attached individually.
 - Obsidian's [Developer policies](https://docs.obsidian.md/Developer+policies) forbid plugins that "install or update themselves or their dependencies". This rules out downloading a codec from the settings page and activating it, so `libheif-bundle.js` must either ship inside `main.js` or be a separate asset the user places manually.
 - The same policies allow network use when it is disclosed in the README. The existing README files already disclose Open-Meteo weather requests and opt-in OpenStreetMap Nominatim geocoding, including why each is needed.
+
+### 2026-09-14: author name corrected, HEIC deferred
+
+- Maintainer confirmed the author name is `Haoo`, not `Sisyphus`. The `LICENSE` copyright line was corrected to `2026 Haoo`.
+- `manifest.json` still declares `"author": "Sisyphus"`. Editing it does not change the already-published and reviewed 2.3.4 artifacts, so the change is queued for the next release instead of being slipped in under the existing tag.
+- HEIC packaging was explicitly deferred rather than decided: the maintainer noted HEIC is the iPhone camera default and therefore matters for mobile. Leaving the decoder out of `main.js` remains a known gap, not a settled design.
 
 ### Previous evidence carried forward
 
