@@ -610,7 +610,7 @@ export class ReverseGeocoder {
     this._ttlMs = Math.max(1, Number(options.ttlMs ?? GEOCODER_CACHE_TTL_MS));
     this._maxEntries = Math.max(1, Math.floor(Number(options.maxEntries ?? GEOCODER_CACHE_MAX_ENTRIES)));
     this._minRequestIntervalMs = Math.max(0, Number(options.minRequestIntervalMs ?? 1000));
-    this._sleep = options.sleep || ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
+    this._sleep = options.sleep || ((ms) => new Promise((resolve) => window.setTimeout(resolve, ms)));
     this._request = options.request || ((request) => getRequestUrl()(request));
     this._getLanguage = options.getLanguage || (() => 'en');
     this._lastRequest = 0;        // rate limit: 1 req/s

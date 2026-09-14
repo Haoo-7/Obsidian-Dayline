@@ -139,7 +139,7 @@ class DaylinePlugin extends Plugin {
         console.warn('[Dayline] Initial journal index refresh failed:', error?.message || error);
       });
     }
-    this._reminderTimer = setInterval(() => this._maybeRemind(), 60 * 1000);
+    this._reminderTimer = window.setInterval(() => this._maybeRemind(), 60 * 1000);
 
     // Initialize shared WeatherService (singleton across all calendar views)
     this.weatherService = new WeatherService(this);
@@ -168,8 +168,12 @@ class DaylinePlugin extends Plugin {
         const basePath = String(this.app.vault?.adapter?.basePath || '').replace(/[\\/]+$/, '');
         const dynamicRequire = typeof require === 'function' ? require : null;
         if (basePath && dynamicRequire) {
-          const configDir = String(this.app.vault?.configDir || '.obsidian').replace(/[\\/]+$/, '');
-          this._libheifFactory = dynamicRequire(`${basePath}/${configDir}/plugins/${PLUGIN_ID}/libheif-bundle.js`);
+          const configDir = String(this.app.vault?.configDir || '').replace(/[\\/]+$/, '');
+          // Without a real vault config directory the plugin folder cannot be
+          // resolved, so keep the null HEIC fallback instead of guessing a path.
+          if (configDir) {
+            this._libheifFactory = dynamicRequire(`${basePath}/${configDir}/plugins/${PLUGIN_ID}/libheif-bundle.js`);
+          }
         }
       } catch (e) {
         console.warn('[Dayline] Failed to load optional libheif:', e.message);
@@ -195,7 +199,7 @@ class DaylinePlugin extends Plugin {
       onPersist: (kind, visible) => this._persistViewVisibility(kind, visible),
     });
     this._daylineRibbonEl = this.addRibbonIcon('calendar-range', 'Dayline', (event) => {
-      if (this.capabilities?.isMobile) this._activateMobileMode(this._mobileDaylineLastMode || 'calendar');
+      if (this.capabilities?.isMobile) void this._activateMobileMode(this._mobileDaylineLastMode || 'calendar');
       else this._showDaylineMenu(event);
     });
     this._syncDaylineRibbon();
@@ -312,11 +316,11 @@ class DaylinePlugin extends Plugin {
 
   /** Remove all note overlays and clear state on unload. */
   async onunload() {
-    clearTimeout(this._weatherSaveTimer);
-    clearTimeout(this._weatherCleanupTimer);
-    clearTimeout(this._geocoderSaveTimer);
-    clearTimeout(this._exifHoverTimer);
-    clearInterval(this._reminderTimer);
+    window.clearTimeout(this._weatherSaveTimer);
+    window.clearTimeout(this._weatherCleanupTimer);
+    window.clearTimeout(this._geocoderSaveTimer);
+    window.clearTimeout(this._exifHoverTimer);
+    window.clearInterval(this._reminderTimer);
     this._removeExifDismissHandlers();
     this._endExifHover();
     await this._flushWeatherCache();
@@ -445,7 +449,9 @@ class DaylinePlugin extends Plugin {
   async _migrateLegacyData() {
     const adapter = this.app.vault?.adapter;
     if (!adapter?.exists || !adapter?.read || !adapter?.write) return;
-    const configDir = String(this.app.vault?.configDir || '.obsidian').replace(/[\\/]+$/, '');
+    const configDir = String(this.app.vault?.configDir || '').replace(/[\\/]+$/, '');
+    // An empty config directory would build `undefined/plugins/...` style paths.
+    if (!configDir) return;
     const dataPath = (pluginId) => `${configDir}/plugins/${pluginId}/data.json`;
     const currentPath = dataPath(PLUGIN_ID);
     try {
@@ -617,7 +623,7 @@ class DaylinePlugin extends Plugin {
     const path = activeIsJournal
       ? activeFile.path
       : `${this.settings.dailyFolder}/${_daylineDate(this.settings)}.md`;
-    this.openMoodPicker(path, { allowDateSelection: true, ensureFile: false });
+    void this.openMoodPicker(path, { allowDateSelection: true, ensureFile: false });
   }
 
   async saveJournalTitle(path, title) {
@@ -945,7 +951,7 @@ class DaylinePlugin extends Plugin {
   }
 
   _beginExifHover() {
-    clearTimeout(this._exifHoverTimer);
+    window.clearTimeout(this._exifHoverTimer);
     this._hideExifTooltip();
     return ++this._exifHoverToken;
   }
@@ -955,7 +961,7 @@ class DaylinePlugin extends Plugin {
   }
 
   _endExifHover() {
-    clearTimeout(this._exifHoverTimer);
+    window.clearTimeout(this._exifHoverTimer);
     this._exifHoverToken++;
     this._exifTouchAnchor = null;
     this._hideExifTooltip();
@@ -1000,8 +1006,8 @@ class DaylinePlugin extends Plugin {
 
   /** Save weather cache without touching settings. Debounced to avoid excessive writes. */
   _saveWeatherCache() {
-    if (this._weatherSaveTimer) clearTimeout(this._weatherSaveTimer);
-    this._weatherSaveTimer = setTimeout(() => {
+    if (this._weatherSaveTimer) window.clearTimeout(this._weatherSaveTimer);
+    this._weatherSaveTimer = window.setTimeout(() => {
       this._weatherSaveTimer = null;
       this._flushWeatherCache().catch((err) => {
         console.warn('[Dayline] Weather cache save failed:', err.message);
@@ -1022,7 +1028,7 @@ class DaylinePlugin extends Plugin {
 
   _flushWeatherCache() {
     if (this._weatherSaveTimer) {
-      clearTimeout(this._weatherSaveTimer);
+      window.clearTimeout(this._weatherSaveTimer);
       this._weatherSaveTimer = null;
     }
     return this._enqueueDataWrite((data) => {
@@ -1032,8 +1038,8 @@ class DaylinePlugin extends Plugin {
 
   /** Save reverse-geocoder cache without touching settings. */
   _saveGeocoderCache() {
-    if (this._geocoderSaveTimer) clearTimeout(this._geocoderSaveTimer);
-    this._geocoderSaveTimer = setTimeout(() => {
+    if (this._geocoderSaveTimer) window.clearTimeout(this._geocoderSaveTimer);
+    this._geocoderSaveTimer = window.setTimeout(() => {
       this._geocoderSaveTimer = null;
       this._flushGeocoderCache().catch((err) => {
         console.warn('[Dayline] Geocoder cache save failed:', err.message);
@@ -1043,7 +1049,7 @@ class DaylinePlugin extends Plugin {
 
   _flushGeocoderCache() {
     if (this._geocoderSaveTimer) {
-      clearTimeout(this._geocoderSaveTimer);
+      window.clearTimeout(this._geocoderSaveTimer);
       this._geocoderSaveTimer = null;
     }
     return this._enqueueDataWrite((data) => {
@@ -1067,8 +1073,8 @@ class DaylinePlugin extends Plugin {
     }
     if (removed > 0) {
       // Schedule cleanup persist (no urgency)
-      clearTimeout(this._weatherCleanupTimer);
-      this._weatherCleanupTimer = setTimeout(() => {
+      window.clearTimeout(this._weatherCleanupTimer);
+      this._weatherCleanupTimer = window.setTimeout(() => {
         this._weatherCleanupTimer = null;
         this._saveWeatherCache();
       }, 5000);
@@ -1235,10 +1241,10 @@ class CalendarView extends ItemView {
       if (!shouldHandleCalendarMonthShortcut(event)) return;
       if (event.key === 'ArrowLeft') {
         event.preventDefault();
-        this._goToMonth(-1);
+        void this._goToMonth(-1);
       } else if (event.key === 'ArrowRight') {
         event.preventDefault();
-        this._goToMonth(1);
+        void this._goToMonth(1);
       }
     };
     root.addEventListener('keydown', this._calendarKeydownHandler);
@@ -1290,8 +1296,8 @@ class CalendarView extends ItemView {
     this._calendarKeydownHandler = null;
     this._unsubscribeIndex?.();
     this._unsubscribeIndex = null;
-    clearTimeout(this._refreshTimer);
-    clearTimeout(this._exifNoteTimer);
+    window.clearTimeout(this._refreshTimer);
+    window.clearTimeout(this._exifNoteTimer);
     this.plugin._endExifHover();
     for (const observer of this._exifObservers?.values() || []) observer.disconnect();
     this._exifObservers?.clear();
@@ -1325,7 +1331,7 @@ class CalendarView extends ItemView {
       }
     }
     // Defer to avoid race with click handler calling openFile.
-    setTimeout(() => this.render(), 0);
+    window.setTimeout(() => this.render(), 0);
   }
 
   /* ----- File change refresh (debounced) ----- */
@@ -1342,16 +1348,18 @@ class CalendarView extends ItemView {
     if (!affectedMonths.size) return;
     for (const monthKey of affectedMonths) this.monthCache.delete(monthKey);
     if (!affectedMonths.has(this._monthKey(this.displayMonth))) return;
-    clearTimeout(this._refreshTimer);
-    this._refreshTimer = setTimeout(async () => {
-      try {
-        await this.buildMonthCache(this.displayMonth);
-        this.render();
-      } catch (error) {
-        console.warn('[Dayline] Calendar image refresh failed:', error?.message || error);
-        this.monthCache.delete(this._monthKey(this.displayMonth));
-        new Notice(t(this.plugin.settings, 'calendarMonthLoadFailed', { error: error?.message || error }));
-      }
+    window.clearTimeout(this._refreshTimer);
+    this._refreshTimer = window.setTimeout(() => {
+      void (async () => {
+        try {
+          await this.buildMonthCache(this.displayMonth);
+          this.render();
+        } catch (error) {
+          console.warn('[Dayline] Calendar image refresh failed:', error?.message || error);
+          this.monthCache.delete(this._monthKey(this.displayMonth));
+          new Notice(t(this.plugin.settings, 'calendarMonthLoadFailed', { error: error?.message || error }));
+        }
+      })();
     }, 300);
   }
 
@@ -1535,7 +1543,7 @@ class CalendarView extends ItemView {
     prevBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       prevBtn.focus({ preventScroll: true });
-      this._goToMonth(-1);
+      void this._goToMonth(-1);
     });
 
     const title = header.createEl('button', {
@@ -1571,7 +1579,7 @@ class CalendarView extends ItemView {
     nextBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       nextBtn.focus({ preventScroll: true });
-      this._goToMonth(1);
+      void this._goToMonth(1);
     });
 
     const headerActions = header.createDiv({ cls: 'cal-header-actions' });
@@ -1583,7 +1591,7 @@ class CalendarView extends ItemView {
     todayBtn.addEventListener('click', (event) => {
       event.stopPropagation();
       todayBtn.focus({ preventScroll: true });
-      this._goToToday();
+      void this._goToToday();
     });
     if (this._calendarJumpOpen) this._renderMonthJump(el);
     // Calendar records are intentionally unfiltered; the timeline owns filtering.
@@ -1679,7 +1687,7 @@ class CalendarView extends ItemView {
             cell.addClass('cal-no-image');
           });
         }
-        this._setBackground(bg, dateEntry);
+        void this._setBackground(bg, dateEntry);
 
         // Unified media metadata tooltip on hover. Images retain the legacy EXIF path.
         const firstMedia = cover;
@@ -1872,7 +1880,7 @@ class CalendarView extends ItemView {
       apply.focus({ preventScroll: true });
       const nextYear = Math.max(1, Math.min(9999, Number.parseInt(yearInput.value, 10) || this.displayMonth.getFullYear()));
       const nextMonth = Math.max(0, Math.min(11, Number.parseInt(monthSelect.value, 10) || 0));
-      this._jumpToMonth(nextYear, nextMonth);
+      void this._jumpToMonth(nextYear, nextMonth);
     });
   }
 
@@ -1905,34 +1913,36 @@ class CalendarView extends ItemView {
     if (!this.plugin.settings.showExif) return;
     const hoverToken = this.plugin._beginExifHover();
 
-    this.plugin._exifHoverTimer = setTimeout(async () => {
-      try {
-        const notePath = sourcePath || `${this.plugin.settings.dailyFolder}/${dateStr}.md`;
-        const file = this.app.metadataCache.getFirstLinkpathDest(imageLink, notePath);
-        if (!(file instanceof TFile)) return;
-        if (!this.plugin._isCurrentExifHover(hoverToken)) return;
-        this.plugin._showExifTooltip(cell, null, true);
-        const fields = await this._getPersistedExifFields(file, notePath, imageLink);
-        if (!this.plugin._isCurrentExifHover(hoverToken)) return;
-        this.plugin._showExifTooltip(cell, fields, false);
+    this.plugin._exifHoverTimer = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const notePath = sourcePath || `${this.plugin.settings.dailyFolder}/${dateStr}.md`;
+          const file = this.app.metadataCache.getFirstLinkpathDest(imageLink, notePath);
+          if (!(file instanceof TFile)) return;
+          if (!this.plugin._isCurrentExifHover(hoverToken)) return;
+          this.plugin._showExifTooltip(cell, null, true);
+          const fields = await this._getPersistedExifFields(file, notePath, imageLink);
+          if (!this.plugin._isCurrentExifHover(hoverToken)) return;
+          this.plugin._showExifTooltip(cell, fields, false);
 
-        // Reverse geocode GPS coordinates asynchronously
-        if (this.plugin.settings.exifReverseGeocode && fields && this.plugin.geocoder) {
-          const gpsField = fields.find(f => f.key === 'exif_gps');
-          if (gpsField) {
-            const parts = gpsField.value.split(',').map(s => parseFloat(s.trim()));
-            if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
-              const place = await this.plugin.geocoder.lookup(parts[0], parts[1]);
-              if (place && this.plugin._isCurrentExifHover(hoverToken)) {
-                gpsField.value = place;
-                this.plugin._showExifTooltip(cell, fields, false);
+          // Reverse geocode GPS coordinates asynchronously
+          if (this.plugin.settings.exifReverseGeocode && fields && this.plugin.geocoder) {
+            const gpsField = fields.find(f => f.key === 'exif_gps');
+            if (gpsField) {
+              const parts = gpsField.value.split(',').map(s => parseFloat(s.trim()));
+              if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+                const place = await this.plugin.geocoder.lookup(parts[0], parts[1]);
+                if (place && this.plugin._isCurrentExifHover(hoverToken)) {
+                  gpsField.value = place;
+                  this.plugin._showExifTooltip(cell, fields, false);
+                }
               }
             }
           }
+        } catch {
+          this.plugin._hideExifTooltip();
         }
-      } catch {
-        this.plugin._hideExifTooltip();
-      }
+      })();
     }, 500);
   }
 
@@ -1940,17 +1950,19 @@ class CalendarView extends ItemView {
     if (!this.plugin.settings.showExif || !attachment) return;
     if (immediate && this.plugin._toggleExifTouch(cell)) return;
     const hoverToken = this.plugin._beginExifHover();
-    this.plugin._exifHoverTimer = setTimeout(async () => {
-      try {
-        if (!this.plugin._isCurrentExifHover(hoverToken)) return;
-        this.plugin._showExifTooltip(cell, null, true, 'media');
-        const metadata = await this.mediaService?.getMetadata?.(attachment);
-        const fields = formatMediaMetadataForDisplay(metadata);
-        if (!this.plugin._isCurrentExifHover(hoverToken)) return;
-        this.plugin._showExifTooltip(cell, fields, false, 'media');
-      } catch {
-        this.plugin._hideExifTooltip();
-      }
+    this.plugin._exifHoverTimer = window.setTimeout(() => {
+      void (async () => {
+        try {
+          if (!this.plugin._isCurrentExifHover(hoverToken)) return;
+          this.plugin._showExifTooltip(cell, null, true, 'media');
+          const metadata = await this.mediaService?.getMetadata?.(attachment);
+          const fields = formatMediaMetadataForDisplay(metadata);
+          if (!this.plugin._isCurrentExifHover(hoverToken)) return;
+          this.plugin._showExifTooltip(cell, fields, false, 'media');
+        } catch {
+          this.plugin._hideExifTooltip();
+        }
+      })();
     }, immediate ? 0 : 500);
   }
 
@@ -2092,7 +2104,7 @@ class CalendarView extends ItemView {
 
     // Start background fetch only if we don't have an existing snapshot
     if (this._weatherLoading) {
-      this._fetchWeatherForDate(cardDate);
+      void this._fetchWeatherForDate(cardDate);
     } else {
       this._updateWeatherCardUI();
     }
@@ -2387,7 +2399,7 @@ class CalendarView extends ItemView {
         this._createDailyNote(path, dateStr).then((created) => {
           openFileInLeaf(created);
           // Trigger weather after note is created and opened
-          setTimeout(() => this._triggerWeatherAfterOpen(dateStr), 500);
+          window.setTimeout(() => this._triggerWeatherAfterOpen(dateStr), 500);
         }).catch((error) => {
           console.warn('[Dayline] Create daily note failed:', error?.message || error);
           new Notice(t(this.plugin.settings, 'createNoteFailed', { error: error?.message || error }));
@@ -2454,7 +2466,7 @@ class CalendarView extends ItemView {
         continue;
       }
 
-      this._createOrUpdateOverlay(leaf, file, entry.date);
+      void this._createOrUpdateOverlay(leaf, file, entry.date);
     }
 
     // Remove stale overlays from every non-journal markdown leaf
@@ -2485,8 +2497,8 @@ class CalendarView extends ItemView {
 
   _scheduleExifNoteAttach() {
     // Debounce: clear previous timer so we don't attach observers multiple times
-    clearTimeout(this._exifNoteTimer);
-    this._exifNoteTimer = setTimeout(() => {
+    window.clearTimeout(this._exifNoteTimer);
+    this._exifNoteTimer = window.setTimeout(() => {
       if (this.closed || !this.plugin.settings.showExif) return;
 
       // Disconnect old observers for leaves no longer showing journal notes
@@ -2595,7 +2607,7 @@ class CalendarView extends ItemView {
 
       // For HEIC, also try to convert and display the image
       if (HEIC_EXTS.includes(ext) && !hasExistingImage(el) && !el.querySelector('.cal-heic-preview')) {
-        this._convertHeicEmbed(el, normalizedSrc);
+        void this._convertHeicEmbed(el, normalizedSrc);
       }
     }
   }
@@ -2651,19 +2663,21 @@ class CalendarView extends ItemView {
     if (!immediate) this.plugin._exifTouchAnchor = null;
     const hoverToken = this.plugin._beginExifHover();
 
-    this.plugin._exifHoverTimer = setTimeout(async () => {
-      try {
-        const file = this._resolveImageFile(img);
-        if (!(file instanceof TFile)) return;
+    this.plugin._exifHoverTimer = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const file = this._resolveImageFile(img);
+          if (!(file instanceof TFile)) return;
 
-        if (!this.plugin._isCurrentExifHover(hoverToken)) return;
-        this.plugin._showExifTooltip(img, null, true);
-        const fields = await this.exifCache.get(file);
-        if (!this.plugin._isCurrentExifHover(hoverToken)) return;
-        this.plugin._showExifTooltip(img, fields, false);
-      } catch {
-        this.plugin._hideExifTooltip();
-      }
+          if (!this.plugin._isCurrentExifHover(hoverToken)) return;
+          this.plugin._showExifTooltip(img, null, true);
+          const fields = await this.exifCache.get(file);
+          if (!this.plugin._isCurrentExifHover(hoverToken)) return;
+          this.plugin._showExifTooltip(img, fields, false);
+        } catch {
+          this.plugin._hideExifTooltip();
+        }
+      })();
     }, immediate ? 0 : 500);
   }
 
@@ -2672,19 +2686,21 @@ class CalendarView extends ItemView {
     if (immediate && this.plugin._toggleExifTouch(el)) return;
     if (!immediate) this.plugin._exifTouchAnchor = null;
     const hoverToken = this.plugin._beginExifHover();
-    this.plugin._exifHoverTimer = setTimeout(async () => {
-      try {
-        const src = el.getAttribute('src') || '';
-        const attachment = createMediaAttachment(src, this._notePathForElement(el));
-        if (!attachment) return;
-        if (!this.plugin._isCurrentExifHover(hoverToken)) return;
-        this.plugin._showExifTooltip(el, null, true, 'media');
-        const metadata = await this.mediaService?.getMetadata?.(attachment);
-        if (!this.plugin._isCurrentExifHover(hoverToken)) return;
-        this.plugin._showExifTooltip(el, formatMediaMetadataForDisplay(metadata), false, 'media');
-      } catch {
-        this.plugin._hideExifTooltip();
-      }
+    this.plugin._exifHoverTimer = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const src = el.getAttribute('src') || '';
+          const attachment = createMediaAttachment(src, this._notePathForElement(el));
+          if (!attachment) return;
+          if (!this.plugin._isCurrentExifHover(hoverToken)) return;
+          this.plugin._showExifTooltip(el, null, true, 'media');
+          const metadata = await this.mediaService?.getMetadata?.(attachment);
+          if (!this.plugin._isCurrentExifHover(hoverToken)) return;
+          this.plugin._showExifTooltip(el, formatMediaMetadataForDisplay(metadata), false, 'media');
+        } catch {
+          this.plugin._hideExifTooltip();
+        }
+      })();
     }, immediate ? 0 : 500);
   }
 
@@ -2960,7 +2976,7 @@ class CalendarView extends ItemView {
     });
 
     // Animate in
-    requestAnimationFrame(() => {
+    window.requestAnimationFrame(() => {
       overlay.addClass('is-visible');
     });
   }
@@ -3129,7 +3145,7 @@ class MobileDaylineView extends ItemView {
     if (this.redirecting) return;
     this.redirecting = true;
     // Let Obsidian finish opening the restored legacy view before replacing it.
-    this.redirectTimer = setTimeout(() => {
+    this.redirectTimer = window.setTimeout(() => {
       this.redirectTimer = null;
       this.plugin._redirectLegacyMobileDaylineLeaf(this.leaf)
         .catch((error) => {
@@ -3141,7 +3157,7 @@ class MobileDaylineView extends ItemView {
   }
 
   onClose() {
-    if (this.redirectTimer) clearTimeout(this.redirectTimer);
+    if (this.redirectTimer) window.clearTimeout(this.redirectTimer);
     this.redirectTimer = null;
   }
 }

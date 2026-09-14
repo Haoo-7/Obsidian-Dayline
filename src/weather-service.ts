@@ -67,7 +67,7 @@ export async function requestWeatherWithRetry(request, options = {}) {
     WEATHER_MAX_ATTEMPTS,
     Number.isFinite(requestedAttempts) ? Math.floor(requestedAttempts) : WEATHER_MAX_ATTEMPTS,
   ));
-  const sleep = options.sleep || ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
+  const sleep = options.sleep || ((ms) => new Promise((resolve) => window.setTimeout(resolve, ms)));
   let lastError;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
@@ -578,7 +578,7 @@ export class WeatherService {
       }
       done++;
       onProgress?.(done, total, dateStr, false);
-      if (done < total) await new Promise((resolve) => setTimeout(resolve, 2000));
+      if (done < total) await new Promise((resolve) => window.setTimeout(resolve, 2000));
     }
     this.plugin._saveWeatherCache?.();
     return done;

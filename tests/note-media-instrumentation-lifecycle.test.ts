@@ -32,7 +32,7 @@ function element(tag = 'div', options: any = {}): any {
 const CalendarView = runInNewContext(ts.transpileModule(`${declaration.getText()}; CalendarView;`, {
   compilerOptions: { target: ts.ScriptTarget.ES2022 },
 }).outputText, {
-  ItemView: class {}, TFile, console, setTimeout, clearTimeout, document,
+  ItemView: class {}, TFile, console, setTimeout, clearTimeout, window, document,
   t: (_settings: unknown, key: string) => key,
   setIcon: () => {},
   getMediaControlOwner, shouldAddMediaInfoControl,

@@ -195,7 +195,7 @@ export class OnThisDayModal {
     const prevDayBtn = nav.createDiv({ cls: 'cal-otd-nav-btn', text: '◀' });
     prevDayBtn.setAttribute('aria-label', _l(lang, 'otd_prevDay'));
     prevDayBtn.setAttribute('title', _l(lang, 'otd_prevDay'));
-    prevDayBtn.addEventListener('click', (e) => { e.stopPropagation(); this._navigateDate(-1); });
+    prevDayBtn.addEventListener('click', (e) => { e.stopPropagation(); void this._navigateDate(-1); });
 
     const dateInput = nav.createEl('input', {
       type: 'date',
@@ -207,7 +207,7 @@ export class OnThisDayModal {
       if (parts.length === 3) {
         this.month = parseInt(parts[1]);
         this.day = parseInt(parts[2]);
-        this._navigateDate(0); // refetch current date
+        void this._navigateDate(0); // refetch current date
       }
     });
     this.dateInput = dateInput;
@@ -216,7 +216,7 @@ export class OnThisDayModal {
     const nextDayBtn = nav.createDiv({ cls: 'cal-otd-nav-btn', text: '▶' });
     nextDayBtn.setAttribute('aria-label', _l(lang, 'otd_nextDay'));
     nextDayBtn.setAttribute('title', _l(lang, 'otd_nextDay'));
-    nextDayBtn.addEventListener('click', (e) => { e.stopPropagation(); this._navigateDate(1); });
+    nextDayBtn.addEventListener('click', (e) => { e.stopPropagation(); void this._navigateDate(1); });
 
     const closeBtn = header.createDiv({ cls: 'cal-otd-close', text: '\u2715' });
     closeBtn.setAttribute('aria-label', _l(lang, 'otd_close'));
@@ -250,8 +250,8 @@ export class OnThisDayModal {
 
   _onKeyDown(e) {
     if (e.key === 'Escape') { this.close(); }
-    else if (e.key === 'ArrowLeft') { this._navigateDate(-1); }
-    else if (e.key === 'ArrowRight') { this._navigateDate(1); }
+    else if (e.key === 'ArrowLeft') { void this._navigateDate(-1); }
+    else if (e.key === 'ArrowRight') { void this._navigateDate(1); }
   }
 
   async _navigateDate(delta) {

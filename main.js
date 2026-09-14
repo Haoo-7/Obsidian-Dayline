@@ -2262,7 +2262,7 @@ var init_fluid_mood_control = __esm({
           this.updatePresentation(false, false);
           this.phase += elapsed * 42e-5;
           this.renderFrame();
-          this.animationFrame = requestAnimationFrame(this.animate);
+          this.animationFrame = window.requestAnimationFrame(this.animate);
         });
         this.root = root;
         this.options = options;
@@ -2424,7 +2424,7 @@ var init_fluid_mood_control = __esm({
       startAnimation() {
         if (this.destroyed || this.prefersReducedMotion() || document.hidden || this.animationFrame !== null) return;
         this.lastFrame = performance.now();
-        this.animationFrame = requestAnimationFrame(this.animate);
+        this.animationFrame = window.requestAnimationFrame(this.animate);
       }
       stopAnimation() {
         if (this.animationFrame === null) return;
@@ -4168,7 +4168,7 @@ var init_journal_timeline_view = __esm({
         this.renderScheduleTimer = null;
         this.thumbnailScrollHandler = () => {
           if (this.thumbnailScrollTimer) return;
-          this.thumbnailScrollTimer = setTimeout(() => {
+          this.thumbnailScrollTimer = window.setTimeout(() => {
             this.thumbnailScrollTimer = null;
             for (const check of this.thumbnailVisibilityChecks.values()) check();
           }, 50);
@@ -4249,11 +4249,11 @@ var init_journal_timeline_view = __esm({
         this.contentEl.removeEventListener("scroll", this.thumbnailScrollHandler);
         this.thumbnailLayoutObserver?.disconnect();
         this.thumbnailLayoutObserver = null;
-        if (this.thumbnailScrollTimer) clearTimeout(this.thumbnailScrollTimer);
+        if (this.thumbnailScrollTimer) window.clearTimeout(this.thumbnailScrollTimer);
         this.thumbnailScrollTimer = null;
-        if (this.mediaRefreshTimer) clearTimeout(this.mediaRefreshTimer);
+        if (this.mediaRefreshTimer) window.clearTimeout(this.mediaRefreshTimer);
         this.mediaRefreshTimer = null;
-        if (this.renderScheduleTimer) clearTimeout(this.renderScheduleTimer);
+        if (this.renderScheduleTimer) window.clearTimeout(this.renderScheduleTimer);
         this.renderScheduleTimer = null;
         this.renderScheduled = false;
         this.thumbnailVisibilityChecks.clear();
@@ -4271,7 +4271,7 @@ var init_journal_timeline_view = __esm({
       scheduleRender() {
         if (this.renderScheduled || this.closed) return;
         this.renderScheduled = true;
-        this.renderScheduleTimer = setTimeout(() => {
+        this.renderScheduleTimer = window.setTimeout(() => {
           this.renderScheduleTimer = null;
           this.renderScheduled = false;
           if (!this.closed) this.render();
@@ -4360,8 +4360,8 @@ var init_journal_timeline_view = __esm({
       }
       /** Media changes do not alter index data, but visible thumbnail URLs may. */
       _onMediaChanged() {
-        if (this.mediaRefreshTimer) clearTimeout(this.mediaRefreshTimer);
-        this.mediaRefreshTimer = setTimeout(() => {
+        if (this.mediaRefreshTimer) window.clearTimeout(this.mediaRefreshTimer);
+        this.mediaRefreshTimer = window.setTimeout(() => {
           this.mediaRefreshTimer = null;
           this.render();
         }, 100);
@@ -4783,7 +4783,7 @@ var init_journal_timeline_view = __esm({
           if (thumbnailMedia.length > 1) thumbnail.createSpan({ cls: "journal-timeline-thumbnail-count", text: `+${thumbnailMedia.length - 1}` });
           this.observeThumbnail(card, thumbnail, image, entry, thumbnailMedia, token);
         }
-        const open = () => this.openEntry(entry.path);
+        const open = () => void this.openEntry(entry.path);
         card.addEventListener("click", (event) => {
           if (!isInteractiveTimelineTarget(event.target)) open();
         });
@@ -4910,7 +4910,7 @@ var init_journal_timeline_view = __esm({
           container.addClass("is-loaded");
         };
         if (typeof IntersectionObserver === "undefined") {
-          load();
+          void load();
           return;
         }
         this.thumbnailObserver ?? (this.thumbnailObserver = new IntersectionObserver((observations) => {
@@ -4926,10 +4926,10 @@ var init_journal_timeline_view = __esm({
           if (token !== this.renderToken && card !== this.titleEdit?.card || !container.isConnected) return;
           const rootRect = this.contentEl.getBoundingClientRect();
           const rect = container.getBoundingClientRect();
-          if (rect.bottom >= rootRect.top - 160 && rect.top <= rootRect.bottom + 160) load();
+          if (rect.bottom >= rootRect.top - 160 && rect.top <= rootRect.bottom + 160) void load();
         };
         this.thumbnailVisibilityChecks.set(container, checkVisible);
-        setTimeout(checkVisible, 50);
+        window.setTimeout(checkVisible, 50);
       }
       async openEntry(path) {
         const file = this.app.vault.getAbstractFileByPath(path);
@@ -5387,7 +5387,7 @@ var init_on_this_day = __esm({
         prevDayBtn.setAttribute("title", localize(lang, "otd_prevDay"));
         prevDayBtn.addEventListener("click", (e) => {
           e.stopPropagation();
-          this._navigateDate(-1);
+          void this._navigateDate(-1);
         });
         const dateInput = nav.createEl("input", {
           type: "date",
@@ -5399,7 +5399,7 @@ var init_on_this_day = __esm({
           if (parts.length === 3) {
             this.month = parseInt(parts[1]);
             this.day = parseInt(parts[2]);
-            this._navigateDate(0);
+            void this._navigateDate(0);
           }
         });
         this.dateInput = dateInput;
@@ -5409,7 +5409,7 @@ var init_on_this_day = __esm({
         nextDayBtn.setAttribute("title", localize(lang, "otd_nextDay"));
         nextDayBtn.addEventListener("click", (e) => {
           e.stopPropagation();
-          this._navigateDate(1);
+          void this._navigateDate(1);
         });
         const closeBtn = header.createDiv({ cls: "cal-otd-close", text: "\u2715" });
         closeBtn.setAttribute("aria-label", localize(lang, "otd_close"));
@@ -5438,9 +5438,9 @@ var init_on_this_day = __esm({
         if (e.key === "Escape") {
           this.close();
         } else if (e.key === "ArrowLeft") {
-          this._navigateDate(-1);
+          void this._navigateDate(-1);
         } else if (e.key === "ArrowRight") {
-          this._navigateDate(1);
+          void this._navigateDate(1);
         }
       }
       async _navigateDate(delta) {
@@ -6402,7 +6402,7 @@ async function requestWeatherWithRetry(request, options = {}) {
     WEATHER_MAX_ATTEMPTS,
     Number.isFinite(requestedAttempts) ? Math.floor(requestedAttempts) : WEATHER_MAX_ATTEMPTS
   ));
-  const sleep = options.sleep || ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
+  const sleep = options.sleep || ((ms) => new Promise((resolve) => window.setTimeout(resolve, ms)));
   let lastError;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
@@ -6853,7 +6853,7 @@ var init_weather_service = __esm({
           }
           done++;
           onProgress?.(done, total, dateStr, false);
-          if (done < total) await new Promise((resolve) => setTimeout(resolve, 2e3));
+          if (done < total) await new Promise((resolve) => window.setTimeout(resolve, 2e3));
         }
         this.plugin._saveWeatherCache?.();
         return done;
@@ -22251,23 +22251,23 @@ __export(media_service_exports, {
   scaleVideoCoverDimensions: () => scaleVideoCoverDimensions
 });
 function loadMediaBunny() {
-  const globalState = globalThis;
-  const cached = globalState[MEDIA_BUNNY_BRIDGE_SYMBOL];
+  const host = typeof window !== "undefined" ? window : void 0;
+  const cached = host?.[MEDIA_BUNNY_BRIDGE_SYMBOL];
   if (cached) return Promise.resolve(cached);
   mediaBunnyPromise ?? (mediaBunnyPromise = Promise.resolve().then(() => (init_mediabunny_bridge(), mediabunny_bridge_exports)).then(({ mediaBunnyBridge: mediaBunnyBridge2 }) => {
-    globalState[MEDIA_BUNNY_BRIDGE_SYMBOL] = mediaBunnyBridge2;
+    if (host) host[MEDIA_BUNNY_BRIDGE_SYMBOL] = mediaBunnyBridge2;
     return mediaBunnyBridge2;
   }));
   return mediaBunnyPromise;
 }
 function withTimeout(promise, timeoutMs) {
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error(`media operation timed out after ${timeoutMs}ms`)), timeoutMs);
+    const timer = window.setTimeout(() => reject(new Error(`media operation timed out after ${timeoutMs}ms`)), timeoutMs);
     promise.then((value) => {
-      clearTimeout(timer);
+      window.clearTimeout(timer);
       resolve(value);
     }, (error) => {
-      clearTimeout(timer);
+      window.clearTimeout(timer);
       reject(error);
     });
   });
@@ -23865,7 +23865,7 @@ var init_image_metadata = __esm({
         this._ttlMs = Math.max(1, Number(options.ttlMs ?? GEOCODER_CACHE_TTL_MS));
         this._maxEntries = Math.max(1, Math.floor(Number(options.maxEntries ?? GEOCODER_CACHE_MAX_ENTRIES)));
         this._minRequestIntervalMs = Math.max(0, Number(options.minRequestIntervalMs ?? 1e3));
-        this._sleep = options.sleep || ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
+        this._sleep = options.sleep || ((ms) => new Promise((resolve) => window.setTimeout(resolve, ms)));
         this._request = options.request || ((request) => getRequestUrl()(request));
         this._getLanguage = options.getLanguage || (() => "en");
         this._lastRequest = 0;
@@ -24017,12 +24017,13 @@ function route(enabled, fallback) {
   return enabled ? fallback ? "fallback" : "full" : "disabled";
 }
 function detectPlatformCapabilities(input = {}) {
-  const platform = input.Platform || globalThis.Platform || {};
-  const doc = input.document === void 0 ? globalThis.document : input.document;
-  const nav = input.navigator === void 0 ? globalThis.navigator : input.navigator;
-  const urlApi = input.URL === void 0 ? globalThis.URL : input.URL;
-  const wasmApi = input.WebAssembly === void 0 ? globalThis.WebAssembly : input.WebAssembly;
-  const mediaQuery = input.matchMedia || globalThis.matchMedia;
+  const host = typeof window !== "undefined" ? window : void 0;
+  const platform = input.Platform || host?.Platform || {};
+  const doc = input.document === void 0 ? host?.document : input.document;
+  const nav = input.navigator === void 0 ? host?.navigator : input.navigator;
+  const urlApi = input.URL === void 0 ? host?.URL : input.URL;
+  const wasmApi = input.WebAssembly === void 0 ? host?.WebAssembly : input.WebAssembly;
+  const mediaQuery = input.matchMedia || host?.matchMedia;
   const isMobile = Boolean(platform.isMobile || platform.isMobileApp);
   const isMobileApp = Boolean(platform.isMobileApp);
   const isPhone = Boolean(platform.isPhone);
@@ -24567,7 +24568,7 @@ var DaylinePlugin = class extends Plugin {
         console.warn("[Dayline] Initial journal index refresh failed:", error?.message || error);
       });
     }
-    this._reminderTimer = setInterval(() => this._maybeRemind(), 60 * 1e3);
+    this._reminderTimer = window.setInterval(() => this._maybeRemind(), 60 * 1e3);
     this.weatherService = new WeatherService2(this);
     this.exifCache = new ImageMetadataCache2(this.app);
     this.heicCache = new HeicCache2(this.app, this.capabilities);
@@ -24587,8 +24588,10 @@ var DaylinePlugin = class extends Plugin {
         const basePath = String(this.app.vault?.adapter?.basePath || "").replace(/[\\/]+$/, "");
         const dynamicRequire = typeof require === "function" ? require : null;
         if (basePath && dynamicRequire) {
-          const configDir = String(this.app.vault?.configDir || ".obsidian").replace(/[\\/]+$/, "");
-          this._libheifFactory = dynamicRequire(`${basePath}/${configDir}/plugins/${PLUGIN_ID2}/libheif-bundle.js`);
+          const configDir = String(this.app.vault?.configDir || "").replace(/[\\/]+$/, "");
+          if (configDir) {
+            this._libheifFactory = dynamicRequire(`${basePath}/${configDir}/plugins/${PLUGIN_ID2}/libheif-bundle.js`);
+          }
         }
       } catch (e) {
         console.warn("[Dayline] Failed to load optional libheif:", e.message);
@@ -24610,7 +24613,7 @@ var DaylinePlugin = class extends Plugin {
       onPersist: (kind, visible) => this._persistViewVisibility(kind, visible)
     });
     this._daylineRibbonEl = this.addRibbonIcon("calendar-range", "Dayline", (event) => {
-      if (this.capabilities?.isMobile) this._activateMobileMode(this._mobileDaylineLastMode || "calendar");
+      if (this.capabilities?.isMobile) void this._activateMobileMode(this._mobileDaylineLastMode || "calendar");
       else this._showDaylineMenu(event);
     });
     this._syncDaylineRibbon();
@@ -24710,11 +24713,11 @@ var DaylinePlugin = class extends Plugin {
   }
   /** Remove all note overlays and clear state on unload. */
   async onunload() {
-    clearTimeout(this._weatherSaveTimer);
-    clearTimeout(this._weatherCleanupTimer);
-    clearTimeout(this._geocoderSaveTimer);
-    clearTimeout(this._exifHoverTimer);
-    clearInterval(this._reminderTimer);
+    window.clearTimeout(this._weatherSaveTimer);
+    window.clearTimeout(this._weatherCleanupTimer);
+    window.clearTimeout(this._geocoderSaveTimer);
+    window.clearTimeout(this._exifHoverTimer);
+    window.clearInterval(this._reminderTimer);
     this._removeExifDismissHandlers();
     this._endExifHover();
     await this._flushWeatherCache();
@@ -24819,7 +24822,8 @@ var DaylinePlugin = class extends Plugin {
   async _migrateLegacyData() {
     const adapter = this.app.vault?.adapter;
     if (!adapter?.exists || !adapter?.read || !adapter?.write) return;
-    const configDir = String(this.app.vault?.configDir || ".obsidian").replace(/[\\/]+$/, "");
+    const configDir = String(this.app.vault?.configDir || "").replace(/[\\/]+$/, "");
+    if (!configDir) return;
     const dataPath = (pluginId) => `${configDir}/plugins/${pluginId}/data.json`;
     const currentPath = dataPath(PLUGIN_ID2);
     try {
@@ -24970,7 +24974,7 @@ var DaylinePlugin = class extends Plugin {
     const sources = this.journalIndex.resolveSources(this.settings);
     const activeIsJournal = activeFile?.extension === "md" && sources.some((source) => activeFile.path === source.path || activeFile.path.startsWith(`${source.path}/`));
     const path = activeIsJournal ? activeFile.path : `${this.settings.dailyFolder}/${_daylineDate(this.settings)}.md`;
-    this.openMoodPicker(path, { allowDateSelection: true, ensureFile: false });
+    void this.openMoodPicker(path, { allowDateSelection: true, ensureFile: false });
   }
   async saveJournalTitle(path, title) {
     const file = this.app.vault.getAbstractFileByPath(path);
@@ -25262,7 +25266,7 @@ ${path}`)) return false;
     return false;
   }
   _beginExifHover() {
-    clearTimeout(this._exifHoverTimer);
+    window.clearTimeout(this._exifHoverTimer);
     this._hideExifTooltip();
     return ++this._exifHoverToken;
   }
@@ -25270,7 +25274,7 @@ ${path}`)) return false;
     return token === this._exifHoverToken;
   }
   _endExifHover() {
-    clearTimeout(this._exifHoverTimer);
+    window.clearTimeout(this._exifHoverTimer);
     this._exifHoverToken++;
     this._exifTouchAnchor = null;
     this._hideExifTooltip();
@@ -25308,8 +25312,8 @@ ${path}`)) return false;
   }
   /** Save weather cache without touching settings. Debounced to avoid excessive writes. */
   _saveWeatherCache() {
-    if (this._weatherSaveTimer) clearTimeout(this._weatherSaveTimer);
-    this._weatherSaveTimer = setTimeout(() => {
+    if (this._weatherSaveTimer) window.clearTimeout(this._weatherSaveTimer);
+    this._weatherSaveTimer = window.setTimeout(() => {
       this._weatherSaveTimer = null;
       this._flushWeatherCache().catch((err) => {
         console.warn("[Dayline] Weather cache save failed:", err.message);
@@ -25327,7 +25331,7 @@ ${path}`)) return false;
   }
   _flushWeatherCache() {
     if (this._weatherSaveTimer) {
-      clearTimeout(this._weatherSaveTimer);
+      window.clearTimeout(this._weatherSaveTimer);
       this._weatherSaveTimer = null;
     }
     return this._enqueueDataWrite((data) => {
@@ -25336,8 +25340,8 @@ ${path}`)) return false;
   }
   /** Save reverse-geocoder cache without touching settings. */
   _saveGeocoderCache() {
-    if (this._geocoderSaveTimer) clearTimeout(this._geocoderSaveTimer);
-    this._geocoderSaveTimer = setTimeout(() => {
+    if (this._geocoderSaveTimer) window.clearTimeout(this._geocoderSaveTimer);
+    this._geocoderSaveTimer = window.setTimeout(() => {
       this._geocoderSaveTimer = null;
       this._flushGeocoderCache().catch((err) => {
         console.warn("[Dayline] Geocoder cache save failed:", err.message);
@@ -25346,7 +25350,7 @@ ${path}`)) return false;
   }
   _flushGeocoderCache() {
     if (this._geocoderSaveTimer) {
-      clearTimeout(this._geocoderSaveTimer);
+      window.clearTimeout(this._geocoderSaveTimer);
       this._geocoderSaveTimer = null;
     }
     return this._enqueueDataWrite((data) => {
@@ -25368,8 +25372,8 @@ ${path}`)) return false;
       }
     }
     if (removed > 0) {
-      clearTimeout(this._weatherCleanupTimer);
-      this._weatherCleanupTimer = setTimeout(() => {
+      window.clearTimeout(this._weatherCleanupTimer);
+      this._weatherCleanupTimer = window.setTimeout(() => {
         this._weatherCleanupTimer = null;
         this._saveWeatherCache();
       }, 5e3);
@@ -25500,10 +25504,10 @@ var CalendarView = class extends ItemView2 {
       if (!shouldHandleCalendarMonthShortcut2(event)) return;
       if (event.key === "ArrowLeft") {
         event.preventDefault();
-        this._goToMonth(-1);
+        void this._goToMonth(-1);
       } else if (event.key === "ArrowRight") {
         event.preventDefault();
-        this._goToMonth(1);
+        void this._goToMonth(1);
       }
     };
     root.addEventListener("keydown", this._calendarKeydownHandler);
@@ -25544,8 +25548,8 @@ var CalendarView = class extends ItemView2 {
     this._calendarKeydownHandler = null;
     this._unsubscribeIndex?.();
     this._unsubscribeIndex = null;
-    clearTimeout(this._refreshTimer);
-    clearTimeout(this._exifNoteTimer);
+    window.clearTimeout(this._refreshTimer);
+    window.clearTimeout(this._exifNoteTimer);
     this.plugin._endExifHover();
     for (const observer of this._exifObservers?.values() || []) observer.disconnect();
     this._exifObservers?.clear();
@@ -25575,7 +25579,7 @@ var CalendarView = class extends ItemView2 {
         return;
       }
     }
-    setTimeout(() => this.render(), 0);
+    window.setTimeout(() => this.render(), 0);
   }
   /* ----- File change refresh (debounced) ----- */
   _onMediaChanged(file) {
@@ -25590,16 +25594,18 @@ var CalendarView = class extends ItemView2 {
     if (!affectedMonths.size) return;
     for (const monthKey2 of affectedMonths) this.monthCache.delete(monthKey2);
     if (!affectedMonths.has(this._monthKey(this.displayMonth))) return;
-    clearTimeout(this._refreshTimer);
-    this._refreshTimer = setTimeout(async () => {
-      try {
-        await this.buildMonthCache(this.displayMonth);
-        this.render();
-      } catch (error) {
-        console.warn("[Dayline] Calendar image refresh failed:", error?.message || error);
-        this.monthCache.delete(this._monthKey(this.displayMonth));
-        new Notice4(t2(this.plugin.settings, "calendarMonthLoadFailed", { error: error?.message || error }));
-      }
+    window.clearTimeout(this._refreshTimer);
+    this._refreshTimer = window.setTimeout(() => {
+      void (async () => {
+        try {
+          await this.buildMonthCache(this.displayMonth);
+          this.render();
+        } catch (error) {
+          console.warn("[Dayline] Calendar image refresh failed:", error?.message || error);
+          this.monthCache.delete(this._monthKey(this.displayMonth));
+          new Notice4(t2(this.plugin.settings, "calendarMonthLoadFailed", { error: error?.message || error }));
+        }
+      })();
     }, 300);
   }
   _onImageChanged(file) {
@@ -25750,7 +25756,7 @@ var CalendarView = class extends ItemView2 {
     prevBtn.addEventListener("click", (e) => {
       e.stopPropagation();
       prevBtn.focus({ preventScroll: true });
-      this._goToMonth(-1);
+      void this._goToMonth(-1);
     });
     const title = header.createEl("button", {
       cls: "cal-title cal-title-button",
@@ -25784,7 +25790,7 @@ var CalendarView = class extends ItemView2 {
     nextBtn.addEventListener("click", (e) => {
       e.stopPropagation();
       nextBtn.focus({ preventScroll: true });
-      this._goToMonth(1);
+      void this._goToMonth(1);
     });
     const headerActions = header.createDiv({ cls: "cal-header-actions" });
     const todayBtn = headerActions.createEl("button", {
@@ -25795,7 +25801,7 @@ var CalendarView = class extends ItemView2 {
     todayBtn.addEventListener("click", (event) => {
       event.stopPropagation();
       todayBtn.focus({ preventScroll: true });
-      this._goToToday();
+      void this._goToToday();
     });
     if (this._calendarJumpOpen) this._renderMonthJump(el);
     this._renderWeatherCard(el);
@@ -25880,7 +25886,7 @@ var CalendarView = class extends ItemView2 {
             cell.addClass("cal-no-image");
           });
         }
-        this._setBackground(bg, dateEntry);
+        void this._setBackground(bg, dateEntry);
         const firstMedia = cover;
         const mediaLabel = t2(this.plugin.settings, "mediaMetadata");
         cell.addEventListener("mouseenter", () => {
@@ -26042,7 +26048,7 @@ var CalendarView = class extends ItemView2 {
       apply.focus({ preventScroll: true });
       const nextYear = Math.max(1, Math.min(9999, Number.parseInt(yearInput.value, 10) || this.displayMonth.getFullYear()));
       const nextMonth = Math.max(0, Math.min(11, Number.parseInt(monthSelect.value, 10) || 0));
-      this._jumpToMonth(nextYear, nextMonth);
+      void this._jumpToMonth(nextYear, nextMonth);
     });
   }
   _goToToday() {
@@ -26075,49 +26081,53 @@ var CalendarView = class extends ItemView2 {
   _onExifEnter(cell, imageLink, dateStr, sourcePath) {
     if (!this.plugin.settings.showExif) return;
     const hoverToken = this.plugin._beginExifHover();
-    this.plugin._exifHoverTimer = setTimeout(async () => {
-      try {
-        const notePath = sourcePath || `${this.plugin.settings.dailyFolder}/${dateStr}.md`;
-        const file = this.app.metadataCache.getFirstLinkpathDest(imageLink, notePath);
-        if (!(file instanceof TFile2)) return;
-        if (!this.plugin._isCurrentExifHover(hoverToken)) return;
-        this.plugin._showExifTooltip(cell, null, true);
-        const fields = await this._getPersistedExifFields(file, notePath, imageLink);
-        if (!this.plugin._isCurrentExifHover(hoverToken)) return;
-        this.plugin._showExifTooltip(cell, fields, false);
-        if (this.plugin.settings.exifReverseGeocode && fields && this.plugin.geocoder) {
-          const gpsField = fields.find((f) => f.key === "exif_gps");
-          if (gpsField) {
-            const parts = gpsField.value.split(",").map((s) => parseFloat(s.trim()));
-            if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
-              const place = await this.plugin.geocoder.lookup(parts[0], parts[1]);
-              if (place && this.plugin._isCurrentExifHover(hoverToken)) {
-                gpsField.value = place;
-                this.plugin._showExifTooltip(cell, fields, false);
+    this.plugin._exifHoverTimer = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const notePath = sourcePath || `${this.plugin.settings.dailyFolder}/${dateStr}.md`;
+          const file = this.app.metadataCache.getFirstLinkpathDest(imageLink, notePath);
+          if (!(file instanceof TFile2)) return;
+          if (!this.plugin._isCurrentExifHover(hoverToken)) return;
+          this.plugin._showExifTooltip(cell, null, true);
+          const fields = await this._getPersistedExifFields(file, notePath, imageLink);
+          if (!this.plugin._isCurrentExifHover(hoverToken)) return;
+          this.plugin._showExifTooltip(cell, fields, false);
+          if (this.plugin.settings.exifReverseGeocode && fields && this.plugin.geocoder) {
+            const gpsField = fields.find((f) => f.key === "exif_gps");
+            if (gpsField) {
+              const parts = gpsField.value.split(",").map((s) => parseFloat(s.trim()));
+              if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+                const place = await this.plugin.geocoder.lookup(parts[0], parts[1]);
+                if (place && this.plugin._isCurrentExifHover(hoverToken)) {
+                  gpsField.value = place;
+                  this.plugin._showExifTooltip(cell, fields, false);
+                }
               }
             }
           }
+        } catch {
+          this.plugin._hideExifTooltip();
         }
-      } catch {
-        this.plugin._hideExifTooltip();
-      }
+      })();
     }, 500);
   }
   _onMediaEnter(cell, attachment, immediate = false) {
     if (!this.plugin.settings.showExif || !attachment) return;
     if (immediate && this.plugin._toggleExifTouch(cell)) return;
     const hoverToken = this.plugin._beginExifHover();
-    this.plugin._exifHoverTimer = setTimeout(async () => {
-      try {
-        if (!this.plugin._isCurrentExifHover(hoverToken)) return;
-        this.plugin._showExifTooltip(cell, null, true, "media");
-        const metadata = await this.mediaService?.getMetadata?.(attachment);
-        const fields = formatMediaMetadataForDisplay2(metadata);
-        if (!this.plugin._isCurrentExifHover(hoverToken)) return;
-        this.plugin._showExifTooltip(cell, fields, false, "media");
-      } catch {
-        this.plugin._hideExifTooltip();
-      }
+    this.plugin._exifHoverTimer = window.setTimeout(() => {
+      void (async () => {
+        try {
+          if (!this.plugin._isCurrentExifHover(hoverToken)) return;
+          this.plugin._showExifTooltip(cell, null, true, "media");
+          const metadata = await this.mediaService?.getMetadata?.(attachment);
+          const fields = formatMediaMetadataForDisplay2(metadata);
+          if (!this.plugin._isCurrentExifHover(hoverToken)) return;
+          this.plugin._showExifTooltip(cell, fields, false, "media");
+        } catch {
+          this.plugin._hideExifTooltip();
+        }
+      })();
     }, immediate ? 0 : 500);
   }
   _onExifLeave(anchor) {
@@ -26227,7 +26237,7 @@ var CalendarView = class extends ItemView2 {
       });
     });
     if (this._weatherLoading) {
-      this._fetchWeatherForDate(cardDate);
+      void this._fetchWeatherForDate(cardDate);
     } else {
       this._updateWeatherCardUI();
     }
@@ -26478,7 +26488,7 @@ var CalendarView = class extends ItemView2 {
       new CreateNoteModal(this.app, this.plugin.settings, dateStr, () => {
         this._createDailyNote(path, dateStr).then((created) => {
           openFileInLeaf(created);
-          setTimeout(() => this._triggerWeatherAfterOpen(dateStr), 500);
+          window.setTimeout(() => this._triggerWeatherAfterOpen(dateStr), 500);
         }).catch((error) => {
           console.warn("[Dayline] Create daily note failed:", error?.message || error);
           new Notice4(t2(this.plugin.settings, "createNoteFailed", { error: error?.message || error }));
@@ -26531,7 +26541,7 @@ var CalendarView = class extends ItemView2 {
       if (this._overlayInFlight.has(leaf)) {
         continue;
       }
-      this._createOrUpdateOverlay(leaf, file, entry.date);
+      void this._createOrUpdateOverlay(leaf, file, entry.date);
     }
     for (const leaf of mdLeaves) {
       const file = leaf.view?.file;
@@ -26550,8 +26560,8 @@ var CalendarView = class extends ItemView2 {
   }
   /* ----- EXIF hover on daily note embedded images ----- */
   _scheduleExifNoteAttach() {
-    clearTimeout(this._exifNoteTimer);
-    this._exifNoteTimer = setTimeout(() => {
+    window.clearTimeout(this._exifNoteTimer);
+    this._exifNoteTimer = window.setTimeout(() => {
       if (this.closed || !this.plugin.settings.showExif) return;
       const indexedPaths = new Set(
         (this.plugin.journalIndex?.getEntries?.() || []).map((entry) => entry.path)
@@ -26632,7 +26642,7 @@ var CalendarView = class extends ItemView2 {
       });
       this._addNoteMediaInfoControl(el, () => MEDIA_IMAGE_EXTENSIONS.includes(ext) ? this._onNoteImageEnter(null, el, true) : this._onNoteMediaEnter(null, el, true));
       if (HEIC_EXTS2.includes(ext) && !hasExistingImage2(el) && !el.querySelector(".cal-heic-preview")) {
-        this._convertHeicEmbed(el, normalizedSrc);
+        void this._convertHeicEmbed(el, normalizedSrc);
       }
     }
   }
@@ -26678,18 +26688,20 @@ var CalendarView = class extends ItemView2 {
     if (immediate && this.plugin._toggleExifTouch(img)) return;
     if (!immediate) this.plugin._exifTouchAnchor = null;
     const hoverToken = this.plugin._beginExifHover();
-    this.plugin._exifHoverTimer = setTimeout(async () => {
-      try {
-        const file = this._resolveImageFile(img);
-        if (!(file instanceof TFile2)) return;
-        if (!this.plugin._isCurrentExifHover(hoverToken)) return;
-        this.plugin._showExifTooltip(img, null, true);
-        const fields = await this.exifCache.get(file);
-        if (!this.plugin._isCurrentExifHover(hoverToken)) return;
-        this.plugin._showExifTooltip(img, fields, false);
-      } catch {
-        this.plugin._hideExifTooltip();
-      }
+    this.plugin._exifHoverTimer = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const file = this._resolveImageFile(img);
+          if (!(file instanceof TFile2)) return;
+          if (!this.plugin._isCurrentExifHover(hoverToken)) return;
+          this.plugin._showExifTooltip(img, null, true);
+          const fields = await this.exifCache.get(file);
+          if (!this.plugin._isCurrentExifHover(hoverToken)) return;
+          this.plugin._showExifTooltip(img, fields, false);
+        } catch {
+          this.plugin._hideExifTooltip();
+        }
+      })();
     }, immediate ? 0 : 500);
   }
   async _onNoteMediaEnter(e, el, immediate = false) {
@@ -26697,19 +26709,21 @@ var CalendarView = class extends ItemView2 {
     if (immediate && this.plugin._toggleExifTouch(el)) return;
     if (!immediate) this.plugin._exifTouchAnchor = null;
     const hoverToken = this.plugin._beginExifHover();
-    this.plugin._exifHoverTimer = setTimeout(async () => {
-      try {
-        const src = el.getAttribute("src") || "";
-        const attachment = createMediaAttachment2(src, this._notePathForElement(el));
-        if (!attachment) return;
-        if (!this.plugin._isCurrentExifHover(hoverToken)) return;
-        this.plugin._showExifTooltip(el, null, true, "media");
-        const metadata = await this.mediaService?.getMetadata?.(attachment);
-        if (!this.plugin._isCurrentExifHover(hoverToken)) return;
-        this.plugin._showExifTooltip(el, formatMediaMetadataForDisplay2(metadata), false, "media");
-      } catch {
-        this.plugin._hideExifTooltip();
-      }
+    this.plugin._exifHoverTimer = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const src = el.getAttribute("src") || "";
+          const attachment = createMediaAttachment2(src, this._notePathForElement(el));
+          if (!attachment) return;
+          if (!this.plugin._isCurrentExifHover(hoverToken)) return;
+          this.plugin._showExifTooltip(el, null, true, "media");
+          const metadata = await this.mediaService?.getMetadata?.(attachment);
+          if (!this.plugin._isCurrentExifHover(hoverToken)) return;
+          this.plugin._showExifTooltip(el, formatMediaMetadataForDisplay2(metadata), false, "media");
+        } catch {
+          this.plugin._hideExifTooltip();
+        }
+      })();
     }, immediate ? 0 : 500);
   }
   _bindNoteMediaHover(el, { onEnter, onLeave, onFocus }) {
@@ -26922,7 +26936,7 @@ var CalendarView = class extends ItemView2 {
         console.warn("[Dayline] Overlay refresh failed:", err.message);
       });
     });
-    requestAnimationFrame(() => {
+    window.requestAnimationFrame(() => {
       overlay.addClass("is-visible");
     });
   }
@@ -27070,7 +27084,7 @@ var MobileDaylineView = class extends ItemView2 {
   async onOpen() {
     if (this.redirecting) return;
     this.redirecting = true;
-    this.redirectTimer = setTimeout(() => {
+    this.redirectTimer = window.setTimeout(() => {
       this.redirectTimer = null;
       this.plugin._redirectLegacyMobileDaylineLeaf(this.leaf).catch((error) => {
         console.warn("[Dayline] Could not migrate legacy mobile view:", error?.message || error);
@@ -27081,7 +27095,7 @@ var MobileDaylineView = class extends ItemView2 {
     }, 0);
   }
   onClose() {
-    if (this.redirectTimer) clearTimeout(this.redirectTimer);
+    if (this.redirectTimer) window.clearTimeout(this.redirectTimer);
     this.redirectTimer = null;
   }
 };

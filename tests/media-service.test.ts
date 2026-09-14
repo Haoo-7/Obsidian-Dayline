@@ -2,6 +2,11 @@ import { describe, expect, it, vi } from 'vitest';
 import { AUDIO_ARTWORK_MAX_BYTES, MediaService, formatMediaMetadataForDisplay, scaleVideoCoverDimensions } from '../src/media-service';
 import { createMediaAttachment } from '../src/media-links';
 
+// media-service now schedules its timeout through `window` for popout
+// compatibility; the Node test environment has no window global.
+const timerHost = globalThis as unknown as { window?: typeof globalThis };
+timerHost.window ??= globalThis;
+
 describe('media service', () => {
   it('allows remote images as covers but never fetches remote video metadata', async () => {
     let inputs = 0;

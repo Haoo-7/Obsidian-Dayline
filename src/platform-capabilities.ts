@@ -42,12 +42,15 @@ function route(enabled: boolean, fallback: boolean): CapabilityRoute {
 }
 
 export function detectPlatformCapabilities(input: DetectionInput = {}): PlatformCapabilities {
-  const platform = input.Platform || (globalThis as any).Platform || {};
-  const doc = input.document === undefined ? (globalThis as any).document : input.document;
-  const nav = input.navigator === undefined ? (globalThis as any).navigator : input.navigator;
-  const urlApi = input.URL === undefined ? (globalThis as any).URL : input.URL;
-  const wasmApi = input.WebAssembly === undefined ? (globalThis as any).WebAssembly : input.WebAssembly;
-  const mediaQuery = input.matchMedia || (globalThis as any).matchMedia;
+  // Capability probes must stay popout-safe: resolve host globals through
+  // `window` and tolerate hosts where no window exists at all.
+  const host = typeof window !== 'undefined' ? window as any : undefined;
+  const platform = input.Platform || host?.Platform || {};
+  const doc = input.document === undefined ? host?.document : input.document;
+  const nav = input.navigator === undefined ? host?.navigator : input.navigator;
+  const urlApi = input.URL === undefined ? host?.URL : input.URL;
+  const wasmApi = input.WebAssembly === undefined ? host?.WebAssembly : input.WebAssembly;
+  const mediaQuery = input.matchMedia || host?.matchMedia;
   const isMobile = Boolean(platform.isMobile || platform.isMobileApp);
   const isMobileApp = Boolean(platform.isMobileApp);
   const isPhone = Boolean(platform.isPhone);

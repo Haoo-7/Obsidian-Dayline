@@ -65,7 +65,7 @@ export class JournalTimelineView extends ItemView {
     this.renderScheduleTimer = null;
     this.thumbnailScrollHandler = () => {
       if (this.thumbnailScrollTimer) return;
-      this.thumbnailScrollTimer = setTimeout(() => {
+      this.thumbnailScrollTimer = window.setTimeout(() => {
         this.thumbnailScrollTimer = null;
         for (const check of this.thumbnailVisibilityChecks.values()) check();
       }, 50);
@@ -151,11 +151,11 @@ export class JournalTimelineView extends ItemView {
     this.contentEl.removeEventListener('scroll', this.thumbnailScrollHandler);
     this.thumbnailLayoutObserver?.disconnect();
     this.thumbnailLayoutObserver = null;
-    if (this.thumbnailScrollTimer) clearTimeout(this.thumbnailScrollTimer);
+    if (this.thumbnailScrollTimer) window.clearTimeout(this.thumbnailScrollTimer);
     this.thumbnailScrollTimer = null;
-    if (this.mediaRefreshTimer) clearTimeout(this.mediaRefreshTimer);
+    if (this.mediaRefreshTimer) window.clearTimeout(this.mediaRefreshTimer);
     this.mediaRefreshTimer = null;
-    if (this.renderScheduleTimer) clearTimeout(this.renderScheduleTimer);
+    if (this.renderScheduleTimer) window.clearTimeout(this.renderScheduleTimer);
     this.renderScheduleTimer = null;
     this.renderScheduled = false;
     this.thumbnailVisibilityChecks.clear();
@@ -176,7 +176,7 @@ export class JournalTimelineView extends ItemView {
   scheduleRender() {
     if (this.renderScheduled || this.closed) return;
     this.renderScheduled = true;
-    this.renderScheduleTimer = setTimeout(() => {
+    this.renderScheduleTimer = window.setTimeout(() => {
       this.renderScheduleTimer = null;
       this.renderScheduled = false;
       if (!this.closed) this.render();
@@ -271,8 +271,8 @@ export class JournalTimelineView extends ItemView {
 
   /** Media changes do not alter index data, but visible thumbnail URLs may. */
   _onMediaChanged() {
-    if (this.mediaRefreshTimer) clearTimeout(this.mediaRefreshTimer);
-    this.mediaRefreshTimer = setTimeout(() => {
+    if (this.mediaRefreshTimer) window.clearTimeout(this.mediaRefreshTimer);
+    this.mediaRefreshTimer = window.setTimeout(() => {
       this.mediaRefreshTimer = null;
       this.render();
     }, 100);
@@ -691,7 +691,7 @@ export class JournalTimelineView extends ItemView {
       this.observeThumbnail(card, thumbnail, image, entry, thumbnailMedia, token);
     }
 
-    const open = () => this.openEntry(entry.path);
+    const open = () => void this.openEntry(entry.path);
     card.addEventListener('click', (event) => {
       if (!isInteractiveTimelineTarget(event.target)) open();
     });
@@ -808,7 +808,7 @@ export class JournalTimelineView extends ItemView {
       image.src = result.url;
       container.addClass('is-loaded');
     };
-    if (typeof IntersectionObserver === 'undefined') { load(); return; }
+    if (typeof IntersectionObserver === 'undefined') { void load(); return; }
     this.thumbnailObserver ??= new IntersectionObserver((observations) => {
       for (const observation of observations) {
         if (!observation.isIntersecting) continue;
@@ -822,10 +822,10 @@ export class JournalTimelineView extends ItemView {
       if ((token !== this.renderToken && card !== this.titleEdit?.card) || !container.isConnected) return;
       const rootRect = this.contentEl.getBoundingClientRect();
       const rect = container.getBoundingClientRect();
-      if (rect.bottom >= rootRect.top - 160 && rect.top <= rootRect.bottom + 160) load();
+      if (rect.bottom >= rootRect.top - 160 && rect.top <= rootRect.bottom + 160) void load();
     };
     this.thumbnailVisibilityChecks.set(container, checkVisible);
-    setTimeout(checkVisible, 50);
+    window.setTimeout(checkVisible, 50);
   }
 
   async openEntry(path) {

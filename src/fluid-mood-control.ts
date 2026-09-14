@@ -506,7 +506,7 @@ export class FluidMoodControl {
   private startAnimation(): void {
     if (this.destroyed || this.prefersReducedMotion() || document.hidden || this.animationFrame !== null) return;
     this.lastFrame = performance.now();
-    this.animationFrame = requestAnimationFrame(this.animate);
+    this.animationFrame = window.requestAnimationFrame(this.animate);
   }
 
   private stopAnimation(): void {
@@ -530,7 +530,7 @@ export class FluidMoodControl {
     this.updatePresentation(false, false);
     this.phase += elapsed * 0.00042;
     this.renderFrame();
-    this.animationFrame = requestAnimationFrame(this.animate);
+    this.animationFrame = window.requestAnimationFrame(this.animate);
   };
 
   private renderFrame(): void {

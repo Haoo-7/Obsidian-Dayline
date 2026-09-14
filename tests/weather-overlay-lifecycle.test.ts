@@ -30,7 +30,7 @@ function element(tag = 'div', options: any = {}): any {
 const CalendarView = runInNewContext(ts.transpileModule(`${declaration.getText()}; CalendarView;`, {
   compilerOptions: { target: ts.ScriptTarget.ES2022 },
 }).outputText, {
-  ItemView: class {}, TFile, console, setTimeout, clearTimeout,
+  ItemView: class {}, TFile, console, setTimeout, clearTimeout, window,
   OVERLAY_ATTR: 'data-cal-weather-overlay',
   validateWeatherCoordinates: () => true,
   _l: (_language: string, key: string) => key,

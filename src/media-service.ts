@@ -21,11 +21,13 @@ let mediaBunnyPromise: Promise<MediaBunnyBridge> | null = null;
 const MEDIA_BUNNY_BRIDGE_SYMBOL = Symbol.for('dayline mediabunny bridge');
 
 function loadMediaBunny(): Promise<MediaBunnyBridge> {
-  const globalState = globalThis as Record<symbol, unknown>;
-  const cached = globalState[MEDIA_BUNNY_BRIDGE_SYMBOL] as MediaBunnyBridge | undefined;
+  // Cache the bridge on the popout-compatible host window when one exists;
+  // headless hosts fall back to the module-level promise only.
+  const host = typeof window !== 'undefined' ? window as unknown as Record<symbol, unknown> : undefined;
+  const cached = host?.[MEDIA_BUNNY_BRIDGE_SYMBOL] as MediaBunnyBridge | undefined;
   if (cached) return Promise.resolve(cached);
   mediaBunnyPromise ??= import('./mediabunny-bridge').then(({ mediaBunnyBridge }) => {
-    globalState[MEDIA_BUNNY_BRIDGE_SYMBOL] = mediaBunnyBridge;
+    if (host) host[MEDIA_BUNNY_BRIDGE_SYMBOL] = mediaBunnyBridge;
     return mediaBunnyBridge;
   });
   return mediaBunnyPromise;
@@ -44,8 +46,8 @@ export interface MediaServiceOptions {
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
   return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error(`media operation timed out after ${timeoutMs}ms`)), timeoutMs);
-    promise.then((value) => { clearTimeout(timer); resolve(value); }, (error) => { clearTimeout(timer); reject(error); });
+    const timer = window.setTimeout(() => reject(new Error(`media operation timed out after ${timeoutMs}ms`)), timeoutMs);
+    promise.then((value) => { window.clearTimeout(timer); resolve(value); }, (error) => { window.clearTimeout(timer); reject(error); });
   });
 }
 
