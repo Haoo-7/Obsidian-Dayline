@@ -1,133 +1,122 @@
 <p align="right">
-  <a href="README.md">English</a> | <strong>中文</strong>
+  <a href="./README.md">English</a> | <strong>中文</strong>
 </p>
-
----
-
-# Dayline Journal — Obsidian 插件
 
 <p align="center">
-  <img src="assets/dayline-wordmark.svg" alt="Dayline 标识" width="250">
+  <img src="./assets/readme/hero.zh-CN.svg" width="100%" alt="Dayline：Obsidian 可视化日记插件">
 </p>
 
-Dayline 是一个集日历、时间线、心情、回顾、天气和照片于一体的可视化日记工具。月历和时间线共同组成主要工作界面；设置页也会显示 Dayline 标识，保持一致的品牌入口。
+# Dayline Journal
 
-Dayline 同时支持 Obsidian 桌面端和手机端。手机视图提供日历/时间线切换、触控友好的控件、键盘自适应心情编辑，并可从 Markdown 笔记快速进入。
+Dayline 把一文件夹的 Markdown 每日笔记变成 Obsidian 里的可视化日记。你可以在月历中查看一天，在时间线里搜索过去，记录心情和天气，同时不必移动或改写原有笔记。
 
-## 公开展示
+插件支持 Obsidian 桌面端和手机端，适合已经在使用 [Daily Notes](https://help.obsidian.md/plugins/daily-notes) 的 vault。
 
-仓库内附带一份与真实日记隔离的合成展示数据，可在 Obsidian Sandbox 中复现完整的日历和时间线。7 月 1 日至 21 日共 21 个记录日期，每天都有图片和心情；7 月 22 日之后保持空白：
+## 不只看到文件，还能看到日记
 
-![Dayline 公开展示](screenshots/dayline-showcase.png)
+日历可以显示图片封面、心情标记、天气和多篇日记徽标。点击日期即可打开笔记；缺少笔记时，确认一次就会按 Daily Notes 模板创建（支持 Templater）。
 
-时间线的全文搜索和多维筛选状态：
+<p align="center">
+  <img src="./screenshots/dayline-showcase.png" width="100%" alt="Dayline 在 Obsidian 中显示日历、每日笔记和时间线">
+</p>
 
-![Dayline 时间线筛选](screenshots/dayline-showcase-filters.png)
+时间线会把同一批 Markdown 笔记整理成可浏览的日记记录。全文搜索和筛选覆盖日期范围、来源、心情、收藏、位置、标签和媒体类型。
 
-截图只使用虚构条目、虚构地点、合成音频/视频和裁剪后的公开图片，不包含真实日记、真实坐标、EXIF 或下载目录中的个人素材。请查看 [`showcase/README.md`](showcase/README.md) 了解 Sandbox 设置，查看 [`showcase/MEDIA_ATTRIBUTIONS.md`](showcase/MEDIA_ATTRIBUTIONS.md) 了解图片来源。
+<p align="center">
+  <img src="./screenshots/dayline-showcase-filters.png" width="100%" alt="Dayline 时间线的来源、心情、媒体、位置和标签筛选">
+</p>
 
-![Dayline 预览](screenshots/calendar-sidebar-preview.png)
+截图来自仓库内的 [`showcase/`](showcase/README.md) 合成测试库，不包含真实日记、真实位置、EXIF 或个人下载素材；媒体来源见 [`showcase/MEDIA_ATTRIBUTIONS.md`](showcase/MEDIA_ATTRIBUTIONS.md)。
 
-## 功能
+## 主要能力
 
-- **月历视图** — 显示在左侧侧边栏文件管理器上方
-- **手机端** — 日历/时间线切换、触控友好的控件、键盘自适应心情编辑，并可从 Markdown 笔记快速进入
-- **图片缩略图** — 自动提取日记中嵌入的图片作为日期格子背景
-- **今日高亮** — 今天的日期用全色块填充标识
-- **浏览中日期** — 当前在查看的日记用彩色边框标识
-- **单击打开** — 点击日期一键打开对应日记
-- **自动创建** — 点击没有日记的日期 → 弹出确认框 → 从 Daily Notes 模板自动创建（支持 Templater）
-- **可配置日记文件夹** — 支持搜索+浏览选择路径
-- **缩略图过滤** — 可选择仅显示文件名以 `YYYY-MM-DD_` 开头的图片
-- **EXIF 信息** — 在日历格子和日记图片上查看拍摄信息
-- **HEIC/HEIF 支持** — 桌面端自动生成缩略图
-- **去年今日** — 查看往年同日的图片和摘要
-- **日历条目状态** — 日期格会区分日记记录和仅有缓存天气的日期。多个日记会显示可配置的 `+n` 徽标，点击日期会打开主日记
-- **媒体条目** — 图片、视频和音频链接会被规范化并去重。frontmatter 中的 `cover` 会优先作为封面，否则使用第一条可显示媒体；平台支持时可截取视频封面，并可从日历和日记媒体浮层查看图片/视频/音频元数据
-- **日记时间线** — 默认显示每日笔记，支持全文搜索，以及日期范围、来源、心情、收藏、位置、标签和媒体类型筛选，并在相邻 Markdown leaf 打开
-- **可视化心情** — 五级感受刻度，支持自由备注、内置或自定义标签，默认保存到 vault 内 `Calendar/journal-metadata.json`。删除或重命名的笔记记录可恢复，并提供备份恢复、完整性检查、frontmatter 导入和 JSON/CSV 导出
+- **会读取日记的日历。** 每日笔记中的图片会成为日期格背景，心情颜色、可选天气、今天、浏览日期和多篇日记状态都一目了然。
+- **为回忆而做的时间线。** 搜索日记全文，并按日期、来源、心情、收藏、位置、标签和媒体类型筛选。
+- **有上下文的心情记录。** 五级颜色、备注和标签，可查看趋势与报告，也提供恢复、备份、完整性检查及 JSON/CSV 导出。
+- **回忆与媒体。** “去年今日”会整理往年摘要和照片墙；图片、视频和音频条目支持封面、元数据、EXIF 浮层，以及桌面端 HEIC/HEIF 缩略图。
+- **桌面端与手机端。** 手机视图支持日历/时间线切换、触控控件、键盘自适应心情编辑，并可从 Markdown 笔记快速进入。
+- **vault 仍是数据源。** 日记正文继续使用 Markdown。Dayline 只索引你选择的目录，并把可视化元数据单独保存，笔记始终可读、可迁移。
 
-## 天气功能（可选）
+## 工作方式
 
-在设置中启用来自 [Open-Meteo](https://open-meteo.com/) 的天气数据（无需 API Key）：
+1. 指定每日笔记文件夹。
+2. Dayline 识别日期并索引其中的 Markdown 笔记。你也可以把外部导入目录添加为普通日记来源。
+3. 通过日历或时间线浏览，记录心情和上下文，然后直接从日期打开 Obsidian 笔记。
 
-| 设置项 | 说明 |
-|---------|------|
-| **启用天气** | 切换侧边栏天气卡片显示 |
-| **纬度 / 经度** | 用于获取本地天气的坐标 |
-| **位置名称** | 显示标签（可选） |
-| **温度单位** | 摄氏度或华氏度 |
-| **自动获取** | 打开日记时自动获取天气 |
-| **缓存时间** | 重新获取前的缓存小时数 |
-
-天气快照保存在插件的 `data.json` 中，不会写入日记 frontmatter。为了兼容旧版本，插件仍会读取已有的 `_calendar_weather`，且仅在坐标和单位匹配时迁移。月历标题下方会显示紧凑的天气卡片，默认包含图标、温度、体感温度和湿度；风速、降水概率、日出、日落和位置均为默认关闭的可选字段。Open-Meteo 请求使用地点自动时区，并会对可重试故障最多重试三次。刷新失败时，兼容的缓存快照会继续显示，并在 UI 标注为过期/离线；这些临时状态不会写入正式缓存。使用 **"刷新当前日期天气"** 命令可强制更新。历史日期使用 Open-Meteo 归档接口，无法提供数据时属于尽力而为。
-
-EXIF GPS 反向地理编码默认关闭。只有显式开启「解析 GPS 地点」后，坐标才会发送到 OpenStreetMap Nominatim 以显示地名。EXIF 解析受文件/区块大小限制；HEIC 转换、视频封面和音频专辑封面也都有资源上限与能力降级，遇到不支持或过大的媒体时会保留为普通附件，不会阻塞日记。外部媒体 URL 会原样保留，索引器不会请求它们。
-
-## 日记索引与外部导入
-
-日记正文仍然是 Markdown。时间线默认只索引每日笔记文件夹（默认 `Calendar/Daily`）。如需兼容 Day One 或 Apple Journal 的导入结果，可在 Journal sources 中添加外部目录；这些文件会作为普通日记显示，不产生独立的条目类型，可使用时间线来源筛选器缩小时间线范围，并可指定 `dateField`。索引按配置日期字段、`date`、`creationDate`、合法日期文件名的顺序识别日期；无法识别日期的文件只进入诊断列表，不使用修改时间猜测。
-
-Day One 或 Apple Journal 导入请先使用专业导入插件，再把输出目录加入 Journal sources：
-
-- [Day One Importer](https://github.com/MarcDonald/obsidian-day-one-importer)
-- [Obsidian Importer](https://github.com/obsidianmd/obsidian-importer)
-
-本插件不解析 Day One JSON/ZIP，也不重写导入文件，只在索引层兼容 `creationDate`、`date`、`uuid`、`starred`、`favorite`、`location`、`coordinates`、`latitude` 和 `longitude` 等字段。
-
-心情 JSON 是主数据源，默认不会改动 Markdown。只有打开 Mirror mood to frontmatter 后，保存心情才会显式写入 `mood` 和 `mood_labels`；frontmatter 中已有但尚未导入 JSON 的旧心情允许显示，需运行 Import Frontmatter Mood Metadata 命令后才会写入主存储。重命名会同步键，删除会进入可恢复孤立记录区，导出、备份恢复和完整性检查均可从命令面板执行。
-
-**限制**：归档接口没有覆盖时，历史日期可能没有天气数据。视频封面、HEIC 转换和音频专辑封面取决于浏览器和桌面环境能力；不支持的媒体可能只显示元数据或原始附件，不生成封面。
+默认情况下，心情元数据保存在 `Calendar/journal-metadata.json`，天气快照保存在插件的 `data.json`。Frontmatter 心情镜像默认关闭。Dayline 不依赖远程媒体：附件链接仍留在 vault；你未主动开启前，不会把 EXIF GPS 坐标交给反向地理编码服务。
 
 ## 安装
 
-- **BRAT**：在 BRAT 中添加 `Haoo-7/Obsidian-Dayline`
-- **手动**：从 [Releases](https://github.com/Haoo-7/Obsidian-Dayline/releases) 下载 `dayline.zip`，解压到 vault 的 `.obsidian/plugins/dayline-journal/`，在 Obsidian 设置中启用插件，运行命令「Open Dayline」
+**在 Obsidian 中安装**
 
-从旧 `dayline` 目录或 Calendar Sidebar 1.x 升级时，Dayline 只会在新目录尚无 `data.json` 时复制旧设置和天气缓存；vault 内的心情元数据与 Markdown 笔记不会改动。
+1. 打开 **设置 → 第三方插件**。
+2. 浏览并安装 **Dayline Journal**。
+3. 启用插件，然后运行命令 `Open Dayline`。
 
-## 文件说明
+**通过 BRAT**
 
-| 文件 | 说明 |
-|------|------|
-| `manifest.json` | 插件元信息 |
-| `main.js` | Obsidian 发布产物 |
-| `src/` | TypeScript 核心模块 |
-| `tests/` | 日期、缓存、摘要和安全 DOM 单元测试 |
-| `build.mjs` | esbuild 构建脚本 |
-| `libheif-bundle.js` | HEIC/HEIF 解码器 |
-| `Dayline 插件设计方案.md` | 原始设计文档 |
+1. 安装并启用 [BRAT](https://github.com/TfTHacker/obsidian42-brat)。
+2. 添加 Beta 插件 `Haoo-7/Obsidian-Dayline`。
+3. 启用 **Dayline Journal**，然后运行命令 `Open Dayline`。
 
-## 配置
+**手动安装**
 
-在 Obsidian 设置 → 第三方插件 → Dayline Journal：
+1. 从 [Releases](https://github.com/Haoo-7/Obsidian-Dayline/releases) 下载 `dayline.zip`。
+2. 解压到 vault 的 `.obsidian/plugins/dayline-journal/`。
+3. 重新加载 Obsidian，启用 **Dayline Journal**，然后运行 `Open Dayline`。
 
-| 设置项 | 说明 |
-|--------|------|
-| **Daily notes folder** | 日记文件夹路径，支持搜索+浏览选择 |
-| **Thumbnail filter** | `All embedded images` = 显示日记中所有嵌入图片（默认）；`Only date-prefixed` = 只显示文件名以 `YYYY-MM-DD_` 开头的图片（适合配合 Photo Journal 使用） |
-| **Enable weather** | 启用天气功能 |
-| **Latitude / Longitude** | 天气坐标（必填） |
-| **Location name** | 位置名称（可选） |
-| **Temperature units** | 温度单位：摄氏度/华氏度 |
-| **Auto-fetch weather** | 打开日记时自动获取天气 |
-| **Cache TTL (hours)** | 缓存有效期（小时） |
-| **Journal sources** | 每日笔记目录之外的可选外部导入目录 JSON 配置 |
-| **Mood metadata path** | vault 内心情 JSON 路径，默认 `Calendar/journal-metadata.json` |
-| **Mirror mood to frontmatter** | 默认关闭的 frontmatter 镜像 |
-| **Daily reminder** | 可关闭的本地记录提醒 |
-| **Show mood markers on calendar** | 显示或隐藏日期格心情颜色标记 |
-| **Show calendar weather card** | 显示或隐藏月历顶部天气卡片 |
-| **Show date weather icons** | 显示或隐藏日期格右上角天气图标 |
-| **Show extra-entry badge** | 显示或隐藏多篇日记日期的 `+n` 徽标 |
-| **Weather fields** | 默认启用体感温度和湿度；风速、降水、日出、日落和位置需手动开启 |
+如果新插件目录没有 `data.json`，Dayline 会迁移旧 `dayline` 或 Calendar Sidebar 1.x 的设置。迁移不会改写 vault 笔记和心情元数据。
 
-## 与 Templater 配合
+<details>
+<summary><strong>设置项</strong></summary>
 
-如果在 Obsidian 的 Daily Notes 插件中配置了模板路径，且安装了 Templater 插件，点击无日记日期创建新文件时会自动通过 Templater 解析模板变量（如 `tp.file.title`、日期、周数等），生成完整内容的日记文件。
+| 设置 | 作用 |
+| --- | --- |
+| **Daily notes folder** | 用于打开和创建每日笔记的默认目录，支持搜索和浏览。 |
+| **Thumbnail filter** | 使用全部嵌入图片，或只使用以 `YYYY-MM-DD_` 开头的文件。 |
+| **Journal sources** | 作为普通时间线来源添加的外部目录。 |
+| **Mood metadata path** | vault 内心情 JSON 路径，默认 `Calendar/journal-metadata.json`。 |
+| **Mirror mood to frontmatter** | 把已保存的心情写入 `mood` 和 `mood_labels`，默认关闭。 |
+| **Resolve GPS locations** | 主动开启后，通过 OpenStreetMap Nominatim 解析 EXIF GPS。 |
+| **Show mood markers on calendar** | 显示或隐藏日期格中的心情颜色。 |
+| **Show calendar weather card** | 显示或隐藏月历顶部天气卡片。 |
+| **Show date weather icons** | 显示或隐藏日期格右上角天气图标。 |
+| **Show extra-entry badge** | 显示或隐藏多篇日记日期的 `+n` 徽标。 |
+| **Weather fields** | 默认显示体感温度和湿度；风速、降水、日出、日落和位置可单独开启。 |
+| **Daily reminder** | 可选的本地日记提醒。 |
 
-## 要求
+</details>
 
-- Obsidian v1.5.0+
-- 日记按 `YYYY-MM-DD.md` 命名
-- 图片通过 `![[image.jpg]]` 嵌入到日记中
+<details>
+<summary><strong>天气、导入和日期识别</strong></summary>
+
+天气功能可选，使用 [Open-Meteo](https://open-meteo.com/) 且不需要 API Key。天气卡可显示当前条件；历史日期会在归档接口有覆盖时读取历史数据。
+
+导入 Day One 或 Apple Journal 时，先使用 [Day One Importer](https://github.com/MarcDonald/obsidian-day-one-importer) 或 [Obsidian Importer](https://github.com/obsidianmd/obsidian-importer)，再把输出目录添加为 Journal source。Dayline 不解析 JSON/ZIP 导出，也不改写导入文件。
+
+日期会依次从配置的日期字段、`date`、`creationDate` 和合法的日期前缀文件名识别。插件不会用修改时间猜测日期；无法解析日期的文件会进入诊断，而不会进入时间线。
+
+</details>
+
+## 兼容性与限制
+
+- 需要 **Obsidian v1.5.0+**，支持桌面端和手机端。
+- 每日笔记默认使用 `YYYY-MM-DD.md`，目录、来源和日期字段可以配置。
+- HEIC/HEIF 缩略图转换仅在桌面端提供。视频封面、音频封面以及不支持或过大的媒体，会根据设备能力降级为元数据或原始附件。
+- 历史天气是否可用取决于归档覆盖。刷新失败时，兼容的缓存可能继续显示为过期或离线状态。
+- 时间线只打开你配置目录中的笔记，不替代 Obsidian 的文件浏览器、Markdown 编辑器或同步系统。
+
+## 开发
+
+```bash
+npm install
+npm run typecheck
+npm test
+npm run build
+```
+
+仓库中的 `main.js` 由构建生成。打包发布前请运行 `npm run verify:release`，版本变更见 [CHANGELOG.md](CHANGELOG.md)。
+
+## 许可证
+
+[MIT](LICENSE)

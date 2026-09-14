@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="354" height="225" viewBox="0 0 354 225" role="img" aria-labelledby="dayline-mark-title dayline-mark-desc">
+  <title id="dayline-mark-title">Dayline logo</title>
+  <desc id="dayline-mark-desc">An interlocking dark journal ring and open rounded calendar frame, with a coral lens at their intersection.</desc>
+  <g transform="translate(-94 -159)">
+    <!-- The calendar frame stops short of both crossings. -->
+    <path fill="#0D1318" d="M270 177 C284 166 300 160 319 160 H375 C415 160 447 190 447 231 V311 C447 352 416 383 376 383 H319 C300 383 284 377 270 367 C277 361 283 355 289 348 C298 355 308 358 320 358 H375 C402 358 423 338 423 311 V232 C423 205 402 185 375 185 H320 C308 185 298 188 289 195 C283 188 277 182 270 177 Z"/>
+    <!-- The left counter follows the inner crossing, not a full circle. -->
+    <path fill="#0D1318" fill-rule="evenodd" d="M204 160 C264 160 315 211 315 272 C315 333 265 383 204 383 C144 383 94 333 94 273 C94 213 144 160 204 160 Z M204 185 C158 185 119 225 119 273 C119 320 157 359 204 359 C220 359 235 355 247 348 C230 326 220 301 220 273 C220 244 230 218 247 196 C234 189 220 185 204 185 Z"/>
+    <path fill="#F1694D" d="M267 212 C282 229 291 250 291 273 C291 296 282 318 267 334 C252 317 244 296 244 273 C244 250 252 228 267 212 Z"/>
+  </g>
+</svg>
