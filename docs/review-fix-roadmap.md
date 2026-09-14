@@ -53,7 +53,7 @@ The first-phase code checks recorded in the handoff are: `npm run typecheck`, `n
 | P2 | Fix remaining reproducible functional/data risks | `DONE` | Task-specific disjoint write sets below | Each task has regression coverage and passes the full project checks |
 | P3 | Re-evaluate behavior warnings without breaking product contracts | `DONE` | `src/journal-index.ts`, `src/settings-tab.ts`, `src/plugin.ts`, `src/mobile-diagnostics.ts`, `src/image-metadata.ts` | A warning is changed only after a concrete impact is demonstrated |
 | P4 | Measure and then address large-vault performance | `DEFER` | `src/journal-timeline-view.ts`, `src/journal-index.ts`, focused tests | Baseline measurements identify a bottleneck before implementation; no speculative virtualization/refactor |
-| P5 | Resolve license and release packaging decisions | `BLOCKED` | `LICENSE`, README files, `.github/workflows/release.yml`, `build.mjs`, `package.json`, `scripts/package-release.mjs`, `dayline.zip` | User chooses the license and package policy; release artifact is inspected before publication |
+| P5 | Resolve license and release packaging decisions | `DONE` | `LICENSE`, README files, `.github/workflows/release.yml`, `build.mjs`, `package.json`, `scripts/package-release.mjs`, `dayline.zip` | User chose MIT; release 2.3.4 published with `main.js`, `manifest.json`, `styles.css`, `libheif-bundle.js`, `THIRD_PARTY_NOTICES.md`, and `dayline.zip` |
 | P6 | Gradually restore type and lifecycle boundaries | `DEFER` | `src/plugin.ts`, `src/journal-timeline-view.ts`, `src/settings-tab.ts`, `src/mood-store.ts`, `src/journal-index.ts` | Scoped architectural work has behavior tests and is not a mechanical warning cleanup |
 
 Statuses are intentionally independent. A later phase must not be marked complete because an earlier phase's automated tests pass.
@@ -184,11 +184,10 @@ Before changing sorting, notification scheduling, pagination, or DOM strategy, c
 
 ## 9. P5: User Decisions Required
 
-- License type.
-- Whether `dayline.zip` must contain only runtime files or also notices/source assets.
-- Whether `libheif-bundle.js` is included in the release artifact.
-- Location and format of `THIRD_PARTY_NOTICES.md`.
-- Whether GitHub artifact attestations are required.
+- License: **MIT**, chosen by the maintainer on 2026-09-14; `LICENSE` is committed.
+- Package contents: individual assets plus `dayline.zip`; both are published for release 2.3.4.
+- `libheif-bundle.js`: stays a separate release asset. It cannot be downloaded and installed by the plugin at runtime — Obsidian's developer policies forbid plugins that "install or update themselves or their dependencies".
+- GitHub artifact attestations: not configured. `gh release verify-asset` reports `no attestations found`, so provenance verification is unavailable until a workflow adds them.
 
 No P5 source or release-policy change should be made until these decisions are recorded here.
 
@@ -260,6 +259,19 @@ The delegate must not commit, push, publish, deploy, or expand the write set wit
 - Audited P2-A/P2-C/P2-D against the current code and their existing tests: all three were already satisfied, so no code churn was added. Only P2-B needed a real fix (see the entry above).
 - Classified all remaining review warnings in P3 with counts taken from the current tree, and marked P1/P2/P3 `DONE` in the phase map.
 - Remaining roadmap work is now P4 (needs a measured large-vault baseline), P5 (requires user decisions), and P6 (deliberate architectural deferral).
+
+### 2026-09-14: MIT license and 2.3.4 release published
+
+- Maintainer chose MIT; `LICENSE` added with the copyright line `2026 Sisyphus` (matching the manifest author).
+- Version bumped to `2.3.4` in `manifest.json`, `package.json`, and both root entries of `package-lock.json`; `CHANGELOG.md` gained bilingual 2.3.4 sections.
+- Commits pushed to `origin/master` (`6e40b57`) with tag `2.3.4`, and GitHub release `Dayline Journal v2.3.4` published with six assets.
+- Remote asset digests were compared with the local files through the GitHub API: `main.js` `2005942d...`, `manifest.json` `8d33e9c4...`, `styles.css` `8c3eb03e...`, `libheif-bundle.js` `793b36c9...`, `THIRD_PARTY_NOTICES.md` `37434cae...`, `dayline.zip` `1fa441c8...` — every digest matched.
+
+### Official guidance findings recorded 2026-09-14
+
+- Obsidian's [Submit your plugin](https://docs.obsidian.md/Plugins/Releasing/Submit+your+plugin) page states that Obsidian downloads `main.js`, `manifest.json`, and `styles.css` from the release whose tag matches the manifest version. Release 2.3.4 satisfies that: tag `2.3.4` matches manifest `2.3.4` and all three assets are attached individually.
+- Obsidian's [Developer policies](https://docs.obsidian.md/Developer+policies) forbid plugins that "install or update themselves or their dependencies". This rules out downloading a codec from the settings page and activating it, so `libheif-bundle.js` must either ship inside `main.js` or be a separate asset the user places manually.
+- The same policies allow network use when it is disclosed in the README. The existing README files already disclose Open-Meteo weather requests and opt-in OpenStreetMap Nominatim geocoding, including why each is needed.
 
 ### Previous evidence carried forward
 
