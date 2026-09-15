@@ -1,5 +1,38 @@
 # Changelog
 
+## 2.4.0 (2026-09-15)
+
+### Added
+- On This Day now has a calendar entry setting: off, merged into the weather card, or a header icon. The merged strip shows a past-year thumbnail and date; the header icon sits beside the month controls.
+- Calendar mood markers can stay as a corner dot or draw as a bottom color bar with a centered date. Narrow sidebars pin date, weather, and mood to corners so the date stays readable.
+
+### Changed
+- Opening On This Day from the calendar uses the selected date, not always today.
+- The header “today” jump appears only when the visible month is not the current month, so the slot stays free on this month.
+
+### Verification
+- `npm test` passed: 52 test files and 440 tests.
+- `npm run typecheck`, `npm run build`, `npm run verify:release`, `npm run verify:release:zip`, and `git diff --check` passed.
+- Runtime check in the Obsidian Sandbox vault under plugin ID `dayline-journal`: the merged strip and header icon opened On This Day for the selected date, the today jump stayed hidden on the current month, and no errors were captured.
+
+
+---
+
+## 2.4.0（2026-09-15）
+
+### 新增
+- 「去年今日」增加日历入口设置：关闭、合并进天气卡、或放到顶栏图标。合并条带显示往年封面和日期；顶栏图标放在月份控件旁。
+- 日历心情标记可继续用角落圆点，也可改成底部色条并让日期居中。窄侧栏会把日期、天气和心情钉在格子四角，保证日期可读。
+
+### 变更
+- 从日历打开「去年今日」时使用当前选中的日期，而不再总是跳到今天。
+- 顶栏「今天」按钮只在月历不在本月时出现，本月不再占着那个位置。
+
+### 验证
+- `npm test` 通过：52 个测试文件、440 项测试。
+- `npm run typecheck`、`npm run build`、`npm run verify:release`、`npm run verify:release:zip` 和 `git diff --check` 通过。
+- Obsidian Sandbox 测试库以插件 ID `dayline-journal` 完成运行时检查：合并条带和顶栏图标都会打开选中日期的「去年今日」，本月不显示「今天」按钮，未捕获到错误。
+
 ## 2.3.6 (2026-09-15)
 
 ### Changed
