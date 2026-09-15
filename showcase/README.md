@@ -10,7 +10,7 @@ The calendar has 21 recorded dates: every cell from July 1 through July 21 has a
 
 1. Copy `Dayline Demo/` into the vault root.
 2. In Dayline settings, set **Daily notes folder** to `Dayline Demo/Daily`.
-3. Set the display language to English for the reference screenshots.
+3. Set the display language to Chinese (中文) for the reference screenshots.
 4. Open the calendar and journal timeline commands, then open any July note for the reference view.
 
 Weather is optional. The reference screenshot uses synthetic coordinates and a fictional display label so the weather card can be shown without exposing a real location. The core showcase works with weather disabled.

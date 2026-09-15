@@ -2,3 +2,4 @@
 .omo/
 node_modules/
 dist/
+output/
