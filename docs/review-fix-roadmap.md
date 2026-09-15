@@ -306,6 +306,20 @@ The delegate must not commit, push, publish, deploy, or expand the write set wit
 - Three test files needed a `window` global because of the prefix change: the two `node:vm` `CalendarView` sandboxes and the Node-environment `media-service` test. No assertions or test counts changed.
 - Verification: `rg` shows zero remaining bare timers, zero `globalThis`, and zero `'.obsidian'` literals; typecheck, 50 files / 423 tests, build, `verify:release`, and `diff --check` pass. Runtime check in the Obsidian Sandbox under plugin ID `dayline-journal`: `_libheifFactory` still resolves to a function (proving the `configDir` path still loads the HEIC decoder), capability probes report desktop/mobile correctly, the reminder timer id is numeric, the timeline rendered 25 entries with 3 placeholder bodies, and `dev:errors` stayed empty. Sandbox restored byte-for-byte afterwards.
 - Still open: the `document.createElement` → `createEl` batch (33 occurrences, deliberately split out because it touches DOM construction and needs test stubs), the type-restoration work that owns the bulk of the remaining count, and the deferred HEIC packaging decision.
+
+### 2026-09-15: 2.3.6 published with the mechanical cleanups
+
+- Maintainer asked to ship the batch. Version bumped to `2.3.6` in `manifest.json`, `package.json`, and both root entries of `package-lock.json`; bilingual 2.3.6 sections added to `CHANGELOG.md`. `main.js` did not change, because the version is not embedded in the bundle.
+- Gates before publishing: typecheck, 50 files / 423 tests, build, `verify:release`, `verify:release:zip`, and `diff --check` all passed.
+- Commit `b612ca1` and tag `2.3.6` pushed; GitHub release `Dayline Journal v2.3.6` published as a non-draft, non-prerelease release with six assets. Tag `2.3.6` matches the manifest version.
+- Every remote asset digest was compared with the local file and matched: `main.js` `517e8695...`, `manifest.json` `7c254c60...`, `styles.css` `85eafd47...`, `libheif-bundle.js` `793b36c9...`, `THIRD_PARTY_NOTICES.md` `37434cae...`, `dayline.zip` `0e7decf3...`.
+- The 2.3.6 release also carries the maintainer's README and visual-identity refresh (`d4ad795`), which landed between 2.3.5 and this release.
+
+### Decision recorded 2026-09-15: the remaining warnings are optional
+
+- Maintainer asked whether the remaining `createEl` and type-safety batches are mandatory. Answer: no. Obsidian's submission documentation states that a plugin is installable unless the automated review reports **errors** (`your plugin won't be installable ... until any errors ... are resolved`); the current review reports zero.
+- What is genuinely mandatory lives in the Developer policies (no obfuscation, no ads, no self-install or dependency self-update, a LICENSE, third-party licence compliance, disclosure of network use). All of those are satisfied.
+- The page that reports 7,456 findings also states its own status: `While the guidelines on this page are recommendations, depending on their severity, we may still require you to address any violations.` So the two remaining batches are recommendation-level and can be revisited only if a reviewer asks or when those files are edited for another reason.
 ### Previous evidence carried forward
 
 - R1-R11 and R13-R25 have recorded fixes in `docs/code-review-2026-09-07.md` and `docs/review-fix-index-timeline.md`; R12 remains intentional by product contract.
