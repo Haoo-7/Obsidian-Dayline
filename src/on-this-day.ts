@@ -202,16 +202,16 @@ export class OnThisDayModal {
       cls: 'cal-otd-date-input',
       attr: { 'aria-label': _l(lang, 'otd_datePicker') },
     });
+    this.dateInput = dateInput;
+    this._updateDateInput();
     dateInput.addEventListener('change', () => {
       const parts = dateInput.value.split('-');
       if (parts.length === 3) {
-        this.month = parseInt(parts[1]);
-        this.day = parseInt(parts[2]);
+        this.month = parseInt(parts[1], 10);
+        this.day = parseInt(parts[2], 10);
         void this._navigateDate(0); // refetch current date
       }
     });
-    this.dateInput = dateInput;
-    this._updateDateInput();
 
     const nextDayBtn = nav.createDiv({ cls: 'cal-otd-nav-btn', text: '▶' });
     nextDayBtn.setAttribute('aria-label', _l(lang, 'otd_nextDay'));

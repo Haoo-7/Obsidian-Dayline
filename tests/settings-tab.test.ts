@@ -58,6 +58,8 @@ describe('Dayline settings information architecture', () => {
     expect(shouldShowWeatherLocationOption({ weatherEnabled: true, showCalendarWeatherCard: true })).toBe(true);
     expect(shouldShowOnThisDayExcerptSettings({ onThisDayButton: false })).toBe(true);
     expect(shouldShowOnThisDayExcerptSettings({ onThisDayButton: true })).toBe(true);
+    expect(shouldShowOnThisDayExcerptSettings({ onThisDayEntry: 'off' })).toBe(true);
+    expect(shouldShowOnThisDayExcerptSettings({ onThisDayEntry: 'merged' })).toBe(true);
     expect(shouldShowExifGeocoding({ showExif: false })).toBe(false);
     expect(shouldShowExifGeocoding({ showExif: true })).toBe(true);
     expect(shouldShowCalendarMoodStyle({})).toBe(true);

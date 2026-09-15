@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import ts from 'typescript';
 import { JSDOM } from 'jsdom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { isCurrentCalendarMonth } from '../src/calendar-display';
 
 // Execute the actual classes without loading the plugin's unrelated host services.
 const source = readFileSync(new URL('../src/plugin.ts', import.meta.url), 'utf8');
@@ -27,6 +28,7 @@ const CalendarView = loadClass('CalendarView', {
   formatDateParts: (year, month, day) => `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`,
   shouldShowCalendarMood: () => false,
   calendarMoodMarkerClass: () => 'cal-mood-marker-dot',
+  isCurrentCalendarMonth,
   Notice: class {},
 });
 const CreateNoteModal = loadClass('CreateNoteModal', {
@@ -68,7 +70,9 @@ function makeView() {
     weather: { hasCachedSnapshot: () => false },
     _renderMobileModeControls: () => {},
     _ensureExifTooltip: () => {},
-    _renderWeatherCard: () => {},
+    _renderWeatherCard: vi.fn(),
+    _renderOnThisDayHeader: vi.fn(),
+    _renderOnThisDayEntry: vi.fn(),
     buildMonthCache: vi.fn(async () => {}),
   });
   view.render();
@@ -88,6 +92,21 @@ function escape(element) {
 }
 
 describe('calendar navigation focus', () => {
+  it('renders weather and the on-this-day entry before the month grid', () => {
+    const view = makeView();
+    expect(view._renderWeatherCard).toHaveBeenCalled();
+    expect(view._renderOnThisDayHeader).toHaveBeenCalled();
+    expect(view._renderOnThisDayEntry).toHaveBeenCalled();
+  });
+
+  it('hides the today jump on the current month and shows it on other months', () => {
+    const view = makeView();
+    expect(control(view, 'today')).toBeTruthy();
+    view.displayMonth = new Date(2026, 8, 1);
+    view.render();
+    expect(control(view, 'today')).toBeNull();
+  });
+
   it('keeps the title focused when toggling and closing with Escape', () => {
     const view = makeView();
     control(view, 'title').click();
@@ -131,7 +150,7 @@ describe('calendar navigation focus', () => {
     expect(focusedKey()).toBe('jump-year');
   });
 
-  it.each(['previous', 'next', 'today'])('preserves %s through asynchronous navigation', async (key) => {
+  it.each(['previous', 'next'])('preserves %s through asynchronous navigation', async (key) => {
     const view = makeView();
     const pending = deferred();
     view.buildMonthCache.mockReturnValueOnce(pending.promise);
@@ -141,6 +160,18 @@ describe('calendar navigation focus', () => {
     await flush();
     expect(focusedKey()).toBe(key);
     expect(view.displayMonth.getMonth()).toBe(key === 'previous' ? 6 : 8);
+  });
+
+  it('removes the today jump after arriving at the current month', async () => {
+    const view = makeView();
+    const pending = deferred();
+    view.buildMonthCache.mockReturnValueOnce(pending.promise);
+    control(view, 'today').click();
+    expect(focusedKey()).toBe('today');
+    pending.resolve();
+    await flush();
+    expect(control(view, 'today')).toBeNull();
+    expect(view.displayMonth.getMonth()).toBe(8);
   });
 
   it.each(['previous', 'next', 'today', 'jump-apply'])('does not reclaim focus after %s when the user moves outside', async (key) => {

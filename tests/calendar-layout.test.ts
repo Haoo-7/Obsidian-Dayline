@@ -63,6 +63,16 @@ describe('calendar compact cell layout', () => {
     expect(rule).toContain('font-size: 8px');
   });
 
+  it('stacks the weather row above the on-this-day strip', () => {
+    const card = cssRule(styles, '.cal-weather-card {');
+    const main = cssRule(styles, '.cal-weather-main {');
+    const strip = cssRule(styles, '.cal-otd-strip {');
+    expect(card).toContain('flex-direction: column');
+    expect(main).toContain('display: flex');
+    expect(strip).toContain('border-top');
+    expect(strip).toContain('min-height: 36px');
+  });
+
   it('keeps dates centered and draws a bottom mood bar in bar style', () => {
     const dateRule = cssRule(styles, '.cal-sidebar.cal-mood-marker-bar .cal-day-num {');
     const buttonRule = cssRule(styles, '.cal-sidebar.cal-mood-marker-bar button.cal-mood-button,');

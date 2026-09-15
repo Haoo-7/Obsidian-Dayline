@@ -74,3 +74,11 @@ export function shouldShowCalendarWeatherBadge(settings: CalendarDisplaySettings
 export function shouldShowCalendarWeatherLocation(settings: CalendarDisplaySettings = {}): boolean {
   return settings.showCalendarWeatherLocation === true;
 }
+
+/** The header "today" jump is only useful when the visible month is not this month. */
+export function isCurrentCalendarMonth(displayMonth: Date | null | undefined, todayStr: string | null | undefined): boolean {
+  if (!displayMonth || !todayStr) return false;
+  const [year, month] = String(todayStr).split('-').map(Number);
+  if (!year || !month) return false;
+  return displayMonth.getFullYear() === year && displayMonth.getMonth() === month - 1;
+}

@@ -447,10 +447,17 @@
   background: var(--background-secondary);
   border: 1px solid var(--background-modifier-border);
   display: flex;
-  align-items: flex-start;
-  gap: 8px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
   font-size: 12px;
   min-height: 0;
+}
+.cal-weather-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
 }
 .cal-weather-icon {
   width: 36px;
@@ -522,10 +529,10 @@ button.cal-weather-refresh:hover {
   color: var(--text-muted);
   text-align: center;
 }
-.cal-weather-loading {
+.cal-weather-loading .cal-weather-main {
   opacity: 0.6;
 }
-.cal-weather-error {
+.cal-weather-error .cal-weather-main {
   opacity: 0.7;
 }
 .dayline-mobile-native-view .cal-weather-card {
@@ -702,6 +709,99 @@ button.cal-weather-refresh:hover {
 .cal-otd-button:hover {
   background: var(--background-modifier-hover);
   color: var(--text-normal);
+}
+.cal-otd-header-button {
+  position: relative;
+}
+.cal-otd-header-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  pointer-events: none;
+}
+.cal-otd-strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin: 8px 0 0;
+  padding: 8px 0 0;
+  border: 0;
+  border-top: 1px solid var(--background-modifier-border);
+  background: none !important;
+  box-shadow: none !important;
+  appearance: none;
+  -webkit-appearance: none;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  color: var(--text-normal);
+  border-radius: 0;
+  min-height: 36px;
+}
+.cal-weather-card.cal-otd-standalone .cal-otd-strip {
+  margin: 0;
+  padding: 0;
+  border-top: 0;
+}
+.cal-otd-strip:hover {
+  color: var(--text-normal);
+}
+.cal-otd-strip-photo {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background-size: cover;
+  background-position: center;
+  background-color: var(--background-modifier-hover);
+  flex-shrink: 0;
+  overflow: hidden;
+}
+.cal-otd-strip-photo.is-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+}
+.cal-otd-strip-photo.is-empty svg {
+  width: 16px;
+  height: 16px;
+}
+.cal-otd-strip-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.cal-otd-strip-title {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--text-normal);
+}
+.cal-otd-strip-meta {
+  font-size: 11px;
+  line-height: 1.2;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cal-otd-strip-chevron {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  color: var(--text-muted);
+  opacity: 0.7;
+}
+.cal-otd-strip-chevron svg {
+  width: 16px;
+  height: 16px;
 }
 .cal-otd-dot {
   position: absolute;
@@ -1247,7 +1347,7 @@ button.cal-weather-refresh:hover {
 }
 @media (pointer: coarse) {
   .cal-icon-button, .cal-weather-refresh, .dayline-note-media-info,
-  .cal-otd-button, .cal-filter-field input, .cal-filter-field select,
+  .cal-otd-button, .cal-otd-header-button, .cal-otd-strip, .cal-filter-field input, .cal-filter-field select,
   .journal-timeline-actions button, .journal-timeline-filter-row > button,
   .journal-timeline-view input:not([type='checkbox']), .journal-timeline-view select,
   .journal-mood-picker button,

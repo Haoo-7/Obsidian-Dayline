@@ -5062,6 +5062,7 @@ var init_locale = __esm({
         // On This Day
         otd_title: "On This Day",
         otd_button: (m, d) => `\u{1F4C5} ${m}/${d}`,
+        otd_entryDate: (m, d) => `${m}/${d}`,
         otd_emptyYear: "No entry for this day",
         otd_noMemories: "No memories for this day yet",
         otd_yearsAgo: (n) => `${n} year${n > 1 ? "s" : ""} ago`,
@@ -5078,6 +5079,11 @@ var init_locale = __esm({
         s_otdDotDesc: "Display a small dot on dates with past-year entries",
         s_otdButton: "Show sidebar button",
         s_otdButtonDesc: "Display an On This Day button below the weather card",
+        s_otdEntry: "Sidebar entry",
+        s_otdEntryDesc: "Turn the sidebar entry off, merge it into the weather card, or place it in the header.",
+        s_otdEntryOff: "Off",
+        s_otdEntryMerged: "Merged into weather card",
+        s_otdEntryHeader: "Header icon",
         s_otdExcerptMode: "Excerpt mode",
         s_otdExcerptModeDesc: "How to generate text previews for past entries",
         s_otdExcerptAuto: "Auto-extract from note body",
@@ -5188,6 +5194,7 @@ var init_locale = __esm({
         // On This Day
         otd_title: "\u53BB\u5E74\u4ECA\u65E5",
         otd_button: (m, d) => `\u{1F4C5} ${m}\u6708${d}\u65E5`,
+        otd_entryDate: (m, d) => `${m}\u6708${d}\u65E5`,
         otd_emptyYear: "\u8FD9\u4E00\u5929\u8FD8\u6CA1\u6709\u8BB0\u5F55",
         otd_noMemories: "\u8FD8\u6CA1\u6709\u5F80\u5E74\u7684\u4ECA\u5929",
         otd_yearsAgo: (n) => `${n}\u5E74\u524D`,
@@ -5204,6 +5211,11 @@ var init_locale = __esm({
         s_otdDotDesc: "\u5728\u6709\u5F80\u5E74\u8BB0\u5F55\u7684\u65E5\u671F\u683C\u5B50\u4E0A\u663E\u793A\u5C0F\u5706\u70B9\u6807\u8BB0",
         s_otdButton: "\u663E\u793A\u4FA7\u8FB9\u680F\u6309\u94AE",
         s_otdButtonDesc: "\u5728\u5929\u6C14\u5361\u7247\u4E0B\u65B9\u663E\u793A\u300C\u53BB\u5E74\u4ECA\u65E5\u300D\u6309\u94AE",
+        s_otdEntry: "\u4FA7\u8FB9\u680F\u5165\u53E3",
+        s_otdEntryDesc: "\u5173\u95ED\u5165\u53E3\u3001\u5408\u5E76\u8FDB\u5929\u6C14\u5361\uFF0C\u6216\u653E\u5230\u9876\u680F\u3002",
+        s_otdEntryOff: "\u5173\u95ED",
+        s_otdEntryMerged: "\u5408\u5E76\u8FDB\u5929\u6C14\u5361",
+        s_otdEntryHeader: "\u9876\u680F\u56FE\u6807",
         s_otdExcerptMode: "\u6458\u8981\u6A21\u5F0F",
         s_otdExcerptModeDesc: "\u5982\u4F55\u751F\u6210\u5F80\u5E74\u65E5\u8BB0\u7684\u6587\u5B57\u9884\u89C8",
         s_otdExcerptAuto: "\u81EA\u52A8\u63D0\u53D6\u6B63\u6587",
@@ -5402,16 +5414,16 @@ var init_on_this_day = __esm({
           cls: "cal-otd-date-input",
           attr: { "aria-label": localize(lang, "otd_datePicker") }
         });
+        this.dateInput = dateInput;
+        this._updateDateInput();
         dateInput.addEventListener("change", () => {
           const parts = dateInput.value.split("-");
           if (parts.length === 3) {
-            this.month = parseInt(parts[1]);
-            this.day = parseInt(parts[2]);
+            this.month = parseInt(parts[1], 10);
+            this.day = parseInt(parts[2], 10);
             void this._navigateDate(0);
           }
         });
-        this.dateInput = dateInput;
-        this._updateDateInput();
         const nextDayBtn = nav.createDiv({ cls: "cal-otd-nav-btn", text: "\u25B6" });
         nextDayBtn.setAttribute("aria-label", localize(lang, "otd_nextDay"));
         nextDayBtn.setAttribute("title", localize(lang, "otd_nextDay"));
@@ -5527,6 +5539,125 @@ var init_on_this_day = __esm({
   }
 });
 
+// src/on-this-day-entry.ts
+var on_this_day_entry_exports = {};
+__export(on_this_day_entry_exports, {
+  ON_THIS_DAY_ENTRY_MODES: () => ON_THIS_DAY_ENTRY_MODES,
+  clearOnThisDayStrip: () => clearOnThisDayStrip,
+  createStandaloneOnThisDayHost: () => createStandaloneOnThisDayHost,
+  mountOnThisDayStrip: () => mountOnThisDayStrip,
+  normalizeOnThisDayEntryMode: () => normalizeOnThisDayEntryMode,
+  onThisDayEntryDate: () => onThisDayEntryDate,
+  onThisDayStripMeta: () => onThisDayStripMeta,
+  parseOnThisDayMonthDay: () => parseOnThisDayMonthDay,
+  pickOnThisDayPreview: () => pickOnThisDayPreview,
+  resolveWeatherOnThisDayHost: () => resolveWeatherOnThisDayHost,
+  shouldPreserveCalendarSelection: () => shouldPreserveCalendarSelection,
+  shouldShowHeaderOnThisDayEntry: () => shouldShowHeaderOnThisDayEntry,
+  shouldShowMergedOnThisDayEntry: () => shouldShowMergedOnThisDayEntry
+});
+function normalizeOnThisDayEntryMode(settings = {}) {
+  const raw = settings.onThisDayEntry;
+  if (raw === "off" || raw === "merged" || raw === "header") return raw;
+  if (settings.onThisDayButton === false) return "off";
+  return "merged";
+}
+function shouldShowMergedOnThisDayEntry(settings = {}) {
+  return normalizeOnThisDayEntryMode(settings) === "merged";
+}
+function shouldShowHeaderOnThisDayEntry(settings = {}) {
+  return normalizeOnThisDayEntryMode(settings) === "header";
+}
+function onThisDayEntryDate(activeDate, today) {
+  return activeDate || today;
+}
+function parseOnThisDayMonthDay(dateStr) {
+  const parts = String(dateStr || "").split("-").map(Number);
+  const month = parts[1];
+  const day = parts[2];
+  if (!month || !day) return null;
+  return { month, day };
+}
+function shouldPreserveCalendarSelection(activeView, calendarView) {
+  return Boolean(calendarView) && activeView === calendarView;
+}
+function pickOnThisDayPreview(entries = []) {
+  if (!entries.length) return null;
+  const latest = entries[0];
+  const withImage = entries.find((entry) => (entry.images || []).length > 0);
+  return {
+    year: latest.year,
+    image: withImage?.images?.[0] || null,
+    imageNotePath: withImage?.path,
+    imageDateStr: withImage?.dateStr,
+    excerpt: latest.excerpt || null,
+    count: entries.length
+  };
+}
+function onThisDayStripMeta(yearsAgoLabel, dateLabel) {
+  return `${yearsAgoLabel} \xB7 ${dateLabel}`;
+}
+function clearOnThisDayStrip(root) {
+  for (const el of Array.from(root.querySelectorAll(".cal-otd-strip"))) el.remove();
+  for (const el of Array.from(root.querySelectorAll(".cal-weather-card.cal-otd-standalone"))) el.remove();
+  for (const el of Array.from(root.querySelectorAll(".cal-weather-card.has-otd"))) {
+    el.classList.remove("has-otd");
+  }
+}
+function asHtmlElement(node) {
+  return node && node.nodeType === 1 ? node : null;
+}
+function resolveWeatherOnThisDayHost(container) {
+  return asHtmlElement(container.querySelector(".cal-weather-card:not(.cal-otd-standalone)"));
+}
+function createStandaloneOnThisDayHost(container) {
+  const existing = asHtmlElement(container.querySelector(".cal-weather-card.cal-otd-standalone"));
+  if (existing) return existing;
+  const card = container.ownerDocument.createElement("div");
+  card.className = "cal-weather-card cal-otd-standalone";
+  const setup = container.querySelector(".cal-weather-setup");
+  const weekdays = container.querySelector(".cal-weekdays");
+  if (setup?.parentElement === container) setup.insertAdjacentElement("afterend", card);
+  else if (weekdays?.parentElement === container) container.insertBefore(card, weekdays);
+  else container.append(card);
+  return card;
+}
+function mountOnThisDayStrip(host, model) {
+  host.classList.add("has-otd");
+  host.querySelector(".cal-otd-strip")?.remove();
+  const doc = host.ownerDocument;
+  const strip = doc.createElement("button");
+  strip.type = "button";
+  strip.className = "cal-otd-strip";
+  strip.setAttribute("aria-label", model.ariaLabel);
+  if (model.dateStr) strip.dataset.otdDate = model.dateStr;
+  const photo = doc.createElement("span");
+  photo.className = "cal-otd-strip-photo";
+  photo.setAttribute("aria-hidden", "true");
+  const text = doc.createElement("span");
+  text.className = "cal-otd-strip-text";
+  const title = doc.createElement("span");
+  title.className = "cal-otd-strip-title";
+  title.textContent = model.title;
+  const meta = doc.createElement("span");
+  meta.className = "cal-otd-strip-meta";
+  meta.textContent = model.meta;
+  text.append(title, meta);
+  const chevron = doc.createElement("span");
+  chevron.className = "cal-otd-strip-chevron";
+  chevron.setAttribute("aria-hidden", "true");
+  strip.append(photo, text, chevron);
+  host.append(strip);
+  return strip;
+}
+var ON_THIS_DAY_ENTRY_MODES;
+var init_on_this_day_entry = __esm({
+  "src/on-this-day-entry.ts"() {
+    "use strict";
+    ON_THIS_DAY_ENTRY_MODES = ["off", "merged", "header"];
+  }
+});
+
 // assets/dayline-wordmark-compact.svg
 var dayline_wordmark_compact_default;
 var init_dayline_wordmark_compact = __esm({
@@ -5543,6 +5674,7 @@ __export(calendar_display_exports, {
   calendarMediaAccessibilityLabel: () => calendarMediaAccessibilityLabel,
   calendarMoodMarker: () => calendarMoodMarker,
   calendarMoodMarkerClass: () => calendarMoodMarkerClass,
+  isCurrentCalendarMonth: () => isCurrentCalendarMonth,
   shouldShowCalendarMood: () => shouldShowCalendarMood,
   shouldShowCalendarMoodStyle: () => shouldShowCalendarMoodStyle,
   shouldShowCalendarWeather: () => shouldShowCalendarWeather,
@@ -5591,6 +5723,12 @@ function shouldShowCalendarWeatherBadge(settings = {}) {
 }
 function shouldShowCalendarWeatherLocation(settings = {}) {
   return settings.showCalendarWeatherLocation === true;
+}
+function isCurrentCalendarMonth(displayMonth, todayStr) {
+  if (!displayMonth || !todayStr) return false;
+  const [year, month] = String(todayStr).split("-").map(Number);
+  if (!year || !month) return false;
+  return displayMonth.getFullYear() === year && displayMonth.getMonth() === month - 1;
 }
 var CALENDAR_MOOD_MARKERS;
 var init_calendar_display = __esm({
@@ -5956,6 +6094,7 @@ var init_settings_tab = __esm({
     init_calendar_display();
     init_journal_timeline_display();
     init_journal_source_settings();
+    init_on_this_day_entry();
     VIEW_TYPE = "calendar-sidebar-view";
     SETTINGS_SECTION_IDS = [
       "general",
@@ -6259,9 +6398,14 @@ var init_settings_tab = __esm({
           }));
         }
         this._addSection(containerEl, "on-this-day");
-        new import_obsidian4.Setting(containerEl).setName(_s("s_otdButton")).setDesc(_s("s_otdButtonDesc")).addToggle(
-          (toggle) => toggle.setValue(this.plugin.settings.onThisDayButton).onChange(async (value) => {
-            this.plugin.settings.onThisDayButton = value;
+        new import_obsidian4.Setting(containerEl).setName(_s("s_otdEntry")).setDesc(_s("s_otdEntryDesc")).addDropdown(
+          (dropdown) => dropdown.addOptions({
+            off: _s("s_otdEntryOff"),
+            merged: _s("s_otdEntryMerged"),
+            header: _s("s_otdEntryHeader")
+          }).setValue(normalizeOnThisDayEntryMode(this.plugin.settings)).onChange(async (value) => {
+            this.plugin.settings.onThisDayEntry = normalizeOnThisDayEntryMode({ onThisDayEntry: value });
+            this.plugin.settings.onThisDayButton = this.plugin.settings.onThisDayEntry !== "off";
             if (!await this._saveSettings()) return;
             this.display();
             const leaf = this.app.workspace.getLeavesOfType(VIEW_TYPE)[0];
@@ -24473,6 +24617,20 @@ var { MoodPickerModal: MoodPickerModal2, MoodRecoveryModal: MoodRecoveryModal2 }
 var { saveMoodExport: saveMoodExport2, serializeMoodCsv: serializeMoodCsv2, serializeMoodJson: serializeMoodJson2 } = (init_mood_export(), __toCommonJS(mood_export_exports));
 var { JournalTimelineView: JournalTimelineView2, JOURNAL_TIMELINE_VIEW: JOURNAL_TIMELINE_VIEW2 } = (init_journal_timeline_view(), __toCommonJS(journal_timeline_view_exports));
 var { OnThisDayProvider: OnThisDayProvider2, OnThisDayModal: OnThisDayModal2 } = (init_on_this_day(), __toCommonJS(on_this_day_exports));
+var {
+  normalizeOnThisDayEntryMode: normalizeOnThisDayEntryMode2,
+  onThisDayEntryDate: onThisDayEntryDate2,
+  onThisDayStripMeta: onThisDayStripMeta2,
+  parseOnThisDayMonthDay: parseOnThisDayMonthDay2,
+  pickOnThisDayPreview: pickOnThisDayPreview2,
+  shouldPreserveCalendarSelection: shouldPreserveCalendarSelection2,
+  shouldShowHeaderOnThisDayEntry: shouldShowHeaderOnThisDayEntry2,
+  shouldShowMergedOnThisDayEntry: shouldShowMergedOnThisDayEntry2,
+  clearOnThisDayStrip: clearOnThisDayStrip2,
+  resolveWeatherOnThisDayHost: resolveWeatherOnThisDayHost2,
+  createStandaloneOnThisDayHost: createStandaloneOnThisDayHost2,
+  mountOnThisDayStrip: mountOnThisDayStrip2
+} = (init_on_this_day_entry(), __toCommonJS(on_this_day_entry_exports));
 var { DaylineSettingsTab: DaylineSettingsTab2 } = (init_settings_tab(), __toCommonJS(settings_tab_exports));
 var { WeatherService: WeatherService2, lookupWeatherCode: lookupWeatherCode2, validateWeatherCoordinates: validateWeatherCoordinates2 } = (init_weather_service(), __toCommonJS(weather_service_exports));
 var { buildWeatherCardParts: buildWeatherCardParts2, buildWeatherStatus: buildWeatherStatus2, normalizeWeatherDisplayFields: normalizeWeatherDisplayFields2 } = (init_weather_display(), __toCommonJS(weather_display_exports));
@@ -24488,7 +24646,7 @@ var { SerialTaskQueue: SerialTaskQueue2 } = (init_task_queue(), __toCommonJS(tas
 var { formatCalendarMonth: formatCalendarMonth2, getCalendarGridOffset: getCalendarGridOffset2, getCalendarWeekdays: getCalendarWeekdays2, getDisplayLanguage: getDisplayLanguage2, moodLabel: moodLabel2, t: t2 } = (init_i18n(), __toCommonJS(i18n_exports));
 var { getMoodColor: getMoodColor2 } = (init_mood(), __toCommonJS(mood_exports));
 var { shouldHandleCalendarMonthShortcut: shouldHandleCalendarMonthShortcut2 } = (init_calendar_keyboard(), __toCommonJS(calendar_keyboard_exports));
-var { calendarEntryAffectsDisplay: calendarEntryAffectsDisplay2, calendarMediaAccessibilityLabel: calendarMediaAccessibilityLabel2, calendarMoodMarker: calendarMoodMarker2, calendarMoodMarkerClass: calendarMoodMarkerClass2, shouldShowCalendarMood: shouldShowCalendarMood2, shouldShowCalendarWeatherCard: shouldShowCalendarWeatherCard2, shouldShowCalendarWeatherBadge: shouldShowCalendarWeatherBadge2, shouldShowCalendarWeatherLocation: shouldShowCalendarWeatherLocation2 } = (init_calendar_display(), __toCommonJS(calendar_display_exports));
+var { calendarEntryAffectsDisplay: calendarEntryAffectsDisplay2, calendarMediaAccessibilityLabel: calendarMediaAccessibilityLabel2, calendarMoodMarker: calendarMoodMarker2, calendarMoodMarkerClass: calendarMoodMarkerClass2, isCurrentCalendarMonth: isCurrentCalendarMonth2, shouldShowCalendarMood: shouldShowCalendarMood2, shouldShowCalendarWeatherCard: shouldShowCalendarWeatherCard2, shouldShowCalendarWeatherBadge: shouldShowCalendarWeatherBadge2, shouldShowCalendarWeatherLocation: shouldShowCalendarWeatherLocation2 } = (init_calendar_display(), __toCommonJS(calendar_display_exports));
 var { ViewVisibilityController: ViewVisibilityController2, normalizeViewVisibilitySettings: normalizeViewVisibilitySettings2 } = (init_view_visibility_controller(), __toCommonJS(view_visibility_controller_exports));
 var { hasExistingImage: hasExistingImage2 } = (init_heic_embed(), __toCommonJS(heic_embed_exports));
 var { ImageMetadataCache: ImageMetadataCache2, HeicCache: HeicCache2, HEIC_EXTS: HEIC_EXTS2, ReverseGeocoder: ReverseGeocoder2 } = (init_image_metadata(), __toCommonJS(image_metadata_exports));
@@ -24557,8 +24715,10 @@ var DEFAULT_SETTINGS = {
   // --- On This Day settings ---
   onThisDayDot: false,
   // show accent dots on cells with past-year entries
+  onThisDayEntry: "merged",
+  // 'off' | 'merged' | 'header'
   onThisDayButton: true,
-  // show sidebar button to open On This Day modal
+  // derived from onThisDayEntry !== 'off'; kept for downgrade
   onThisDayExcerptMode: "auto",
   // 'auto' | 'frontmatter' | 'template' | 'none'
   onThisDayExcerptKey: "excerpt",
@@ -25329,12 +25489,16 @@ ${path}`)) return false;
       weatherLanguage: data.weatherLanguage
     });
     this.settings.calendarMoodMarker = calendarMoodMarker2(this.settings);
+    this.settings.onThisDayEntry = normalizeOnThisDayEntryMode2(this.settings);
+    this.settings.onThisDayButton = this.settings.onThisDayEntry !== "off";
     delete this.settings.weatherCache;
     delete this.settings.geocoderCache;
   }
   async saveSettings() {
     const settings = { ...this.settings };
     settings.weatherLanguage = getDisplayLanguage2(settings);
+    settings.onThisDayEntry = normalizeOnThisDayEntryMode2(settings);
+    settings.onThisDayButton = settings.onThisDayEntry !== "off";
     settings.showCalendarWeather = settings.showCalendarWeatherCard !== false || settings.showCalendarWeatherBadge !== false;
     settings.showCalendarView = settings.showCalendarView !== false;
     settings.showTimelineView = settings.showTimelineView === true;
@@ -25496,6 +25660,7 @@ var CalendarView = class extends ItemView2 {
     this._exifNoteDisposers = /* @__PURE__ */ new Set();
     this._otdProvider = new OnThisDayProvider2(plugin);
     this._otdDotCache = null;
+    this._otdStripToken = 0;
     this._calendarJumpOpen = false;
     this._calendarKeydownHandler = null;
     this.closed = false;
@@ -25607,6 +25772,8 @@ var CalendarView = class extends ItemView2 {
   }
   _handleActiveLeafChange() {
     const previousMonth = this._monthKey(this.displayMonth);
+    const activeView = this.app.workspace.activeLeaf?.view;
+    if (shouldPreserveCalendarSelection2(activeView, this)) return;
     this._syncActiveDate();
     if (this.plugin.capabilities?.isMobile && this.activeDate) {
       const nextMonth = this._monthKey(this._monthStartForDate(this.activeDate) || this.displayMonth);
@@ -25692,7 +25859,7 @@ var CalendarView = class extends ItemView2 {
     this._otdDotCache = null;
     await this.buildMonthCache(this.displayMonth);
     this.render();
-    if (this._otdProvider && this.plugin.settings.onThisDayDot) {
+    if (this._otdProvider && (this.plugin.settings.onThisDayDot || shouldShowHeaderOnThisDayEntry2(this.plugin.settings))) {
       this._otdProvider.ensureDateIndex().then(() => {
         this._otdDotCache = this._otdProvider.dateIndexSnapshot;
         this.render();
@@ -25795,6 +25962,7 @@ var CalendarView = class extends ItemView2 {
     this._ensureExifTooltip();
     const year = this.displayMonth.getFullYear();
     const month = this.displayMonth.getMonth();
+    const todayStr = _daylineDate(this.plugin.settings);
     const key = this._monthKey(this.displayMonth);
     const imageMap = this.monthCache.get(key) || /* @__PURE__ */ new Map();
     const header = el.createDiv({ cls: "cal-header" });
@@ -25843,32 +26011,22 @@ var CalendarView = class extends ItemView2 {
       void this._goToMonth(1);
     });
     const headerActions = header.createDiv({ cls: "cal-header-actions" });
-    const todayBtn = headerActions.createEl("button", {
-      cls: "cal-icon-button cal-today-button",
-      attr: { type: "button", "data-calendar-focus": "today", "aria-label": t2(this.plugin.settings, "today"), title: t2(this.plugin.settings, "today") }
-    });
-    setIcon4(todayBtn, "calendar-check");
-    todayBtn.addEventListener("click", (event) => {
-      event.stopPropagation();
-      todayBtn.focus({ preventScroll: true });
-      void this._goToToday();
-    });
-    if (this._calendarJumpOpen) this._renderMonthJump(el);
-    this._renderWeatherCard(el);
-    if (this.plugin.settings.onThisDayButton) {
-      const otdBtn = el.createEl("button", {
-        cls: "cal-otd-button",
-        attr: { type: "button", "aria-label": _l(this.plugin.settings.weatherLanguage, "otd_button", ..._daylineDate(this.plugin.settings).split("-").slice(1).map(Number)) }
+    this._renderOnThisDayHeader(headerActions);
+    if (!isCurrentCalendarMonth2(this.displayMonth, todayStr)) {
+      const todayBtn = headerActions.createEl("button", {
+        cls: "cal-icon-button cal-today-button",
+        attr: { type: "button", "data-calendar-focus": "today", "aria-label": t2(this.plugin.settings, "today"), title: t2(this.plugin.settings, "today") }
       });
-      const [, todayMonth, todayDay] = _daylineDate(this.plugin.settings).split("-").map(Number);
-      const tm = todayMonth, td = todayDay;
-      otdBtn.setText(_l(this.plugin.settings.weatherLanguage, "otd_button", tm, td));
-      otdBtn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        const [, monthNumber, dayNumber] = _daylineDate(this.plugin.settings).split("-").map(Number);
-        this.plugin.openOnThisDay(monthNumber, dayNumber);
+      setIcon4(todayBtn, "calendar-check");
+      todayBtn.addEventListener("click", (event) => {
+        event.stopPropagation();
+        todayBtn.focus({ preventScroll: true });
+        void this._goToToday();
       });
     }
+    if (this._calendarJumpOpen) this._renderMonthJump(el);
+    this._renderWeatherCard(el);
+    this._renderOnThisDayEntry(el);
     const wd = el.createDiv({ cls: "cal-weekdays" });
     for (const day of getCalendarWeekdays2(this.plugin.settings)) {
       wd.createEl("span", { cls: "cal-weekday", text: day });
@@ -25880,7 +26038,6 @@ var CalendarView = class extends ItemView2 {
     );
     const firstDay = getCalendarGridOffset2(year, month, this.plugin.settings);
     const daysInMonth2 = new Date(year, month + 1, 0).getDate();
-    const todayStr = _daylineDate(this.plugin.settings);
     for (let i = 0; i < firstDay; i++) {
       grid.createDiv({ cls: "cal-day cal-day-empty" });
     }
@@ -26257,17 +26414,18 @@ var CalendarView = class extends ItemView2 {
     const card = containerEl.createDiv({
       cls: this._weatherLoading ? "cal-weather-card cal-weather-loading" : "cal-weather-card"
     });
-    card.setAttribute("role", "status");
-    card.setAttribute("aria-live", "polite");
     this._weatherCardEl = card;
-    const iconEl = card.createEl("img", { cls: "cal-weather-icon" });
+    const main = card.createDiv({ cls: "cal-weather-main" });
+    main.setAttribute("role", "status");
+    main.setAttribute("aria-live", "polite");
+    const iconEl = main.createEl("img", { cls: "cal-weather-icon" });
     const loading = this._weatherLoading ? "\u231B\uFE0F" : "";
     if (loading) iconEl.alt = loading;
     else {
       iconEl.src = _iconUrl("overcast.svg");
       iconEl.alt = "weather";
     }
-    const infoEl = card.createDiv({ cls: "cal-weather-info" });
+    const infoEl = main.createDiv({ cls: "cal-weather-info" });
     const tempEl = infoEl.createDiv({ cls: "cal-weather-temp" });
     const locationEl = shouldShowCalendarWeatherLocation2(s) ? infoEl.createDiv({ cls: "cal-weather-location" }) : null;
     infoEl.createDiv({ cls: "cal-weather-detail" });
@@ -26275,7 +26433,7 @@ var CalendarView = class extends ItemView2 {
     infoEl.createDiv({ cls: "cal-weather-status" });
     tempEl.setText(_l(s.weatherLanguage, "loading"));
     if (locationEl) locationEl.setText(`${_l(s.weatherLanguage, "weatherLocation")}: ${s.weatherLocationName || `${parseFloat(s.weatherLatitude).toFixed(2)}, ${parseFloat(s.weatherLongitude).toFixed(2)}`}`);
-    const refreshBtn = card.createEl("button", {
+    const refreshBtn = main.createEl("button", {
       cls: "cal-weather-refresh",
       attr: { "aria-label": _l(s.weatherLanguage, "refresh"), title: _l(s.weatherLanguage, "refresh") }
     });
@@ -26291,6 +26449,92 @@ var CalendarView = class extends ItemView2 {
     } else {
       this._updateWeatherCardUI();
     }
+  }
+  _onThisDayTargetDate() {
+    return onThisDayEntryDate2(this.activeDate, _daylineDate(this.plugin.settings));
+  }
+  _openOnThisDayForDate(dateStr) {
+    const parsed = parseOnThisDayMonthDay2(dateStr || this._onThisDayTargetDate());
+    if (!parsed) return;
+    this.plugin.openOnThisDay(parsed.month, parsed.day);
+  }
+  _bindOnThisDayOpener(el, dateStr) {
+    const open = (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      this._openOnThisDayForDate(dateStr || el.dataset?.otdDate);
+    };
+    el.addEventListener("pointerdown", (event) => {
+      event.stopPropagation();
+    });
+    el.addEventListener("click", open);
+  }
+  _renderOnThisDayHeader(headerActions) {
+    if (!shouldShowHeaderOnThisDayEntry2(this.plugin.settings)) return;
+    const dateStr = this._onThisDayTargetDate();
+    const lang = this.plugin.settings.weatherLanguage;
+    const label = _l(lang, "otd_title");
+    const btn = headerActions.createEl("button", {
+      cls: "cal-icon-button cal-otd-header-button",
+      attr: {
+        type: "button",
+        "data-calendar-focus": "on-this-day",
+        "data-otd-date": dateStr,
+        "aria-label": label,
+        title: label
+      }
+    });
+    setIcon4(btn, "history");
+    const mmdd = dateStr.slice(5);
+    if (this._otdDotCache?.has(mmdd)) {
+      btn.createDiv({ cls: "cal-otd-header-badge", attr: { "aria-hidden": "true" } });
+    }
+    this._bindOnThisDayOpener(btn, dateStr);
+  }
+  _renderOnThisDayEntry(containerEl) {
+    const token = this._otdStripToken = (this._otdStripToken || 0) + 1;
+    clearOnThisDayStrip2(containerEl);
+    if (!shouldShowMergedOnThisDayEntry2(this.plugin.settings) || !this._otdProvider) return;
+    const dateStr = this._onThisDayTargetDate();
+    const parsed = parseOnThisDayMonthDay2(dateStr);
+    if (!parsed) return;
+    this._otdProvider.getEntries(parsed.month, parsed.day).then((entries) => {
+      if (this.closed || token !== this._otdStripToken || !containerEl.isConnected) return;
+      this._mountMergedOnThisDayStrip(containerEl, dateStr, parsed.month, parsed.day, entries);
+    }).catch((error) => {
+      if (this.closed || token !== this._otdStripToken) return;
+      console.warn("[Dayline] On This Day strip failed:", error?.message || error);
+    });
+  }
+  _mountMergedOnThisDayStrip(containerEl, dateStr, month, day, entries) {
+    clearOnThisDayStrip2(containerEl);
+    const preview = pickOnThisDayPreview2(entries);
+    if (!preview) return;
+    const host = resolveWeatherOnThisDayHost2(containerEl) || createStandaloneOnThisDayHost2(containerEl);
+    const lang = this.plugin.settings.weatherLanguage;
+    const currentYear = Number(dateStr.slice(0, 4));
+    const yearsAgo = Number.isFinite(currentYear) ? currentYear - preview.year : 1;
+    const title = _l(lang, "otd_title");
+    const meta = onThisDayStripMeta2(_l(lang, "otd_yearsAgo", yearsAgo), _l(lang, "otd_entryDate", month, day));
+    const strip = mountOnThisDayStrip2(host, {
+      title,
+      meta,
+      ariaLabel: `${title}, ${meta}`,
+      dateStr
+    });
+    const photo = strip.querySelector(".cal-otd-strip-photo");
+    const chevron = strip.querySelector(".cal-otd-strip-chevron");
+    if (chevron) setIcon4(chevron, "chevron-right");
+    if (photo && preview.image) {
+      const notePath = preview.imageNotePath || `${this.plugin.settings.dailyFolder}/${preview.imageDateStr || dateStr}.md`;
+      this.plugin.thumbnailService?.load(preview.image, notePath).then((result) => {
+        if (result && photo.isConnected) photo.style.backgroundImage = `url(${result.url})`;
+      }).catch((error) => console.warn("[Dayline] On This Day thumbnail load failed:", error?.message || error));
+    } else if (photo) {
+      photo.classList.add("is-empty");
+      setIcon4(photo, "history");
+    }
+    this._bindOnThisDayOpener(strip, dateStr);
   }
   _revalidateConnectedWeatherCard(dateStr) {
     if (this._weatherRevalidation?.date === dateStr) return this._weatherRevalidation.promise;
@@ -26395,7 +26639,7 @@ var CalendarView = class extends ItemView2 {
     }
     if (extraEl) extraEl.setText(weatherParts.extra.join(" \xB7 "));
     if (statusEl) statusEl.setText(buildWeatherStatus2(snap, labels).join(" \xB7 "));
-    card.removeAttribute("aria-live");
+    card.querySelector(".cal-weather-main")?.removeAttribute("aria-live");
   }
   /* ----- Fetch weather for a date in the background ----- */
   async _fetchWeatherForDate(dateStr) {

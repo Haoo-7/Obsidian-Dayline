@@ -6,6 +6,7 @@ import compactWordmarkSvg from '../assets/dayline-wordmark-compact.svg';
 import { calendarMoodMarker, shouldShowCalendarMoodStyle } from './calendar-display';
 import { shouldShowTimelineMoodTrend, shouldShowTimelineTitles } from './journal-timeline-display';
 import { JournalSourceSettingsEditor } from './journal-source-settings';
+import { normalizeOnThisDayEntryMode } from './on-this-day-entry';
 
 const VIEW_TYPE = 'calendar-sidebar-view';
 
@@ -542,13 +543,19 @@ export class DaylineSettingsTab extends PluginSettingTab {
     this._addSection(containerEl, 'on-this-day');
 
     new Setting(containerEl)
-      .setName(_s('s_otdButton'))
-      .setDesc(_s('s_otdButtonDesc'))
-      .addToggle((toggle) =>
-        toggle
-          .setValue(this.plugin.settings.onThisDayButton)
+      .setName(_s('s_otdEntry'))
+      .setDesc(_s('s_otdEntryDesc'))
+      .addDropdown((dropdown) =>
+        dropdown
+          .addOptions({
+            off: _s('s_otdEntryOff'),
+            merged: _s('s_otdEntryMerged'),
+            header: _s('s_otdEntryHeader'),
+          })
+          .setValue(normalizeOnThisDayEntryMode(this.plugin.settings))
           .onChange(async (value) => {
-            this.plugin.settings.onThisDayButton = value;
+            this.plugin.settings.onThisDayEntry = normalizeOnThisDayEntryMode({ onThisDayEntry: value });
+            this.plugin.settings.onThisDayButton = this.plugin.settings.onThisDayEntry !== 'off';
             if (!(await this._saveSettings())) return;
             this.display();
             const leaf = this.app.workspace.getLeavesOfType(VIEW_TYPE)[0];

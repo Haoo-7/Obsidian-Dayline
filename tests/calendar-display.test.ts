@@ -4,6 +4,7 @@ import {
   calendarMediaAccessibilityLabel,
   calendarMoodMarker,
   calendarMoodMarkerClass,
+  isCurrentCalendarMonth,
   shouldShowCalendarMood,
   shouldShowCalendarMoodStyle,
   shouldShowCalendarWeather,
@@ -84,5 +85,12 @@ describe('calendar display settings', () => {
     expect(shouldShowCalendarWeatherLocation({})).toBe(false);
     expect(shouldShowCalendarWeatherLocation({ showCalendarWeatherLocation: false })).toBe(false);
     expect(shouldShowCalendarWeatherLocation({ showCalendarWeatherLocation: true })).toBe(true);
+  });
+
+  it('treats the header today jump as useful only off the current month', () => {
+    expect(isCurrentCalendarMonth(new Date(2026, 8, 1), '2026-09-15')).toBe(true);
+    expect(isCurrentCalendarMonth(new Date(2026, 6, 1), '2026-09-15')).toBe(false);
+    expect(isCurrentCalendarMonth(new Date(2025, 8, 1), '2026-09-15')).toBe(false);
+    expect(isCurrentCalendarMonth(null, '2026-09-15')).toBe(false);
   });
 });

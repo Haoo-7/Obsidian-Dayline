@@ -13,6 +13,20 @@ const { MoodPickerModal, MoodRecoveryModal } = require('./mood-picker-modal');
 const { saveMoodExport, serializeMoodCsv, serializeMoodJson } = require('./mood-export');
 const { JournalTimelineView, JOURNAL_TIMELINE_VIEW } = require('./journal-timeline-view');
 const { OnThisDayProvider, OnThisDayModal } = require('./on-this-day');
+const {
+  normalizeOnThisDayEntryMode,
+  onThisDayEntryDate,
+  onThisDayStripMeta,
+  parseOnThisDayMonthDay,
+  pickOnThisDayPreview,
+  shouldPreserveCalendarSelection,
+  shouldShowHeaderOnThisDayEntry,
+  shouldShowMergedOnThisDayEntry,
+  clearOnThisDayStrip,
+  resolveWeatherOnThisDayHost,
+  createStandaloneOnThisDayHost,
+  mountOnThisDayStrip,
+} = require('./on-this-day-entry');
 const { DaylineSettingsTab } = require('./settings-tab');
 const { WeatherService, lookupWeatherCode, validateWeatherCoordinates } = require('./weather-service');
 const { buildWeatherCardParts, buildWeatherStatus, normalizeWeatherDisplayFields } = require('./weather-display');
@@ -28,7 +42,7 @@ const { SerialTaskQueue } = require('./task-queue');
 const { formatCalendarMonth, getCalendarGridOffset, getCalendarWeekdays, getDisplayLanguage, moodLabel, t } = require('./i18n');
 const { getMoodColor } = require('./mood');
 const { shouldHandleCalendarMonthShortcut } = require('./calendar-keyboard');
-const { calendarEntryAffectsDisplay, calendarMediaAccessibilityLabel, calendarMoodMarker, calendarMoodMarkerClass, shouldShowCalendarMood, shouldShowCalendarWeatherCard, shouldShowCalendarWeatherBadge, shouldShowCalendarWeatherLocation } = require('./calendar-display');
+const { calendarEntryAffectsDisplay, calendarMediaAccessibilityLabel, calendarMoodMarker, calendarMoodMarkerClass, isCurrentCalendarMonth, shouldShowCalendarMood, shouldShowCalendarWeatherCard, shouldShowCalendarWeatherBadge, shouldShowCalendarWeatherLocation } = require('./calendar-display');
 const { ViewVisibilityController, normalizeViewVisibilitySettings } = require('./view-visibility-controller');
 const { hasExistingImage } = require('./heic-embed');
 const { ImageMetadataCache, HeicCache, HEIC_EXTS, ReverseGeocoder } = require('./image-metadata');
@@ -91,7 +105,8 @@ const DEFAULT_SETTINGS = {
   exifReverseGeocode: false, // never send GPS coordinates unless explicitly enabled
   // --- On This Day settings ---
   onThisDayDot: false,    // show accent dots on cells with past-year entries
-  onThisDayButton: true,  // show sidebar button to open On This Day modal
+  onThisDayEntry: 'merged', // 'off' | 'merged' | 'header'
+  onThisDayButton: true,  // derived from onThisDayEntry !== 'off'; kept for downgrade
   onThisDayExcerptMode: 'auto',  // 'auto' | 'frontmatter' | 'template' | 'none'
   onThisDayExcerptKey: 'excerpt',  // frontmatter key when mode is 'frontmatter'
   onThisDayExcerptTemplate: '{body}',  // template when mode is 'template'
@@ -988,6 +1003,8 @@ class DaylinePlugin extends Plugin {
       weatherLanguage: data.weatherLanguage,
     });
     this.settings.calendarMoodMarker = calendarMoodMarker(this.settings);
+    this.settings.onThisDayEntry = normalizeOnThisDayEntryMode(this.settings);
+    this.settings.onThisDayButton = this.settings.onThisDayEntry !== 'off';
     delete this.settings.weatherCache; // settings object shouldn't carry the cache
     delete this.settings.geocoderCache;
   }
@@ -995,6 +1012,8 @@ class DaylinePlugin extends Plugin {
   async saveSettings() {
     const settings = { ...this.settings };
     settings.weatherLanguage = getDisplayLanguage(settings);
+    settings.onThisDayEntry = normalizeOnThisDayEntryMode(settings);
+    settings.onThisDayButton = settings.onThisDayEntry !== 'off';
     settings.showCalendarWeather = settings.showCalendarWeatherCard !== false || settings.showCalendarWeatherBadge !== false;
     settings.showCalendarView = settings.showCalendarView !== false;
     settings.showTimelineView = settings.showTimelineView === true;
@@ -1200,6 +1219,7 @@ class CalendarView extends ItemView {
     this._otdProvider = new OnThisDayProvider(plugin);
     // Cache for quick dot-marker lookup: Set<"MM-DD">
     this._otdDotCache = null;
+    this._otdStripToken = 0;
     // Month-jump state is intentionally view-local.
     this._calendarJumpOpen = false;
     this._calendarKeydownHandler = null;
@@ -1325,6 +1345,8 @@ class CalendarView extends ItemView {
 
   _handleActiveLeafChange() {
     const previousMonth = this._monthKey(this.displayMonth);
+    const activeView = this.app.workspace.activeLeaf?.view;
+    if (shouldPreserveCalendarSelection(activeView, this)) return;
     this._syncActiveDate();
     if (this.plugin.capabilities?.isMobile && this.activeDate) {
       const nextMonth = this._monthKey(this._monthStartForDate(this.activeDate) || this.displayMonth);
@@ -1421,7 +1443,7 @@ class CalendarView extends ItemView {
     await this.buildMonthCache(this.displayMonth);
     this.render();
     // Rebuild OTD dot cache async
-    if (this._otdProvider && this.plugin.settings.onThisDayDot) {
+    if (this._otdProvider && (this.plugin.settings.onThisDayDot || shouldShowHeaderOnThisDayEntry(this.plugin.settings))) {
       this._otdProvider.ensureDateIndex().then(() => {
         this._otdDotCache = this._otdProvider.dateIndexSnapshot;
         this.render();
@@ -1548,6 +1570,7 @@ class CalendarView extends ItemView {
 
     const year = this.displayMonth.getFullYear();
     const month = this.displayMonth.getMonth();
+    const todayStr = _daylineDate(this.plugin.settings);
     const key = this._monthKey(this.displayMonth);
     const imageMap = this.monthCache.get(key) || new Map();
 
@@ -1601,37 +1624,27 @@ class CalendarView extends ItemView {
     });
 
     const headerActions = header.createDiv({ cls: 'cal-header-actions' });
-    const todayBtn = headerActions.createEl('button', {
-      cls: 'cal-icon-button cal-today-button',
-      attr: { type: 'button', 'data-calendar-focus': 'today', 'aria-label': t(this.plugin.settings, 'today'), title: t(this.plugin.settings, 'today') },
-    });
-    setIcon(todayBtn, 'calendar-check');
-    todayBtn.addEventListener('click', (event) => {
-      event.stopPropagation();
-      todayBtn.focus({ preventScroll: true });
-      void this._goToToday();
-    });
+    this._renderOnThisDayHeader(headerActions);
+    if (!isCurrentCalendarMonth(this.displayMonth, todayStr)) {
+      const todayBtn = headerActions.createEl('button', {
+        cls: 'cal-icon-button cal-today-button',
+        attr: { type: 'button', 'data-calendar-focus': 'today', 'aria-label': t(this.plugin.settings, 'today'), title: t(this.plugin.settings, 'today') },
+      });
+      setIcon(todayBtn, 'calendar-check');
+      todayBtn.addEventListener('click', (event) => {
+        event.stopPropagation();
+        todayBtn.focus({ preventScroll: true });
+        void this._goToToday();
+      });
+    }
     if (this._calendarJumpOpen) this._renderMonthJump(el);
     // Calendar records are intentionally unfiltered; the timeline owns filtering.
 
     // --- Weather card (below header, above weekdays) ---
     this._renderWeatherCard(el);
 
-    // --- On This Day button (below weather card) ---
-    if (this.plugin.settings.onThisDayButton) {
-      const otdBtn = el.createEl('button', {
-        cls: 'cal-otd-button',
-        attr: { type: 'button', 'aria-label': _l(this.plugin.settings.weatherLanguage, 'otd_button', ..._daylineDate(this.plugin.settings).split('-').slice(1).map(Number)) },
-      });
-      const [, todayMonth, todayDay] = _daylineDate(this.plugin.settings).split('-').map(Number);
-      const tm = todayMonth, td = todayDay;
-      otdBtn.setText(_l(this.plugin.settings.weatherLanguage, 'otd_button', tm, td));
-      otdBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const [, monthNumber, dayNumber] = _daylineDate(this.plugin.settings).split('-').map(Number);
-        this.plugin.openOnThisDay(monthNumber, dayNumber);
-      });
-    }
+    // --- On This Day entry (merged weather-card strip, or header icon) ---
+    this._renderOnThisDayEntry(el);
 
     // --- Weekday row ---
     const wd = el.createDiv({ cls: 'cal-weekdays' });
@@ -1648,7 +1661,6 @@ class CalendarView extends ItemView {
 
     const firstDay = getCalendarGridOffset(year, month, this.plugin.settings);
     const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const todayStr = _daylineDate(this.plugin.settings);
 
     // Empty cells before the 1st
     for (let i = 0; i < firstDay; i++) {
@@ -2087,16 +2099,17 @@ class CalendarView extends ItemView {
     const card = containerEl.createDiv({
       cls: this._weatherLoading ? 'cal-weather-card cal-weather-loading' : 'cal-weather-card',
     });
-    card.setAttribute('role', 'status');
-    card.setAttribute('aria-live', 'polite');
     this._weatherCardEl = card;
+    const main = card.createDiv({ cls: 'cal-weather-main' });
+    main.setAttribute('role', 'status');
+    main.setAttribute('aria-live', 'polite');
 
-    const iconEl = card.createEl('img', { cls: 'cal-weather-icon' });
+    const iconEl = main.createEl('img', { cls: 'cal-weather-icon' });
     const loading = this._weatherLoading ? '\u231B\uFE0F' : '';
     if (loading) iconEl.alt = loading;
     else { iconEl.src = _iconUrl('overcast.svg'); iconEl.alt = 'weather'; }
 
-    const infoEl = card.createDiv({ cls: 'cal-weather-info' });
+    const infoEl = main.createDiv({ cls: 'cal-weather-info' });
     const tempEl = infoEl.createDiv({ cls: 'cal-weather-temp' });
     const locationEl = shouldShowCalendarWeatherLocation(s)
       ? infoEl.createDiv({ cls: 'cal-weather-location' })
@@ -2108,7 +2121,7 @@ class CalendarView extends ItemView {
     if (locationEl) locationEl.setText(`${_l(s.weatherLanguage, 'weatherLocation')}: ${s.weatherLocationName || `${parseFloat(s.weatherLatitude).toFixed(2)}, ${parseFloat(s.weatherLongitude).toFixed(2)}`}`);
 
     // Native Obsidian refresh icon button
-    const refreshBtn = card.createEl('button', {
+    const refreshBtn = main.createEl('button', {
       cls: 'cal-weather-refresh',
       attr: { 'aria-label': _l(s.weatherLanguage, 'refresh'), title: _l(s.weatherLanguage, 'refresh') },
     });
@@ -2126,6 +2139,105 @@ class CalendarView extends ItemView {
     } else {
       this._updateWeatherCardUI();
     }
+  }
+
+  _onThisDayTargetDate() {
+    return onThisDayEntryDate(this.activeDate, _daylineDate(this.plugin.settings));
+  }
+
+  _openOnThisDayForDate(dateStr) {
+    const parsed = parseOnThisDayMonthDay(dateStr || this._onThisDayTargetDate());
+    if (!parsed) return;
+    this.plugin.openOnThisDay(parsed.month, parsed.day);
+  }
+
+  _bindOnThisDayOpener(el, dateStr) {
+    const open = (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      this._openOnThisDayForDate(dateStr || el.dataset?.otdDate);
+    };
+    el.addEventListener('pointerdown', (event) => {
+      event.stopPropagation();
+    });
+    el.addEventListener('click', open);
+  }
+
+  _renderOnThisDayHeader(headerActions) {
+    if (!shouldShowHeaderOnThisDayEntry(this.plugin.settings)) return;
+    const dateStr = this._onThisDayTargetDate();
+    const lang = this.plugin.settings.weatherLanguage;
+    const label = _l(lang, 'otd_title');
+    const btn = headerActions.createEl('button', {
+      cls: 'cal-icon-button cal-otd-header-button',
+      attr: {
+        type: 'button',
+        'data-calendar-focus': 'on-this-day',
+        'data-otd-date': dateStr,
+        'aria-label': label,
+        title: label,
+      },
+    });
+    setIcon(btn, 'history');
+    const mmdd = dateStr.slice(5);
+    if (this._otdDotCache?.has(mmdd)) {
+      btn.createDiv({ cls: 'cal-otd-header-badge', attr: { 'aria-hidden': 'true' } });
+    }
+    this._bindOnThisDayOpener(btn, dateStr);
+  }
+
+  _renderOnThisDayEntry(containerEl) {
+    const token = this._otdStripToken = (this._otdStripToken || 0) + 1;
+    clearOnThisDayStrip(containerEl);
+    if (!shouldShowMergedOnThisDayEntry(this.plugin.settings) || !this._otdProvider) return;
+
+    const dateStr = this._onThisDayTargetDate();
+    const parsed = parseOnThisDayMonthDay(dateStr);
+    if (!parsed) return;
+
+    this._otdProvider.getEntries(parsed.month, parsed.day).then((entries) => {
+      if (this.closed || token !== this._otdStripToken || !containerEl.isConnected) return;
+      this._mountMergedOnThisDayStrip(containerEl, dateStr, parsed.month, parsed.day, entries);
+    }).catch((error) => {
+      if (this.closed || token !== this._otdStripToken) return;
+      console.warn('[Dayline] On This Day strip failed:', error?.message || error);
+    });
+  }
+
+  _mountMergedOnThisDayStrip(containerEl, dateStr, month, day, entries) {
+    clearOnThisDayStrip(containerEl);
+    const preview = pickOnThisDayPreview(entries);
+    if (!preview) return;
+
+    const host = resolveWeatherOnThisDayHost(containerEl) || createStandaloneOnThisDayHost(containerEl);
+    const lang = this.plugin.settings.weatherLanguage;
+    const currentYear = Number(dateStr.slice(0, 4));
+    const yearsAgo = Number.isFinite(currentYear) ? currentYear - preview.year : 1;
+    const title = _l(lang, 'otd_title');
+    const meta = onThisDayStripMeta(_l(lang, 'otd_yearsAgo', yearsAgo), _l(lang, 'otd_entryDate', month, day));
+    const strip = mountOnThisDayStrip(host, {
+      title,
+      meta,
+      ariaLabel: `${title}, ${meta}`,
+      dateStr,
+    });
+
+    const photo = strip.querySelector('.cal-otd-strip-photo');
+    const chevron = strip.querySelector('.cal-otd-strip-chevron');
+    if (chevron) setIcon(chevron, 'chevron-right');
+    if (photo && preview.image) {
+      const notePath = preview.imageNotePath || `${this.plugin.settings.dailyFolder}/${preview.imageDateStr || dateStr}.md`;
+      this.plugin.thumbnailService?.load(preview.image, notePath)
+        .then((result) => {
+          if (result && photo.isConnected) photo.style.backgroundImage = `url(${result.url})`;
+        })
+        .catch((error) => console.warn('[Dayline] On This Day thumbnail load failed:', error?.message || error));
+    } else if (photo) {
+      photo.classList.add('is-empty');
+      setIcon(photo, 'history');
+    }
+
+    this._bindOnThisDayOpener(strip, dateStr);
   }
 
   _revalidateConnectedWeatherCard(dateStr) {
@@ -2241,7 +2353,7 @@ class CalendarView extends ItemView {
     if (extraEl) extraEl.setText(weatherParts.extra.join(' · '));
     if (statusEl) statusEl.setText(buildWeatherStatus(snap, labels).join(' · '));
 
-    card.removeAttribute('aria-live');
+    card.querySelector('.cal-weather-main')?.removeAttribute('aria-live');
   }
 
   /* ----- Fetch weather for a date in the background ----- */
