@@ -1,5 +1,33 @@
 # Changelog
 
+## 2.3.6 (2026-09-15)
+
+### Changed
+- Cleared the mechanical warnings from the community review. Timer calls now go through `window` so timers stay correct in popout windows, the capability probes and the Mediabunny bridge cache use a guarded `window` lookup instead of `globalThis`, and both hardcoded `.obsidian` fallbacks were replaced by `vault.configDir` with an early skip when it is empty, so neither site can build an `undefined/plugins/...` path.
+- Intentionally ignored promises are now marked with `void`, and the five `setTimeout(async () => ...)` callbacks were wrapped so the timer callback itself stays synchronous. No error handling changed; those bodies already caught internally.
+
+No user-visible behaviour change is intended by this release.
+
+### Verification
+- `npm test` passed: 50 test files and 423 tests.
+- `npm run typecheck`, `npm run build`, `npm run verify:release`, and `git diff --check` passed.
+- Runtime check in an Obsidian vault under plugin ID `dayline-journal`: the optional HEIC decoder still loads from the resolved config directory, device capability probes report desktop correctly, the reminder timer returns a numeric id, the timeline rendered 25 entries, and no errors were captured.
+
+
+---
+
+## 2.3.6（2026-09-15）
+
+### 变更
+- 清除社区审核提出的机械类警告：计时器统一通过 `window` 调用，保证弹出窗口下的计时正确；能力探测与 Mediabunny 桥接缓存改用带保护的 `window` 查找，不再使用 `globalThis`；两处硬编码的 `.obsidian` 兜底改为 `vault.configDir`，取不到时直接跳过，因此不会再拼出 `undefined/plugins/...` 这类路径。
+- 明确忽略的 Promise 现以 `void` 标记；5 处 `setTimeout(async () => ...)` 改为让计时器回调本身保持同步。错误处理逻辑未变，这些代码块本来就在内部捕获异常。
+
+本版本不包含有意的界面行为变化。
+
+### 验证
+- `npm test` 通过：50 个测试文件、423 项测试。
+- `npm run typecheck`、`npm run build`、`npm run verify:release` 和 `git diff --check` 通过。
+- Obsidian 测试库以插件 ID `dayline-journal` 完成运行时检查：可选的 HEIC 解码器仍能从解析后的配置目录加载，设备能力探测正确识别桌面端，提醒计时器返回数字 id，时间线渲染 25 条记录，未捕获到错误。
 ## 2.3.5 (2026-09-14)
 
 ### Changed
