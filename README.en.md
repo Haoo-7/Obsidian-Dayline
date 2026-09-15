@@ -33,7 +33,8 @@ The screenshots come from the synthetic, privacy-safe vault in [`showcase/`](sho
 - **A calendar that reads your journal.** Daily note images become date-cell covers; mood colors, optional weather, today, browsing date, and multiple-entry states are visible at a glance.
 - **A timeline built for recall.** Search the full text of your journal and narrow it with date, source, mood, favorite, location, tag, and media filters.
 - **Mood with context.** Use five color levels with notes and labels, then review trends and reports. Recovery, backup, integrity checks, and JSON/CSV export are included.
-- **Memories and media.** On This Day brings back summaries and a photo wall. Image, video, and audio entries support covers, metadata, EXIF tooltips, and desktop HEIC/HEIF thumbnails.
+- **Memories and media.** On This Day brings back summaries and a photo wall, and its entry can be turned off, merged into the weather card, or placed in the header. Image, video, and audio entries support covers, metadata, EXIF tooltips, and desktop HEIC/HEIF thumbnails.
+- **Customizable mood markers.** Mark a date with a corner dot or a bottom color bar that keeps the date centered. In narrow sidebars, date, weather, and mood pin to the cell corners.
 - **Desktop and mobile.** The phone view includes calendar and timeline switching, touch-friendly controls, keyboard-aware mood editing, and quick entry from a Markdown note.
 - **Your vault remains the source.** Journal bodies stay Markdown. Dayline indexes the folders you choose and keeps its visual metadata separate, so the notes remain readable and portable.
 
@@ -68,22 +69,78 @@ By default, mood metadata is stored in `Calendar/journal-metadata.json`, while w
 When the new plugin folder has no `data.json`, Dayline migrates settings from an earlier `dayline` installation or Calendar Sidebar 1.x. Vault notes and mood metadata are not rewritten by the migration.
 
 <details>
-<summary><strong>Settings reference</strong></summary>
+<summary><strong>Settings reference</strong> (grouped as they appear in the settings tab)</summary>
+
+**General**
 
 | Setting | What it controls |
 | --- | --- |
-| **Daily notes folder** | Default folder used to open and create daily notes. Includes search and browse. |
-| **Thumbnail filter** | Use every embedded image, or only filenames beginning with `YYYY-MM-DD_`. |
-| **Journal sources** | Optional external folders added as ordinary timeline sources. |
-| **Mood metadata path** | Vault JSON path, default `Calendar/journal-metadata.json`. |
-| **Mirror mood to frontmatter** | Copies saved mood data into `mood` and `mood_labels`; off by default. |
-| **Resolve GPS locations** | Opt-in EXIF reverse geocoding through OpenStreetMap Nominatim. |
-| **Show mood markers on calendar** | Toggles mood colors in calendar date cells. |
-| **Show calendar weather card** | Toggles the weather card above the calendar. |
-| **Show date weather icons** | Toggles weather icons in the top-right of date cells. |
-| **Show extra-entry badge** | Toggles the `+n` badge on dates with multiple journals. |
-| **Weather fields** | Feels-like temperature and humidity are on by default; wind, precipitation, sunrise, sunset, and location are optional. |
-| **Daily reminder** | Optional local reminder to record the day. |
+| **Display language** | Controls plugin views, notices, labels, and accessible text. Defaults to Chinese. |
+| **Week starts on** | Choose the first weekday shown in the calendar. Defaults to System. |
+
+**Calendar and journal**
+
+| Setting | What it controls |
+| --- | --- |
+| **Journal source directories** | Configure the daily-notes directory (the `Default daily-note folder` field, default `Calendar/Daily`) and optional external import directories. Legacy standalone entry sources are no longer enabled by default. |
+| **Thumbnail filter** | Which embedded images to show as date thumbnails: `All embedded images` (default) or `Only date-prefixed (YYYY-MM-DD_*)`. |
+| **Journal tools** | Open the timeline or inspect external import directories. |
+| **Show timeline mood trend** | Show the recent seven-day mood trajectory at the top of the journal timeline. On by default. |
+| **Show timeline journal titles** | Show journal titles and title-editing controls in the timeline. On by default. |
+| **Show mood markers on calendar** | Show mood colors on date cells without deleting mood records when disabled. On by default. |
+| **Calendar mood style** | `Color dot` sits in the cell corner (default). `Color bar` sits at the bottom and keeps the date centered. Shown only while the markers above are on. |
+| **Show same-day entry count** | Show additional entries for a date; clicking it opens the primary daily note. On by default. |
+| **Show the calendar weather card** | Show the weather card above the calendar; date-cell icons are unaffected. On by default. |
+| **Show weather location** | Show the configured location in the weather card. Off by default; shown only while the weather card is on. |
+| **Show date weather icons** | Show weather icons in the top-right of date cells; the weather card is unaffected. On by default. |
+
+**Mood**
+
+| Setting | What it controls |
+| --- | --- |
+| **Mirror mood to frontmatter** | When enabled, saving a mood writes `mood` and `mood_labels` to Markdown. Off by default. |
+| **Daily reminder** | Show a local reminder when today has no note. Off by default. |
+
+**Weather** (requires `Enable weather`, otherwise these settings stay hidden)
+
+| Setting | What it controls |
+| --- | --- |
+| **Enable weather** | Show weather info for dates in Dayline. Off by default. |
+| **Latitude** / **Longitude** | Your coordinates, which determine the weather data source. |
+| **Location name** | Display name (optional, shown in tooltip). |
+| **Temperature units** | `Celsius (°C)` (default) or `Fahrenheit (°F)`. |
+| **Weather fields** | Choose weather card fields. Feels-like and humidity are enabled by default; wind, precipitation, sunrise, sunset, and location are optional. |
+| **Weather timezone** | IANA timezone used for diary dates and Open-Meteo. `auto` uses the system timezone. |
+| **Auto-fetch weather** | Automatically fetch weather when opening a daily note. On by default. |
+| **Cache TTL (hours)** | How long to keep cached weather before re-fetching. Defaults to 2 hours. |
+
+**Media metadata and privacy**
+
+| Setting | What it controls |
+| --- | --- |
+| **Show image EXIF metadata** | Display camera settings and capture info when hovering over images. On by default. |
+| **Resolve GPS locations** | Send EXIF GPS coordinates to OpenStreetMap Nominatim to show place names. **Off by default**; no coordinates leave your device until you enable it. |
+
+**On This Day**
+
+| Setting | What it controls |
+| --- | --- |
+| **Sidebar entry** | `Off`, `Merged into weather card` (default), or `Header icon`. The merged strip shows a past-year thumbnail and date; the header icon sits beside the month controls. |
+| **Show markers on calendar** | Display a small dot on dates with past-year entries. Off by default. |
+| **Excerpt mode** | How to generate text previews for past entries: `Auto-extract from note body` (default), `From frontmatter field`, `Custom template`, or `No excerpt`. |
+| **Frontmatter field name** | Which frontmatter key to read. Defaults to `excerpt`; shown only in `From frontmatter field` mode. |
+| **Template** | Template string for custom excerpt mode, supporting `{body}`, `{year}`, `{date}`, or any frontmatter key. Defaults to `{body}`; shown only in `Custom template` mode. |
+
+**Data and maintenance**
+
+| Setting | What it controls |
+| --- | --- |
+| **Mood metadata path** | Vault-relative JSON path. Defaults to `Calendar/journal-metadata.json`; JSON is the primary mood store. |
+| **Mood export** | Export mood records as CSV or JSON. |
+| **Metadata backup** | Export or restore the mood metadata backup. |
+| **Data maintenance** | Check data integrity or import frontmatter records. |
+| **Recover mood records** | Inspect deleted or moved mood records and restore them to their original file path. Appears only when orphans are detected. |
+| **Bulk backfill weather** | Fetch historical weather for all past diary dates (may take several minutes). Appears only after `Enable weather` is on. |
 
 </details>
 
