@@ -28,7 +28,7 @@ const { SerialTaskQueue } = require('./task-queue');
 const { formatCalendarMonth, getCalendarGridOffset, getCalendarWeekdays, getDisplayLanguage, moodLabel, t } = require('./i18n');
 const { getMoodColor } = require('./mood');
 const { shouldHandleCalendarMonthShortcut } = require('./calendar-keyboard');
-const { calendarEntryAffectsDisplay, calendarMediaAccessibilityLabel, shouldShowCalendarMood, shouldShowCalendarWeatherCard, shouldShowCalendarWeatherBadge, shouldShowCalendarWeatherLocation } = require('./calendar-display');
+const { calendarEntryAffectsDisplay, calendarMediaAccessibilityLabel, calendarMoodMarker, calendarMoodMarkerClass, shouldShowCalendarMood, shouldShowCalendarWeatherCard, shouldShowCalendarWeatherBadge, shouldShowCalendarWeatherLocation } = require('./calendar-display');
 const { ViewVisibilityController, normalizeViewVisibilitySettings } = require('./view-visibility-controller');
 const { hasExistingImage } = require('./heic-embed');
 const { ImageMetadataCache, HeicCache, HEIC_EXTS, ReverseGeocoder } = require('./image-metadata');
@@ -74,6 +74,7 @@ const DEFAULT_SETTINGS = {
   displayLanguage: 'zh',  // 'system' | 'en' | 'zh'; migrated from weatherLanguage
   weekStart: 'system', // 'system' | 'monday' | 'sunday'
   showCalendarMood: true,
+  calendarMoodMarker: 'dot',
   showCalendarWeatherCard: true,
   showCalendarWeatherBadge: true,
   showCalendarWeatherLocation: false,
@@ -986,6 +987,7 @@ class DaylinePlugin extends Plugin {
       displayLanguage: this.settings.displayLanguage,
       weatherLanguage: data.weatherLanguage,
     });
+    this.settings.calendarMoodMarker = calendarMoodMarker(this.settings);
     delete this.settings.weatherCache; // settings object shouldn't carry the cache
     delete this.settings.geocoderCache;
   }
@@ -1232,6 +1234,7 @@ class CalendarView extends ItemView {
     this.journalIndexError = null;
     const root = this.contentEl;
     this.containerEl.addClass('cal-sidebar');
+    this._syncCalendarMoodMarkerClass();
     if (this.plugin.capabilities?.isMobile) this.containerEl.addClass('dayline-mobile-native-view');
     root.removeClass('journal-timeline-view');
     root.addClass('cal-calendar-content');
@@ -1312,8 +1315,12 @@ class CalendarView extends ItemView {
       this.plugin._syncDaylineRibbon();
     }
     this.containerEl.removeClass('cal-sidebar');
+    this.containerEl.removeClass('cal-mood-marker-dot');
+    this.containerEl.removeClass('cal-mood-marker-bar');
     this.containerEl.removeClass('dayline-mobile-native-view');
     root.removeClass('cal-calendar-content');
+    root.removeClass('cal-mood-marker-dot');
+    root.removeClass('cal-mood-marker-bar');
   }
 
   _handleActiveLeafChange() {
@@ -1507,9 +1514,20 @@ class CalendarView extends ItemView {
     }
   }
 
+  _syncCalendarMoodMarkerClass() {
+    const markerClass = calendarMoodMarkerClass(this.plugin.settings);
+    for (const el of [this.containerEl, this.contentEl]) {
+      if (!el) continue;
+      el.removeClass('cal-mood-marker-dot');
+      el.removeClass('cal-mood-marker-bar');
+      el.addClass(markerClass);
+    }
+  }
+
   _renderCalendar() {
     // Bump fetch token so stale async results are discarded
     this._fetchToken = (this._fetchToken || 0) + 1;
+    this._syncCalendarMoodMarkerClass();
 
     const el = this.contentEl;
     el.empty();

@@ -3,6 +3,7 @@ import { Notice, PluginSettingTab, Setting, SuggestModal, TFolder } from 'obsidi
 import { getDisplayLanguage, t } from './i18n';
 import { localize as _l } from './locale';
 import compactWordmarkSvg from '../assets/dayline-wordmark-compact.svg';
+import { calendarMoodMarker, shouldShowCalendarMoodStyle } from './calendar-display';
 import { shouldShowTimelineMoodTrend, shouldShowTimelineTitles } from './journal-timeline-display';
 import { JournalSourceSettingsEditor } from './journal-source-settings';
 
@@ -63,6 +64,8 @@ export function shouldShowOnThisDayExcerptSettings(settings) {
 export function shouldShowExifGeocoding(settings) {
   return settings.showExif === true;
 }
+
+export { shouldShowCalendarMoodStyle };
 
 /* ============================================================
    Settings Tab
@@ -262,8 +265,24 @@ export class DaylineSettingsTab extends PluginSettingTab {
         .onChange(async (value) => {
           this.plugin.settings.showCalendarMood = value;
           if (!(await this._saveSettings())) return;
+          this.display();
           await this._refreshViews();
         }));
+
+    if (shouldShowCalendarMoodStyle(this.plugin.settings)) {
+      new Setting(containerEl)
+        .setName(t(this.plugin.settings, 'calendarMoodMarker'))
+        .setDesc(t(this.plugin.settings, 'calendarMoodMarkerDesc'))
+        .addDropdown((dd) => dd
+          .addOption('dot', t(this.plugin.settings, 'calendarMoodMarkerDot'))
+          .addOption('bar', t(this.plugin.settings, 'calendarMoodMarkerBar'))
+          .setValue(calendarMoodMarker(this.plugin.settings))
+          .onChange(async (value) => {
+            this.plugin.settings.calendarMoodMarker = value === 'bar' ? 'bar' : 'dot';
+            if (!(await this._saveSettings())) return;
+            await this._refreshViews();
+          }));
+    }
 
     new Setting(containerEl)
       .setName(t(this.plugin.settings, 'showCalendarEntryCount'))

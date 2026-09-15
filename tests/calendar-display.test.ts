@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest';
 import {
   calendarEntryAffectsDisplay,
   calendarMediaAccessibilityLabel,
+  calendarMoodMarker,
+  calendarMoodMarkerClass,
   shouldShowCalendarMood,
+  shouldShowCalendarMoodStyle,
   shouldShowCalendarWeather,
   shouldShowCalendarWeatherBadge,
   shouldShowCalendarWeatherCard,
@@ -57,6 +60,16 @@ describe('calendar display settings', () => {
     expect(shouldShowCalendarMood({ showCalendarMood: false, showCalendarWeather: true })).toBe(false);
     expect(shouldShowCalendarWeather({ showCalendarMood: true, showCalendarWeather: false })).toBe(false);
     expect(shouldShowCalendarMood({ showCalendarMood: true, showCalendarWeather: false })).toBe(true);
+  });
+
+  it('defaults the calendar mood marker to a corner dot and accepts a bottom bar', () => {
+    expect(calendarMoodMarker({})).toBe('dot');
+    expect(calendarMoodMarker({ calendarMoodMarker: 'dot' })).toBe('dot');
+    expect(calendarMoodMarker({ calendarMoodMarker: 'bar' })).toBe('bar');
+    expect(calendarMoodMarker({ calendarMoodMarker: 'stripe' })).toBe('dot');
+    expect(calendarMoodMarkerClass({ calendarMoodMarker: 'bar' })).toBe('cal-mood-marker-bar');
+    expect(shouldShowCalendarMoodStyle({})).toBe(true);
+    expect(shouldShowCalendarMoodStyle({ showCalendarMood: false })).toBe(false);
   });
 
   it('controls the weather card and date badges independently', () => {

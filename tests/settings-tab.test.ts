@@ -12,6 +12,7 @@ import {
   SETTINGS_ACTION_ROWS,
   SETTINGS_SECTION_IDS,
   SETTINGS_SECTION_LABEL_KEYS,
+  shouldShowCalendarMoodStyle,
   shouldShowCalendarWeatherOptions,
   shouldShowExifGeocoding,
   shouldShowOnThisDayExcerptSettings,
@@ -59,6 +60,8 @@ describe('Dayline settings information architecture', () => {
     expect(shouldShowOnThisDayExcerptSettings({ onThisDayButton: true })).toBe(true);
     expect(shouldShowExifGeocoding({ showExif: false })).toBe(false);
     expect(shouldShowExifGeocoding({ showExif: true })).toBe(true);
+    expect(shouldShowCalendarMoodStyle({})).toBe(true);
+    expect(shouldShowCalendarMoodStyle({ showCalendarMood: false })).toBe(false);
   });
 
   it('localizes and defaults the timeline mood trend setting', () => {
@@ -69,6 +72,8 @@ describe('Dayline settings information architecture', () => {
     expect(shouldShowTimelineTitles({})).toBe(true);
     expect(t({ displayLanguage: 'zh' }, 'showTimelineTitles')).toBe('显示时间轴日记标题');
     expect(t({ displayLanguage: 'en' }, 'showTimelineTitles')).toBe('Show timeline journal titles');
+    expect(t({ displayLanguage: 'zh' }, 'calendarMoodMarker')).toBe('日历心情样式');
+    expect(t({ displayLanguage: 'en' }, 'calendarMoodMarkerBar')).toBe('Color bar');
   });
 });
 

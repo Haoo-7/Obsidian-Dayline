@@ -41,7 +41,7 @@
   padding: 8px 6px;
   user-select: none;
   overflow: hidden;
-  container-type: inline-size;
+  container: dayline-calendar / inline-size;
 }
 .cal-calendar-content:focus-visible,
 .cal-sidebar .view-content:focus-visible,
@@ -870,19 +870,28 @@ button.cal-weather-refresh:hover {
   .cal-otd-panel { width: 94vw; }
   .cal-otd-grid { grid-template-columns: 1fr; }
 }
-.cal-mood-button {
+.cal-sidebar button.cal-mood-button {
+  appearance: none;
+  -webkit-appearance: none;
   position: absolute;
   left: 2px;
   bottom: 2px;
   z-index: 4;
   width: 20px;
   height: 20px;
+  min-width: 0;
+  min-height: 0;
   padding: 0;
   border: 0;
+  border-radius: 0;
   background: transparent;
+  background-color: transparent;
+  box-shadow: none;
+  color: inherit;
   display: flex;
   align-items: center;
   justify-content: center;
+  box-sizing: border-box;
 }
 .cal-mood-empty { opacity: 0; }
 .cal-day:hover .cal-mood-empty, .cal-mood-empty:focus-visible { opacity: 1; }
@@ -906,6 +915,138 @@ button.cal-weather-refresh:hover {
   .dayline-coarse-pointer:not(.dayline-mobile) .cal-mood-empty .cal-mood-dot { width: 12px; height: 12px; }
   .dayline-coarse-pointer:not(.dayline-mobile) .cal-mood-dot { width: 12px; height: 12px; }
   .journal-timeline-entry-title.is-placeholder { opacity: 0.42; }
+}
+/* Narrow sidebars: pin date, weather, and mood to corners so the date stays readable. */
+@container dayline-calendar (max-width: 360px) {
+  .cal-day-num {
+    position: absolute;
+    top: 3px;
+    left: 4px;
+    z-index: 5;
+    font-size: 11px;
+  }
+  .cal-weather-badge {
+    top: 2px;
+    right: 2px;
+    width: 14px;
+    height: 14px;
+  }
+  .cal-sidebar button.cal-mood-button,
+  .dayline-coarse-pointer:not(.dayline-mobile) .cal-sidebar button.cal-mood-button {
+    width: 16px;
+    height: 16px;
+    left: 0;
+    bottom: 0;
+  }
+  .cal-mood-dot,
+  .cal-mood-empty .cal-mood-dot,
+  .dayline-coarse-pointer:not(.dayline-mobile) .cal-mood-dot,
+  .dayline-coarse-pointer:not(.dayline-mobile) .cal-mood-empty .cal-mood-dot {
+    width: 6px;
+    height: 6px;
+    border-width: 1px;
+  }
+  .cal-mood-button:hover .cal-mood-dot,
+  .cal-mood-button:focus-visible .cal-mood-dot {
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--journal-mood-color) 30%, transparent), 0 1px 2px rgba(0, 0, 0, 0.22);
+  }
+}
+@container dayline-calendar (max-width: 240px) {
+  .cal-day-num {
+    top: 2px;
+    left: 3px;
+    font-size: 10px;
+  }
+  .cal-weather-badge {
+    top: 1px;
+    right: 1px;
+    width: 12px;
+    height: 12px;
+  }
+  .cal-sidebar button.cal-mood-button,
+  .dayline-coarse-pointer:not(.dayline-mobile) .cal-sidebar button.cal-mood-button {
+    width: 14px;
+    height: 14px;
+  }
+  .cal-entry-count {
+    right: 2px;
+    bottom: 2px;
+    height: auto;
+    padding: 0;
+    border-radius: 0;
+    font-size: 8px;
+    line-height: 1;
+  }
+}
+.cal-sidebar.cal-mood-marker-bar .cal-day {
+  padding-bottom: 6px;
+  box-sizing: border-box;
+}
+.cal-sidebar.cal-mood-marker-bar .cal-day-num {
+  position: relative;
+  top: auto;
+  left: auto;
+  z-index: 2;
+}
+.cal-sidebar.cal-mood-marker-bar button.cal-mood-button,
+.dayline-coarse-pointer:not(.dayline-mobile) .cal-sidebar.cal-mood-marker-bar button.cal-mood-button {
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 16px;
+  transform: none;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 4px;
+}
+.cal-sidebar.cal-mood-marker-bar .cal-mood-dot,
+.cal-sidebar.cal-mood-marker-bar .cal-mood-empty .cal-mood-dot,
+.dayline-coarse-pointer:not(.dayline-mobile) .cal-sidebar.cal-mood-marker-bar .cal-mood-dot,
+.dayline-coarse-pointer:not(.dayline-mobile) .cal-sidebar.cal-mood-marker-bar .cal-mood-empty .cal-mood-dot {
+  width: 38%;
+  min-width: 8px;
+  max-width: 16px;
+  height: 3px;
+  border: 0;
+  border-radius: 999px;
+  box-shadow: none;
+  flex: 0 0 auto;
+}
+.cal-sidebar.cal-mood-marker-bar .cal-mood-empty .cal-mood-dot {
+  background: color-mix(in srgb, var(--text-faint) 55%, transparent);
+}
+.cal-sidebar.cal-mood-marker-bar .cal-has-image .cal-mood-dot {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+.cal-sidebar.cal-mood-marker-bar .cal-mood-button:hover .cal-mood-dot,
+.cal-sidebar.cal-mood-marker-bar .cal-mood-button:focus-visible .cal-mood-dot {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--journal-mood-color) 30%, transparent);
+}
+@container dayline-calendar (max-width: 360px) {
+  .cal-mood-marker-bar .cal-day-num {
+    position: relative;
+    top: auto;
+    left: auto;
+    font-size: 11px;
+  }
+  .cal-mood-marker-bar button.cal-mood-button,
+  .dayline-coarse-pointer:not(.dayline-mobile) .cal-mood-marker-bar button.cal-mood-button {
+    width: 100%;
+    height: 14px;
+    left: 0;
+    bottom: 0;
+    padding-bottom: 3px;
+  }
+  .cal-mood-marker-bar .cal-mood-dot,
+  .cal-mood-marker-bar .cal-mood-empty .cal-mood-dot,
+  .dayline-coarse-pointer:not(.dayline-mobile) .cal-mood-marker-bar .cal-mood-dot,
+  .dayline-coarse-pointer:not(.dayline-mobile) .cal-mood-marker-bar .cal-mood-empty .cal-mood-dot {
+    width: 36%;
+    max-width: 12px;
+    height: 3px;
+    border-width: 0;
+  }
 }
 .journal-timeline-view { container: journal-timeline / inline-size; box-sizing: border-box; width: 100%; min-width: 0; padding: 12px; overflow-x: hidden; overflow-y: auto; }
 .journal-index-loading { display: flex; align-items: center; justify-content: center; min-height: 160px; padding: 24px; color: var(--text-muted); text-align: center; overflow-wrap: anywhere; }
@@ -1376,17 +1517,6 @@ body.dayline-mobile.dayline-phone .is-compact-viewport .journal-mood-actions {
 }
 @container (max-width: 420px) {
   .journal-mood-scale { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-@container (max-width: 240px) {
-  .cal-entry-count {
-    right: 2px;
-    bottom: 2px;
-    height: auto;
-    padding: 0;
-    border-radius: 0;
-    font-size: 8px;
-    line-height: 1;
-  }
 }
 @container (max-width: 300px) {
   .journal-mood-scale { grid-template-columns: minmax(0, 1fr); }

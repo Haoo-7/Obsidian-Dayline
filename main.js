@@ -2767,6 +2767,10 @@ var init_i18n = __esm({
         calendarDisplay: "\u65E5\u5386\u663E\u793A",
         showCalendarMood: "\u663E\u793A\u65E5\u5386\u5FC3\u60C5\u6807\u8BB0",
         showCalendarMoodDesc: "\u5728\u65E5\u671F\u683C\u663E\u793A\u5FC3\u60C5\u989C\u8272\u6807\u8BB0\uFF1B\u5173\u95ED\u540E\u4E0D\u4F1A\u5220\u9664\u5FC3\u60C5\u8BB0\u5F55\u3002",
+        calendarMoodMarker: "\u65E5\u5386\u5FC3\u60C5\u6837\u5F0F",
+        calendarMoodMarkerDesc: "\u8272\u70B9\u653E\u5728\u683C\u5B50\u89D2\u843D\uFF1B\u8272\u6761\u8D34\u5728\u5E95\u90E8\uFF0C\u65E5\u671F\u4FDD\u6301\u5C45\u4E2D\u3002",
+        calendarMoodMarkerDot: "\u8272\u70B9",
+        calendarMoodMarkerBar: "\u8272\u6761",
         showCalendarWeatherCard: "\u663E\u793A\u65E5\u5386\u5929\u6C14\u5361\u7247",
         showCalendarWeatherCardDesc: "\u663E\u793A\u6708\u5386\u9876\u90E8\u5929\u6C14\u5361\u7247\uFF1B\u5173\u95ED\u540E\u4E0D\u5F71\u54CD\u65E5\u671F\u683C\u5929\u6C14\u56FE\u6807\u3002",
         showCalendarWeatherLocation: "\u663E\u793A\u5929\u6C14\u4F4D\u7F6E",
@@ -3025,6 +3029,10 @@ var init_i18n = __esm({
         calendarDisplay: "Calendar display",
         showCalendarMood: "Show mood markers on calendar",
         showCalendarMoodDesc: "Show mood colors on date cells without deleting mood records when disabled.",
+        calendarMoodMarker: "Calendar mood style",
+        calendarMoodMarkerDesc: "Dots sit in the cell corner. Bars sit at the bottom and keep the date centered.",
+        calendarMoodMarkerDot: "Color dot",
+        calendarMoodMarkerBar: "Color bar",
         showCalendarWeatherCard: "Show the calendar weather card",
         showCalendarWeatherCardDesc: "Show the weather card above the calendar; date-cell icons are unaffected.",
         showCalendarWeatherLocation: "Show weather location",
@@ -5527,6 +5535,71 @@ var init_dayline_wordmark_compact = __esm({
   }
 });
 
+// src/calendar-display.ts
+var calendar_display_exports = {};
+__export(calendar_display_exports, {
+  CALENDAR_MOOD_MARKERS: () => CALENDAR_MOOD_MARKERS,
+  calendarEntryAffectsDisplay: () => calendarEntryAffectsDisplay,
+  calendarMediaAccessibilityLabel: () => calendarMediaAccessibilityLabel,
+  calendarMoodMarker: () => calendarMoodMarker,
+  calendarMoodMarkerClass: () => calendarMoodMarkerClass,
+  shouldShowCalendarMood: () => shouldShowCalendarMood,
+  shouldShowCalendarMoodStyle: () => shouldShowCalendarMoodStyle,
+  shouldShowCalendarWeather: () => shouldShowCalendarWeather,
+  shouldShowCalendarWeatherBadge: () => shouldShowCalendarWeatherBadge,
+  shouldShowCalendarWeatherCard: () => shouldShowCalendarWeatherCard,
+  shouldShowCalendarWeatherLocation: () => shouldShowCalendarWeatherLocation
+});
+function calendarEntryAffectsDisplay(previous, entry) {
+  if (!previous || !entry) return previous !== entry;
+  const projection = (value) => JSON.stringify({
+    path: value.path,
+    date: value.date,
+    sourceId: value.sourceId,
+    sourceType: value.sourceType,
+    createdAt: value.createdAt,
+    media: value.media,
+    cover: value.cover,
+    weather: value.weather,
+    mood: value.mood ? { score: value.mood.score } : void 0
+  });
+  return projection(previous) !== projection(entry);
+}
+function calendarMediaAccessibilityLabel(dateStr, mediaLabel, focused) {
+  return focused ? `${dateStr} ${mediaLabel}` : null;
+}
+function shouldShowCalendarMood(settings = {}) {
+  return settings.showCalendarMood !== false;
+}
+function calendarMoodMarker(settings = {}) {
+  return settings.calendarMoodMarker === "bar" ? "bar" : "dot";
+}
+function calendarMoodMarkerClass(settings = {}) {
+  return `cal-mood-marker-${calendarMoodMarker(settings)}`;
+}
+function shouldShowCalendarMoodStyle(settings = {}) {
+  return shouldShowCalendarMood(settings);
+}
+function shouldShowCalendarWeather(settings = {}) {
+  return shouldShowCalendarWeatherCard(settings) || shouldShowCalendarWeatherBadge(settings);
+}
+function shouldShowCalendarWeatherCard(settings = {}) {
+  return settings.showCalendarWeatherCard ?? settings.showCalendarWeather !== false;
+}
+function shouldShowCalendarWeatherBadge(settings = {}) {
+  return settings.showCalendarWeatherBadge ?? settings.showCalendarWeather !== false;
+}
+function shouldShowCalendarWeatherLocation(settings = {}) {
+  return settings.showCalendarWeatherLocation === true;
+}
+var CALENDAR_MOOD_MARKERS;
+var init_calendar_display = __esm({
+  "src/calendar-display.ts"() {
+    "use strict";
+    CALENDAR_MOOD_MARKERS = ["dot", "bar"];
+  }
+});
+
 // src/journal-source-settings.ts
 function validateJournalSources(value) {
   if (!Array.isArray(value)) throw new Error("sourceInvalidArray");
@@ -5843,6 +5916,7 @@ __export(settings_tab_exports, {
   SETTINGS_SECTION_IDS: () => SETTINGS_SECTION_IDS,
   SETTINGS_SECTION_LABEL_KEYS: () => SETTINGS_SECTION_LABEL_KEYS,
   commitJournalSourceSettings: () => commitJournalSourceSettings,
+  shouldShowCalendarMoodStyle: () => shouldShowCalendarMoodStyle,
   shouldShowCalendarWeatherOptions: () => shouldShowCalendarWeatherOptions,
   shouldShowExifGeocoding: () => shouldShowExifGeocoding,
   shouldShowOnThisDayExcerptSettings: () => shouldShowOnThisDayExcerptSettings,
@@ -5879,6 +5953,7 @@ var init_settings_tab = __esm({
     init_i18n();
     init_locale();
     init_dayline_wordmark_compact();
+    init_calendar_display();
     init_journal_timeline_display();
     init_journal_source_settings();
     VIEW_TYPE = "calendar-sidebar-view";
@@ -6034,8 +6109,16 @@ var init_settings_tab = __esm({
         new import_obsidian4.Setting(containerEl).setName(t(this.plugin.settings, "showCalendarMood")).setDesc(t(this.plugin.settings, "showCalendarMoodDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showCalendarMood !== false).onChange(async (value) => {
           this.plugin.settings.showCalendarMood = value;
           if (!await this._saveSettings()) return;
+          this.display();
           await this._refreshViews();
         }));
+        if (shouldShowCalendarMoodStyle(this.plugin.settings)) {
+          new import_obsidian4.Setting(containerEl).setName(t(this.plugin.settings, "calendarMoodMarker")).setDesc(t(this.plugin.settings, "calendarMoodMarkerDesc")).addDropdown((dd) => dd.addOption("dot", t(this.plugin.settings, "calendarMoodMarkerDot")).addOption("bar", t(this.plugin.settings, "calendarMoodMarkerBar")).setValue(calendarMoodMarker(this.plugin.settings)).onChange(async (value) => {
+            this.plugin.settings.calendarMoodMarker = value === "bar" ? "bar" : "dot";
+            if (!await this._saveSettings()) return;
+            await this._refreshViews();
+          }));
+        }
         new import_obsidian4.Setting(containerEl).setName(t(this.plugin.settings, "showCalendarEntryCount")).setDesc(t(this.plugin.settings, "showCalendarEntryCountDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showCalendarEntryCount !== false).onChange(async (value) => {
           this.plugin.settings.showCalendarEntryCount = value;
           if (!await this._saveSettings()) return;
@@ -23117,56 +23200,6 @@ var init_calendar_keyboard = __esm({
   }
 });
 
-// src/calendar-display.ts
-var calendar_display_exports = {};
-__export(calendar_display_exports, {
-  calendarEntryAffectsDisplay: () => calendarEntryAffectsDisplay,
-  calendarMediaAccessibilityLabel: () => calendarMediaAccessibilityLabel,
-  shouldShowCalendarMood: () => shouldShowCalendarMood,
-  shouldShowCalendarWeather: () => shouldShowCalendarWeather,
-  shouldShowCalendarWeatherBadge: () => shouldShowCalendarWeatherBadge,
-  shouldShowCalendarWeatherCard: () => shouldShowCalendarWeatherCard,
-  shouldShowCalendarWeatherLocation: () => shouldShowCalendarWeatherLocation
-});
-function calendarEntryAffectsDisplay(previous, entry) {
-  if (!previous || !entry) return previous !== entry;
-  const projection = (value) => JSON.stringify({
-    path: value.path,
-    date: value.date,
-    sourceId: value.sourceId,
-    sourceType: value.sourceType,
-    createdAt: value.createdAt,
-    media: value.media,
-    cover: value.cover,
-    weather: value.weather,
-    mood: value.mood ? { score: value.mood.score } : void 0
-  });
-  return projection(previous) !== projection(entry);
-}
-function calendarMediaAccessibilityLabel(dateStr, mediaLabel, focused) {
-  return focused ? `${dateStr} ${mediaLabel}` : null;
-}
-function shouldShowCalendarMood(settings = {}) {
-  return settings.showCalendarMood !== false;
-}
-function shouldShowCalendarWeather(settings = {}) {
-  return shouldShowCalendarWeatherCard(settings) || shouldShowCalendarWeatherBadge(settings);
-}
-function shouldShowCalendarWeatherCard(settings = {}) {
-  return settings.showCalendarWeatherCard ?? settings.showCalendarWeather !== false;
-}
-function shouldShowCalendarWeatherBadge(settings = {}) {
-  return settings.showCalendarWeatherBadge ?? settings.showCalendarWeather !== false;
-}
-function shouldShowCalendarWeatherLocation(settings = {}) {
-  return settings.showCalendarWeatherLocation === true;
-}
-var init_calendar_display = __esm({
-  "src/calendar-display.ts"() {
-    "use strict";
-  }
-});
-
 // src/view-visibility-controller.ts
 var view_visibility_controller_exports = {};
 __export(view_visibility_controller_exports, {
@@ -24455,7 +24488,7 @@ var { SerialTaskQueue: SerialTaskQueue2 } = (init_task_queue(), __toCommonJS(tas
 var { formatCalendarMonth: formatCalendarMonth2, getCalendarGridOffset: getCalendarGridOffset2, getCalendarWeekdays: getCalendarWeekdays2, getDisplayLanguage: getDisplayLanguage2, moodLabel: moodLabel2, t: t2 } = (init_i18n(), __toCommonJS(i18n_exports));
 var { getMoodColor: getMoodColor2 } = (init_mood(), __toCommonJS(mood_exports));
 var { shouldHandleCalendarMonthShortcut: shouldHandleCalendarMonthShortcut2 } = (init_calendar_keyboard(), __toCommonJS(calendar_keyboard_exports));
-var { calendarEntryAffectsDisplay: calendarEntryAffectsDisplay2, calendarMediaAccessibilityLabel: calendarMediaAccessibilityLabel2, shouldShowCalendarMood: shouldShowCalendarMood2, shouldShowCalendarWeatherCard: shouldShowCalendarWeatherCard2, shouldShowCalendarWeatherBadge: shouldShowCalendarWeatherBadge2, shouldShowCalendarWeatherLocation: shouldShowCalendarWeatherLocation2 } = (init_calendar_display(), __toCommonJS(calendar_display_exports));
+var { calendarEntryAffectsDisplay: calendarEntryAffectsDisplay2, calendarMediaAccessibilityLabel: calendarMediaAccessibilityLabel2, calendarMoodMarker: calendarMoodMarker2, calendarMoodMarkerClass: calendarMoodMarkerClass2, shouldShowCalendarMood: shouldShowCalendarMood2, shouldShowCalendarWeatherCard: shouldShowCalendarWeatherCard2, shouldShowCalendarWeatherBadge: shouldShowCalendarWeatherBadge2, shouldShowCalendarWeatherLocation: shouldShowCalendarWeatherLocation2 } = (init_calendar_display(), __toCommonJS(calendar_display_exports));
 var { ViewVisibilityController: ViewVisibilityController2, normalizeViewVisibilitySettings: normalizeViewVisibilitySettings2 } = (init_view_visibility_controller(), __toCommonJS(view_visibility_controller_exports));
 var { hasExistingImage: hasExistingImage2 } = (init_heic_embed(), __toCommonJS(heic_embed_exports));
 var { ImageMetadataCache: ImageMetadataCache2, HeicCache: HeicCache2, HEIC_EXTS: HEIC_EXTS2, ReverseGeocoder: ReverseGeocoder2 } = (init_image_metadata(), __toCommonJS(image_metadata_exports));
@@ -24504,6 +24537,7 @@ var DEFAULT_SETTINGS = {
   weekStart: "system",
   // 'system' | 'monday' | 'sunday'
   showCalendarMood: true,
+  calendarMoodMarker: "dot",
   showCalendarWeatherCard: true,
   showCalendarWeatherBadge: true,
   showCalendarWeatherLocation: false,
@@ -25294,6 +25328,7 @@ ${path}`)) return false;
       displayLanguage: this.settings.displayLanguage,
       weatherLanguage: data.weatherLanguage
     });
+    this.settings.calendarMoodMarker = calendarMoodMarker2(this.settings);
     delete this.settings.weatherCache;
     delete this.settings.geocoderCache;
   }
@@ -25495,6 +25530,7 @@ var CalendarView = class extends ItemView2 {
     this.journalIndexError = null;
     const root = this.contentEl;
     this.containerEl.addClass("cal-sidebar");
+    this._syncCalendarMoodMarkerClass();
     if (this.plugin.capabilities?.isMobile) this.containerEl.addClass("dayline-mobile-native-view");
     root.removeClass("journal-timeline-view");
     root.addClass("cal-calendar-content");
@@ -25562,8 +25598,12 @@ var CalendarView = class extends ItemView2 {
       this.plugin._syncDaylineRibbon();
     }
     this.containerEl.removeClass("cal-sidebar");
+    this.containerEl.removeClass("cal-mood-marker-dot");
+    this.containerEl.removeClass("cal-mood-marker-bar");
     this.containerEl.removeClass("dayline-mobile-native-view");
     root.removeClass("cal-calendar-content");
+    root.removeClass("cal-mood-marker-dot");
+    root.removeClass("cal-mood-marker-bar");
   }
   _handleActiveLeafChange() {
     const previousMonth = this._monthKey(this.displayMonth);
@@ -25728,8 +25768,18 @@ var CalendarView = class extends ItemView2 {
       target?.focus({ preventScroll: true });
     }
   }
+  _syncCalendarMoodMarkerClass() {
+    const markerClass = calendarMoodMarkerClass2(this.plugin.settings);
+    for (const el of [this.containerEl, this.contentEl]) {
+      if (!el) continue;
+      el.removeClass("cal-mood-marker-dot");
+      el.removeClass("cal-mood-marker-bar");
+      el.addClass(markerClass);
+    }
+  }
   _renderCalendar() {
     this._fetchToken = (this._fetchToken || 0) + 1;
+    this._syncCalendarMoodMarkerClass();
     const el = this.contentEl;
     el.empty();
     el.setAttribute("aria-label", t2(this.plugin.settings, "calendarTitle"));

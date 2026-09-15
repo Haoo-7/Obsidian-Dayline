@@ -1,7 +1,11 @@
 import type { JournalEntry } from './types';
 
+export const CALENDAR_MOOD_MARKERS = ['dot', 'bar'] as const;
+export type CalendarMoodMarker = (typeof CALENDAR_MOOD_MARKERS)[number];
+
 export interface CalendarDisplaySettings {
   showCalendarMood?: boolean;
+  calendarMoodMarker?: CalendarMoodMarker | string;
   showCalendarWeatherCard?: boolean;
   showCalendarWeatherBadge?: boolean;
   showCalendarWeatherLocation?: boolean;
@@ -39,6 +43,19 @@ export function calendarMediaAccessibilityLabel(dateStr: string, mediaLabel: str
 /** Missing fields remain visible so older plugin data keeps its current UI. */
 export function shouldShowCalendarMood(settings: CalendarDisplaySettings = {}): boolean {
   return settings.showCalendarMood !== false;
+}
+
+/** Older settings without this field keep the corner color-dot marker. */
+export function calendarMoodMarker(settings: CalendarDisplaySettings = {}): CalendarMoodMarker {
+  return settings.calendarMoodMarker === 'bar' ? 'bar' : 'dot';
+}
+
+export function calendarMoodMarkerClass(settings: CalendarDisplaySettings = {}): string {
+  return `cal-mood-marker-${calendarMoodMarker(settings)}`;
+}
+
+export function shouldShowCalendarMoodStyle(settings: CalendarDisplaySettings = {}): boolean {
+  return shouldShowCalendarMood(settings);
 }
 
 export function shouldShowCalendarWeather(settings: CalendarDisplaySettings = {}): boolean {

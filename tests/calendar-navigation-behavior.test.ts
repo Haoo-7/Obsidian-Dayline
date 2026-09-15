@@ -26,6 +26,7 @@ const CalendarView = loadClass('CalendarView', {
   _daylineDate: () => '2026-09-09',
   formatDateParts: (year, month, day) => `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`,
   shouldShowCalendarMood: () => false,
+  calendarMoodMarkerClass: () => 'cal-mood-marker-dot',
   Notice: class {},
 });
 const CreateNoteModal = loadClass('CreateNoteModal', {
@@ -41,6 +42,7 @@ beforeEach(() => {
   const prototype = document.defaultView.HTMLElement.prototype;
   prototype.empty = function () { this.replaceChildren(); };
   prototype.addClass = function (...names) { this.classList.add(...names); };
+  prototype.removeClass = function (...names) { this.classList.remove(...names); };
   prototype.setText = function (text) { this.textContent = text; };
   prototype.createEl = function (tag, options = {}) {
     const element = document.createElement(tag);
