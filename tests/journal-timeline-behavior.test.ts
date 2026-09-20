@@ -104,18 +104,30 @@ describe('timeline rendered behavior', () => {
     expect(event.defaultPrevented).toBe(false);
   });
 
-  it('marks a title-less entry body with has-title-placeholder and drops it when editing starts', () => {
+  it('shows Title on a title-less card and keeps the editor empty', () => {
     const entry = { ...makeEntry(1), title: '' };
     const { view } = makeView([entry]);
     view.renderEntry(view.contentEl, entry, 1);
-    const body = view.contentEl.querySelector('.journal-timeline-entry-body');
-    expect(body.classList.contains('has-title-placeholder')).toBe(true);
-    expect(view.contentEl.querySelector('.journal-timeline-add-title')).not.toBeNull();
+    const titleEl = view.contentEl.querySelector('.journal-timeline-entry-title');
+    expect(titleEl.classList.contains('is-placeholder')).toBe(true);
+    expect(titleEl.textContent).toBe('Title');
+    expect(view.contentEl.querySelector('.journal-timeline-add-title')).toBeNull();
 
-    view.contentEl.querySelector('.journal-timeline-entry-title').click();
+    titleEl.click();
 
-    expect(body.classList.contains('has-title-placeholder')).toBe(false);
-    expect(view.contentEl.querySelector('.journal-timeline-entry-title.is-editing')).not.toBeNull();
+    expect(titleEl.classList.contains('is-editing')).toBe(true);
+    expect(titleEl.classList.contains('is-placeholder')).toBe(false);
+    const input = titleEl.querySelector('input');
+    expect(input.value).toBe('');
+    expect(input.placeholder).toBe('Title');
+  });
+
+  it('localizes the untitled title placeholder', () => {
+    const entry = { ...makeEntry(1), title: '' };
+    const { view } = makeView([entry]);
+    view.plugin.settings.displayLanguage = 'zh';
+    view.renderEntry(view.contentEl, entry, 1);
+    expect(view.contentEl.querySelector('.journal-timeline-entry-title').textContent).toBe('标题');
   });
 
   it('loads the thumbnail belonging to the intersecting observer target', async () => {

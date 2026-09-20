@@ -2164,6 +2164,7 @@ var init_fluid_mood_control = __esm({
         __publicField(this, "mediaQuery");
         __publicField(this, "resizeObserver", null);
         __publicField(this, "animationFrame", null);
+        __publicField(this, "gestureDoc", null);
         __publicField(this, "activePointerId", null);
         __publicField(this, "pendingTouch", null);
         __publicField(this, "dragStartScore", null);
@@ -2177,6 +2178,7 @@ var init_fluid_mood_control = __esm({
         __publicField(this, "destroyed", false);
         __publicField(this, "handlePointerDown", (event) => {
           if (event.button !== 0 || event.isPrimary === false || this.activePointerId !== null || this.pendingTouch) return;
+          this.listenForGesture();
           if (event.pointerType === "touch") {
             this.pendingTouch = {
               pointerId: event.pointerId,
@@ -2190,31 +2192,39 @@ var init_fluid_mood_control = __esm({
         });
         __publicField(this, "handlePointerMove", (event) => {
           this.resolveTouch(event);
-          if (event.pointerId !== this.activePointerId) return;
+          if (event.pointerId !== this.activePointerId) {
+            this.stopListeningIfIdle();
+            return;
+          }
           event.preventDefault();
           this.updateFromPointer(event.clientX);
         });
         __publicField(this, "handlePointerUp", (event) => {
           this.resolveTouch(event, true);
-          if (event.pointerId !== this.activePointerId) return;
+          if (event.pointerId !== this.activePointerId) {
+            this.stopListeningIfIdle();
+            return;
+          }
           event.preventDefault();
           this.updateFromPointer(event.clientX);
           this.activePointerId = null;
           this.releasePointer(event.pointerId);
           this.root.classList.remove("is-dragging");
+          this.stopListeningForGesture();
           this.commitScore(snapMoodScore(this.targetValue));
         });
         __publicField(this, "handlePointerCancel", (event) => {
-          if (event.type === "lostpointercapture" && this.activePointerId !== null && event.target !== this.root) return;
           if (event.pointerId === this.pendingTouch?.pointerId) {
             this.pendingTouch = null;
             this.releasePointer(event.pointerId);
+            this.stopListeningIfIdle();
             return;
           }
           if (event.pointerId !== this.activePointerId) return;
           this.activePointerId = null;
           this.releasePointer(event.pointerId);
           this.root.classList.remove("is-dragging");
+          this.stopListeningForGesture();
           this.selectedScore = this.dragStartScore;
           this.displayValue = this.dragStartValue;
           this.targetValue = this.dragStartScore ?? this.dragStartValue;
@@ -2308,10 +2318,6 @@ var init_fluid_mood_control = __esm({
         this.liveRegion.setAttribute("aria-live", "polite");
         root.append(visual, readout, this.track, endpoints, this.liveRegion);
         root.addEventListener("pointerdown", this.handlePointerDown);
-        root.addEventListener("pointermove", this.handlePointerMove);
-        root.addEventListener("pointerup", this.handlePointerUp);
-        root.addEventListener("pointercancel", this.handlePointerCancel);
-        root.addEventListener("lostpointercapture", this.handlePointerCancel);
         root.addEventListener("keydown", this.handleKeydown);
         document.addEventListener("visibilitychange", this.handleVisibilityChange);
         this.mediaQuery?.addEventListener?.("change", this.handleMotionChange);
@@ -2331,15 +2337,12 @@ var init_fluid_mood_control = __esm({
         const pointerId = this.activePointerId ?? this.pendingTouch?.pointerId;
         this.activePointerId = null;
         this.pendingTouch = null;
+        this.stopListeningForGesture();
         if (pointerId !== void 0 && pointerId !== null) this.releasePointer(pointerId);
         this.root.classList.remove("is-dragging");
         this.stopAnimation();
         this.resizeObserver?.disconnect();
         this.root.removeEventListener("pointerdown", this.handlePointerDown);
-        this.root.removeEventListener("pointermove", this.handlePointerMove);
-        this.root.removeEventListener("pointerup", this.handlePointerUp);
-        this.root.removeEventListener("pointercancel", this.handlePointerCancel);
-        this.root.removeEventListener("lostpointercapture", this.handlePointerCancel);
         this.root.removeEventListener("keydown", this.handleKeydown);
         document.removeEventListener("visibilitychange", this.handleVisibilityChange);
         this.mediaQuery?.removeEventListener?.("change", this.handleMotionChange);
@@ -2368,6 +2371,26 @@ var init_fluid_mood_control = __esm({
         this.pendingTouch = null;
         if (dx > dy) this.beginPointerDrag(event);
         else this.releasePointer(event.pointerId);
+      }
+      listenForGesture() {
+        if (this.gestureDoc) return;
+        const doc = this.root.ownerDocument;
+        this.gestureDoc = doc;
+        doc.addEventListener("pointermove", this.handlePointerMove, { capture: true, passive: false });
+        doc.addEventListener("pointerup", this.handlePointerUp, { capture: true });
+        doc.addEventListener("pointercancel", this.handlePointerCancel, { capture: true });
+      }
+      stopListeningForGesture() {
+        const doc = this.gestureDoc;
+        if (!doc) return;
+        this.gestureDoc = null;
+        doc.removeEventListener("pointermove", this.handlePointerMove, { capture: true });
+        doc.removeEventListener("pointerup", this.handlePointerUp, { capture: true });
+        doc.removeEventListener("pointercancel", this.handlePointerCancel, { capture: true });
+      }
+      stopListeningIfIdle() {
+        if (this.activePointerId !== null || this.pendingTouch) return;
+        this.stopListeningForGesture();
       }
       capturePointer(pointerId) {
         try {
@@ -2550,6 +2573,7 @@ var init_i18n = __esm({
         calendarTitle: "\u65E5\u5386",
         timelineTitle: "\u65E5\u8BB0\u65F6\u95F4\u7EBF",
         addJournalTitle: "\u6DFB\u52A0\u6807\u9898",
+        untitledJournalTitle: "\u6807\u9898",
         editJournalTitle: "\u7F16\u8F91\u65E5\u8BB0\u6807\u9898",
         journalTitleSaveFailed: "\u65E5\u8BB0\u6807\u9898\u4FDD\u5B58\u5931\u8D25\uFF1A{error}",
         unsavedTitle: "\u672A\u4FDD\u5B58\u7684\u6807\u9898",
@@ -2812,6 +2836,7 @@ var init_i18n = __esm({
         calendarTitle: "Calendar",
         timelineTitle: "Journal timeline",
         addJournalTitle: "Add title",
+        untitledJournalTitle: "Title",
         editJournalTitle: "Edit journal title",
         journalTitleSaveFailed: "Could not save journal title: {error}",
         unsavedTitle: "Unsaved title",
@@ -4745,7 +4770,7 @@ var init_journal_timeline_view = __esm({
         const title = entry.title && !isGenericJournalTitle(entry.title, entry.date) ? entry.title : "";
         const titleEditor = shouldShowTimelineTitles(this.plugin.settings) ? body.createEl("h3", {
           cls: `journal-timeline-entry-title${title ? "" : " is-placeholder"}`,
-          text: title,
+          text: title || t(this.plugin.settings, "untitledJournalTitle"),
           attr: {
             role: "button",
             tabindex: "0",
@@ -4754,11 +4779,6 @@ var init_journal_timeline_view = __esm({
           }
         }) : null;
         if (titleEditor) {
-          if (!title) {
-            (0, import_obsidian2.setIcon)(titleEditor, "pencil");
-            titleEditor.classList.add("journal-timeline-add-title");
-            body.classList.add("has-title-placeholder");
-          }
           titleEditor.addEventListener("click", (event) => {
             event.preventDefault();
             event.stopPropagation();
@@ -4812,7 +4832,7 @@ var init_journal_timeline_view = __esm({
         if (this.titleEdit || editor.dataset.editing === "true") return;
         editor.dataset.editing = "true";
         editor.classList.add("is-editing");
-        editor.closest(".journal-timeline-entry-body")?.classList.remove("has-title-placeholder");
+        editor.classList.remove("is-placeholder");
         editor.setAttribute("role", "group");
         editor.removeAttribute("tabindex");
         editor.textContent = "";
@@ -4820,6 +4840,7 @@ var init_journal_timeline_view = __esm({
         input.type = "text";
         input.value = initialTitle;
         input.maxLength = 200;
+        input.placeholder = t(this.plugin.settings, "untitledJournalTitle");
         input.setAttribute("aria-label", t(this.plugin.settings, "editJournalTitle"));
         editor.append(input);
         const edit = this.titleEdit = { path, card: editor.closest(".journal-timeline-entry"), editor, input };

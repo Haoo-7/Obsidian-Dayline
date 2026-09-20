@@ -33,6 +33,8 @@ describe('display language', () => {
     expect(t({ displayLanguage: 'en' }, 'calendarTitle')).toBe('Calendar');
     expect(t({ displayLanguage: 'zh' }, 'timelineTitle')).toBe('日记时间线');
     expect(t({ displayLanguage: 'en' }, 'timelineTitle')).toBe('Journal timeline');
+    expect(t({ displayLanguage: 'zh' }, 'untitledJournalTitle')).toBe('标题');
+    expect(t({ displayLanguage: 'en' }, 'untitledJournalTitle')).toBe('Title');
   });
 
   it('localizes asynchronous failure notices', () => {

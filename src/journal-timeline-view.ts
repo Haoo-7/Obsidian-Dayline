@@ -641,7 +641,7 @@ export class JournalTimelineView extends ItemView {
     const title = entry.title && !isGenericJournalTitle(entry.title, entry.date) ? entry.title : '';
     const titleEditor = shouldShowTimelineTitles(this.plugin.settings) ? body.createEl('h3', {
       cls: `journal-timeline-entry-title${title ? '' : ' is-placeholder'}`,
-      text: title,
+      text: title || t(this.plugin.settings, 'untitledJournalTitle'),
       attr: {
         role: 'button',
         tabindex: '0',
@@ -652,11 +652,6 @@ export class JournalTimelineView extends ItemView {
       },
     }) : null;
     if (titleEditor) {
-      if (!title) {
-        setIcon(titleEditor, 'pencil');
-        titleEditor.classList.add('journal-timeline-add-title');
-        body.classList.add('has-title-placeholder');
-      }
       titleEditor.addEventListener('click', (event) => {
         event.preventDefault();
         event.stopPropagation();
@@ -706,7 +701,7 @@ export class JournalTimelineView extends ItemView {
     if (this.titleEdit || editor.dataset.editing === 'true') return;
     editor.dataset.editing = 'true';
     editor.classList.add('is-editing');
-    editor.closest('.journal-timeline-entry-body')?.classList.remove('has-title-placeholder');
+    editor.classList.remove('is-placeholder');
     editor.setAttribute('role', 'group');
     editor.removeAttribute('tabindex');
     editor.textContent = '';
@@ -714,6 +709,7 @@ export class JournalTimelineView extends ItemView {
     input.type = 'text';
     input.value = initialTitle;
     input.maxLength = 200;
+    input.placeholder = t(this.plugin.settings, 'untitledJournalTitle');
     input.setAttribute('aria-label', t(this.plugin.settings, 'editJournalTitle'));
     editor.append(input);
     const edit = this.titleEdit = { path, card: editor.closest('.journal-timeline-entry'), editor, input };
