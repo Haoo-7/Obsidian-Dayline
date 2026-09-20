@@ -217,6 +217,7 @@ export class FluidMoodControl {
   private readonly mediaQuery: MediaQueryList | null;
   private resizeObserver: ResizeObserver | null = null;
   private animationFrame: number | null = null;
+  private gestureDoc: Document | null = null;
   private activePointerId: number | null = null;
   private pendingTouch: { pointerId: number; x: number; y: number; onTrack: boolean } | null = null;
   private dragStartScore: MoodScore | null = null;
@@ -283,10 +284,6 @@ export class FluidMoodControl {
     root.append(visual, readout, this.track, endpoints, this.liveRegion);
 
     root.addEventListener('pointerdown', this.handlePointerDown);
-    root.addEventListener('pointermove', this.handlePointerMove);
-    root.addEventListener('pointerup', this.handlePointerUp);
-    root.addEventListener('pointercancel', this.handlePointerCancel);
-    root.addEventListener('lostpointercapture', this.handlePointerCancel);
     root.addEventListener('keydown', this.handleKeydown);
     document.addEventListener('visibilitychange', this.handleVisibilityChange);
     this.mediaQuery?.addEventListener?.('change', this.handleMotionChange);
@@ -309,15 +306,12 @@ export class FluidMoodControl {
     const pointerId = this.activePointerId ?? this.pendingTouch?.pointerId;
     this.activePointerId = null;
     this.pendingTouch = null;
+    this.stopListeningForGesture();
     if (pointerId !== undefined && pointerId !== null) this.releasePointer(pointerId);
     this.root.classList.remove('is-dragging');
     this.stopAnimation();
     this.resizeObserver?.disconnect();
     this.root.removeEventListener('pointerdown', this.handlePointerDown);
-    this.root.removeEventListener('pointermove', this.handlePointerMove);
-    this.root.removeEventListener('pointerup', this.handlePointerUp);
-    this.root.removeEventListener('pointercancel', this.handlePointerCancel);
-    this.root.removeEventListener('lostpointercapture', this.handlePointerCancel);
     this.root.removeEventListener('keydown', this.handleKeydown);
     document.removeEventListener('visibilitychange', this.handleVisibilityChange);
     this.mediaQuery?.removeEventListener?.('change', this.handleMotionChange);
@@ -325,6 +319,9 @@ export class FluidMoodControl {
 
   private readonly handlePointerDown = (event: PointerEvent): void => {
     if (event.button !== 0 || event.isPrimary === false || this.activePointerId !== null || this.pendingTouch) return;
+    // Follow the pointer on the document so overshooting the leftmost handle
+    // still receives move/up after the control or an overflow ancestor clips it.
+    this.listenForGesture();
     if (event.pointerType === 'touch') {
       // Do not preview or capture until horizontal intent is established.
       this.pendingTouch = {
@@ -367,42 +364,72 @@ export class FluidMoodControl {
 
   private readonly handlePointerMove = (event: PointerEvent): void => {
     this.resolveTouch(event);
-    if (event.pointerId !== this.activePointerId) return;
+    if (event.pointerId !== this.activePointerId) {
+      this.stopListeningIfIdle();
+      return;
+    }
     event.preventDefault();
     this.updateFromPointer(event.clientX);
   };
 
   private readonly handlePointerUp = (event: PointerEvent): void => {
     this.resolveTouch(event, true);
-    if (event.pointerId !== this.activePointerId) return;
+    if (event.pointerId !== this.activePointerId) {
+      this.stopListeningIfIdle();
+      return;
+    }
     event.preventDefault();
     this.updateFromPointer(event.clientX);
     this.activePointerId = null;
     this.releasePointer(event.pointerId);
     this.root.classList.remove('is-dragging');
+    this.stopListeningForGesture();
     // Persist the user's actual release position even when the visual easing
     // frame has not caught up with the latest pointer event yet.
     this.commitScore(snapMoodScore(this.targetValue));
   };
 
   private readonly handlePointerCancel = (event: PointerEvent): void => {
-    // Ignore the child's implicit capture loss when the root takes over a drag.
-    if (event.type === 'lostpointercapture' && this.activePointerId !== null && event.target !== this.root) return;
     if (event.pointerId === this.pendingTouch?.pointerId) {
       this.pendingTouch = null;
       this.releasePointer(event.pointerId);
+      this.stopListeningIfIdle();
       return;
     }
     if (event.pointerId !== this.activePointerId) return;
     this.activePointerId = null;
     this.releasePointer(event.pointerId);
     this.root.classList.remove('is-dragging');
+    this.stopListeningForGesture();
     this.selectedScore = this.dragStartScore;
     this.displayValue = this.dragStartValue;
     this.targetValue = this.dragStartScore ?? this.dragStartValue;
     if (this.prefersReducedMotion()) this.displayValue = this.targetValue;
     this.updatePresentation(false);
   };
+
+  private listenForGesture(): void {
+    if (this.gestureDoc) return;
+    const doc = this.root.ownerDocument;
+    this.gestureDoc = doc;
+    doc.addEventListener('pointermove', this.handlePointerMove, { capture: true, passive: false });
+    doc.addEventListener('pointerup', this.handlePointerUp, { capture: true });
+    doc.addEventListener('pointercancel', this.handlePointerCancel, { capture: true });
+  }
+
+  private stopListeningForGesture(): void {
+    const doc = this.gestureDoc;
+    if (!doc) return;
+    this.gestureDoc = null;
+    doc.removeEventListener('pointermove', this.handlePointerMove, { capture: true });
+    doc.removeEventListener('pointerup', this.handlePointerUp, { capture: true });
+    doc.removeEventListener('pointercancel', this.handlePointerCancel, { capture: true });
+  }
+
+  private stopListeningIfIdle(): void {
+    if (this.activePointerId !== null || this.pendingTouch) return;
+    this.stopListeningForGesture();
+  }
 
   private capturePointer(pointerId: number): void {
     try {

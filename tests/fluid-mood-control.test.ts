@@ -199,28 +199,93 @@ describe('FluidMoodControl interaction', () => {
     control.destroy();
   });
 
-  it.each(['pointercancel', 'lostpointercapture'])(
-    'cleans up pending and active touch gestures on %s',
-    (ending) => {
-      const { root, control, onCommit, onPreview, touch } = touchFixture();
-      const track = root.querySelector('.journal-fluid-track')!;
-      touch(track, 'pointerdown', 200, 30);
-      touch(track, ending, 200, 30);
-      touch(track, 'pointerup', 200, 30);
-      expect(onPreview).not.toHaveBeenCalled();
-      touch(track, 'pointerdown', 200, 30);
-      touch(track, 'pointermove', 380, 32);
-      touch(root, ending, 380, 32);
-      touch(track, 'pointerup', 380, 32);
-      expect(onCommit).not.toHaveBeenCalled();
-      expect(root.getAttribute('aria-valuenow')).toBe('-1');
-      expect(root.classList.contains('is-dragging')).toBe(false);
-      touch(track, 'pointerdown', 380, 30);
-      touch(track, 'pointerup', 380, 30);
-      expect(onCommit.mock.calls).toEqual([[2]]);
-      control.destroy();
-    },
-  );
+  it('cleans up pending and active touch gestures on pointercancel', () => {
+    const { root, control, onCommit, onPreview, touch } = touchFixture();
+    const track = root.querySelector('.journal-fluid-track')!;
+    touch(track, 'pointerdown', 200, 30);
+    touch(track, 'pointercancel', 200, 30);
+    touch(track, 'pointerup', 200, 30);
+    expect(onPreview).not.toHaveBeenCalled();
+    touch(track, 'pointerdown', 200, 30);
+    touch(track, 'pointermove', 380, 32);
+    touch(root, 'pointercancel', 380, 32);
+    touch(track, 'pointerup', 380, 32);
+    expect(onCommit).not.toHaveBeenCalled();
+    expect(root.getAttribute('aria-valuenow')).toBe('-1');
+    expect(root.classList.contains('is-dragging')).toBe(false);
+    touch(track, 'pointerdown', 380, 30);
+    touch(track, 'pointerup', 380, 30);
+    expect(onCommit.mock.calls).toEqual([[2]]);
+    control.destroy();
+  });
+
+  it('keeps an active drag after the control loses pointer capture', () => {
+    const { root, control, onCommit, touch } = touchFixture();
+    const track = root.querySelector('.journal-fluid-track')!;
+    touch(track, 'pointerdown', 200, 30);
+    touch(track, 'pointermove', 40, 32);
+    root.dispatchEvent(pointerEvent('lostpointercapture', 40, 7, 32, 'touch'));
+    expect(root.classList.contains('is-dragging')).toBe(true);
+    document.dispatchEvent(pointerEvent('pointermove', -30, 7, 32, 'touch'));
+    document.dispatchEvent(pointerEvent('pointerup', -30, 7, 32, 'touch'));
+    expect(onCommit.mock.calls).toEqual([[-2]]);
+    expect(root.classList.contains('is-dragging')).toBe(false);
+    control.destroy();
+  });
+
+  it('continues a leftmost drag after the pointer leaves the control', () => {
+    const root = document.createElement('div');
+    document.body.append(root);
+    const onCommit = vi.fn();
+    const control = new FluidMoodControl(root, {
+      initialScore: 0,
+      accessibleLabel: 'Mood scale',
+      emptyLabel: 'Choose',
+      labelForScore: (score) => `Mood ${score}`,
+      onCommit,
+    });
+    mockTrackRect(root, 80, 400);
+
+    root.dispatchEvent(pointerEvent('pointerdown', 80));
+    document.dispatchEvent(pointerEvent('pointermove', 40));
+    document.dispatchEvent(pointerEvent('pointerup', 20));
+    expect(onCommit.mock.calls).toEqual([[-2]]);
+    expect(root.getAttribute('aria-valuenow')).toBe('-2');
+    control.destroy();
+  });
+
+  it('starts a drag from the leftmost handle after capture is lost', () => {
+    const root = document.createElement('div');
+    document.body.append(root);
+    const onCommit = vi.fn();
+    const control = new FluidMoodControl(root, {
+      initialScore: -2,
+      accessibleLabel: 'Mood scale',
+      emptyLabel: 'Choose',
+      labelForScore: (score) => `Mood ${score}`,
+      onCommit,
+    });
+    mockTrackRect(root, 80, 400);
+
+    root.dispatchEvent(pointerEvent('pointerdown', 66));
+    root.dispatchEvent(pointerEvent('lostpointercapture', 66));
+    document.dispatchEvent(pointerEvent('pointermove', 280));
+    document.dispatchEvent(pointerEvent('pointerup', 280));
+    expect(onCommit.mock.calls).toEqual([[0]]);
+    expect(root.getAttribute('aria-valuenow')).toBe('0');
+    control.destroy();
+  });
+
+  it('resolves a touch that leaves the control before horizontal intent is clear', () => {
+    const { root, control, onCommit, touch } = touchFixture(-1);
+    const handle = root.querySelector('.journal-fluid-handle')!;
+    touch(handle, 'pointerdown', 0, 30);
+    document.dispatchEvent(pointerEvent('pointermove', -20, 7, 31, 'touch'));
+    document.dispatchEvent(pointerEvent('pointermove', 200, 7, 32, 'touch'));
+    document.dispatchEvent(pointerEvent('pointerup', 200, 7, 32, 'touch'));
+    expect(onCommit.mock.calls).toEqual([[0]]);
+    control.destroy();
+  });
 
   it.each([[205, 60, null], [380, 32, 2]])(
     'resolves direction on pointerup without intervening moves (%s, %s)',
