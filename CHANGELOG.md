@@ -1,5 +1,33 @@
 # Changelog
 
+## 2.4.1 (2026-09-21)
+
+### Fixed
+- Dragging the mood slider to the left edge no longer cancels the gesture. Pointer move/up now follow the document, so overshooting the leftmost handle keeps tracking instead of dropping the drag, and the track keeps enough inset for the handle.
+
+### Changed
+- Untitled timeline cards now show a muted "Title"/"标题" placeholder in place of the previous pencil icon, matching Day One. The inline editor still opens empty until a real title is typed.
+
+### Verification
+- `npm test` passed: 52 test files and 444 tests.
+- `npm run typecheck`, `npm run build`, `npm run verify:release`, `npm run verify:release:zip`, and `git diff --check` passed.
+
+---
+
+## 2.4.1（2026-09-21）
+
+### 修复
+- 心情滑块拖到最左端不再中断手势。指针的 move/up 改为跟随 document，越过最左侧圆点后仍继续跟踪，不会丢掉拖拽；轨道也为圆点留出了足够的左右内缩。
+
+### 变更
+- 无标题的时间线卡片不再显示铅笔图标，改为与 Day One 一致的灰色「标题」占位文字。行内编辑器打开时仍为空，直到用户输入真实标题。
+
+### 验证
+- `npm test` 通过：52 个测试文件、444 项测试。
+- `npm run typecheck`、`npm run build`、`npm run verify:release`、`npm run verify:release:zip` 和 `git diff --check` 通过。
+
+---
+
 ## 2.4.0 (2026-09-15)
 
 ### Added
