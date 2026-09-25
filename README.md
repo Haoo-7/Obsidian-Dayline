@@ -22,12 +22,6 @@ Dayline 把一文件夹的 Markdown 每日笔记变成 Obsidian 里的可视化�
 
 时间线会把同一批 Markdown 笔记整理成可浏览的日记记录。全文搜索和筛选覆盖日期范围、来源、心情、收藏、位置、标签和媒体类型。
 
-<p align="center">
-  <img src="./screenshots/dayline-showcase-filters.png" width="100%" alt="Dayline 时间线的来源、心情、媒体、位置和标签筛选">
-</p>
-
-截图来自仓库内的 [`showcase/`](showcase/README.md) 合成测试库，不包含真实日记、真实位置、EXIF 或个人下载素材；媒体来源见 [`showcase/MEDIA_ATTRIBUTIONS.md`](showcase/MEDIA_ATTRIBUTIONS.md)。
-
 ## 主要能力
 
 - **会读取日记的日历。** 每日笔记中的图片会成为日期格背景，心情颜色、可选天气、今天、浏览日期和多篇日记状态都一目了然。
