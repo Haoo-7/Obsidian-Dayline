@@ -4,7 +4,11 @@ export function isInteractiveTimelineTarget(target: unknown): boolean {
   return Boolean((target as { closest?: (selector: string) => unknown } | null)?.closest?.(INTERACTIVE_TIMELINE_TARGETS));
 }
 
+export function shouldOpenTimelineEntryFromPointer(target: unknown): boolean {
+  return !isInteractiveTimelineTarget(target);
+}
+
 export function shouldOpenTimelineEntryFromKey(event: { key?: string; target?: unknown } | null | undefined): boolean {
   if (event?.key !== 'Enter' && event?.key !== ' ') return false;
-  return !isInteractiveTimelineTarget(event.target);
+  return shouldOpenTimelineEntryFromPointer(event.target);
 }

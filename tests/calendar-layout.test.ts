@@ -36,13 +36,22 @@ describe('calendar compact cell layout', () => {
     expect(rule).toContain('min-height: 0');
   });
 
+  it('keeps weather badges as a transparent glyph with a date-like halo', () => {
+    const rule = cssRule(styles, '.cal-weather-badge {');
+    expect(rule).toContain('background: transparent');
+    expect(rule).toContain('background-color: transparent');
+    expect(rule).toContain('border-radius: 0');
+    expect(rule).toContain('drop-shadow');
+    expect(rule).not.toContain('backdrop-filter');
+  });
+
   it('pins date, weather, and mood to corners below 360px', () => {
     const rule = cssRule(styles, '@container dayline-calendar (max-width: 360px) {');
     expect(rule).toContain('position: absolute');
     expect(rule).toContain('top: 3px');
     expect(rule).toContain('left: 4px');
     expect(rule).toContain('.cal-weather-badge');
-    expect(rule).toContain('width: 14px');
+    expect(rule).toContain('width: 10px');
     expect(rule).toContain('.cal-sidebar button.cal-mood-button');
     expect(rule).toContain('width: 16px');
     expect(rule).toContain('left: 0');
@@ -56,7 +65,7 @@ describe('calendar compact cell layout', () => {
     expect(rule).toContain('.cal-day-num');
     expect(rule).toContain('font-size: 10px');
     expect(rule).toContain('.cal-weather-badge');
-    expect(rule).toContain('width: 12px');
+    expect(rule).toContain('width: 9px');
     expect(rule).toContain('.cal-sidebar button.cal-mood-button');
     expect(rule).toContain('width: 14px');
     expect(rule).toContain('.cal-entry-count');

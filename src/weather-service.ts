@@ -120,10 +120,37 @@ const WMO_CODES = [
   { code: 99,  condition: 'Thunderstorm w/ heavy hail', icon: 'thunderstorms.svg' },
 ];
 
+/** Calendar-cell glyphs: Phosphor Icons (MIT), not the Meteocons scene illustrations. */
+const SCENE_TO_BADGE = {
+  'clear-day.svg': 'sun-fill.svg',
+  'partly-cloudy-day.svg': 'cloud-fill.svg',
+  'overcast.svg': 'cloud-fill.svg',
+  'fog.svg': 'cloud-fog-fill.svg',
+  'drizzle.svg': 'drop-simple-fill.svg',
+  'rain.svg': 'drop-fill.svg',
+  'snow.svg': 'snowflake.svg',
+  'thunderstorms.svg': 'lightning-fill.svg',
+};
+
+function badgeIconFromScene(icon) {
+  return SCENE_TO_BADGE[icon] || 'cloud-fill.svg';
+}
+
 /** Look up WMO code metadata; falls back to generic description. */
 export function lookupWeatherCode(code) {
   const entry = WMO_CODES.find((w) => w.code === code);
-  return entry || { condition: `Weather code ${code}`, icon: 'overcast.svg' };
+  const resolved = entry || { condition: `Weather code ${code}`, icon: 'overcast.svg' };
+  return { ...resolved, badgeIcon: badgeIconFromScene(resolved.icon) };
+}
+
+/** Date-cell icon; weather cards keep the scene illustration in `icon`. */
+export function weatherBadgeIcon(snapshot) {
+  if (!snapshot || typeof snapshot !== 'object') return 'cloud-fill.svg';
+  if (typeof snapshot.weatherCode === 'number') {
+    return lookupWeatherCode(snapshot.weatherCode).badgeIcon;
+  }
+  if (typeof snapshot.icon === 'string') return badgeIconFromScene(snapshot.icon);
+  return 'cloud-fill.svg';
 }
 
 /** Validate that lat/lng are within acceptable ranges. */

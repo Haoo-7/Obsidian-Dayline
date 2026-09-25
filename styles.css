@@ -558,8 +558,8 @@ button.cal-weather-refresh:hover {
   position: absolute;
   top: 2px;
   right: 2px;
-  width: 17px;
-  height: 17px;
+  width: 12px;
+  height: 12px;
   padding: 0;
   box-sizing: border-box;
   object-fit: contain;
@@ -568,10 +568,11 @@ button.cal-weather-refresh:hover {
   border: 0;
   border-radius: 0;
   background: transparent;
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.48));
+  background-color: transparent;
+  filter: drop-shadow(0 0.5px 0.6px rgba(0, 0, 0, 0.5));
 }
 .cal-day.cal-has-image .cal-weather-badge {
-  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.58));
+  filter: drop-shadow(0 0.5px 0.7px rgba(0, 0, 0, 0.72));
 }
 
 /* --- Daily note weather overlay (Day One style frosted-glass chip) --- */
@@ -1027,8 +1028,8 @@ button.cal-weather-refresh:hover {
   .cal-weather-badge {
     top: 2px;
     right: 2px;
-    width: 14px;
-    height: 14px;
+    width: 10px;
+    height: 10px;
   }
   .cal-sidebar button.cal-mood-button,
   .dayline-coarse-pointer:not(.dayline-mobile) .cal-sidebar button.cal-mood-button {
@@ -1059,8 +1060,8 @@ button.cal-weather-refresh:hover {
   .cal-weather-badge {
     top: 1px;
     right: 1px;
-    width: 12px;
-    height: 12px;
+    width: 9px;
+    height: 9px;
   }
   .cal-sidebar button.cal-mood-button,
   .dayline-coarse-pointer:not(.dayline-mobile) .cal-sidebar button.cal-mood-button {

@@ -109,14 +109,22 @@ export function createSerialMobileDaylineModeController(options: MobileDaylineMo
   };
 }
 
-/** Open notes beside Dayline, never by replacing its tab or using a split. */
-export function getMobileMarkdownLeaf(workspace: any): any | null {
+/**
+ * Open notes beside Dayline: reuse the active or first Markdown leaf, and never
+ * replace a Dayline tab or split the workspace.
+ */
+export function getJournalOpenLeaf(workspace: any, isMobile = false): any | null {
   const activeLeaf = workspace?.activeLeaf;
   if (activeLeaf?.view?.getViewType?.() === 'markdown') return activeLeaf;
-  return workspace?.getLeavesOfType?.('markdown')?.[0]
-    || workspace?.getLeaf?.('tab')
-    || workspace?.getLeaf?.(true)
-    || null;
+  const existing = workspace?.getLeavesOfType?.('markdown')?.[0];
+  if (existing) return existing;
+  if (isMobile) return workspace?.getLeaf?.('tab') || workspace?.getLeaf?.(true) || null;
+  return workspace?.getLeaf?.(true) || null;
+}
+
+/** Open notes beside Dayline, never by replacing its tab or using a split. */
+export function getMobileMarkdownLeaf(workspace: any): any | null {
+  return getJournalOpenLeaf(workspace, true);
 }
 
 /** Render the shared mobile mode control inside a real Dayline ItemView. */

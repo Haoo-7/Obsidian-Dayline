@@ -4001,9 +4001,12 @@ var init_journal_timeline_display = __esm({
 function isInteractiveTimelineTarget(target) {
   return Boolean(target?.closest?.(INTERACTIVE_TIMELINE_TARGETS));
 }
+function shouldOpenTimelineEntryFromPointer(target) {
+  return !isInteractiveTimelineTarget(target);
+}
 function shouldOpenTimelineEntryFromKey(event) {
   if (event?.key !== "Enter" && event?.key !== " ") return false;
-  return !isInteractiveTimelineTarget(event.target);
+  return shouldOpenTimelineEntryFromPointer(event.target);
 }
 var INTERACTIVE_TIMELINE_TARGETS;
 var init_journal_timeline_interaction = __esm({
@@ -4018,6 +4021,7 @@ var dayline_mobile_exports = {};
 __export(dayline_mobile_exports, {
   MOBILE_DAYLINE_VIEW: () => MOBILE_DAYLINE_VIEW,
   createSerialMobileDaylineModeController: () => createSerialMobileDaylineModeController,
+  getJournalOpenLeaf: () => getJournalOpenLeaf,
   getMobileDaylineLeaf: () => getMobileDaylineLeaf,
   getMobileDaylineViewType: () => getMobileDaylineViewType,
   getMobileMarkdownLeaf: () => getMobileMarkdownLeaf,
@@ -4080,10 +4084,16 @@ function createSerialMobileDaylineModeController(options) {
     }
   };
 }
-function getMobileMarkdownLeaf(workspace) {
+function getJournalOpenLeaf(workspace, isMobile = false) {
   const activeLeaf = workspace?.activeLeaf;
   if (activeLeaf?.view?.getViewType?.() === "markdown") return activeLeaf;
-  return workspace?.getLeavesOfType?.("markdown")?.[0] || workspace?.getLeaf?.("tab") || workspace?.getLeaf?.(true) || null;
+  const existing = workspace?.getLeavesOfType?.("markdown")?.[0];
+  if (existing) return existing;
+  if (isMobile) return workspace?.getLeaf?.("tab") || workspace?.getLeaf?.(true) || null;
+  return workspace?.getLeaf?.(true) || null;
+}
+function getMobileMarkdownLeaf(workspace) {
+  return getJournalOpenLeaf(workspace, true);
 }
 function renderMobileDaylineModeControls(parent, options) {
   const controls = parent?.createDiv?.({
@@ -4134,6 +4144,123 @@ var init_dayline_mobile = __esm({
   }
 });
 
+// src/touch-targets.ts
+var touch_targets_exports = {};
+__export(touch_targets_exports, {
+  CALENDAR_POINTER_MOVE_THRESHOLD: () => CALENDAR_POINTER_MOVE_THRESHOLD,
+  COARSE_POINTER_MIN: () => COARSE_POINTER_MIN,
+  bindOpenOnPointer: () => bindOpenOnPointer,
+  calendarCellTouchRouting: () => calendarCellTouchRouting,
+  hasTouchTargetSize: () => hasTouchTargetSize,
+  isCalendarTapGesture: () => isCalendarTapGesture,
+  touchTargetSize: () => touchTargetSize
+});
+function touchTargetSize(coarsePointer, desktopSize = 28) {
+  return coarsePointer ? COARSE_POINTER_MIN : desktopSize;
+}
+function hasTouchTargetSize(width, height, coarsePointer) {
+  return !coarsePointer || width >= COARSE_POINTER_MIN && height >= COARSE_POINTER_MIN;
+}
+function bindOpenOnPointer(element, options) {
+  const shouldOpen = options.shouldOpen ?? (() => true);
+  const { onOpen } = options;
+  if (options.coarsePointer) {
+    let gesture = null;
+    const eventTarget = typeof window !== "undefined" ? window : element;
+    const cleanup = () => {
+      eventTarget.removeEventListener("pointermove", onMove);
+      eventTarget.removeEventListener("pointerup", onUp);
+      eventTarget.removeEventListener("pointercancel", onCancel);
+      gesture = null;
+    };
+    const onMove = (event) => {
+      const pointer = event;
+      if (!gesture || pointer.pointerId !== gesture.pointerId) return;
+      if (!isCalendarTapGesture(gesture.startX, gesture.startY, pointer.clientX, pointer.clientY)) {
+        gesture.canceled = true;
+      }
+    };
+    const onUp = (event) => {
+      const pointer = event;
+      if (!gesture || pointer.pointerId !== gesture.pointerId) return;
+      const tap = !gesture.canceled && isCalendarTapGesture(gesture.startX, gesture.startY, pointer.clientX, pointer.clientY);
+      cleanup();
+      if (!tap) return;
+      pointer.preventDefault();
+      pointer.stopPropagation();
+      onOpen(pointer);
+    };
+    const onCancel = (event) => {
+      const pointer = event;
+      if (!gesture || pointer.pointerId !== gesture.pointerId) return;
+      cleanup();
+    };
+    element.addEventListener("pointerdown", (event) => {
+      if (!shouldOpen(event.target)) return;
+      if (event.isPrimary === false || event.button !== void 0 && event.button !== 0) return;
+      cleanup();
+      gesture = {
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        canceled: false
+      };
+      eventTarget.addEventListener("pointermove", onMove, { passive: true });
+      eventTarget.addEventListener("pointerup", onUp, { passive: false });
+      eventTarget.addEventListener("pointercancel", onCancel, { passive: true });
+    });
+    return;
+  }
+  element.addEventListener("pointerdown", (event) => {
+    if (!shouldOpen(event.target)) return;
+    event.stopPropagation();
+    onOpen(event);
+  });
+}
+function isCalendarTapGesture(startX, startY, endX, endY, threshold = CALENDAR_POINTER_MOVE_THRESHOLD) {
+  const values = [startX, startY, endX, endY, threshold].map(Number);
+  if (!values.every(Number.isFinite) || values[4] < 0) return false;
+  return Math.hypot(values[2] - values[0], values[3] - values[1]) <= values[4];
+}
+function calendarCellTouchRouting(coarsePointer, isMobile = coarsePointer) {
+  if (coarsePointer && isMobile) {
+    return {
+      primary: "date-open",
+      secondary: "external-surface",
+      showMoodControl: false,
+      showEntryCountControl: false,
+      showMediaInfoControl: false,
+      focusMediaBackground: false
+    };
+  }
+  if (coarsePointer) {
+    return {
+      primary: "date-open",
+      secondary: "in-cell",
+      showMoodControl: true,
+      showEntryCountControl: true,
+      showMediaInfoControl: true,
+      focusMediaBackground: true
+    };
+  }
+  return {
+    primary: "date-open",
+    secondary: "in-cell",
+    showMoodControl: true,
+    showEntryCountControl: true,
+    showMediaInfoControl: true,
+    focusMediaBackground: true
+  };
+}
+var COARSE_POINTER_MIN, CALENDAR_POINTER_MOVE_THRESHOLD;
+var init_touch_targets = __esm({
+  "src/touch-targets.ts"() {
+    "use strict";
+    COARSE_POINTER_MIN = 44;
+    CALENDAR_POINTER_MOVE_THRESHOLD = 10;
+  }
+});
+
 // src/journal-timeline-view.ts
 var journal_timeline_view_exports = {};
 __export(journal_timeline_view_exports, {
@@ -4178,6 +4305,7 @@ var init_journal_timeline_view = __esm({
     init_journal_timeline_interaction();
     init_journal_index();
     init_dayline_mobile();
+    init_touch_targets();
     JOURNAL_TIMELINE_VIEW = "journal-timeline-view";
     TIMELINE_PAGE_SIZE = 50;
     JournalTimelineView = class extends import_obsidian2.ItemView {
@@ -4812,8 +4940,10 @@ var init_journal_timeline_view = __esm({
           this.observeThumbnail(card, thumbnail, image, entry, thumbnailMedia, token);
         }
         const open = () => void this.openEntry(entry.path);
-        card.addEventListener("click", (event) => {
-          if (!isInteractiveTimelineTarget(event.target)) open();
+        bindOpenOnPointer(card, {
+          coarsePointer: this.plugin.capabilities?.coarsePointer,
+          shouldOpen: shouldOpenTimelineEntryFromPointer,
+          onOpen: open
         });
         card.addEventListener("keydown", (event) => {
           if (shouldOpenTimelineEntryFromKey(event)) {
@@ -4967,8 +5097,13 @@ var init_journal_timeline_view = __esm({
           return;
         }
         try {
-          if (this.plugin.openJournalFile) await this.plugin.openJournalFile(file);
-          else await this.app.workspace.getLeaf("split").openFile(file);
+          if (this.plugin.openJournalFile) {
+            await this.plugin.openJournalFile(file);
+          } else {
+            const leaf = getJournalOpenLeaf(this.app.workspace, this.plugin.capabilities?.isMobile);
+            if (!leaf) throw new Error("No markdown leaf is available");
+            await leaf.openFile(file);
+          }
         } catch (error) {
           console.warn("[Dayline] Open timeline entry failed:", error?.message || error);
           new import_obsidian2.Notice(t(this.plugin.settings, "timelineOpenFailed", { error: error?.message || error }));
@@ -6616,7 +6751,8 @@ __export(weather_service_exports, {
   isRetryableWeatherFailure: () => isRetryableWeatherFailure,
   lookupWeatherCode: () => lookupWeatherCode,
   requestWeatherWithRetry: () => requestWeatherWithRetry,
-  validateWeatherCoordinates: () => validateWeatherCoordinates
+  validateWeatherCoordinates: () => validateWeatherCoordinates,
+  weatherBadgeIcon: () => weatherBadgeIcon
 });
 function getObsidianWeatherDeps() {
   if (!_obsidianWeatherDeps) _obsidianWeatherDeps = require("obsidian");
@@ -6667,9 +6803,21 @@ async function requestWeatherWithRetry(request, options = {}) {
   }
   throw lastError || new Error("Weather request failed");
 }
+function badgeIconFromScene(icon) {
+  return SCENE_TO_BADGE[icon] || "cloud-fill.svg";
+}
 function lookupWeatherCode(code) {
   const entry = WMO_CODES.find((w) => w.code === code);
-  return entry || { condition: `Weather code ${code}`, icon: "overcast.svg" };
+  const resolved = entry || { condition: `Weather code ${code}`, icon: "overcast.svg" };
+  return { ...resolved, badgeIcon: badgeIconFromScene(resolved.icon) };
+}
+function weatherBadgeIcon(snapshot) {
+  if (!snapshot || typeof snapshot !== "object") return "cloud-fill.svg";
+  if (typeof snapshot.weatherCode === "number") {
+    return lookupWeatherCode(snapshot.weatherCode).badgeIcon;
+  }
+  if (typeof snapshot.icon === "string") return badgeIconFromScene(snapshot.icon);
+  return "cloud-fill.svg";
 }
 function validateWeatherCoordinates(lat, lng) {
   const n = parseFloat(lat);
@@ -6705,7 +6853,7 @@ function stringAt(values, index) {
   const value = valueAt(values, index);
   return typeof value === "string" && value.length > 0 ? value : null;
 }
-var _obsidianWeatherDeps, WEATHER_MAX_ATTEMPTS, WEATHER_RETRY_BASE_DELAY_MS, WEATHER_RETRY_MAX_DELAY_MS, WeatherRequestError, WMO_CODES, WeatherService;
+var _obsidianWeatherDeps, WEATHER_MAX_ATTEMPTS, WEATHER_RETRY_BASE_DELAY_MS, WEATHER_RETRY_MAX_DELAY_MS, WeatherRequestError, WMO_CODES, SCENE_TO_BADGE, WeatherService;
 var init_weather_service = __esm({
   "src/weather-service.ts"() {
     "use strict";
@@ -6747,6 +6895,16 @@ var init_weather_service = __esm({
       { code: 96, condition: "Thunderstorm w/ hail", icon: "thunderstorms.svg" },
       { code: 99, condition: "Thunderstorm w/ heavy hail", icon: "thunderstorms.svg" }
     ];
+    SCENE_TO_BADGE = {
+      "clear-day.svg": "sun-fill.svg",
+      "partly-cloudy-day.svg": "cloud-fill.svg",
+      "overcast.svg": "cloud-fill.svg",
+      "fog.svg": "cloud-fog-fill.svg",
+      "drizzle.svg": "drop-simple-fill.svg",
+      "rain.svg": "drop-fill.svg",
+      "snow.svg": "snowflake.svg",
+      "thunderstorms.svg": "lightning-fill.svg"
+    };
     WeatherService = class {
       constructor(plugin, options = {}) {
         this.plugin = plugin;
@@ -24448,66 +24606,6 @@ var init_media_interaction = __esm({
   }
 });
 
-// src/touch-targets.ts
-var touch_targets_exports = {};
-__export(touch_targets_exports, {
-  CALENDAR_POINTER_MOVE_THRESHOLD: () => CALENDAR_POINTER_MOVE_THRESHOLD,
-  COARSE_POINTER_MIN: () => COARSE_POINTER_MIN,
-  calendarCellTouchRouting: () => calendarCellTouchRouting,
-  hasTouchTargetSize: () => hasTouchTargetSize,
-  isCalendarTapGesture: () => isCalendarTapGesture,
-  touchTargetSize: () => touchTargetSize
-});
-function touchTargetSize(coarsePointer, desktopSize = 28) {
-  return coarsePointer ? COARSE_POINTER_MIN : desktopSize;
-}
-function hasTouchTargetSize(width, height, coarsePointer) {
-  return !coarsePointer || width >= COARSE_POINTER_MIN && height >= COARSE_POINTER_MIN;
-}
-function isCalendarTapGesture(startX, startY, endX, endY, threshold = CALENDAR_POINTER_MOVE_THRESHOLD) {
-  const values = [startX, startY, endX, endY, threshold].map(Number);
-  if (!values.every(Number.isFinite) || values[4] < 0) return false;
-  return Math.hypot(values[2] - values[0], values[3] - values[1]) <= values[4];
-}
-function calendarCellTouchRouting(coarsePointer, isMobile = coarsePointer) {
-  if (coarsePointer && isMobile) {
-    return {
-      primary: "date-open",
-      secondary: "external-surface",
-      showMoodControl: false,
-      showEntryCountControl: false,
-      showMediaInfoControl: false,
-      focusMediaBackground: false
-    };
-  }
-  if (coarsePointer) {
-    return {
-      primary: "date-open",
-      secondary: "in-cell",
-      showMoodControl: true,
-      showEntryCountControl: true,
-      showMediaInfoControl: true,
-      focusMediaBackground: true
-    };
-  }
-  return {
-    primary: "date-open",
-    secondary: "in-cell",
-    showMoodControl: true,
-    showEntryCountControl: true,
-    showMediaInfoControl: true,
-    focusMediaBackground: true
-  };
-}
-var COARSE_POINTER_MIN, CALENDAR_POINTER_MOVE_THRESHOLD;
-var init_touch_targets = __esm({
-  "src/touch-targets.ts"() {
-    "use strict";
-    COARSE_POINTER_MIN = 44;
-    CALENDAR_POINTER_MOVE_THRESHOLD = 10;
-  }
-});
-
 // src/mobile-diagnostics.ts
 var mobile_diagnostics_exports = {};
 __export(mobile_diagnostics_exports, {
@@ -24653,7 +24751,7 @@ var {
   mountOnThisDayStrip: mountOnThisDayStrip2
 } = (init_on_this_day_entry(), __toCommonJS(on_this_day_entry_exports));
 var { DaylineSettingsTab: DaylineSettingsTab2 } = (init_settings_tab(), __toCommonJS(settings_tab_exports));
-var { WeatherService: WeatherService2, lookupWeatherCode: lookupWeatherCode2, validateWeatherCoordinates: validateWeatherCoordinates2 } = (init_weather_service(), __toCommonJS(weather_service_exports));
+var { WeatherService: WeatherService2, lookupWeatherCode: lookupWeatherCode2, validateWeatherCoordinates: validateWeatherCoordinates2, weatherBadgeIcon: weatherBadgeIcon2 } = (init_weather_service(), __toCommonJS(weather_service_exports));
 var { buildWeatherCardParts: buildWeatherCardParts2, buildWeatherStatus: buildWeatherStatus2, normalizeWeatherDisplayFields: normalizeWeatherDisplayFields2 } = (init_weather_display(), __toCommonJS(weather_display_exports));
 var { localize: _l } = (init_locale(), __toCommonJS(locale_exports));
 var { formatDateParts: formatDateParts2, getClockPartsInTimeZone: getClockPartsInTimeZone2, getTodayDate: getTodayDate2 } = (init_date_utils(), __toCommonJS(date_utils_exports));
@@ -24679,13 +24777,13 @@ var {
   shouldDismissMetadataFromPointer: shouldDismissMetadataFromPointer2,
   shouldOpenCalendarDateFromPointer: shouldOpenCalendarDateFromPointer2
 } = (init_media_interaction(), __toCommonJS(media_interaction_exports));
-var { calendarCellTouchRouting: calendarCellTouchRouting2, isCalendarTapGesture: isCalendarTapGesture2 } = (init_touch_targets(), __toCommonJS(touch_targets_exports));
+var { calendarCellTouchRouting: calendarCellTouchRouting2, bindOpenOnPointer: bindOpenOnPointer2 } = (init_touch_targets(), __toCommonJS(touch_targets_exports));
 var {
   MOBILE_DAYLINE_VIEW: MOBILE_DAYLINE_VIEW2,
   createSerialMobileDaylineModeController: createSerialMobileDaylineModeController2,
+  getJournalOpenLeaf: getJournalOpenLeaf2,
   getMobileDaylineLeaf: getMobileDaylineLeaf2,
   getMobileDaylineViewType: getMobileDaylineViewType2,
-  getMobileMarkdownLeaf: getMobileMarkdownLeaf2,
   normalizeDaylineMobileMode: normalizeDaylineMobileMode2,
   renderMobileDaylineModeControls: renderMobileDaylineModeControls2
 } = (init_dayline_mobile(), __toCommonJS(dayline_mobile_exports));
@@ -25148,18 +25246,11 @@ var DaylinePlugin = class extends Plugin {
   }
   async openJournalFile(file) {
     const workspace = this.app.workspace;
-    let leaf;
-    if (this.capabilities?.isMobile) {
-      leaf = getMobileMarkdownLeaf2(workspace);
-    } else {
-      leaf = workspace.getLeaf("split");
-    }
+    const leaf = getJournalOpenLeaf2(workspace, this.capabilities?.isMobile);
     if (!leaf) throw new Error("No markdown leaf is available");
     await leaf.openFile(file);
-    if (this.capabilities?.isMobile) {
-      await workspace.revealLeaf?.(leaf);
-      workspace.setActiveLeaf?.(leaf, { focus: true });
-    }
+    await workspace.revealLeaf?.(leaf);
+    workspace.setActiveLeaf?.(leaf, { focus: true });
     return leaf;
   }
   async _openTimelineView() {
@@ -26153,7 +26244,7 @@ var CalendarView = class extends ItemView2 {
         const snap = this._readCachedWeather(dateStr, weatherPath);
         if (snap) {
           const badge = cell.createEl("img", { cls: "cal-weather-badge" });
-          badge.src = _iconUrl(snap.icon) || _iconUrl("overcast.svg") || "";
+          badge.src = _iconUrl(weatherBadgeIcon2(snap)) || _iconUrl("cloud-fill.svg") || "";
           badge.alt = snap.condition;
           badge.setAttribute("aria-label", `${snap.condition}, ${snap.temperature}${this._unitSymbol(snap.units)}`);
           badge.title = `${snap.condition} \xB7 ${snap.temperature}${this._unitSymbol(snap.units)}`;
@@ -26186,55 +26277,11 @@ var CalendarView = class extends ItemView2 {
         }
       }
       cell.createEl("span", { cls: "cal-day-num", text: String(d) });
-      if (this.plugin.capabilities?.coarsePointer) {
-        let gesture = null;
-        const eventTarget = typeof window !== "undefined" ? window : cell;
-        const cleanup = () => {
-          eventTarget.removeEventListener("pointermove", onMove);
-          eventTarget.removeEventListener("pointerup", onUp);
-          eventTarget.removeEventListener("pointercancel", onCancel);
-          gesture = null;
-        };
-        const onMove = (event) => {
-          if (!gesture || event.pointerId !== gesture.pointerId) return;
-          if (!isCalendarTapGesture2(gesture.startX, gesture.startY, event.clientX, event.clientY)) {
-            gesture.canceled = true;
-          }
-        };
-        const onUp = (event) => {
-          if (!gesture || event.pointerId !== gesture.pointerId) return;
-          const tap = !gesture.canceled && isCalendarTapGesture2(gesture.startX, gesture.startY, event.clientX, event.clientY);
-          cleanup();
-          if (!tap) return;
-          event.preventDefault();
-          event.stopPropagation();
-          this._openNote(dateStr, dateEntry.primaryEntryPath || dateEntry.path);
-        };
-        const onCancel = (event) => {
-          if (!gesture || event.pointerId !== gesture.pointerId) return;
-          cleanup();
-        };
-        cell.addEventListener("pointerdown", (event) => {
-          if (!shouldOpenCalendarDateFromPointer2(event.target)) return;
-          if (event.isPrimary === false || event.button !== void 0 && event.button !== 0) return;
-          cleanup();
-          gesture = {
-            pointerId: event.pointerId,
-            startX: event.clientX,
-            startY: event.clientY,
-            canceled: false
-          };
-          eventTarget.addEventListener("pointermove", onMove, { passive: true });
-          eventTarget.addEventListener("pointerup", onUp, { passive: false });
-          eventTarget.addEventListener("pointercancel", onCancel, { passive: true });
-        });
-      } else {
-        cell.addEventListener("pointerdown", (e) => {
-          if (!shouldOpenCalendarDateFromPointer2(e.target)) return;
-          e.stopPropagation();
-          this._openNote(dateStr, dateEntry.primaryEntryPath || dateEntry.path);
-        });
-      }
+      bindOpenOnPointer2(cell, {
+        coarsePointer: this.plugin.capabilities?.coarsePointer,
+        shouldOpen: shouldOpenCalendarDateFromPointer2,
+        onOpen: () => this._openNote(dateStr, dateEntry.primaryEntryPath || dateEntry.path)
+      });
     }
   }
   _renderMonthJump(containerEl) {
@@ -26776,19 +26823,7 @@ var CalendarView = class extends ItemView2 {
     const path = indexedFile instanceof TFile2 ? indexedPath : `${this.plugin.settings.dailyFolder}/${dateStr}.md`;
     const file = this.app.vault.getAbstractFileByPath(path);
     const openFileInLeaf = (f) => {
-      const activeLeaf = this.app.workspace.activeLeaf;
-      const isMarkdown = activeLeaf?.view?.getViewType?.() === "markdown";
-      const mdLeaves = this.app.workspace.getLeavesOfType("markdown");
-      const leaf = isMarkdown ? activeLeaf : mdLeaves.length > 0 ? mdLeaves[0] : this.plugin.capabilities?.isMobile ? this.app.workspace.getLeaf("tab") || this.app.workspace.getLeaf(true) : this.app.workspace.getLeaf(true);
-      if (!leaf) {
-        const error = "No markdown leaf is available";
-        console.warn("[Dayline] Open note failed:", error);
-        new Notice4(t2(this.plugin.settings, "openNoteFailed", { error }));
-        return;
-      }
-      leaf.openFile(f).then(async () => {
-        await this.app.workspace.revealLeaf?.(leaf);
-        this.app.workspace.setActiveLeaf?.(leaf, { focus: true });
+      this.plugin.openJournalFile(f).then((leaf) => {
         this._syncActiveDate(leaf);
         this.render();
         this._triggerWeatherAfterOpen(dateStr);
@@ -27453,7 +27488,14 @@ var SVG_ICONS = {
   "drizzle.svg": `data:image/svg+xml,${encodeURIComponent('<svg viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(#dzc)"><g id="Clouds"><path d="M55.2623 48.4746C60.1227 40.6111 70.2975 37.38 78.8151 40.9434C87.3214 44.5023 92.138 54.0026 89.903 62.9648L89.7418 63.6143L90.4108 63.585C97.4203 63.2791 103.5 68.9917 103.5 76.0283C103.5 82.8395 97.7717 88.4997 90.9772 88.5H37.9537C31.1275 88.5018 25.2029 83.1709 24.5592 76.3604C23.9158 69.5518 28.7369 63.2124 35.443 61.9453L35.9264 61.8535L35.8424 61.3691C35.0256 56.6239 37.1258 51.7168 41.1051 49.0127C45.0951 46.3014 50.4459 46.1537 54.5797 48.6396L55.0026 48.8945L55.2623 48.4746Z" fill="url(#dzg1)" stroke="#E6EFFC"/></g><g id="Precipitation"><path d="M52 95V98" stroke="#0A5AD4" stroke-width="4" stroke-linecap="round"/><path d="M64 87V90" stroke="#0A5AD4" stroke-width="4" stroke-linecap="round"/><path d="M76 95V98" stroke="#0A5AD4" stroke-width="4" stroke-linecap="round"/></g></g><defs><linearGradient id="dzg1" x1="64.0008" y1="39" x2="64.0008" y2="89" gradientUnits="userSpaceOnUse"><stop stop-color="#F3F7FE"/><stop offset="1" stop-color="#E6EFFC"/></linearGradient><clipPath id="dzc"><rect width="128" height="128" fill="white"/></clipPath></defs></svg>')}`,
   "rain.svg": `data:image/svg+xml,${encodeURIComponent('<svg viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(#rc)"><g id="Clouds"><path d="M55.2623 48.4746C60.1227 40.6111 70.2975 37.38 78.8151 40.9434C87.3214 44.5023 92.138 54.0026 89.903 62.9648L89.7418 63.6143L90.4108 63.585C97.4203 63.2791 103.5 68.9917 103.5 76.0283C103.5 82.8395 97.7717 88.4997 90.9772 88.5H37.9537C31.1275 88.5018 25.2029 83.1709 24.5592 76.3604C23.9158 69.5518 28.7369 63.2124 35.443 61.9453L35.9264 61.8535L35.8424 61.3691C35.0256 56.6239 37.1258 51.7168 41.1051 49.0127C45.0951 46.3014 50.4459 46.1537 54.5797 48.6396L55.0026 48.8945L55.2623 48.4746Z" fill="url(#rg1)" stroke="#E6EFFC"/></g><g id="Precipitation"><path d="M52 91V103" stroke="#0A5AD4" stroke-width="4" stroke-linecap="round"/><path d="M64 83V95" stroke="#0A5AD4" stroke-width="4" stroke-linecap="round"/><path d="M76 91V103" stroke="#0A5AD4" stroke-width="4" stroke-linecap="round"/></g></g><defs><linearGradient id="rg1" x1="64.0008" y1="39" x2="64.0008" y2="89" gradientUnits="userSpaceOnUse"><stop stop-color="#F3F7FE"/><stop offset="1" stop-color="#E6EFFC"/></linearGradient><clipPath id="rc"><rect width="128" height="128" fill="white"/></clipPath></defs></svg>')}`,
   "snow.svg": `data:image/svg+xml,${encodeURIComponent('<svg viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(#snc)"><g id="Clouds"><path d="M55.2623 48.4746C60.1227 40.6111 70.2975 37.38 78.8151 40.9434C87.3214 44.5023 92.138 54.0026 89.903 62.9648L89.7418 63.6143L90.4108 63.585C97.4203 63.2791 103.5 68.9917 103.5 76.0283C103.5 82.8395 97.7717 88.4997 90.9772 88.5H37.9537C31.1275 88.5018 25.2029 83.1709 24.5592 76.3604C23.9158 69.5518 28.7369 63.2124 35.443 61.9453L35.9264 61.8535L35.8424 61.3691C35.0256 56.6239 37.1258 51.7168 41.1051 49.0127C45.0951 46.3014 50.4459 46.1537 54.5797 48.6396L55.0026 48.8945L55.2623 48.4746Z" fill="url(#sng1)" stroke="#E6EFFC"/></g><g id="Snowflakes"><path d="M52.578 98.366l-1.205-.689c.106-.444.105-.908-.003-1.353l1.208-.69c.095-.054.18-.126.247-.214.067-.087.117-.186.146-.292.028-.107.036-.218.021-.326a.72.72 0 00-.106-.31.63.63 0 00-.514-.39.63.63 0 00-.639.084L51.528 94.876c-.335-.317-.741-.55-1.184-.676V92.82a.62.62 0 00-.187-.582.647.647 0 00-.876 0 .62.62 0 00-.187.582v1.38c-.442.128-.848.36-1.185.674L47.266 94.185a.63.63 0 00-.639-.084.63.63 0 00-.514.39.72.72 0 00-.106.31.692.692 0 00.021.326.62.62 0 00.146.293c.068.087.152.16.248.214l1.204.688c-.106.445-.105.909.003 1.353l-1.208.69a.632.632 0 00-.247.214.62.62 0 00-.146.293.692.692 0 00-.021.326.72.72 0 00.106.31.63.63 0 00.514.39c.216.057.445.027.639-.084l1.206-.69c.334.318.74.55 1.184.675v1.382a.62.62 0 00.187.582.647.647 0 00.876 0 .62.62 0 00.187-.582v-1.382c.441-.13.847-.36 1.184-.674l1.206.69a.63.63 0 00.639.084.63.63 0 00.514-.39.72.72 0 00.106-.31.692.692 0 00-.021-.326.62.62 0 00-.146-.293.632.632 0 00-.247-.214zm-4.712-.28a.75.75 0 01-.37-.32.785.785 0 01-.096-.384.69.69 0 01.033-.284.66.66 0 01.159-.265.721.721 0 011.03-.02.78.78 0 01.37.32c.082.143.125.302.126.464 0 .162-.044.321-.126.464a.721.721 0 01-1.03-.02.78.78 0 01-.096.045zm15.002.28l-1.205-.689c.106-.444.105-.908-.003-1.353l1.208-.69c.095-.054.18-.126.247-.214.067-.087.117-.186.146-.292.028-.107.036-.218.021-.326a.72.72 0 00-.106-.31.63.63 0 00-.514-.39.63.63 0 00-.639.084L66.528 94.876c-.335-.317-.741-.55-1.184-.676V92.82a.62.62 0 00-.187-.582.647.647 0 00-.876 0 .62.62 0 00-.187.582v1.38c-.442.128-.848.36-1.185.674L62.266 94.185a.63.63 0 00-.639-.084.63.63 0 00-.514.39.72.72 0 00-.106.31.692.692 0 00.021.326.62.62 0 00.146.293c.068.087.152.16.248.214l1.204.688c-.106.445-.105.909.003 1.353l-1.208.69a.632.632 0 00-.247.214.62.62 0 00-.146.293.692.692 0 00-.021.326.72.72 0 00.106.31.63.63 0 00.514.39c.216.057.445.027.639-.084l1.206-.69c.334.318.74.55 1.184.675v1.382a.62.62 0 00.187.582.647.647 0 00.876 0 .62.62 0 00.187-.582v-1.382c.441-.13.847-.36 1.184-.674l1.206.69a.63.63 0 00.639.084.63.63 0 00.514-.39.72.72 0 00.106-.31.692.692 0 00-.021-.326.62.62 0 00-.146-.293.632.632 0 00-.247-.214zm-4.712-.28a.75.75 0 01-.37-.32.785.785 0 01-.096-.384.69.69 0 01.033-.284.66.66 0 01.159-.265.721.721 0 011.03-.02.78.78 0 01.37.32c.082.143.125.302.126.464 0 .162-.044.321-.126.464a.721.721 0 01-1.03-.02.78.78 0 01-.096.045zm15.002.28l-1.205-.689c.106-.444.105-.908-.003-1.353l1.208-.69c.095-.054.18-.126.247-.214.067-.087.117-.186.146-.292.028-.107.036-.218.021-.326a.72.72 0 00-.106-.31.63.63 0 00-.514-.39.63.63 0 00-.639.084L81.528 94.876c-.335-.317-.741-.55-1.184-.676V92.82a.62.62 0 00-.187-.582.647.647 0 00-.876 0 .62.62 0 00-.187.582v1.38c-.442.128-.848.36-1.185.674L77.266 94.185a.63.63 0 00-.639-.084.63.63 0 00-.514.39.72.72 0 00-.106.31.692.692 0 00.021.326.62.62 0 00.146.293c.068.087.152.16.248.214l1.204.688c-.106.445-.105.909.003 1.353l-1.208.69a.632.632 0 00-.247.214.62.62 0 00-.146.293.692.692 0 00-.021.326.72.72 0 00.106.31.63.63 0 00.514.39c.216.057.445.027.639-.084l1.206-.69c.334.318.74.55 1.184.675v1.382a.62.62 0 00.187.582.647.647 0 00.876 0 .62.62 0 00.187-.582v-1.382c.441-.13.847-.36 1.184-.674l1.206.69a.63.63 0 00.639.084.63.63 0 00.514-.39.72.72 0 00.106-.31.692.692 0 00-.021-.326.62.62 0 00-.146-.293.632.632 0 00-.247-.214zm-4.712-.28a.75.75 0 01-.37-.32.785.785 0 01-.096-.384.69.69 0 01.033-.284.66.66 0 01.159-.265.721.721 0 011.03-.02.78.78 0 01.37.32c.082.143.125.302.126.464 0 .162-.044.321-.126.464a.721.721 0 01-1.03-.02.78.78 0 01-.096.045z" fill="#86C3DB"/></g></g><defs><linearGradient id="sng1" x1="64.0008" y1="39" x2="64.0008" y2="89" gradientUnits="userSpaceOnUse"><stop stop-color="#F3F7FE"/><stop offset="1" stop-color="#E6EFFC"/></linearGradient><clipPath id="snc"><rect width="128" height="128" fill="white"/></clipPath></defs></svg>')}`,
-  "thunderstorms.svg": `data:image/svg+xml,${encodeURIComponent('<svg viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(#tsc)"><g id="Clouds"><path d="M55.2625 48.4746C60.1228 40.6111 70.2976 37.38 78.8152 40.9434C87.3215 44.5023 92.1381 54.0026 89.9031 62.9648L89.7419 63.6143L90.4109 63.585C97.4205 63.2791 103.5 68.9917 103.5 76.0283C103.5 82.8395 97.7719 88.4997 90.9773 88.5H37.9539C31.1276 88.5018 25.203 83.1709 24.5593 76.3604C23.9159 69.5518 28.7371 63.2124 35.4431 61.9453L35.9265 61.8535L35.8425 61.3691C35.0258 56.6239 37.1259 51.7168 41.1052 49.0127C45.0952 46.3014 50.4461 46.1537 54.5798 48.6396L55.0027 48.8945L55.2625 48.4746Z" fill="url(#tsg1)" stroke="#E6EFFC"/></g><g id="Lightning"><path d="M71.1729 68.5L63.5566 83.041L63.1729 83.7725H75.002L56.9521 107.892L60.4893 91.0117L60.6162 90.4092H52.7041L60.3555 68.5H71.1729Z" fill="url(#tsg2)" stroke="#F6A823"/></g></g><defs><linearGradient id="tsg1" x1="64.0009" y1="39" x2="64.0009" y2="89" gradientUnits="userSpaceOnUse"><stop stop-color="#F3F7FE"/><stop offset="1" stop-color="#E6EFFC"/></linearGradient><linearGradient id="tsg2" x1="64.528" y1="66.0377" x2="84.4144" y2="77.4572" gradientUnits="userSpaceOnUse"><stop stop-color="#F7B23B"/><stop offset="1" stop-color="#F6A823"/></linearGradient><clipPath id="tsc"><rect width="128" height="128" fill="white"/></clipPath></defs></svg>')}`
+  "thunderstorms.svg": `data:image/svg+xml,${encodeURIComponent('<svg viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(#tsc)"><g id="Clouds"><path d="M55.2625 48.4746C60.1228 40.6111 70.2976 37.38 78.8152 40.9434C87.3215 44.5023 92.1381 54.0026 89.9031 62.9648L89.7419 63.6143L90.4109 63.585C97.4205 63.2791 103.5 68.9917 103.5 76.0283C103.5 82.8395 97.7719 88.4997 90.9773 88.5H37.9539C31.1276 88.5018 25.203 83.1709 24.5593 76.3604C23.9159 69.5518 28.7371 63.2124 35.4431 61.9453L35.9265 61.8535L35.8425 61.3691C35.0258 56.6239 37.1259 51.7168 41.1052 49.0127C45.0952 46.3014 50.4461 46.1537 54.5798 48.6396L55.0027 48.8945L55.2625 48.4746Z" fill="url(#tsg1)" stroke="#E6EFFC"/></g><g id="Lightning"><path d="M71.1729 68.5L63.5566 83.041L63.1729 83.7725H75.002L56.9521 107.892L60.4893 91.0117L60.6162 90.4092H52.7041L60.3555 68.5H71.1729Z" fill="url(#tsg2)" stroke="#F6A823"/></g></g><defs><linearGradient id="tsg1" x1="64.0009" y1="39" x2="64.0009" y2="89" gradientUnits="userSpaceOnUse"><stop stop-color="#F3F7FE"/><stop offset="1" stop-color="#E6EFFC"/></linearGradient><linearGradient id="tsg2" x1="64.528" y1="66.0377" x2="84.4144" y2="77.4572" gradientUnits="userSpaceOnUse"><stop stop-color="#F7B23B"/><stop offset="1" stop-color="#F6A823"/></linearGradient><clipPath id="tsc"><rect width="128" height="128" fill="white"/></clipPath></defs></svg>')}`,
+  "sun-fill.svg": `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="#F59E0B"><path d="M120,40V16a8,8,0,0,1,16,0V40a8,8,0,0,1-16,0Zm8,24a64,64,0,1,0,64,64A64.07,64.07,0,0,0,128,64ZM58.34,69.66A8,8,0,0,0,69.66,58.34l-16-16A8,8,0,0,0,42.34,53.66Zm0,116.68-16,16a8,8,0,0,0,11.32,11.32l16-16a8,8,0,0,0-11.32-11.32ZM192,72a8,8,0,0,0,5.66-2.34l16-16a8,8,0,0,0-11.32-11.32l-16,16A8,8,0,0,0,192,72Zm5.66,114.34a8,8,0,0,0-11.32,11.32l16,16a8,8,0,0,0,11.32-11.32ZM48,128a8,8,0,0,0-8-8H16a8,8,0,0,0,0,16H40A8,8,0,0,0,48,128Zm80,80a8,8,0,0,0-8,8v24a8,8,0,0,0,16,0V216A8,8,0,0,0,128,208Zm112-88H216a8,8,0,0,0,0,16h24a8,8,0,0,0,0-16Z"/></svg>')}`,
+  "cloud-fill.svg": `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="#64748B"><path d="M160.06,40A88.1,88.1,0,0,0,81.29,88.67h0A87.48,87.48,0,0,0,72,127.73,8.18,8.18,0,0,1,64.57,136,8,8,0,0,1,56,128a103.66,103.66,0,0,1,5.34-32.92,4,4,0,0,0-4.75-5.18A64.09,64.09,0,0,0,8,152c0,35.19,29.75,64,65,64H160a88.09,88.09,0,0,0,87.93-91.48C246.11,77.54,207.07,40,160.06,40Z"/></svg>')}`,
+  "cloud-fog-fill.svg": `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="#64748B"><path d="M168,232a8,8,0,0,1-8,8H104a8,8,0,0,1,0-16h56A8,8,0,0,1,168,232Zm-40-32a8,8,0,0,0-8-8H72a8,8,0,0,0,0,16h48A8,8,0,0,0,128,200Zm56-8H160a8,8,0,0,0,0,16h24a8,8,0,0,0,0-16Zm47.87-96.45a76,76,0,0,0-151.78.73A8.18,8.18,0,0,1,72,104l-.6,0A8.14,8.14,0,0,1,64,95.39a92.48,92.48,0,0,1,2.33-16.51,4,4,0,0,0-5-4.78A52.09,52.09,0,0,0,24,124.36C24.2,153.07,48.12,176,76.84,176H156A76.08,76.08,0,0,0,231.87,95.55Z"/></svg>')}`,
+  "drop-simple-fill.svg": `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="#2563EB"><path d="M174,47.75a254.19,254.19,0,0,0-41.45-38.3,8,8,0,0,0-9.18,0A254.19,254.19,0,0,0,82,47.75C54.51,79.32,40,112.6,40,144a88,88,0,0,0,176,0C216,112.6,201.49,79.32,174,47.75Z"/></svg>')}`,
+  "drop-fill.svg": `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="#1D4ED8"><path d="M174,47.75a254.19,254.19,0,0,0-41.45-38.3,8,8,0,0,0-9.18,0A254.19,254.19,0,0,0,82,47.75C54.51,79.32,40,112.6,40,144a88,88,0,0,0,176,0C216,112.6,201.49,79.32,174,47.75Zm9.85,105.59a57.6,57.6,0,0,1-46.56,46.55A8.75,8.75,0,0,1,136,200a8,8,0,0,1-1.32-15.89c16.57-2.79,30.63-16.85,33.44-33.45a8,8,0,0,1,15.78,2.68Z"/></svg>')}`,
+  "snowflake.svg": `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="#0EA5E9"><path d="M223.77,150.09a8,8,0,0,1-5.86,9.68l-24.64,6,6.46,24.11a8,8,0,0,1-5.66,9.8A8.25,8.25,0,0,1,192,200a8,8,0,0,1-7.72-5.93l-7.72-28.8L136,141.86v46.83l21.66,21.65a8,8,0,0,1-11.32,11.32L128,203.31l-18.34,18.35a8,8,0,0,1-11.32-11.32L120,188.69V141.86L79.45,165.27l-7.72,28.8A8,8,0,0,1,64,200a8.25,8.25,0,0,1-2.08-.27,8,8,0,0,1-5.66-9.8l6.46-24.11-24.64-6a8,8,0,0,1,3.82-15.54l29.45,7.23L112,128,71.36,104.54l-29.45,7.23A7.85,7.85,0,0,1,40,112a8,8,0,0,1-1.91-15.77l24.64-6L56.27,66.07a8,8,0,0,1,15.46-4.14l7.72,28.8L120,114.14V67.31L98.34,45.66a8,8,0,0,1,11.32-11.32L128,52.69l18.34-18.35a8,8,0,0,1,11.32,11.32L136,67.31v46.83l40.55-23.41,7.72-28.8a8,8,0,0,1,15.46,4.14l-6.46,24.11,24.64,6A8,8,0,0,1,216,112a7.85,7.85,0,0,1-1.91-.23l-29.45-7.23L144,128l40.64,23.46,29.45-7.23A8,8,0,0,1,223.77,150.09Z"/></svg>')}`,
+  "lightning-fill.svg": `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="#F59E0B"><path d="M213.85,125.46l-112,120a8,8,0,0,1-13.69-7l14.66-73.33L45.19,143.49a8,8,0,0,1-3-13l112-120a8,8,0,0,1,13.69,7L153.18,90.9l57.63,21.61a8,8,0,0,1,3,12.95Z"/></svg>')}`
 };
 function _iconUrl(iconFile) {
   return SVG_ICONS[iconFile] || "";

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { feelingLabel } from '../src/i18n';
-import { shouldOpenTimelineEntryFromKey } from '../src/journal-timeline-interaction';
+import { shouldOpenTimelineEntryFromKey, shouldOpenTimelineEntryFromPointer } from '../src/journal-timeline-interaction';
 import { shouldShowTimelineMoodTrend, shouldShowTimelineTitles } from '../src/journal-timeline-display';
 
 describe('timeline interaction boundaries', () => {
@@ -13,6 +13,8 @@ describe('timeline interaction boundaries', () => {
     expect(shouldOpenTimelineEntryFromKey({ key: ' ', target: button })).toBe(false);
     expect(shouldOpenTimelineEntryFromKey({ key: 'Enter', target: plain })).toBe(true);
     expect(shouldOpenTimelineEntryFromKey({ key: 'm', target: plain })).toBe(false);
+    expect(shouldOpenTimelineEntryFromPointer(button)).toBe(false);
+    expect(shouldOpenTimelineEntryFromPointer(plain)).toBe(true);
   });
 
   it('keeps built-in label localization separate from custom labels', () => {

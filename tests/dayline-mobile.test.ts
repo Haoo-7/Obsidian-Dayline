@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   MOBILE_DAYLINE_VIEW,
   createSerialMobileDaylineModeController,
+  getJournalOpenLeaf,
   getMobileDaylineLeaf,
   getMobileDaylineViewType,
   getMobileMarkdownLeaf,
@@ -295,6 +296,31 @@ describe('mobile Dayline routing', () => {
     expect(workspace.getLeftLeaf).not.toHaveBeenCalled();
   });
 
+  it('reuses the active Markdown leaf for desktop journal opens instead of splitting', () => {
+    const markdown = { id: 'note', view: { getViewType: () => 'markdown' } };
+    const workspace = {
+      activeLeaf: markdown,
+      getLeavesOfType: vi.fn(() => [markdown]),
+      getLeaf: vi.fn(() => { throw new Error('desktop must reuse the active Markdown leaf'); }),
+    };
+    expect(getJournalOpenLeaf(workspace, false)).toBe(markdown);
+    expect(workspace.getLeaf).not.toHaveBeenCalled();
+  });
+
+  it('creates a desktop leaf without a split when no Markdown tab exists', () => {
+    const created = { id: 'new-note' };
+    const workspace = {
+      activeLeaf: { id: 'timeline', view: { getViewType: () => TIMELINE_VIEW } },
+      getLeavesOfType: vi.fn(() => []),
+      getLeaf: vi.fn((kind: unknown) => {
+        if (kind === 'split' || kind === 'tab') throw new Error(`desktop must not use ${String(kind)}`);
+        return kind === true ? created : null;
+      }),
+    };
+    expect(getJournalOpenLeaf(workspace, false)).toBe(created);
+    expect(workspace.getLeaf).toHaveBeenCalledWith(true);
+  });
+
   it('keeps the legacy view as a redirect-only shim', () => {
     const pluginSource = readFileSync(new URL('../src/plugin.ts', import.meta.url), 'utf8');
     const start = pluginSource.indexOf('class MobileDaylineView extends ItemView');
@@ -309,8 +335,9 @@ describe('mobile Dayline routing', () => {
     expect(shimSource).not.toContain('setDateFilter');
   });
 
-  it('reveals a mobile Markdown leaf after opening a journal entry', () => {
+  it('reveals a Markdown leaf after opening a journal entry from calendar or timeline', () => {
     const pluginSource = readFileSync(new URL('../src/plugin.ts', import.meta.url), 'utf8');
+    const timelineSource = readFileSync(new URL('../src/journal-timeline-view.ts', import.meta.url), 'utf8');
     const pluginOpenStart = pluginSource.indexOf('async openJournalFile(file)');
     const pluginOpenEnd = pluginSource.indexOf('async _openTimelineView()', pluginOpenStart);
     const pluginOpenSource = pluginSource.slice(pluginOpenStart, pluginOpenEnd);
@@ -318,10 +345,15 @@ describe('mobile Dayline routing', () => {
     const calendarOpenEnd = pluginSource.indexOf('if (file instanceof TFile)', calendarOpenStart);
     const calendarOpenSource = pluginSource.slice(calendarOpenStart, calendarOpenEnd);
 
+    expect(pluginOpenSource).toContain('getJournalOpenLeaf(workspace, this.capabilities?.isMobile)');
+    expect(pluginOpenSource).not.toContain("getLeaf('split')");
     expect(pluginOpenSource).toContain('await workspace.revealLeaf?.(leaf);');
     expect(pluginOpenSource).toContain('workspace.setActiveLeaf?.(leaf, { focus: true });');
-    expect(calendarOpenSource).toContain('await this.app.workspace.revealLeaf?.(leaf);');
-    expect(calendarOpenSource).toContain('this.app.workspace.setActiveLeaf?.(leaf, { focus: true });');
+    expect(calendarOpenSource).toContain('this.plugin.openJournalFile(f)');
+    expect(pluginSource).toContain('bindOpenOnPointer(cell');
+    expect(timelineSource).toContain('bindOpenOnPointer(card');
+    expect(timelineSource).not.toContain("card.addEventListener('click'");
+    expect(timelineSource).not.toContain("getLeaf('split')");
   });
 
   it('keeps mode controls inside the two real ItemViews and isolates mobile close persistence', () => {

@@ -18,8 +18,21 @@ vi.mock('obsidian', () => ({
   setIcon: vi.fn(),
 }));
 
+import { TFile } from 'obsidian';
 import { JournalTimelineView } from '../src/journal-timeline-view';
 import { filterJournalEntries } from '../src/journal-timeline-filters';
+
+function pointerEvent(type, clientX = 0, clientY = 0, pointerId = 1) {
+  const event = new window.Event(type, { bubbles: true, cancelable: true });
+  Object.defineProperties(event, {
+    button: { value: 0 },
+    clientX: { value: clientX },
+    clientY: { value: clientY },
+    pointerId: { value: pointerId },
+    isPrimary: { value: true },
+  });
+  return event;
+}
 
 function installDomHelpers() {
   const prototype = HTMLElement.prototype;
@@ -89,6 +102,48 @@ describe('timeline rendered behavior', () => {
     vi.useRealTimers();
     document.body.replaceChildren();
     vi.restoreAllMocks();
+  });
+
+  it('opens a timeline entry on pointerdown through the shared journal opener', async () => {
+    const entry = makeEntry(1);
+    const { view } = makeView([entry]);
+    const file = new TFile();
+    view.app.vault = { getAbstractFileByPath: vi.fn(() => file) };
+    view.plugin.openJournalFile = vi.fn().mockResolvedValue(undefined);
+    view.render();
+    view.contentEl.querySelector('.journal-timeline-entry').dispatchEvent(pointerEvent('pointerdown'));
+    await Promise.resolve();
+    expect(view.app.vault.getAbstractFileByPath).toHaveBeenCalledWith(entry.path);
+    expect(view.plugin.openJournalFile).toHaveBeenCalledWith(file);
+  });
+
+  it('does not open a timeline entry from the title control', async () => {
+    const { view } = makeView([makeEntry(1)]);
+    view.app.vault = { getAbstractFileByPath: vi.fn() };
+    view.plugin.openJournalFile = vi.fn();
+    view.render();
+    view.contentEl.querySelector('.journal-timeline-entry-title').dispatchEvent(pointerEvent('pointerdown'));
+    await Promise.resolve();
+    expect(view.plugin.openJournalFile).not.toHaveBeenCalled();
+  });
+
+  it('ignores a coarse-pointer scroll when opening a timeline entry', async () => {
+    const { view } = makeView([makeEntry(1)]);
+    const file = new TFile();
+    view.app.vault = { getAbstractFileByPath: () => file };
+    view.plugin.capabilities = { isMobile: false, coarsePointer: true };
+    view.plugin.openJournalFile = vi.fn().mockResolvedValue(undefined);
+    view.render();
+    const card = view.contentEl.querySelector('.journal-timeline-entry');
+    card.dispatchEvent(pointerEvent('pointerdown', 10, 10));
+    window.dispatchEvent(pointerEvent('pointermove', 10, 40));
+    window.dispatchEvent(pointerEvent('pointerup', 10, 40));
+    await Promise.resolve();
+    expect(view.plugin.openJournalFile).not.toHaveBeenCalled();
+    card.dispatchEvent(pointerEvent('pointerdown', 10, 10));
+    window.dispatchEvent(pointerEvent('pointerup', 10, 10));
+    await Promise.resolve();
+    expect(view.plugin.openJournalFile).toHaveBeenCalledWith(file);
   });
 
   it('lets a title input receive Space without the title button preventing it', () => {

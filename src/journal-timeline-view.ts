@@ -12,9 +12,10 @@ import {
   displayableJournalMedia,
   MISSING_LOCATION_FILTER,
 } from './journal-timeline-filters';
-import { isInteractiveTimelineTarget, shouldOpenTimelineEntryFromKey } from './journal-timeline-interaction';
+import { isInteractiveTimelineTarget, shouldOpenTimelineEntryFromKey, shouldOpenTimelineEntryFromPointer } from './journal-timeline-interaction';
 import { startJournalIndexLoad } from './journal-index';
-import { renderMobileDaylineModeControls } from './dayline-mobile';
+import { getJournalOpenLeaf, renderMobileDaylineModeControls } from './dayline-mobile';
+import { bindOpenOnPointer } from './touch-targets';
 
 export const JOURNAL_TIMELINE_VIEW = 'journal-timeline-view';
 const TIMELINE_PAGE_SIZE = 50;
@@ -687,8 +688,10 @@ export class JournalTimelineView extends ItemView {
     }
 
     const open = () => void this.openEntry(entry.path);
-    card.addEventListener('click', (event) => {
-      if (!isInteractiveTimelineTarget(event.target)) open();
+    bindOpenOnPointer(card, {
+      coarsePointer: this.plugin.capabilities?.coarsePointer,
+      shouldOpen: shouldOpenTimelineEntryFromPointer,
+      onOpen: open,
     });
     card.addEventListener('keydown', (event) => {
       if (shouldOpenTimelineEntryFromKey(event)) { event.preventDefault(); open(); return; }
@@ -831,8 +834,13 @@ export class JournalTimelineView extends ItemView {
       return;
     }
     try {
-      if (this.plugin.openJournalFile) await this.plugin.openJournalFile(file);
-      else await this.app.workspace.getLeaf('split').openFile(file);
+      if (this.plugin.openJournalFile) {
+        await this.plugin.openJournalFile(file);
+      } else {
+        const leaf = getJournalOpenLeaf(this.app.workspace, this.plugin.capabilities?.isMobile);
+        if (!leaf) throw new Error('No markdown leaf is available');
+        await leaf.openFile(file);
+      }
     } catch (error) {
       console.warn('[Dayline] Open timeline entry failed:', error?.message || error);
       new Notice(t(this.plugin.settings, 'timelineOpenFailed', { error: error?.message || error }));
