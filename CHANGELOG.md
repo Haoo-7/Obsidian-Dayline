@@ -1,5 +1,37 @@
 # Changelog
 
+## 2.5.0 (2026-09-25)
+
+### Added
+- Calendar date cells now use compact filled weather glyphs (Phosphor Icons, MIT) instead of the large Meteocons scene illustrations. The badge maps the weather family — sun, cloud, fog, drizzle, rain, snow, lightning — so a date cell reads at a glance, and the glyph mask replaces the old dark backdrop.
+
+### Changed
+- Timeline cards and calendar date cells now share one `bindOpenOnPointer` helper. Both open on `pointerdown` on desktop, so the first click after sidebar focus loss is no longer swallowed by Obsidian's leaf activation, and both wait for `pointerup` on coarse pointers and cancel when the movement exceeds the tap threshold.
+- Opening a journal entry no longer splits the workspace on desktop. Calendar, timeline, and the daily-note open path now funnel through `openJournalFile`, which reuses the active or first Markdown leaf, then reveals it and focuses it. `getJournalOpenLeaf` replaces the mobile-only `getMobileMarkdownLeaf` and only creates a tab when the platform is mobile.
+- Calendar weather badges shrank from 17px to 12px (10px and 9px in the two narrow-sidebar container queries), with a tighter drop shadow that no longer reads as a plate behind the glyph.
+
+### Verification
+- `npm test` passed: 53 test files and 457 tests.
+- `npm run typecheck`, `npm run build` (byte-identical `main.js`), `npm run verify:release`, `npm run verify:release:zip`, and `git diff --check` passed.
+
+---
+
+## 2.5.0（2026-09-25）
+
+### 新增
+- 日历格子的天气改用紧凑的实心字形（Phosphor Icons，MIT），不再使用大尺寸的 Meteocons 场景插画。图标按天气类别映射（晴、云、雾、毛毛雨、雨、雪、雷），格子一眼可读，并且用字形本身取代了原来的深色底衬。
+
+### 变更
+- 时间线卡片和日历格子改为共用一个 `bindOpenOnPointer` helper。桌面端两者都在 `pointerdown` 打开，侧栏失焦后的第一次点击不再被 Obsidian 的 leaf 激活吞掉；粗指针下两者都等到 `pointerup`，移动超过点击阈值就取消。
+- 打开日记条目在桌面端不再拆分工作区。日历、时间线和每日笔记打开路径统一走 `openJournalFile`：复用当前或第一个 Markdown leaf，然后 reveal 并聚焦。`getJournalOpenLeaf` 取代只在移动端生效的 `getMobileMarkdownLeaf`，仅在移动端新建标签页。
+- 日历天气图标从 17px 缩小到 12px（两个窄侧栏容器查询下分别是 10px 和 9px），投影更紧，不再在字形后面形成一块底板。
+
+### 验证
+- `npm test` 通过：53 个测试文件、457 项测试。
+- `npm run typecheck`、`npm run build`（`main.js` 字节一致）、`npm run verify:release`、`npm run verify:release:zip` 和 `git diff --check` 通过。
+
+---
+
 ## 2.4.1 (2026-09-21)
 
 ### Fixed
