@@ -120,20 +120,24 @@ const WMO_CODES = [
   { code: 99,  condition: 'Thunderstorm w/ heavy hail', icon: 'thunderstorms.svg' },
 ];
 
-/** Calendar-cell glyphs: Phosphor Icons (MIT), not the Meteocons scene illustrations. */
+/**
+ * Calendar-cell glyphs: Lucide (ISC), stroke-based, not the Meteocons scene illustrations.
+ * These are the shared glyph family — the same cloud silhouette carries every sky state —
+ * which is what lets them read at 14px without a backing plate.
+ */
 const SCENE_TO_BADGE = {
-  'clear-day.svg': 'sun-fill.svg',
-  'partly-cloudy-day.svg': 'cloud-fill.svg',
-  'overcast.svg': 'cloud-fill.svg',
-  'fog.svg': 'cloud-fog-fill.svg',
-  'drizzle.svg': 'drop-simple-fill.svg',
-  'rain.svg': 'drop-fill.svg',
-  'snow.svg': 'snowflake.svg',
-  'thunderstorms.svg': 'lightning-fill.svg',
+  'clear-day.svg': 'badge-sun.svg',
+  'partly-cloudy-day.svg': 'badge-cloud-sun.svg',
+  'overcast.svg': 'badge-cloud.svg',
+  'fog.svg': 'badge-fog.svg',
+  'drizzle.svg': 'badge-drizzle.svg',
+  'rain.svg': 'badge-rain.svg',
+  'snow.svg': 'badge-snow.svg',
+  'thunderstorms.svg': 'badge-storm.svg',
 };
 
 function badgeIconFromScene(icon) {
-  return SCENE_TO_BADGE[icon] || 'cloud-fill.svg';
+  return SCENE_TO_BADGE[icon] || 'badge-cloud.svg';
 }
 
 /** Look up WMO code metadata; falls back to generic description. */
@@ -145,12 +149,12 @@ export function lookupWeatherCode(code) {
 
 /** Date-cell icon; weather cards keep the scene illustration in `icon`. */
 export function weatherBadgeIcon(snapshot) {
-  if (!snapshot || typeof snapshot !== 'object') return 'cloud-fill.svg';
+  if (!snapshot || typeof snapshot !== 'object') return 'badge-cloud.svg';
   if (typeof snapshot.weatherCode === 'number') {
     return lookupWeatherCode(snapshot.weatherCode).badgeIcon;
   }
   if (typeof snapshot.icon === 'string') return badgeIconFromScene(snapshot.icon);
-  return 'cloud-fill.svg';
+  return 'badge-cloud.svg';
 }
 
 /** Validate that lat/lng are within acceptable ranges. */

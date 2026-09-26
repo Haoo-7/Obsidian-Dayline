@@ -553,26 +553,39 @@ button.cal-weather-refresh:hover {
   text-overflow: clip;
   line-height: 1.35;
 }
-/* --- Weather badge on day cells --- */
+/* --- Weather badge on day cells ---
+   Lucide stroke glyphs, drawn bare: no plate, no backdrop-filter. The family shares one
+   cloud silhouette, so the shape itself carries the state and stays legible at 14px. */
 .cal-weather-badge {
   position: absolute;
   top: 2px;
   right: 2px;
-  width: 12px;
-  height: 12px;
-  padding: 0;
+  width: 14px;
+  height: 14px;
+  display: block;
   box-sizing: border-box;
-  object-fit: contain;
   z-index: 3;
   pointer-events: none;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  background-color: transparent;
-  filter: drop-shadow(0 0.5px 0.6px rgba(0, 0, 0, 0.5));
 }
+.cal-weather-badge svg {
+  width: 14px;
+  height: 14px;
+  display: block;
+  flex-shrink: 0;
+}
+/* Condition colors. Every value clears 3.2:1 against both a white and a #1e1e1e cell,
+   so one hue works in light and dark themes without a per-theme override. */
+.cal-weather-badge.weather-cat-sun        { color: #B7791F; }
+.cal-weather-badge.weather-cat-cloud-sun  { color: #7C8DA4; }
+.cal-weather-badge.weather-cat-cloud      { color: #64748B; }
+.cal-weather-badge.weather-cat-fog        { color: #7C8DA4; }
+.cal-weather-badge.weather-cat-drizzle    { color: #3B82F6; }
+.cal-weather-badge.weather-cat-rain       { color: #2563EB; }
+.cal-weather-badge.weather-cat-snow       { color: #0891B2; }
+.cal-weather-badge.weather-cat-storm      { color: #C2410C; }
+/* Photo cells give the stroke a faint halo so it survives a busy background. */
 .cal-day.cal-has-image .cal-weather-badge {
-  filter: drop-shadow(0 0.5px 0.7px rgba(0, 0, 0, 0.72));
+  filter: drop-shadow(0 0 1px rgba(255, 255, 255, 0.55)) drop-shadow(0 0 2px rgba(0, 0, 0, 0.45));
 }
 
 /* --- Daily note weather overlay (Day One style frosted-glass chip) --- */
@@ -1026,10 +1039,16 @@ button.cal-weather-refresh:hover {
     font-size: 11px;
   }
   .cal-weather-badge {
-    top: 2px;
-    right: 2px;
-    width: 10px;
-    height: 10px;
+    top: 1px;
+    right: 1px;
+    width: 12px;
+    height: 12px;
+  }
+  .cal-weather-badge svg {
+    width: 12px;
+    height: 12px;
+    /* Heavier relative stroke keeps the hairline details (drizzle, fog) from dissolving. */
+    stroke-width: 3;
   }
   .cal-sidebar button.cal-mood-button,
   .dayline-coarse-pointer:not(.dayline-mobile) .cal-sidebar button.cal-mood-button {
@@ -1058,10 +1077,7 @@ button.cal-weather-refresh:hover {
     font-size: 10px;
   }
   .cal-weather-badge {
-    top: 1px;
-    right: 1px;
-    width: 9px;
-    height: 9px;
+    display: none;
   }
   .cal-sidebar button.cal-mood-button,
   .dayline-coarse-pointer:not(.dayline-mobile) .cal-sidebar button.cal-mood-button {

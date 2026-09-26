@@ -8,10 +8,10 @@ The corresponding source code is available from the Dayline source repository an
 
 Mediabunny is not modified by Dayline. This notice applies only to the bundled Mediabunny portions; Dayline remains a larger work with its own source files in this repository.
 
-## Phosphor Icons 2.1.1
+## Lucide Icons
 
-Calendar date-cell weather badges use a small subset of [Phosphor Icons](https://github.com/phosphor-icons/core) (`@phosphor-icons/core` 2.1.1) under the [MIT License](https://github.com/phosphor-icons/core/blob/master/LICENSE): sun-fill, cloud-fill, cloud-fog-fill, drop-simple-fill, drop-fill, lightning-fill, and snowflake (regular weight; the fill snowflake sits in a circle that would read as a plate at badge size).
+Calendar date-cell weather badges use a small subset of [Lucide](https://github.com/lucide-icons/lucide) (icons from `lucide-static` 1.48.0) under the [ISC License](https://github.com/lucide-icons/lucide/blob/main/LICENSE): sun, cloud-sun, cloud, cloud-fog, cloud-drizzle, cloud-rain, snowflake, and cloud-lightning.
 
-Copyright (c) 2023 Phosphor Icons
+Copyright (c) for portions of Lucide are held by Cole Bemis 2013-2022 as part of Feather (MIT). All other copyright (c) for Lucide are held by Lucide Contributors 2022.
 
-`currentColor` is replaced with a weather-family fill so the glyphs can be shown as `<img>` data URIs. The path geometry is otherwise unmodified. This notice applies only to those badge SVGs; weather-card illustrations remain Meteocons.
+The SVGs are placed at `icons/badge-*.svg`. Each is inlined into a date cell as `<svg>` markup so it inherits `currentColor`; only the root `stroke-width` is tuned (2.6 at 14px, 3 at 12px) for small-size legibility. Path geometry is otherwise unmodified. This notice applies only to those badge SVGs; weather-card illustrations remain Meteocons.

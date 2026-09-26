@@ -36,13 +36,49 @@ describe('calendar compact cell layout', () => {
     expect(rule).toContain('min-height: 0');
   });
 
-  it('keeps weather badges as a transparent glyph with a date-like halo', () => {
+  it('renders weather badges as bare condition-colored outlines, with no backing plate', () => {
     const rule = cssRule(styles, '.cal-weather-badge {');
-    expect(rule).toContain('background: transparent');
-    expect(rule).toContain('background-color: transparent');
-    expect(rule).toContain('border-radius: 0');
-    expect(rule).toContain('drop-shadow');
+    // The Lucide glyph family carries the state on its own; a plate is not needed.
     expect(rule).not.toContain('backdrop-filter');
+    expect(rule).not.toContain('border-radius');
+    expect(rule).not.toContain('background');
+    // condition category classes
+    expect(styles).toContain('weather-cat-sun');
+    expect(styles).toContain('weather-cat-cloud-sun');
+    expect(styles).toContain('weather-cat-rain');
+    expect(styles).toContain('weather-cat-snow');
+  });
+
+  it('gives every condition hue at least 3:1 contrast on light and dark cells', () => {
+    // A single hue per condition has to work in both themes, because the glyph is drawn
+    // straight onto the cell with no plate behind it.
+    const channel = (value: number) => {
+      const c = value / 255;
+      return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+    };
+    const luminance = ([r, g, b]: number[]) =>
+      0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
+    const contrast = (a: number[], b: number[]) => {
+      const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+      return (hi + 0.05) / (lo + 0.05);
+    };
+    const parse = (hex: string) =>
+      [1, 3, 5].map((i) => Number.parseInt(hex.slice(i, i + 2), 16));
+
+    const cells = [parse('#ffffff'), parse('#1e1e1e')];
+    const conditions = [
+      'sun', 'cloud-sun', 'cloud', 'fog', 'drizzle', 'rain', 'snow', 'storm',
+    ];
+    for (const condition of conditions) {
+      const match = styles.match(
+        new RegExp(`\\.cal-weather-badge\\.weather-cat-${condition}\\s*\\{\\s*color:\\s*(#[0-9A-Fa-f]{6})`),
+      );
+      expect(match, `missing color for weather-cat-${condition}`).not.toBeNull();
+      const rgb = parse(match![1]);
+      for (const cell of cells) {
+        expect(contrast(rgb, cell), `${condition} on ${cell}`).toBeGreaterThanOrEqual(3);
+      }
+    }
   });
 
   it('pins date, weather, and mood to corners below 360px', () => {
@@ -51,7 +87,9 @@ describe('calendar compact cell layout', () => {
     expect(rule).toContain('top: 3px');
     expect(rule).toContain('left: 4px');
     expect(rule).toContain('.cal-weather-badge');
-    expect(rule).toContain('width: 10px');
+    expect(rule).toContain('width: 12px');
+    // Detail (drizzle dashes, fog lines) needs a heavier relative stroke when shrunk.
+    expect(rule).toContain('stroke-width: 3');
     expect(rule).toContain('.cal-sidebar button.cal-mood-button');
     expect(rule).toContain('width: 16px');
     expect(rule).toContain('left: 0');
@@ -65,7 +103,7 @@ describe('calendar compact cell layout', () => {
     expect(rule).toContain('.cal-day-num');
     expect(rule).toContain('font-size: 10px');
     expect(rule).toContain('.cal-weather-badge');
-    expect(rule).toContain('width: 9px');
+    expect(rule).toContain('display: none');
     expect(rule).toContain('.cal-sidebar button.cal-mood-button');
     expect(rule).toContain('width: 14px');
     expect(rule).toContain('.cal-entry-count');
