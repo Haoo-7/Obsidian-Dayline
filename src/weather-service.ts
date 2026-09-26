@@ -49,6 +49,25 @@ export function getWeatherRetryDelay(attempt, options = {}) {
   return Math.min(max, base * (2 ** Math.max(0, attempt - 1)));
 }
 
+/**
+ * Normalise an arbitrary rejection reason into an Error.
+ *
+ * Error objects pass through untouched so `WeatherRequestError` keeps its
+ * `status` for `isRetryableWeatherFailure` and its callers. Anything else is
+ * wrapped, preserving a `status` property when the reason carried one so HTTP
+ * eligibility checks still see it.
+ */
+export function toWeatherError(reason) {
+  if (reason instanceof Error) return reason;
+  const message = typeof reason === 'string'
+    ? reason
+    : `Weather request failed: ${String(reason)}`;
+  const error = new Error(message);
+  const status = errorStatus(reason);
+  if (status !== undefined) error.status = status;
+  return error;
+}
+
 export class WeatherRequestError extends Error {
   constructor(message, status) {
     super(message);
@@ -78,13 +97,15 @@ export async function requestWeatherWithRetry(request, options = {}) {
       lastError = new WeatherRequestError(`Weather API returned status ${status}`, status);
       if (attempt >= maxAttempts || !isRetryableWeatherFailure(lastError)) throw lastError;
     } catch (error) {
-      lastError = error;
-      if (attempt >= maxAttempts || !isRetryableWeatherFailure(error)) throw error;
+      // A rejected `request()` can carry anything; wrap non-Error reasons so the
+      // final `throw` below always hands callers a real Error instance.
+      lastError = toWeatherError(error);
+      if (attempt >= maxAttempts || !isRetryableWeatherFailure(lastError)) throw lastError;
     }
     await sleep(getWeatherRetryDelay(attempt, options));
   }
 
-  throw lastError || new Error('Weather request failed');
+  throw lastError ?? new Error('Weather request failed');
 }
 
 /* ============================================================

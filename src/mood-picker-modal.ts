@@ -234,7 +234,7 @@ export class MoodPickerModal extends Modal {
       },
     });
     label.htmlFor = input.id = `dayline-mood-date-${Date.now()}`;
-    input.addEventListener('change', () => this.changeDate(input.value, input));
+    input.addEventListener('change', () => { void this.changeDate(input.value, input); });
   }
 
   selectScore(score) {
@@ -369,7 +369,7 @@ export class MoodPickerModal extends Modal {
     back.addEventListener('click', () => this.renderScale());
     const save = actions.createEl('button', { text: t(this.settings, 'save'), cls: 'mod-cta', attr: { type: 'button' } });
     this.saveButton = save;
-    save.addEventListener('click', () => this.save(save));
+    save.addEventListener('click', () => { void this.save(save); });
     this.updateControls();
     this.contentEl.querySelector('h3')?.focus();
   }
@@ -454,7 +454,8 @@ export class MoodRecoveryModal extends Modal {
       if (record.note) details.createDiv({ cls: 'journal-mood-recovery-note', text: record.note });
       const destination = row.createEl('input', { attr: { type: 'text', value: path, 'aria-label': t(this.settings, 'moodRestoreDestination'), title: t(this.settings, 'moodRestoreDestination') } });
       const restore = row.createEl('button', { text: t(this.settings, 'restoreMood'), attr: { type: 'button' } });
-      restore.addEventListener('click', async () => {
+
+      const restoreOrphan = async () => {
         restore.disabled = true;
         try {
           try {
@@ -480,7 +481,11 @@ export class MoodRecoveryModal extends Modal {
         } finally {
           restore.disabled = false;
         }
-      });
+      };
+
+      // The listener stays synchronous; the async task sequences the restore
+      // itself and handles every rejection internally.
+      restore.addEventListener('click', () => { void restoreOrphan(); });
     }
   }
 }

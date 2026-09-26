@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { JSDOM } from 'jsdom';
+import { installObsidianDomShim } from './setup/obsidian-dom';
 
 vi.mock('obsidian', () => ({
   ItemView: class {
@@ -32,24 +33,6 @@ function pointerEvent(type, clientX = 0, clientY = 0, pointerId = 1) {
     isPrimary: { value: true },
   });
   return event;
-}
-
-function installDomHelpers() {
-  const prototype = HTMLElement.prototype;
-  prototype.empty = function () { this.replaceChildren(); };
-  prototype.addClass = function (...classes) { this.classList.add(...classes); };
-  prototype.removeClass = function (...classes) { this.classList.remove(...classes); };
-  prototype.setText = function (text) { this.textContent = text; };
-  prototype.createEl = function (tag, options = {}) {
-    const element = document.createElement(tag);
-    if (options.text !== undefined) element.textContent = options.text;
-    if (options.cls) element.classList.add(...options.cls.split(/\s+/).filter(Boolean));
-    for (const [name, value] of Object.entries(options.attr || {})) element.setAttribute(name, value);
-    this.append(element);
-    return element;
-  };
-  prototype.createDiv = function (options = {}) { return this.createEl('div', options); };
-  prototype.createSpan = function (options = {}) { return this.createEl('span', options); };
 }
 
 function makeEntry(index) {
@@ -95,7 +78,9 @@ describe('timeline rendered behavior', () => {
   beforeAll(() => {
     const dom = new JSDOM('<!doctype html><html><body></body></html>', { pretendToBeVisual: true });
     Object.assign(globalThis, { window: dom.window, document: dom.window.document, HTMLElement: dom.window.HTMLElement, KeyboardEvent: dom.window.KeyboardEvent });
-    installDomHelpers();
+    // Patches this JSDOM window's prototypes; the global createEl/createDiv
+    // helpers are installed by the shared setup file.
+    installObsidianDomShim(dom.window as unknown as Parameters<typeof installObsidianDomShim>[0]);
   });
 
   beforeEach(() => {

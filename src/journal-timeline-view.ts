@@ -709,7 +709,7 @@ export class JournalTimelineView extends ItemView {
     editor.setAttribute('role', 'group');
     editor.removeAttribute('tabindex');
     editor.textContent = '';
-    const input = document.createElement('input');
+    const input = createEl('input');
     input.type = 'text';
     input.value = initialTitle;
     input.maxLength = 200;

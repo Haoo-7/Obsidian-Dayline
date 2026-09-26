@@ -536,7 +536,9 @@ const STRINGS: Record<DisplayLanguage, Record<string, string>> = {
 type LanguageSettings = {
   displayLanguage?: string;
   weatherLanguage?: string;
-  weekStart?: WeekStartSetting | string;
+  // See CalendarDisplaySettings.calendarMoodMarker: `string & {}` accepts legacy
+  // persisted values without erasing the literal union.
+  weekStart?: WeekStartSetting | (string & {});
 };
 
 function systemLocale(): string | undefined {

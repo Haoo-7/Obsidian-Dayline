@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { JSDOM } from 'jsdom';
 import { readFileSync } from 'node:fs';
 import { bindMoodModalViewport } from '../src/mood-modal-viewport';
+import { installObsidianDomShim } from './setup/obsidian-dom';
 
 describe('phone mood modal viewport', () => {
   let dom: JSDOM;
@@ -29,6 +30,9 @@ describe('phone mood modal viewport', () => {
   beforeEach(() => {
     // No global window: the owning document must supply all APIs and focus.
     dom = new JSDOM('<body class="dayline-mobile dayline-phone"></body>', { pretendToBeVisual: true });
+    // This file deliberately exposes no global window, so the production code
+    // reaches Obsidian's DOM helpers through the owning document instead.
+    installObsidianDomShim(dom.window as unknown as Parameters<typeof installObsidianDomShim>[0]);
     const doc = dom.window.document;
     layoutHeight = 780;
     layoutWidth = 390;

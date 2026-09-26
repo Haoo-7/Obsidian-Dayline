@@ -529,7 +529,7 @@ export class HeicCache {
       }
 
       // Decode to canvas
-      const canvas = document.createElement('canvas');
+      const canvas = createEl('canvas');
       canvas.width = origW;
       canvas.height = origH;
       const ctx = canvas.getContext('2d');
@@ -553,7 +553,7 @@ export class HeicCache {
         th = Math.round(origH * scale);
       }
 
-      const thumb = document.createElement('canvas');
+      const thumb = createEl('canvas');
       thumb.width = tw;
       thumb.height = th;
       const thumbCtx = thumb.getContext('2d');

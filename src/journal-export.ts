@@ -1,7 +1,14 @@
+/** A character that cannot appear in a filename: reserved, or a C0 control. */
+const UNSAFE_FILENAME_CHAR = /[\\/:*?"<>|]/u;
+
 function sanitizeFileName(name: string, extension: string): string {
-  const base = name
-    .replace(/\.[a-z0-9]+$/iu, '')
-    .replace(/[\\/:*?"<>|\u0000-\u001f]/gu, '-')
+  const base = Array.from(name.replace(/\.[a-z0-9]+$/iu, ''))
+    // C0 controls (U+0000–U+001F) are stripped by code point rather than by a
+    // regex range, so the pattern carries no literal control character, which
+    // `no-control-regex` rejects at review time. The bound is inclusive of
+    // U+001F only, matching the previous `\u0000-\u001f` range exactly.
+    .map((char) => (UNSAFE_FILENAME_CHAR.test(char) || char.codePointAt(0)! <= 0x1f ? '-' : char))
+    .join('')
     .trim() || 'journal-export';
   return `${base}.${extension}`;
 }

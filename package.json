@@ -1,7 +1,7 @@
 {
   "name": "dayline",
   "private": true,
-  "version": "2.6.0",
+  "version": "2.6.1",
   "description": "Dayline Obsidian plugin source and test tooling",
   "author": "Haoo",
   "scripts": {
@@ -9,6 +9,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "eslint src",
+    "lint:fix": "eslint src --fix",
     "verify:release": "node scripts/verify-release-contents.mjs",
     "verify:release:zip": "node scripts/verify-release-contents.mjs --zip",
     "package:release": "node scripts/package-release.mjs",
@@ -16,9 +18,14 @@
   },
   "devDependencies": {
     "@types/jsdom": "^21.1.7",
+    "@typescript-eslint/parser": "^8.70.1",
     "esbuild": "^0.25.0",
+    "eslint": "^9.39.5",
+    "eslint-plugin-obsidianmd": "^0.4.2",
     "jsdom": "^26.0.0",
+    "obsidian": "^1.13.1",
     "typescript": "^5.7.3",
+    "typescript-eslint": "^8.70.1",
     "vitest": "^3.0.5"
   },
   "dependencies": {

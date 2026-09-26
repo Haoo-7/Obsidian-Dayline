@@ -26,7 +26,7 @@ export class ThumbnailService {
     return classifyMediaLink(link).kind === 'image';
   }
 
-  resolve(link: string, sourcePath: string): any | null {
+  resolve(link: string, sourcePath: string): any {
     const normalized = normalizeMediaLink(link);
     if (normalized.toLowerCase().startsWith('http://') || normalized.toLowerCase().startsWith('https://')) return null;
     const file = this.app.metadataCache.getFirstLinkpathDest(normalized, sourcePath);

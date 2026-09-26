@@ -625,7 +625,12 @@ export class MoodStore {
     return destination;
   }
 
-  async restoreFrom(raw: string | MoodMetadata | unknown): Promise<void> {
+  /**
+   * Restore from either a serialized payload or already-parsed metadata. The
+   * parameter is `unknown` because the value is validated below; naming the
+   * accepted shapes would not make the validation any safer.
+   */
+  async restoreFrom(raw: unknown): Promise<void> {
     const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
     const validation = validateMoodMetadata(parsed);
     if (!validation.valid) throw new Error(`Invalid mood metadata: ${formatValidation(validation)}`);

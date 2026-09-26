@@ -102,8 +102,9 @@ export function createStandaloneOnThisDayHost(container: HTMLElement): HTMLEleme
   const existing = asHtmlElement(container.querySelector('.cal-weather-card.cal-otd-standalone'));
   if (existing) return existing;
 
-  const card = container.ownerDocument.createElement('div');
-  card.className = 'cal-weather-card cal-otd-standalone';
+  // Create through the container so the node belongs to the same document, then
+  // position it below; `createDiv` appends, and the branch below may move it.
+  const card = container.createDiv({ cls: 'cal-weather-card cal-otd-standalone' });
   const setup = container.querySelector('.cal-weather-setup');
   const weekdays = container.querySelector('.cal-weekdays');
   if (setup?.parentElement === container) setup.insertAdjacentElement('afterend', card);
@@ -116,35 +117,17 @@ export function mountOnThisDayStrip(host: HTMLElement, model: OnThisDayStripMode
   host.classList.add('has-otd');
   host.querySelector('.cal-otd-strip')?.remove();
 
-  const doc = host.ownerDocument;
-  const strip = doc.createElement('button');
+  const strip = host.createEl('button', { cls: 'cal-otd-strip' });
   strip.type = 'button';
-  strip.className = 'cal-otd-strip';
   strip.setAttribute('aria-label', model.ariaLabel);
   if (model.dateStr) strip.dataset.otdDate = model.dateStr;
 
-  const photo = doc.createElement('span');
-  photo.className = 'cal-otd-strip-photo';
-  photo.setAttribute('aria-hidden', 'true');
+  strip.createSpan({ cls: 'cal-otd-strip-photo', attr: { 'aria-hidden': 'true' } });
 
-  const text = doc.createElement('span');
-  text.className = 'cal-otd-strip-text';
+  const text = strip.createSpan({ cls: 'cal-otd-strip-text' });
+  text.createSpan({ cls: 'cal-otd-strip-title', text: model.title });
+  text.createSpan({ cls: 'cal-otd-strip-meta', text: model.meta });
 
-  const title = doc.createElement('span');
-  title.className = 'cal-otd-strip-title';
-  title.textContent = model.title;
-
-  const meta = doc.createElement('span');
-  meta.className = 'cal-otd-strip-meta';
-  meta.textContent = model.meta;
-
-  text.append(title, meta);
-
-  const chevron = doc.createElement('span');
-  chevron.className = 'cal-otd-strip-chevron';
-  chevron.setAttribute('aria-hidden', 'true');
-
-  strip.append(photo, text, chevron);
-  host.append(strip);
+  strip.createSpan({ cls: 'cal-otd-strip-chevron', attr: { 'aria-hidden': 'true' } });
   return strip;
 }

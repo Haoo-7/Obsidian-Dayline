@@ -24,7 +24,7 @@ export type MobileDaylineTransition = {
 };
 
 export type MobileDaylineModeControllerOptions = {
-  getLeaf: () => any | null;
+  getLeaf: () => any;
   getViewType: (mode: DaylineMobileMode) => string;
   revealLeaf?: (leaf: any) => void | Promise<void>;
   onApplied?: (transition: MobileDaylineTransition) => void;
@@ -57,7 +57,7 @@ function leafViewType(leaf: any): string | null {
 export function getMobileDaylineLeaf(
   workspace: any,
   viewTypes: readonly string[] = [MOBILE_DAYLINE_VIEW],
-): any | null {
+): any {
   const types = normalizedViewTypes(viewTypes);
   const activeLeaf = workspace?.activeLeaf;
   if (types.includes(leafViewType(activeLeaf) || '')) return activeLeaf;
@@ -70,7 +70,7 @@ export function getMobileDaylineLeaf(
 }
 
 /** Change the supplied leaf's real view type through Obsidian's public API. */
-export async function setMobileDaylineLeafView(leaf: any, viewType: string): Promise<any | null> {
+export async function setMobileDaylineLeafView(leaf: any, viewType: string): Promise<any> {
   if (!leaf) return null;
   if (leafViewType(leaf) === viewType) return leaf;
   if (typeof leaf.setViewState !== 'function') {
@@ -113,7 +113,7 @@ export function createSerialMobileDaylineModeController(options: MobileDaylineMo
  * Open notes beside Dayline: reuse the active or first Markdown leaf, and never
  * replace a Dayline tab or split the workspace.
  */
-export function getJournalOpenLeaf(workspace: any, isMobile = false): any | null {
+export function getJournalOpenLeaf(workspace: any, isMobile = false): any {
   const activeLeaf = workspace?.activeLeaf;
   if (activeLeaf?.view?.getViewType?.() === 'markdown') return activeLeaf;
   const existing = workspace?.getLeavesOfType?.('markdown')?.[0];
@@ -123,7 +123,7 @@ export function getJournalOpenLeaf(workspace: any, isMobile = false): any | null
 }
 
 /** Open notes beside Dayline, never by replacing its tab or using a split. */
-export function getMobileMarkdownLeaf(workspace: any): any | null {
+export function getMobileMarkdownLeaf(workspace: any): any {
   return getJournalOpenLeaf(workspace, true);
 }
 

@@ -126,7 +126,7 @@ export function createMobileMarkdownQuickEntry(plugin: MobileQuickEntryPlugin) {
 
     let leaf: TrackedAction['leaf'] | null = null;
     try {
-      leaf = (plugin.app?.workspace?.activeLeaf || null) as TrackedAction['leaf'] | null;
+      leaf = plugin.app?.workspace?.activeLeaf || null;
     } catch {
       return;
     }

@@ -1,4 +1,5 @@
 import { JSDOM } from 'jsdom';
+import { installObsidianDomShim } from './setup/obsidian-dom';
 import { describe, expect, it } from 'vitest';
 import { localize } from '../src/locale';
 import {
@@ -67,7 +68,9 @@ describe('on-this-day sidebar entry mode', () => {
 
 describe('on-this-day merged strip DOM', () => {
   it('mounts the strip on the weather card and can stand alone before weekdays', () => {
-    const document = new JSDOM('<!doctype html><body></body>').window.document;
+    const dom = new JSDOM('<!doctype html><body></body>');
+    installObsidianDomShim(dom.window as unknown as Parameters<typeof installObsidianDomShim>[0]);
+    const document = dom.window.document;
     const container = document.createElement('div');
     const weather = document.createElement('div');
     weather.className = 'cal-weather-card';
@@ -101,7 +104,9 @@ describe('on-this-day merged strip DOM', () => {
   });
 
   it('places a standalone host after the weather setup hint', () => {
-    const document = new JSDOM('<!doctype html><body></body>').window.document;
+    const dom = new JSDOM('<!doctype html><body></body>');
+    installObsidianDomShim(dom.window as unknown as Parameters<typeof installObsidianDomShim>[0]);
+    const document = dom.window.document;
     const container = document.createElement('div');
     const setup = document.createElement('div');
     setup.className = 'cal-weather-setup';

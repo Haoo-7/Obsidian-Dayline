@@ -465,12 +465,13 @@ export class DaylineSettingsTab extends PluginSettingTab {
           const input = label.createEl('input', { attr: { type: 'checkbox', value } });
           input.checked = selected.has(value);
           label.createSpan({ text: t(this.plugin.settings, labelKey) });
-          input.addEventListener('change', async () => {
+          const applyDisplayField = async () => {
             if (input.checked) selected.add(value); else selected.delete(value);
             this.plugin.settings.weatherDisplayFields = fields.map(([key]) => key).filter((key) => selected.has(key));
             if (!(await this._saveSettings())) return;
             await this._refreshViews();
-          });
+          };
+          input.addEventListener('change', () => { void applyDisplayField(); });
         }
     }
 
@@ -747,7 +748,7 @@ class FolderSuggestModal extends SuggestModal {
   }
 
   renderSuggestion(folder, el) {
-    el.createEl('span', { text: folder.path });
+    el.createSpan({ text: folder.path });
   }
 
   onChooseSuggestion(folder) {

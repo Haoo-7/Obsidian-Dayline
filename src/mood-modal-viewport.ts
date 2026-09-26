@@ -13,13 +13,19 @@ export function bindMoodModalViewport(modalEl: HTMLElement, contentEl: HTMLEleme
 
   const viewport = view.visualViewport;
   // Measure viewport units outside the keyboard-constrained app/modal hosts.
-  const body = doc.body as HTMLElement & {
+  // Obsidian augments the window with `createDiv`, but it is not part of the
+  // published `Window` type and is absent on a bare JSDOM window, so probe for
+  // it and fall back to the document-level helper.
+  const win = view as Window & {
     createDiv?: (options?: { cls?: string; attr?: Record<string, string> }) => HTMLElement;
   };
-  const probe = body.createDiv?.({
+  const probe = win.createDiv?.({
     cls: 'journal-mood-viewport-probe',
     attr: { 'aria-hidden': 'true' },
-  }) ?? doc.createElement('div');
+  }) ?? doc.body.createDiv({
+    cls: 'journal-mood-viewport-probe',
+    attr: { 'aria-hidden': 'true' },
+  });
   if (!probe.parentElement) {
     probe.className = 'journal-mood-viewport-probe';
     probe.setAttribute('aria-hidden', 'true');

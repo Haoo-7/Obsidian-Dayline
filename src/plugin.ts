@@ -31,6 +31,7 @@ const { DaylineSettingsTab } = require('./settings-tab');
 /* Lucide badge glyphs (ISC). Imported as raw markup so the inline <svg> can inherit
    currentColor; esbuild's `text` loader and vitest both resolve `?raw` to the source. */
 const badgeSunSvg = require('../icons/badge-sun.svg?raw');
+const { appendBadgeSvg } = require('./badge-svg');
 const badgeCloudSunSvg = require('../icons/badge-cloud-sun.svg?raw');
 const badgeCloudSvg = require('../icons/badge-cloud.svg?raw');
 const badgeFogSvg = require('../icons/badge-fog.svg?raw');
@@ -500,7 +501,9 @@ class DaylinePlugin extends Plugin {
         const legacyPath = dataPath(legacyId);
         if (!(await adapter.exists(legacyPath))) continue;
         await adapter.write(currentPath, await adapter.read(legacyPath));
-        console.info(`[Dayline] Migrated ${legacyId} settings and weather cache.`);
+        // `debug` is one of the console methods the plugin guidelines allow;
+        // `info` is treated as unnecessary logging during review.
+        console.debug(`[Dayline] Migrated ${legacyId} settings and weather cache.`);
         return;
       }
     } catch (error) {
@@ -921,7 +924,7 @@ class DaylinePlugin extends Plugin {
 
   _ensureExifTooltip() {
     if (this._exifTooltipEl) return;
-    const tip = document.createElement('div');
+    const tip = createDiv();
     tip.className = 'cal-exif-tooltip';
     document.body.appendChild(tip);
     this._exifTooltipEl = tip;
@@ -934,7 +937,7 @@ class DaylinePlugin extends Plugin {
     tip.replaceChildren();
 
     const addText = (tag, className, value) => {
-      const el = document.createElement(tag);
+      const el = createEl(tag);
       if (className) el.className = className;
       el.textContent = String(value ?? '');
       return el;
@@ -1668,7 +1671,7 @@ class CalendarView extends ItemView {
     // --- Weekday row ---
     const wd = el.createDiv({ cls: 'cal-weekdays' });
     for (const day of getCalendarWeekdays(this.plugin.settings)) {
-      wd.createEl('span', { cls: 'cal-weekday', text: day });
+      wd.createSpan({ cls: 'cal-weekday', text: day });
     }
 
     // --- Grid ---
@@ -1767,7 +1770,7 @@ class CalendarView extends ItemView {
       if (touchRouting.showEntryCountControl
         && this.plugin.settings.showCalendarEntryCount !== false
         && dateEntry.entryCount > 1) {
-        cell.createEl('span', {
+        cell.createSpan({
           cls: 'cal-entry-count',
           text: `+${dateEntry.entryCount - 1}`,
           attr: {
@@ -1786,8 +1789,8 @@ class CalendarView extends ItemView {
         if (snap) {
           const iconFile = weatherBadgeIcon(snap);
           const category = BADGE_ICON_CATEGORY[iconFile] ?? 'weather-cat-cloud';
-          const badge = cell.createEl('span', { cls: `cal-weather-badge ${category}` });
-          badge.innerHTML = BADGE_SVG[iconFile] ?? BADGE_SVG['badge-cloud.svg'] ?? '';
+          const badge = cell.createSpan({ cls: `cal-weather-badge ${category}` });
+          appendBadgeSvg(badge, BADGE_SVG[iconFile] ?? BADGE_SVG['badge-cloud.svg']);
           badge.setAttribute('aria-label', `${snap.condition}, ${snap.temperature}${this._unitSymbol(snap.units)}`);
           badge.title = `${snap.condition} · ${snap.temperature}${this._unitSymbol(snap.units)}`;
         }
@@ -1839,7 +1842,7 @@ class CalendarView extends ItemView {
       }
 
       // Date number
-      cell.createEl('span', { cls: 'cal-day-num', text: String(d) });
+      cell.createSpan({ cls: 'cal-day-num', text: String(d) });
 
       bindOpenOnPointer(cell, {
         coarsePointer: this.plugin.capabilities?.coarsePointer,
@@ -2836,7 +2839,7 @@ class CalendarView extends ItemView {
     const reference = link || owner;
     const parent = reference?.parentElement;
     if (!parent) return;
-    const button = document.createElement('button');
+    const button = createEl('button');
     button.className = 'dayline-note-media-info';
     button.type = 'button';
     button.setAttribute('aria-label', t(this.plugin.settings, 'mediaMetadata'));

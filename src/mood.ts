@@ -63,6 +63,6 @@ export function moveMoodScore(score: MoodScore | null, direction: -1 | 1): MoodS
   return MOOD_LEVELS[Math.max(0, Math.min(MOOD_LEVELS.length - 1, index + direction))].score;
 }
 
-export function getMoodColor(score: MoodScore | number | undefined): string {
+export function getMoodColor(score: MoodScore | (number & {}) | undefined): string {
   return MOOD_LEVELS.find((level) => level.score === score)?.color ?? 'var(--background-modifier-border)';
 }

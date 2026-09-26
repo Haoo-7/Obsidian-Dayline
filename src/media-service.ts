@@ -40,15 +40,26 @@ export interface CoverResult {
 
 export interface MediaServiceOptions {
   imageMetadata?: { get(file: any): Promise<Array<{ key: string; value: string }> | null> };
-  inputFactory?: (resourceUrl: string) => any | Promise<any>;
+  inputFactory?: (resourceUrl: string) => any;
   capabilities?: PlatformCapabilities;
 }
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const timer = window.setTimeout(() => reject(new Error(`media operation timed out after ${timeoutMs}ms`)), timeoutMs);
-    promise.then((value) => { window.clearTimeout(timer); resolve(value); }, (error) => { window.clearTimeout(timer); reject(error); });
+    promise.then(
+      (value) => { window.clearTimeout(timer); resolve(value); },
+      // Rejections are forwarded as Error instances; a non-Error reason would
+      // otherwise surface to callers as a bare value.
+      (error) => { window.clearTimeout(timer); reject(toMediaError(error)); },
+    );
   });
+}
+
+/** Normalise an arbitrary rejection reason into an Error. */
+function toMediaError(reason: unknown): Error {
+  if (reason instanceof Error) return reason;
+  return new Error(typeof reason === 'string' ? reason : `media operation failed: ${String(reason)}`);
 }
 
 function fieldValue(fields: Array<{ key: string; value: string }> | null, key: string): string | undefined {
@@ -143,7 +154,7 @@ function canvasToObjectUrl(canvas: HTMLCanvasElement | OffscreenCanvas): Promise
         try {
           resolve(URL.createObjectURL(blob));
         } catch (error) {
-          reject(error);
+          reject(toMediaError(error));
         }
       }, 'image/jpeg', 0.8);
     });
@@ -228,7 +239,7 @@ export class MediaService {
   private readonly app: any;
   private readonly heicCache: any;
   private readonly imageMetadata?: MediaServiceOptions['imageMetadata'];
-  private readonly inputFactory: (resourceUrl: string) => any | Promise<any>;
+  private readonly inputFactory: (resourceUrl: string) => any;
   private readonly capabilities?: PlatformCapabilities;
   private readonly metadataCache = new Map<string, MediaMetadata | null>();
   private readonly metadataPending = new Map<string, Promise<MediaMetadata | null>>();
@@ -266,7 +277,7 @@ export class MediaService {
     map.delete(key);
     map.set(key, value);
     while (map.size > limit) {
-      const first = map.keys().next().value as K | undefined;
+      const first = map.keys().next().value;
       if (first === undefined) break;
       const evicted = map.get(first);
       map.delete(first);
@@ -274,7 +285,7 @@ export class MediaService {
     }
   }
 
-  private resolveFile(attachment: MediaAttachment): any | null {
+  private resolveFile(attachment: MediaAttachment): any {
     if (attachment.external) return null;
     const target = this.app.metadataCache?.getFirstLinkpathDest?.(attachment.normalizedLink, attachment.sourcePath);
     if (target) return target;
@@ -288,7 +299,7 @@ export class MediaService {
     return this.app.vault?.getResourcePath?.(file) || null;
   }
 
-  private async createInput(resourceUrl: string): Promise<any | null> {
+  private async createInput(resourceUrl: string): Promise<any> {
     const mediaBunny = await loadMediaBunny();
     if (!mediaBunny) return null;
     const { Input, UrlSource, ADTS, QTFF, MP4, MATROSKA, MP3, WAVE, FLAC, OGG } = mediaBunny;
@@ -421,7 +432,7 @@ export class MediaService {
 
   private async readNativeVideoMetadata(resource: string): Promise<MediaMetadata | null> {
     if (typeof document === 'undefined') return null;
-    const video = document.createElement('video');
+    const video = createEl('video');
     video.preload = 'metadata';
     video.muted = true;
     video.src = resource;
@@ -522,7 +533,7 @@ export class MediaService {
 
   private async createNativeVideoCover(attachment: MediaAttachment, resource: string): Promise<CoverResult | null> {
     if (typeof document === 'undefined') return null;
-    const video = document.createElement('video');
+    const video = createEl('video');
     video.preload = 'auto';
     video.muted = true;
     video.playsInline = true;
@@ -570,7 +581,7 @@ export class MediaService {
       }
       const dimensions = scaleVideoCoverDimensions(video.videoWidth, video.videoHeight);
       if (!dimensions) return null;
-      const canvas = document.createElement('canvas');
+      const canvas = createEl('canvas');
       canvas.width = dimensions.width;
       canvas.height = dimensions.height;
       const context = canvas.getContext('2d');

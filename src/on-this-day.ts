@@ -176,14 +176,14 @@ export class OnThisDayModal {
     const lang = this.plugin.settings.weatherLanguage;
 
     // Backdrop
-    this.backdrop = document.createElement('div');
+    this.backdrop = createDiv();
     this.backdrop.className = 'cal-otd-modal';
     this.backdrop.addEventListener('click', (e) => {
       if (e.target === this.backdrop) this.close();
     });
 
     // Panel
-    const panel = document.createElement('div');
+    const panel = createDiv();
     panel.className = 'cal-otd-panel';
     this.panel = panel;
 

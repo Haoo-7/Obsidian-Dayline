@@ -248,37 +248,37 @@ export class FluidMoodControl {
     root.setAttribute('aria-valuemax', '2');
     root.setAttribute('aria-orientation', 'horizontal');
 
-    const visual = document.createElement('div');
+    const visual = createDiv();
     visual.className = 'journal-fluid-visual';
-    this.canvas = document.createElement('canvas');
+    this.canvas = createEl('canvas');
     this.canvas.className = 'journal-fluid-canvas';
     this.canvas.setAttribute('aria-hidden', 'true');
     visual.append(this.canvas);
 
-    const readout = document.createElement('div');
+    const readout = createDiv();
     readout.className = 'journal-fluid-readout';
-    this.valueLabel = document.createElement('strong');
+    this.valueLabel = createEl('strong');
     this.valueLabel.className = 'journal-fluid-value';
     readout.append(this.valueLabel);
 
-    this.track = document.createElement('div');
+    this.track = createDiv();
     this.track.className = 'journal-fluid-track';
     this.track.setAttribute('aria-hidden', 'true');
-    const spectrum = document.createElement('span');
+    const spectrum = createSpan();
     spectrum.className = 'journal-fluid-track-spectrum';
-    this.handle = document.createElement('span');
+    this.handle = createSpan();
     this.handle.className = 'journal-fluid-handle';
     this.track.append(spectrum, this.handle);
 
-    const endpoints = document.createElement('div');
+    const endpoints = createDiv();
     endpoints.className = 'journal-fluid-endpoints';
-    const low = document.createElement('span');
+    const low = createSpan();
     low.textContent = options.labelForScore(-2);
-    const high = document.createElement('span');
+    const high = createSpan();
     high.textContent = options.labelForScore(2);
     endpoints.append(low, high);
 
-    this.liveRegion = document.createElement('span');
+    this.liveRegion = createSpan();
     this.liveRegion.className = 'journal-visually-hidden';
     this.liveRegion.setAttribute('aria-live', 'polite');
     root.append(visual, readout, this.track, endpoints, this.liveRegion);

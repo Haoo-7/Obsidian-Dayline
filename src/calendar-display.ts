@@ -5,7 +5,12 @@ export type CalendarMoodMarker = (typeof CALENDAR_MOOD_MARKERS)[number];
 
 export interface CalendarDisplaySettings {
   showCalendarMood?: boolean;
-  calendarMoodMarker?: CalendarMoodMarker | string;
+  /**
+   * `string & {}` keeps autocomplete for the literals while still accepting a
+   * persisted value written by an older build. A bare `| string` would widen the
+   * union to plain `string` and make `CalendarMoodMarker` decorative.
+   */
+  calendarMoodMarker?: CalendarMoodMarker | (string & {});
   showCalendarWeatherCard?: boolean;
   showCalendarWeatherBadge?: boolean;
   showCalendarWeatherLocation?: boolean;

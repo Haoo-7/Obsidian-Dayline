@@ -33,6 +33,11 @@ const CalendarView = runInNewContext(ts.transpileModule(`${declaration.getText()
   compilerOptions: { target: ts.ScriptTarget.ES2022 },
 }).outputText, {
   ItemView: class {}, TFile, console, setTimeout, clearTimeout, window, document,
+  // Obsidian exposes these as globals. The source under test calls them, and a
+  // vm sandbox starts with no globals of its own, so forward them explicitly.
+  createEl: globalThis.createEl,
+  createDiv: globalThis.createDiv,
+  createSpan: globalThis.createSpan,
   t: (_settings: unknown, key: string) => key,
   setIcon: () => {},
   getMediaControlOwner, shouldAddMediaInfoControl,

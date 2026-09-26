@@ -1,5 +1,51 @@
 # Changelog
 
+## 2.6.1 (2026-09-27)
+
+### Fixed
+- Calendar weather badges are now appended as parsed DOM instead of being written with `innerHTML`. This was the one **error**-severity finding in the community-plugin review, and it was the only place in `src/` that built markup from a string. The glyphs are build-time constants from `icons/badge-*.svg`, but an HTML-string sink turns any future asset edit into an injection point. `appendBadgeSvg` parses the markup as XML, strips `<script>` and any `on*` attribute, then imports the node — same zero-I/O rendering, inert sink. All eight shipped glyphs produce DOM structurally identical to the previous output.
+
+### Changed
+- Every `document.createElement` call site now uses Obsidian's `createEl`/`createDiv`/`createSpan` helpers, resolving all 41 `obsidianmd/prefer-create-el` warnings. `on-this-day-entry.ts` builds its strip through host-relative helpers so the nodes stay in the owning document, and `mood-modal-viewport.ts` probes for the window helper because the measure probe must not depend on Obsidian's DOM augmentations existing.
+- The filename sanitizer no longer matches literal control characters in its regex. The `\u0000-\u001f` range is applied by code point instead, which clears `no-control-regex`; an exhaustive check over all 65,536 BMP code points plus three astral samples confirms the output is unchanged.
+- Legacy persisted settings that widen a literal union are typed `(string & {})` rather than `| string`, so `weekStart`, `weatherUnits`, and `calendarMoodMarker` keep their literal autocomplete instead of collapsing to `string`. This resolves all 16 `no-redundant-type-constituents` warnings and is a type-only change.
+- `WeatherSnapshot` declares `feelsLike`, `humidity`, and `low` explicitly. They previously fell through the index signature as `unknown`, which forced untyped stringification in `weather-display.ts`.
+- Promise rejections and thrown values are normalised to `Error` instances: `requestWeatherWithRetry` preserves a `status` property so HTTP retry eligibility is unchanged, and `MediaService` wraps non-Error rejection reasons. Two redundant type assertions and one unnecessary `console.info` (now `console.debug`, which the guidelines allow) were also removed.
+
+### Verification
+- `npm test` passed: 56 test files and 488 tests (up from 55/483, adding badge-injection coverage).
+- `npm run typecheck`, `npm run build`, `git diff --check` passed.
+- Weather badges verified in the Obsidian Sandbox: 17 badges, all 17 rendering inline `<svg>`, 103 shapes, `stroke` resolving through `currentColor` to the condition colour.
+- `dev:errors` reported no errors after reload.
+
+### Notes
+- The `@typescript-eslint/no-unsafe-*` and `no-explicit-any` findings in the review are **not** addressed here. They trace to `require()`-style imports and `// @ts-nocheck` in nine files, which make imported symbols resolve to `any`. Those are warnings, and converting the affected modules to ESM is a behaviour-affecting refactor tracked separately.
+
+---
+
+## 2.6.1（2026-09-27）
+
+### 修复
+- 日历天气徽章改为以解析后的 DOM 追加，不再使用 `innerHTML` 写入。这是插件审查中唯一一条 **error** 级问题，也是 `src/` 中唯一一处用字符串拼接标记的地方。字形本身是来自 `icons/badge-*.svg` 的构建期常量，但 HTML 字符串注入点会让未来任何一次资源改动变成注入风险。`appendBadgeSvg` 以 XML 解析标记，剥离 `<script>` 与所有 `on*` 属性后再导入节点——保持零 I/O 渲染，同时让注入点变为惰性。8 个已发布字形产出的 DOM 与改动前结构完全一致。
+
+### 变更
+- 所有 `document.createElement` 调用点改用 Obsidian 的 `createEl`/`createDiv`/`createSpan` 辅助方法，清掉全部 41 条 `obsidianmd/prefer-create-el` 警告。`on-this-day-entry.ts` 改为通过宿主相对辅助方法构建，使节点留在所属 document 内；`mood-modal-viewport.ts` 对 window 上的辅助方法做探测，因为测量探针不应依赖 Obsidian 的 DOM 扩展一定存在。
+- 文件名净化不再在正则中匹配字面控制字符，`\u0000-\u001f` 改为按码点处理，从而清掉 `no-control-regex`。已穷举全部 65536 个 BMP 码点及 3 个星体面样本，确认输出完全不变。
+- 为兼容旧版持久化值而放宽的字面量联合改用 `(string & {})` 而非 `| string`，使 `weekStart`、`weatherUnits`、`calendarMoodMarker` 保留字面量补全而不退化成 `string`。清掉全部 16 条 `no-redundant-type-constituents`，且纯属类型层面改动。
+- `WeatherSnapshot` 显式声明 `feelsLike`、`humidity`、`low`。此前它们经索引签名落到 `unknown`，迫使 `weather-display.ts` 做无类型字符串化。
+- Promise 拒绝与抛出值统一归一为 `Error`：`requestWeatherWithRetry` 保留 `status` 属性，HTTP 重试判定逻辑不变；`MediaService` 包装非 Error 的拒绝原因。另删除两处多余类型断言，并把一处不必要的 `console.info` 改为指南允许的 `console.debug`。
+
+### 验证
+- `npm test` 通过：56 个测试文件、488 项测试（原为 55/483，新增徽章注入相关覆盖）。
+- `npm run typecheck`、`npm run build`、`git diff --check` 通过。
+- 已在 Obsidian Sandbox 实测天气徽章：17 个徽章、17 个均渲染出内联 `<svg>`、共 103 个图形，`stroke` 经 `currentColor` 正确解析为对应天气配色。
+- 重新加载后 `dev:errors` 无任何错误。
+
+### 说明
+- 审查中的 `@typescript-eslint/no-unsafe-*` 与 `no-explicit-any` **未**在本次处理。它们源于 9 个文件中的 `require()` 导入与 `// @ts-nocheck`，导致导入符号退化为 `any`。这些属于 warning，将其改为 ESM 会影响行为，属独立的后续重构。
+
+---
+
 ## 2.6.0 (2026-09-26)
 
 ### Added

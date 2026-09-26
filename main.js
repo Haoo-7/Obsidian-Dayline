@@ -1045,7 +1045,7 @@ var init_mood = __esm({
 
 // src/journal-export.ts
 function sanitizeFileName(name, extension) {
-  const base = name.replace(/\.[a-z0-9]+$/iu, "").replace(/[\\/:*?"<>|\u0000-\u001f]/gu, "-").trim() || "journal-export";
+  const base = Array.from(name.replace(/\.[a-z0-9]+$/iu, "")).map((char) => UNSAFE_FILENAME_CHAR.test(char) || char.codePointAt(0) <= 31 ? "-" : char).join("").trim() || "journal-export";
   return `${base}.${extension}`;
 }
 async function saveDaylineExport(app, content, fileName) {
@@ -1074,9 +1074,11 @@ async function saveDaylineExport(app, content, fileName) {
   }
   return candidate;
 }
+var UNSAFE_FILENAME_CHAR;
 var init_journal_export = __esm({
   "src/journal-export.ts"() {
     "use strict";
+    UNSAFE_FILENAME_CHAR = /[\\/:*?"<>|]/u;
   }
 });
 
@@ -1736,6 +1738,11 @@ var init_mood_store = __esm({
         await this.writeJsonAtomically(destination, serializeMoodJson(this.data));
         return destination;
       }
+      /**
+       * Restore from either a serialized payload or already-parsed metadata. The
+       * parameter is `unknown` because the value is validated below; naming the
+       * accepted shapes would not make the validation any safer.
+       */
       async restoreFrom(raw) {
         const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
         const validation = validateMoodMetadata(parsed);
@@ -2290,33 +2297,33 @@ var init_fluid_mood_control = __esm({
         root.setAttribute("aria-valuemin", "-2");
         root.setAttribute("aria-valuemax", "2");
         root.setAttribute("aria-orientation", "horizontal");
-        const visual = document.createElement("div");
+        const visual = createDiv();
         visual.className = "journal-fluid-visual";
-        this.canvas = document.createElement("canvas");
+        this.canvas = createEl("canvas");
         this.canvas.className = "journal-fluid-canvas";
         this.canvas.setAttribute("aria-hidden", "true");
         visual.append(this.canvas);
-        const readout = document.createElement("div");
+        const readout = createDiv();
         readout.className = "journal-fluid-readout";
-        this.valueLabel = document.createElement("strong");
+        this.valueLabel = createEl("strong");
         this.valueLabel.className = "journal-fluid-value";
         readout.append(this.valueLabel);
-        this.track = document.createElement("div");
+        this.track = createDiv();
         this.track.className = "journal-fluid-track";
         this.track.setAttribute("aria-hidden", "true");
-        const spectrum = document.createElement("span");
+        const spectrum = createSpan();
         spectrum.className = "journal-fluid-track-spectrum";
-        this.handle = document.createElement("span");
+        this.handle = createSpan();
         this.handle.className = "journal-fluid-handle";
         this.track.append(spectrum, this.handle);
-        const endpoints = document.createElement("div");
+        const endpoints = createDiv();
         endpoints.className = "journal-fluid-endpoints";
-        const low = document.createElement("span");
+        const low = createSpan();
         low.textContent = options.labelForScore(-2);
-        const high = document.createElement("span");
+        const high = createSpan();
         high.textContent = options.labelForScore(2);
         endpoints.append(low, high);
-        this.liveRegion = document.createElement("span");
+        this.liveRegion = createSpan();
         this.liveRegion.className = "journal-visually-hidden";
         this.liveRegion.setAttribute("aria-live", "polite");
         root.append(visual, readout, this.track, endpoints, this.liveRegion);
@@ -3109,11 +3116,14 @@ function bindMoodModalViewport(modalEl, contentEl) {
   if (!view || !doc.body.matches(".dayline-mobile.dayline-phone")) return () => {
   };
   const viewport = view.visualViewport;
-  const body = doc.body;
-  const probe = body.createDiv?.({
+  const win = view;
+  const probe = win.createDiv?.({
     cls: "journal-mood-viewport-probe",
     attr: { "aria-hidden": "true" }
-  }) ?? doc.createElement("div");
+  }) ?? doc.body.createDiv({
+    cls: "journal-mood-viewport-probe",
+    attr: { "aria-hidden": "true" }
+  });
   if (!probe.parentElement) {
     probe.className = "journal-mood-viewport-probe";
     probe.setAttribute("aria-hidden", "true");
@@ -3478,7 +3488,9 @@ var init_mood_picker_modal = __esm({
           }
         });
         label.htmlFor = input.id = `dayline-mood-date-${Date.now()}`;
-        input.addEventListener("change", () => this.changeDate(input.value, input));
+        input.addEventListener("change", () => {
+          void this.changeDate(input.value, input);
+        });
       }
       selectScore(score) {
         if (this.isLocked()) return;
@@ -3613,7 +3625,9 @@ var init_mood_picker_modal = __esm({
         back.addEventListener("click", () => this.renderScale());
         const save = actions.createEl("button", { text: t(this.settings, "save"), cls: "mod-cta", attr: { type: "button" } });
         this.saveButton = save;
-        save.addEventListener("click", () => this.save(save));
+        save.addEventListener("click", () => {
+          void this.save(save);
+        });
         this.updateControls();
         this.contentEl.querySelector("h3")?.focus();
       }
@@ -3691,7 +3705,7 @@ var init_mood_picker_modal = __esm({
           if (record.note) details.createDiv({ cls: "journal-mood-recovery-note", text: record.note });
           const destination = row.createEl("input", { attr: { type: "text", value: path, "aria-label": t(this.settings, "moodRestoreDestination"), title: t(this.settings, "moodRestoreDestination") } });
           const restore = row.createEl("button", { text: t(this.settings, "restoreMood"), attr: { type: "button" } });
-          restore.addEventListener("click", async () => {
+          const restoreOrphan = async () => {
             restore.disabled = true;
             try {
               try {
@@ -3717,6 +3731,9 @@ var init_mood_picker_modal = __esm({
             } finally {
               restore.disabled = false;
             }
+          };
+          restore.addEventListener("click", () => {
+            void restoreOrphan();
           });
         }
       }
@@ -5074,7 +5091,7 @@ var init_journal_timeline_view = __esm({
         editor.setAttribute("role", "group");
         editor.removeAttribute("tabindex");
         editor.textContent = "";
-        const input = document.createElement("input");
+        const input = createEl("input");
         input.type = "text";
         input.value = initialTitle;
         input.maxLength = 200;
@@ -5655,12 +5672,12 @@ var init_on_this_day = __esm({
       }
       open() {
         const lang = this.plugin.settings.weatherLanguage;
-        this.backdrop = document.createElement("div");
+        this.backdrop = createDiv();
         this.backdrop.className = "cal-otd-modal";
         this.backdrop.addEventListener("click", (e) => {
           if (e.target === this.backdrop) this.close();
         });
-        const panel = document.createElement("div");
+        const panel = createDiv();
         panel.className = "cal-otd-panel";
         this.panel = panel;
         const header = panel.createDiv({ cls: "cal-otd-header" });
@@ -5877,8 +5894,7 @@ function resolveWeatherOnThisDayHost(container) {
 function createStandaloneOnThisDayHost(container) {
   const existing = asHtmlElement(container.querySelector(".cal-weather-card.cal-otd-standalone"));
   if (existing) return existing;
-  const card = container.ownerDocument.createElement("div");
-  card.className = "cal-weather-card cal-otd-standalone";
+  const card = container.createDiv({ cls: "cal-weather-card cal-otd-standalone" });
   const setup = container.querySelector(".cal-weather-setup");
   const weekdays = container.querySelector(".cal-weekdays");
   if (setup?.parentElement === container) setup.insertAdjacentElement("afterend", card);
@@ -5889,29 +5905,15 @@ function createStandaloneOnThisDayHost(container) {
 function mountOnThisDayStrip(host, model) {
   host.classList.add("has-otd");
   host.querySelector(".cal-otd-strip")?.remove();
-  const doc = host.ownerDocument;
-  const strip = doc.createElement("button");
+  const strip = host.createEl("button", { cls: "cal-otd-strip" });
   strip.type = "button";
-  strip.className = "cal-otd-strip";
   strip.setAttribute("aria-label", model.ariaLabel);
   if (model.dateStr) strip.dataset.otdDate = model.dateStr;
-  const photo = doc.createElement("span");
-  photo.className = "cal-otd-strip-photo";
-  photo.setAttribute("aria-hidden", "true");
-  const text = doc.createElement("span");
-  text.className = "cal-otd-strip-text";
-  const title = doc.createElement("span");
-  title.className = "cal-otd-strip-title";
-  title.textContent = model.title;
-  const meta = doc.createElement("span");
-  meta.className = "cal-otd-strip-meta";
-  meta.textContent = model.meta;
-  text.append(title, meta);
-  const chevron = doc.createElement("span");
-  chevron.className = "cal-otd-strip-chevron";
-  chevron.setAttribute("aria-hidden", "true");
-  strip.append(photo, text, chevron);
-  host.append(strip);
+  strip.createSpan({ cls: "cal-otd-strip-photo", attr: { "aria-hidden": "true" } });
+  const text = strip.createSpan({ cls: "cal-otd-strip-text" });
+  text.createSpan({ cls: "cal-otd-strip-title", text: model.title });
+  text.createSpan({ cls: "cal-otd-strip-meta", text: model.meta });
+  strip.createSpan({ cls: "cal-otd-strip-chevron", attr: { "aria-hidden": "true" } });
   return strip;
 }
 var ON_THIS_DAY_ENTRY_MODES;
@@ -6620,12 +6622,15 @@ var init_settings_tab = __esm({
               const input = label.createEl("input", { attr: { type: "checkbox", value } });
               input.checked = selected.has(value);
               label.createSpan({ text: t(this.plugin.settings, labelKey) });
-              input.addEventListener("change", async () => {
+              const applyDisplayField = async () => {
                 if (input.checked) selected.add(value);
                 else selected.delete(value);
                 this.plugin.settings.weatherDisplayFields = fields.map(([key]) => key).filter((key) => selected.has(key));
                 if (!await this._saveSettings()) return;
                 await this._refreshViews();
+              };
+              input.addEventListener("change", () => {
+                void applyDisplayField();
               });
             }
           }
@@ -6781,7 +6786,7 @@ var init_settings_tab = __esm({
         );
       }
       renderSuggestion(folder, el) {
-        el.createEl("span", { text: folder.path });
+        el.createSpan({ text: folder.path });
       }
       onChooseSuggestion(folder) {
         this.onSubmit(folder.path);
@@ -6794,6 +6799,36 @@ var init_settings_tab = __esm({
 var require_badge_sun = __commonJS({
   "icons/badge-sun.svg?raw"(exports2, module2) {
     module2.exports = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/> <path d="M12 2v2"/> <path d="M12 20v2"/> <path d="m4.93 4.93 1.41 1.41"/> <path d="m17.66 17.66 1.41 1.41"/> <path d="M2 12h2"/> <path d="M20 12h2"/> <path d="m6.34 17.66-1.41 1.41"/> <path d="m19.07 4.93-1.41 1.41"/></svg>\n';
+  }
+});
+
+// src/badge-svg.ts
+var badge_svg_exports = {};
+__export(badge_svg_exports, {
+  appendBadgeSvg: () => appendBadgeSvg
+});
+function stripExecutableContent(root) {
+  root.querySelectorAll("script").forEach((script) => script.remove());
+  root.querySelectorAll("*").forEach((node) => {
+    for (const attribute of Array.from(node.attributes)) {
+      if (attribute.name.toLowerCase().startsWith("on")) node.removeAttribute(attribute.name);
+    }
+  });
+}
+function appendBadgeSvg(parent, markup) {
+  if (!markup) return null;
+  const parsed = new DOMParser().parseFromString(markup, "image/svg+xml");
+  if (parsed.querySelector("parsererror")) return null;
+  const svg = parsed.documentElement;
+  if (svg?.tagName?.toLowerCase() !== "svg") return null;
+  stripExecutableContent(parsed);
+  const imported = parent.ownerDocument.importNode(svg, true);
+  parent.appendChild(imported);
+  return imported;
+}
+var init_badge_svg = __esm({
+  "src/badge-svg.ts"() {
+    "use strict";
   }
 });
 
@@ -6915,6 +6950,7 @@ __export(weather_service_exports, {
   isRetryableWeatherFailure: () => isRetryableWeatherFailure,
   lookupWeatherCode: () => lookupWeatherCode,
   requestWeatherWithRetry: () => requestWeatherWithRetry,
+  toWeatherError: () => toWeatherError,
   validateWeatherCoordinates: () => validateWeatherCoordinates,
   weatherBadgeIcon: () => weatherBadgeIcon
 });
@@ -6944,6 +6980,14 @@ function getWeatherRetryDelay(attempt, options = {}) {
   const max = Math.max(base, Number(options.maxDelayMs ?? WEATHER_RETRY_MAX_DELAY_MS));
   return Math.min(max, base * 2 ** Math.max(0, attempt - 1));
 }
+function toWeatherError(reason) {
+  if (reason instanceof Error) return reason;
+  const message = typeof reason === "string" ? reason : `Weather request failed: ${String(reason)}`;
+  const error = new Error(message);
+  const status = errorStatus(reason);
+  if (status !== void 0) error.status = status;
+  return error;
+}
 async function requestWeatherWithRetry(request, options = {}) {
   const requestedAttempts = Number(options.maxAttempts ?? WEATHER_MAX_ATTEMPTS);
   const maxAttempts = Math.max(1, Math.min(
@@ -6960,12 +7004,12 @@ async function requestWeatherWithRetry(request, options = {}) {
       lastError = new WeatherRequestError(`Weather API returned status ${status}`, status);
       if (attempt >= maxAttempts || !isRetryableWeatherFailure(lastError)) throw lastError;
     } catch (error) {
-      lastError = error;
-      if (attempt >= maxAttempts || !isRetryableWeatherFailure(error)) throw error;
+      lastError = toWeatherError(error);
+      if (attempt >= maxAttempts || !isRetryableWeatherFailure(lastError)) throw lastError;
     }
     await sleep(getWeatherRetryDelay(attempt, options));
   }
-  throw lastError || new Error("Weather request failed");
+  throw lastError ?? new Error("Weather request failed");
 }
 function badgeIconFromScene(icon) {
   return SCENE_TO_BADGE[icon] || "badge-cloud.svg";
@@ -22833,14 +22877,23 @@ function loadMediaBunny() {
 function withTimeout(promise, timeoutMs) {
   return new Promise((resolve, reject) => {
     const timer = window.setTimeout(() => reject(new Error(`media operation timed out after ${timeoutMs}ms`)), timeoutMs);
-    promise.then((value) => {
-      window.clearTimeout(timer);
-      resolve(value);
-    }, (error) => {
-      window.clearTimeout(timer);
-      reject(error);
-    });
+    promise.then(
+      (value) => {
+        window.clearTimeout(timer);
+        resolve(value);
+      },
+      // Rejections are forwarded as Error instances; a non-Error reason would
+      // otherwise surface to callers as a bare value.
+      (error) => {
+        window.clearTimeout(timer);
+        reject(toMediaError(error));
+      }
+    );
   });
+}
+function toMediaError(reason) {
+  if (reason instanceof Error) return reason;
+  return new Error(typeof reason === "string" ? reason : `media operation failed: ${String(reason)}`);
 }
 function fieldValue(fields, key) {
   return fields?.find((field) => field.key === key)?.value;
@@ -22921,7 +22974,7 @@ function canvasToObjectUrl(canvas) {
         try {
           resolve(URL.createObjectURL(blob));
         } catch (error) {
-          reject(error);
+          reject(toMediaError(error));
         }
       }, "image/jpeg", 0.8);
     });
@@ -23201,7 +23254,7 @@ var init_media_service = __esm({
       }
       async readNativeVideoMetadata(resource) {
         if (typeof document === "undefined") return null;
-        const video = document.createElement("video");
+        const video = createEl("video");
         video.preload = "metadata";
         video.muted = true;
         video.src = resource;
@@ -23300,7 +23353,7 @@ var init_media_service = __esm({
       }
       async createNativeVideoCover(attachment, resource) {
         if (typeof document === "undefined") return null;
-        const video = document.createElement("video");
+        const video = createEl("video");
         video.preload = "auto";
         video.muted = true;
         video.playsInline = true;
@@ -23366,7 +23419,7 @@ var init_media_service = __esm({
           }
           const dimensions = scaleVideoCoverDimensions(video.videoWidth, video.videoHeight);
           if (!dimensions) return null;
-          const canvas = document.createElement("canvas");
+          const canvas = createEl("canvas");
           canvas.width = dimensions.width;
           canvas.height = dimensions.height;
           const context = canvas.getContext("2d");
@@ -24320,7 +24373,7 @@ var init_image_metadata = __esm({
             console.warn("[Dayline] HEIC conversion skipped: dimensions exceed resource limits");
             return null;
           }
-          const canvas = document.createElement("canvas");
+          const canvas = createEl("canvas");
           canvas.width = origW;
           canvas.height = origH;
           const ctx = canvas.getContext("2d");
@@ -24339,7 +24392,7 @@ var init_image_metadata = __esm({
             tw = Math.round(origW * scale);
             th = Math.round(origH * scale);
           }
-          const thumb = document.createElement("canvas");
+          const thumb = createEl("canvas");
           thumb.width = tw;
           thumb.height = th;
           const thumbCtx = thumb.getContext("2d");
@@ -24826,6 +24879,7 @@ var {
 } = (init_on_this_day_entry(), __toCommonJS(on_this_day_entry_exports));
 var { DaylineSettingsTab: DaylineSettingsTab2 } = (init_settings_tab(), __toCommonJS(settings_tab_exports));
 var badgeSunSvg = require_badge_sun();
+var { appendBadgeSvg: appendBadgeSvg2 } = (init_badge_svg(), __toCommonJS(badge_svg_exports));
 var badgeCloudSunSvg = require_badge_cloud_sun();
 var badgeCloudSvg = require_badge_cloud();
 var badgeFogSvg = require_badge_fog();
@@ -25238,7 +25292,7 @@ var DaylinePlugin = class extends Plugin {
         const legacyPath = dataPath(legacyId);
         if (!await adapter.exists(legacyPath)) continue;
         await adapter.write(currentPath, await adapter.read(legacyPath));
-        console.info(`[Dayline] Migrated ${legacyId} settings and weather cache.`);
+        console.debug(`[Dayline] Migrated ${legacyId} settings and weather cache.`);
         return;
       }
     } catch (error) {
@@ -25607,7 +25661,7 @@ ${path}`)) return false;
   /* ----- Shared EXIF Tooltip (used by calendar view + note-image hover) ----- */
   _ensureExifTooltip() {
     if (this._exifTooltipEl) return;
-    const tip = document.createElement("div");
+    const tip = createDiv();
     tip.className = "cal-exif-tooltip";
     document.body.appendChild(tip);
     this._exifTooltipEl = tip;
@@ -25618,7 +25672,7 @@ ${path}`)) return false;
     const lang = this.settings.weatherLanguage;
     tip.replaceChildren();
     const addText = (tag, className, value) => {
-      const el = document.createElement(tag);
+      const el = createEl(tag);
       if (className) el.className = className;
       el.textContent = String(value ?? "");
       return el;
@@ -26234,7 +26288,7 @@ var CalendarView = class extends ItemView2 {
     this._renderOnThisDayEntry(el);
     const wd = el.createDiv({ cls: "cal-weekdays" });
     for (const day of getCalendarWeekdays2(this.plugin.settings)) {
-      wd.createEl("span", { cls: "cal-weekday", text: day });
+      wd.createSpan({ cls: "cal-weekday", text: day });
     }
     const grid = el.createDiv({ cls: "cal-grid" });
     const touchRouting = calendarCellTouchRouting2(
@@ -26323,7 +26377,7 @@ var CalendarView = class extends ItemView2 {
         }
       }
       if (touchRouting.showEntryCountControl && this.plugin.settings.showCalendarEntryCount !== false && dateEntry.entryCount > 1) {
-        cell.createEl("span", {
+        cell.createSpan({
           cls: "cal-entry-count",
           text: `+${dateEntry.entryCount - 1}`,
           attr: {
@@ -26338,8 +26392,8 @@ var CalendarView = class extends ItemView2 {
         if (snap) {
           const iconFile = weatherBadgeIcon2(snap);
           const category = BADGE_ICON_CATEGORY[iconFile] ?? "weather-cat-cloud";
-          const badge = cell.createEl("span", { cls: `cal-weather-badge ${category}` });
-          badge.innerHTML = BADGE_SVG[iconFile] ?? BADGE_SVG["badge-cloud.svg"] ?? "";
+          const badge = cell.createSpan({ cls: `cal-weather-badge ${category}` });
+          appendBadgeSvg2(badge, BADGE_SVG[iconFile] ?? BADGE_SVG["badge-cloud.svg"]);
           badge.setAttribute("aria-label", `${snap.condition}, ${snap.temperature}${this._unitSymbol(snap.units)}`);
           badge.title = `${snap.condition} \xB7 ${snap.temperature}${this._unitSymbol(snap.units)}`;
         }
@@ -26373,7 +26427,7 @@ var CalendarView = class extends ItemView2 {
           cell.createDiv({ cls: "cal-otd-dot" });
         }
       }
-      cell.createEl("span", { cls: "cal-day-num", text: String(d) });
+      cell.createSpan({ cls: "cal-day-num", text: String(d) });
       bindOpenOnPointer2(cell, {
         coarsePointer: this.plugin.capabilities?.coarsePointer,
         shouldOpen: shouldOpenCalendarDateFromPointer2,
@@ -27211,7 +27265,7 @@ var CalendarView = class extends ItemView2 {
     const reference = link || owner;
     const parent = reference?.parentElement;
     if (!parent) return;
-    const button = document.createElement("button");
+    const button = createEl("button");
     button.className = "dayline-note-media-info";
     button.type = "button";
     button.setAttribute("aria-label", t2(this.plugin.settings, "mediaMetadata"));
