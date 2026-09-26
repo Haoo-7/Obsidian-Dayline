@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { detectPlatformCapabilities, resolveCapabilityRoute } from '../src/platform-capabilities';
+import { detectPlatformCapabilities, resolveCapabilityRoute, usesPhoneLayout } from '../src/platform-capabilities';
 
 function browser(overrides: any = {}) {
   return {
@@ -10,7 +10,9 @@ function browser(overrides: any = {}) {
     navigator: { maxTouchPoints: 5, deviceMemory: 8, hardwareConcurrency: 8 },
     URL: { createObjectURL() {}, revokeObjectURL() {} },
     WebAssembly: { instantiate() {} },
-    matchMedia: () => ({ matches: true }),
+    // Default to a phone-sized viewport so tests opt in to tablet layout
+    // explicitly instead of inheriting it from the coarse-pointer default.
+    matchMedia: (query: string) => ({ matches: query.includes('pointer: coarse') }),
     app: {
       fileManager: { getAvailablePathForAttachment() {} },
       vault: { createBinary() {} },
@@ -96,6 +98,84 @@ describe('platform capability routing', () => {
     expect(result.isTablet).toBe(true);
   });
 
+  it('mirrors Obsidian viewport detection when Platform omits the form factor', () => {
+    const result = detectPlatformCapabilities(browser({
+      Platform: { isMobile: true, isMobileApp: false, isPhone: false, isTablet: false, isDesktop: false },
+      navigator: { maxTouchPoints: 5, deviceMemory: 8, hardwareConcurrency: 8 },
+      matchMedia: (query: string) => ({ matches: query.includes('min-width: 600px') }),
+    }));
+    expect(result.isPhone).toBe(false);
+    expect(result.isTablet).toBe(false);
+    // Obsidian decides tablet vs phone from the viewport; mirror that so a
+    // tablet is never routed through the phone single-leaf layout.
+    expect(result.isTabletLayout).toBe(true);
+    expect(result.isPhoneLayout).toBe(false);
+  });
+
+  it('follows the viewport even when the host reports no touch points', () => {
+    // Desktop mobile emulation reports maxTouchPoints: 0 while still driving
+    // Obsidian's is-tablet body class from the viewport query alone. Requiring a
+    // touch point here would wrongly force the phone layout on a real tablet.
+    const result = detectPlatformCapabilities(browser({
+      Platform: { isMobile: true, isMobileApp: false, isPhone: false, isTablet: false, isDesktop: false },
+      navigator: { maxTouchPoints: 0, deviceMemory: 8, hardwareConcurrency: 8 },
+      matchMedia: (query: string) => ({ matches: query.includes('min-width: 600px') }),
+    }));
+    expect(result.isTabletLayout).toBe(true);
+    expect(result.isPhoneLayout).toBe(false);
+  });
+
+  it('prefers the live viewport over a stale Platform flag', () => {
+    // Obsidian sets isTablet = mq.matches and isPhone = !mq.matches from one
+    // query, and skips the update while the soft keyboard is visible. A stale
+    // pair therefore must not override the viewport currently being rendered.
+    const shrunk = detectPlatformCapabilities(browser({
+      Platform: { isMobile: true, isMobileApp: true, isPhone: false, isTablet: true, isIosApp: true },
+      navigator: { maxTouchPoints: 5, deviceMemory: 8, hardwareConcurrency: 8 },
+      matchMedia: (query: string) => ({ matches: query.includes('pointer: coarse') }),
+    }));
+    expect(shrunk.isPhoneLayout).toBe(true);
+    expect(shrunk.isTabletLayout).toBe(false);
+
+    const grown = detectPlatformCapabilities(browser({
+      Platform: { isMobile: true, isMobileApp: true, isPhone: true, isTablet: false, isIosApp: true },
+      navigator: { maxTouchPoints: 5, deviceMemory: 8, hardwareConcurrency: 8 },
+      matchMedia: (query: string) => ({ matches: true }),
+    }));
+    expect(grown.isPhoneLayout).toBe(false);
+    expect(grown.isTabletLayout).toBe(true);
+  });
+
+  it('falls back to the Platform flag when no media query exists', () => {
+    const result = detectPlatformCapabilities(browser({
+      Platform: { isMobile: true, isMobileApp: true, isPhone: false, isTablet: true, isIosApp: true },
+      navigator: { maxTouchPoints: 5, deviceMemory: 8, hardwareConcurrency: 8 },
+      matchMedia: undefined,
+    }));
+    expect(result.isPhoneLayout).toBe(false);
+    expect(result.isTabletLayout).toBe(true);
+  });
+
+  it('keeps a small touch viewport on the phone layout', () => {
+    const result = detectPlatformCapabilities(browser({
+      Platform: { isMobile: true, isMobileApp: true, isPhone: true, isTablet: false, isIosApp: true },
+      navigator: { maxTouchPoints: 5, deviceMemory: 8, hardwareConcurrency: 8 },
+      matchMedia: (query: string) => ({ matches: query.includes('pointer: coarse') }),
+    }));
+    expect(result.isPhoneLayout).toBe(true);
+    expect(result.isTabletLayout).toBe(false);
+  });
+
+  it('never infers a phone layout on a non-mobile host', () => {
+    const result = detectPlatformCapabilities(browser({
+      Platform: { isMobile: false, isMobileApp: false, isPhone: false, isTablet: false, isDesktop: true },
+      navigator: { maxTouchPoints: 0, deviceMemory: 8, hardwareConcurrency: 8 },
+      matchMedia: () => ({ matches: false }),
+    }));
+    expect(result.isPhoneLayout).toBe(false);
+    expect(result.isTabletLayout).toBe(false);
+  });
+
   it('keeps desktop mobile emulation as isMobile without marking a phone or tablet app', () => {
     const result = detectPlatformCapabilities(browser({
       Platform: { isMobile: true, isMobileApp: false, isPhone: false, isTablet: false, isDesktop: false },
@@ -104,6 +184,20 @@ describe('platform capability routing', () => {
     expect(result.isMobileApp).toBe(false);
     expect(result.isPhone).toBe(false);
     expect(result.isTablet).toBe(false);
+  });
+
+  it('falls back to the mobile flag when a host predates isPhoneLayout', () => {
+    // Hand-built hosts and older capability snapshots must keep their previous
+    // phone behavior instead of being silently promoted to the tablet path.
+    expect(usesPhoneLayout({ isMobile: true } as any)).toBe(true);
+    expect(usesPhoneLayout({ isMobile: false } as any)).toBe(false);
+    expect(usesPhoneLayout(null)).toBe(false);
+    expect(usesPhoneLayout(undefined)).toBe(false);
+  });
+
+  it('prefers the explicit phone-layout flag when present', () => {
+    expect(usesPhoneLayout({ isMobile: true, isPhoneLayout: false } as any)).toBe(false);
+    expect(usesPhoneLayout({ isMobile: false, isPhoneLayout: true } as any)).toBe(true);
   });
 
   it('does not infer phone or tablet flags on desktop', () => {

@@ -16,6 +16,7 @@ import { isInteractiveTimelineTarget, shouldOpenTimelineEntryFromKey, shouldOpen
 import { startJournalIndexLoad } from './journal-index';
 import { getJournalOpenLeaf, renderMobileDaylineModeControls } from './dayline-mobile';
 import { bindOpenOnPointer } from './touch-targets';
+import { usesPhoneLayout } from './platform-capabilities';
 
 export const JOURNAL_TIMELINE_VIEW = 'journal-timeline-view';
 const TIMELINE_PAGE_SIZE = 50;
@@ -78,7 +79,7 @@ export class JournalTimelineView extends ItemView {
   getIcon() { return 'list'; }
 
   _renderMobileModeControls(root) {
-    if (!this.plugin.capabilities?.isMobile) return;
+    if (!usesPhoneLayout(this.plugin.capabilities)) return;
     renderMobileDaylineModeControls(root, {
       activeMode: 'timeline',
       labels: {
@@ -94,13 +95,13 @@ export class JournalTimelineView extends ItemView {
   }
 
   _getMobileTimelineFilter() {
-    if (!this.plugin.capabilities?.isMobile) return {};
+    if (!usesPhoneLayout(this.plugin.capabilities)) return {};
     const filter = this.plugin._getMobileTimelineFilter?.();
     return filter && typeof filter === 'object' ? { ...filter } : {};
   }
 
   _persistMobileTimelineFilter() {
-    if (this.plugin.capabilities?.isMobile) this.plugin._setMobileTimelineFilter?.(this.filter);
+    if (usesPhoneLayout(this.plugin.capabilities)) this.plugin._setMobileTimelineFilter?.(this.filter);
   }
 
   setDateFilter(date) {
@@ -114,7 +115,7 @@ export class JournalTimelineView extends ItemView {
     this.closed = false;
     this.journalIndexError = null;
     const root = this.contentEl;
-    if (this.plugin.capabilities?.isMobile) this.containerEl.addClass('dayline-mobile-native-view');
+    if (usesPhoneLayout(this.plugin.capabilities)) this.containerEl.addClass('dayline-mobile-native-view');
     root.removeClass('cal-calendar-content');
     root.addEventListener('scroll', this.thumbnailScrollHandler, { passive: true });
     if (typeof ResizeObserver !== 'undefined') {
@@ -163,7 +164,7 @@ export class JournalTimelineView extends ItemView {
     this.thumbnailLoaders.clear();
     this.unsubscribe?.();
     this.unsubscribe = null;
-    if (!this.plugin.capabilities?.isMobile) {
+    if (!usesPhoneLayout(this.plugin.capabilities)) {
       this.plugin.viewVisibilityController?.viewClosed('timeline')
         .then(() => this.plugin._syncDaylineRibbon())
         .catch((error) => console.warn('[Dayline] Timeline close state sync failed:', error?.message || error));
@@ -837,7 +838,7 @@ export class JournalTimelineView extends ItemView {
       if (this.plugin.openJournalFile) {
         await this.plugin.openJournalFile(file);
       } else {
-        const leaf = getJournalOpenLeaf(this.app.workspace, this.plugin.capabilities?.isMobile);
+        const leaf = getJournalOpenLeaf(this.app.workspace, usesPhoneLayout(this.plugin.capabilities));
         if (!leaf) throw new Error('No markdown leaf is available');
         await leaf.openFile(file);
       }

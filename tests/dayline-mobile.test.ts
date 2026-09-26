@@ -345,7 +345,9 @@ describe('mobile Dayline routing', () => {
     const calendarOpenEnd = pluginSource.indexOf('if (file instanceof TFile)', calendarOpenStart);
     const calendarOpenSource = pluginSource.slice(calendarOpenStart, calendarOpenEnd);
 
-    expect(pluginOpenSource).toContain('getJournalOpenLeaf(workspace, this.capabilities?.isMobile)');
+    // Only the phone layout lacks a reusable Markdown tab; tablets and desktop
+    // must reuse the active or first Markdown leaf.
+    expect(pluginOpenSource).toContain('getJournalOpenLeaf(workspace, this._usesPhoneDaylineMode())');
     expect(pluginOpenSource).not.toContain("getLeaf('split')");
     expect(pluginOpenSource).toContain('await workspace.revealLeaf?.(leaf);');
     expect(pluginOpenSource).toContain('workspace.setActiveLeaf?.(leaf, { focus: true });');
@@ -365,8 +367,10 @@ describe('mobile Dayline routing', () => {
 
     expect(calendarSource).toContain("activeMode: 'calendar'");
     expect(timelineSource).toContain("activeMode: 'timeline'");
-    expect(calendarSource).toContain('if (!this.plugin.capabilities?.isMobile)');
-    expect(timelineSource).toContain('if (!this.plugin.capabilities?.isMobile)');
+    // Close persistence is owned by the sidebar views off the phone layout;
+    // the phone layout only re-syncs the ribbon.
+    expect(calendarSource).toContain('if (!usesPhoneLayout(this.plugin.capabilities))');
+    expect(timelineSource).toContain('if (!usesPhoneLayout(this.plugin.capabilities))');
     expect(calendarSource).toContain('Promise.resolve().then(() => this.render())');
     expect(calendarSource).not.toContain('this.embedded');
     expect(timelineSource).not.toContain('this.embedded');

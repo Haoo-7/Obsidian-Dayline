@@ -72,6 +72,16 @@ describe('calendar compact cell layout', () => {
     expect(rule).toContain('font-size: 8px');
   });
 
+  it('keeps the tablet mood pip compact so it cannot swallow the date cell', () => {
+    // Obsidian's tablet chrome sets its own button padding, and the coarse-pointer
+    // rule sizes the pip for roomy touch desktops. On a ~48px tablet cell that
+    // 28px pip covered most of the date and intercepted its taps, so tablets must
+    // be excluded from the enlarged variant.
+    const coarse = cssRule(styles, '@media (pointer: coarse) {');
+    expect(coarse).toContain(':not(.dayline-tablet)');
+    expect(styles).toContain('body.dayline-tablet .cal-sidebar .cal-mood-empty');
+  });
+
   it('stacks the weather row above the on-this-day strip', () => {
     const card = cssRule(styles, '.cal-weather-card {');
     const main = cssRule(styles, '.cal-weather-main {');

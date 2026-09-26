@@ -1005,16 +1005,19 @@ button.cal-weather-refresh:hover {
 .cal-mood-button.mood--1 { --journal-mood-color: #4d6fb8; }
 .cal-mood-button.mood--2 { --journal-mood-color: #7652c7; }
 @media (pointer: coarse) {
-  /* Touch-capable desktop hosts do not have a hover state to reveal an empty mood entry. */
-  .dayline-coarse-pointer:not(.dayline-mobile) .cal-mood-button {
+  /* Touch-capable desktop hosts do not have a hover state to reveal an empty
+     mood entry, so their pip is enlarged. Tablets are excluded: a tablet
+     calendar cell is only ~48px, and the same enlarged pip would cover most of
+     it and intercept taps meant for the date. */
+  .dayline-coarse-pointer:not(.dayline-phone):not(.dayline-tablet) .cal-mood-button {
     width: 28px;
     height: 28px;
     left: 0;
     bottom: 0;
   }
-  .dayline-coarse-pointer:not(.dayline-mobile) .cal-mood-empty { opacity: 0.78; }
-  .dayline-coarse-pointer:not(.dayline-mobile) .cal-mood-empty .cal-mood-dot { width: 12px; height: 12px; }
-  .dayline-coarse-pointer:not(.dayline-mobile) .cal-mood-dot { width: 12px; height: 12px; }
+  .dayline-coarse-pointer:not(.dayline-phone):not(.dayline-tablet) .cal-mood-empty { opacity: 0.78; }
+  .dayline-coarse-pointer:not(.dayline-phone):not(.dayline-tablet) .cal-mood-empty .cal-mood-dot { width: 12px; height: 12px; }
+  .dayline-coarse-pointer:not(.dayline-phone):not(.dayline-tablet) .cal-mood-dot { width: 12px; height: 12px; }
 }
 /* Narrow sidebars: pin date, weather, and mood to corners so the date stays readable. */
 @container dayline-calendar (max-width: 360px) {
@@ -1032,7 +1035,7 @@ button.cal-weather-refresh:hover {
     height: 10px;
   }
   .cal-sidebar button.cal-mood-button,
-  .dayline-coarse-pointer:not(.dayline-mobile) .cal-sidebar button.cal-mood-button {
+  .dayline-coarse-pointer:not(.dayline-phone) .cal-sidebar button.cal-mood-button {
     width: 16px;
     height: 16px;
     left: 0;
@@ -1040,8 +1043,8 @@ button.cal-weather-refresh:hover {
   }
   .cal-mood-dot,
   .cal-mood-empty .cal-mood-dot,
-  .dayline-coarse-pointer:not(.dayline-mobile) .cal-mood-dot,
-  .dayline-coarse-pointer:not(.dayline-mobile) .cal-mood-empty .cal-mood-dot {
+  .dayline-coarse-pointer:not(.dayline-phone) .cal-mood-dot,
+  .dayline-coarse-pointer:not(.dayline-phone) .cal-mood-empty .cal-mood-dot {
     width: 6px;
     height: 6px;
     border-width: 1px;
@@ -1064,7 +1067,7 @@ button.cal-weather-refresh:hover {
     height: 9px;
   }
   .cal-sidebar button.cal-mood-button,
-  .dayline-coarse-pointer:not(.dayline-mobile) .cal-sidebar button.cal-mood-button {
+  .dayline-coarse-pointer:not(.dayline-phone) .cal-sidebar button.cal-mood-button {
     width: 14px;
     height: 14px;
   }
@@ -1089,7 +1092,7 @@ button.cal-weather-refresh:hover {
   z-index: 2;
 }
 .cal-sidebar.cal-mood-marker-bar button.cal-mood-button,
-.dayline-coarse-pointer:not(.dayline-mobile) .cal-sidebar.cal-mood-marker-bar button.cal-mood-button {
+.dayline-coarse-pointer:not(.dayline-phone) .cal-sidebar.cal-mood-marker-bar button.cal-mood-button {
   left: 0;
   right: 0;
   bottom: 0;
@@ -1102,8 +1105,8 @@ button.cal-weather-refresh:hover {
 }
 .cal-sidebar.cal-mood-marker-bar .cal-mood-dot,
 .cal-sidebar.cal-mood-marker-bar .cal-mood-empty .cal-mood-dot,
-.dayline-coarse-pointer:not(.dayline-mobile) .cal-sidebar.cal-mood-marker-bar .cal-mood-dot,
-.dayline-coarse-pointer:not(.dayline-mobile) .cal-sidebar.cal-mood-marker-bar .cal-mood-empty .cal-mood-dot {
+.dayline-coarse-pointer:not(.dayline-phone) .cal-sidebar.cal-mood-marker-bar .cal-mood-dot,
+.dayline-coarse-pointer:not(.dayline-phone) .cal-sidebar.cal-mood-marker-bar .cal-mood-empty .cal-mood-dot {
   width: 38%;
   min-width: 8px;
   max-width: 16px;
@@ -1131,7 +1134,7 @@ button.cal-weather-refresh:hover {
     font-size: 11px;
   }
   .cal-mood-marker-bar button.cal-mood-button,
-  .dayline-coarse-pointer:not(.dayline-mobile) .cal-mood-marker-bar button.cal-mood-button {
+  .dayline-coarse-pointer:not(.dayline-phone) .cal-mood-marker-bar button.cal-mood-button {
     width: 100%;
     height: 14px;
     left: 0;
@@ -1140,8 +1143,8 @@ button.cal-weather-refresh:hover {
   }
   .cal-mood-marker-bar .cal-mood-dot,
   .cal-mood-marker-bar .cal-mood-empty .cal-mood-dot,
-  .dayline-coarse-pointer:not(.dayline-mobile) .cal-mood-marker-bar .cal-mood-dot,
-  .dayline-coarse-pointer:not(.dayline-mobile) .cal-mood-marker-bar .cal-mood-empty .cal-mood-dot {
+  .dayline-coarse-pointer:not(.dayline-phone) .cal-mood-marker-bar .cal-mood-dot,
+  .dayline-coarse-pointer:not(.dayline-phone) .cal-mood-marker-bar .cal-mood-empty .cal-mood-dot {
     width: 36%;
     max-width: 12px;
     height: 3px;
@@ -1312,6 +1315,74 @@ button.cal-weather-refresh:hover {
 .dayline-mobile-mode-button { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; padding: 10px; border: 0; border-radius: 6px; color: var(--text-muted); background: transparent; }
 .dayline-mobile-mode-button.is-active { color: var(--text-accent); background: var(--background-modifier-hover); }
 .dayline-mobile-mode-button:focus-visible { outline: 2px solid var(--interactive-accent); outline-offset: 2px; }
+
+/* --- Tablet layout ---
+   Obsidian's tablet interface keeps desktop chrome (ribbon, sidebars, stacked
+   tabs) but stays touch-first. Dayline renders its normal sidebar view there,
+   so only the differences that follow from a wide, touch-driven canvas need
+   handling. Touch target sizing is already covered by the coarse-pointer rules
+   below. */
+
+/* Obsidian ships `.is-tablet button:not(.clickable-icon) { padding: 4px 20px }`.
+   That 20px horizontal padding is designed for text buttons, but Dayline's
+   square icon buttons inherit it and it outranks `.cal-icon-button`'s own
+   padding, squeezing a 44px button down to a 4px-wide icon slot — the month
+   chevrons collapse to slivers. Restore square padding for the icon buttons and
+   keep their glyph at a touch-legible size. */
+body.dayline-tablet .cal-icon-button,
+body.dayline-tablet .cal-weather-refresh,
+body.dayline-tablet .cal-nav,
+body.dayline-tablet .cal-otd-header-button,
+body.dayline-tablet .dayline-mobile-mode-button,
+body.dayline-tablet .journal-timeline-actions button,
+body.dayline-tablet .journal-timeline-filter-row > button {
+  padding: 8px;
+  box-sizing: border-box;
+}
+body.dayline-tablet .cal-icon-button > svg,
+body.dayline-tablet .cal-weather-refresh > svg,
+body.dayline-tablet .cal-otd-header-button > svg,
+body.dayline-tablet .journal-timeline-actions button > svg,
+body.dayline-tablet .journal-timeline-filter-row > button > svg {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  max-width: none;
+}
+/* A 44px touch box around the glyph, without letting the box double as a
+   full-width text button. */
+body.dayline-tablet .cal-icon-button,
+body.dayline-tablet .cal-weather-refresh,
+body.dayline-tablet .journal-timeline-actions button,
+body.dayline-tablet .journal-timeline-filter-row > button {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+/* A sidebar or main-area view dragged very wide must not inflate seven date
+   cells into ~200px squares; cap the grid and centre it. */
+body.dayline-tablet .cal-grid,
+body.dayline-tablet .cal-weekdays {
+  max-width: 560px;
+  margin-left: auto;
+  margin-right: auto;
+}
+/* Tablets show thumbnails in timeline cards; give them a little more room than
+   the compact phone sidebar layout. */
+body.dayline-tablet .journal-timeline-entry.has-thumbnail {
+  grid-template-columns: 30px minmax(0, 1fr) 104px;
+}
+
+/* Tablets render the in-cell mood control too, but their calendar cell is only
+   ~48px. The coarse-pointer sizing below is tuned for roomy touch *desktops*,
+   where a 28px pip and a 0.78-opacity empty frame are fine; on a tablet that
+   pip swallows most of the cell and steals taps aimed at the date. Let the
+   compact base sizing apply instead, and keep the empty state faint but
+   visible, since a tablet has no hover to reveal it. */
+body.dayline-tablet .cal-sidebar .cal-mood-empty {
+  opacity: 0.5;
+}
+
 .journal-mood-recovery-modal .modal-content { width: min(560px, calc(100vw - 20px)); max-width: calc(100vw - 20px); min-width: 0; box-sizing: border-box; }
 .journal-mood-recovery-description { color: var(--text-muted); font-size: 12px; }
 .journal-mood-recovery-list { display: grid; gap: 8px; min-width: 0; }

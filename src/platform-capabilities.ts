@@ -5,6 +5,18 @@ export type PlatformCapabilities = {
   isMobileApp: boolean;
   isPhone: boolean;
   isTablet: boolean;
+  /**
+   * Obsidian's tablet UI. A mobile host with enough screen space keeps
+   * desktop-like chrome: a pin-able sidebar, tab stacking, and splits.
+   * Source: `Platform.isTablet` (documented as "sufficiently large screen space").
+   */
+  isTabletLayout: boolean;
+  /**
+   * Obsidian's phone UI. One leaf, no split, no ribbon. Also covers mobile
+   * layouts Obsidian cannot classify as a tablet, including desktop mobile
+   * emulation at a small viewport.
+   */
+  isPhoneLayout: boolean;
   isIos: boolean;
   isAndroid: boolean;
   isDesktop: boolean;
@@ -41,6 +53,26 @@ function route(enabled: boolean, fallback: boolean): CapabilityRoute {
   return enabled ? (fallback ? 'fallback' : 'full') : 'disabled';
 }
 
+/**
+ * Whether the app viewport is large enough for Obsidian's tablet interface.
+ *
+ * Obsidian itself decides phone vs tablet with exactly this media query in the
+ * app window (`Platform.isTablet` and the `is-tablet`/`is-phone` body classes are
+ * both driven by it). Mirroring that single rule — rather than a width, a user
+ * agent, or a touch-point count — keeps the plugin's layout in step with the
+ * chrome Obsidian actually renders, including during the moment before
+ * `Platform.isTablet` updates on a resize.
+ *
+ * Callers must still scope this to mobile hosts: a resized desktop window can
+ * satisfy the query too, but that path never uses the mobile layout.
+ */
+function isWideTabletViewport(
+  mediaQuery?: (query: string) => { matches?: boolean },
+): boolean {
+  if (typeof mediaQuery !== 'function') return false;
+  return Boolean(mediaQuery('(min-width: 600px) and (min-height: 600px)')?.matches);
+}
+
 export function detectPlatformCapabilities(input: DetectionInput = {}): PlatformCapabilities {
   // Capability probes must stay popout-safe: resolve host globals through
   // `window` and tolerate hosts where no window exists at all.
@@ -55,6 +87,20 @@ export function detectPlatformCapabilities(input: DetectionInput = {}): Platform
   const isMobileApp = Boolean(platform.isMobileApp);
   const isPhone = Boolean(platform.isPhone);
   const isTablet = Boolean(platform.isTablet);
+  // Obsidian derives BOTH of its own form-factor flags from this one viewport
+  // query, but it only refreshes them on a debounced media-query change and
+  // skips the update entirely while the soft keyboard is visible. That makes
+  // `Platform.isPhone`/`isTablet` stale for a moment after a resize or
+  // rotation, so the live query is the better source of truth and is exactly
+  // what Obsidian is rendering from. The Platform flags remain the fallback for
+  // hosts that expose no media query.
+  const viewportTablet = typeof mediaQuery === 'function'
+    ? isWideTabletViewport(mediaQuery)
+    : undefined;
+  const isPhoneLayout = isMobile
+    ? (viewportTablet !== undefined ? !viewportTablet : !isTablet)
+    : false;
+  const isTabletLayout = isMobile && !isPhoneLayout;
   const isIos = Boolean(platform.isIosApp || platform.isIos || platform.isIOS);
   const isAndroid = Boolean(platform.isAndroidApp || platform.isAndroid);
   const coarsePointer = Boolean(
@@ -99,6 +145,8 @@ export function detectPlatformCapabilities(input: DetectionInput = {}): Platform
     isMobileApp,
     isPhone,
     isTablet,
+    isTabletLayout,
+    isPhoneLayout,
     isIos,
     isAndroid,
     isDesktop: Boolean(platform.isDesktop || (!isMobile && !isIos && !isAndroid)),
@@ -125,4 +173,18 @@ export function resolveCapabilityRoute(capabilities: PlatformCapabilities | unde
   // Callers constructed before capability routing (including older test hosts)
   // retain the pre-routing behavior until the runtime supplies a route.
   return capabilities?.routes?.[feature] || 'full';
+}
+
+/**
+ * Whether Dayline should use its phone layout: a single leaf that swaps between
+ * calendar and timeline, with no sidebar and no ribbon.
+ *
+ * Reads the resolved capability when present and otherwise falls back to the
+ * raw mobile flag, so hand-built hosts and older capability snapshots that
+ * predate `isPhoneLayout` keep their previous behavior instead of silently
+ * being treated as a tablet and given the sidebar path.
+ */
+export function usesPhoneLayout(capabilities: Partial<PlatformCapabilities> | null | undefined): boolean {
+  if (typeof capabilities?.isPhoneLayout === 'boolean') return capabilities.isPhoneLayout;
+  return Boolean(capabilities?.isMobile);
 }
