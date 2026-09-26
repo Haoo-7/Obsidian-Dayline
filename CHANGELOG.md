@@ -1,5 +1,53 @@
 # Changelog
 
+## 2.6.0 (2026-09-26)
+
+### Added
+- Dayline now adapts to Obsidian's tablet interface. Tablets were routed through the phone layout because every branch keyed off `isMobile`, so the calendar replaced the open note and the two views could not coexist. Tablets use the desktop sidebar paths (calendar left, timeline right, active note preserved), while the phone single-leaf swap, mode controls, and shared timeline filter stay gated on the phone layout. `isTabletLayout`/`isPhoneLayout` capabilities read the live viewport first and fall back to the Obsidian `Platform` flags, and `usesPhoneLayout()` keeps hosts that predate the flag on their previous behavior.
+- `npm run build:tablet` emits an independently identified tablet verification build (`dayline-tablet`, namespaced view types) that can be installed next to a normal Dayline install. Obsidian's `registerView` throws on a duplicate view type, so both cannot share one.
+
+### Changed
+- Calendar date-cell weather badges were redrawn as Lucide outline glyphs (ISC) and are now drawn bare, with no backing plate and no `backdrop-filter`. The whole family shares one cloud silhouette that each state adds to, so the shape itself carries the condition: partly-cloudy gains its own glyph, and drizzle (short dashes) is structurally distinct from rain (long streaks) rather than the same drop with a highlight. The previous Phosphor filled sets differed only by details that did not survive badge size.
+- Badge glyphs are inlined from `icons/badge-*.svg` as a single source of truth instead of a duplicated inline table; the seven unused Phosphor badge SVGs and their dead data-URI payload were removed.
+- Condition colours are declared as `--cal-wx-*` custom properties and re-point to a bright set on dark surfaces. The previous single set assumed a light cell and sat at 1.1–2.7:1 on a dark-theme cell, the accent-filled today cell, or a photo cell. Photo cells — 21 of 34 in the demo month, always under a 35% black overlay, with background luminance from 0.0 to 0.92 — also get a dark halo so the stroke separates from the image.
+
+### Fixed
+- Calendar cells on tablets no longer show an empty mood control on every date, which littered the grid with targets that stole date taps; the control renders only where a mood or journal entry exists.
+- The mood picker opens on `click` rather than `pointerdown`, so the tap's trailing click no longer lands on the modal backdrop and dismisses it unless the button is held.
+- The tablet mood pip is sized for its ~48px cell, and tablets are excluded from the enlarged touch-desktop pip that covered most of the cell.
+- Calendar and timeline icon buttons keep square padding and an 18px glyph on tablets. Obsidian's `.is-tablet button:not(.clickable-icon){padding:4px 20px}` outranked `.cal-icon-button` and squeezed 44px buttons into a 4px glyph slot.
+
+### Verification
+- `npm test` passed: 55 test files and 483 tests.
+- `npm run typecheck`, `npm run build` (byte-identical `main.js`), `npm run verify:release`, `npm run verify:release:zip`, and `git diff --check` passed.
+- Badge contrast measured on the rendered pixels of all 21 photo cells: worst case 5.66:1, up from ~1.0:1.
+
+---
+
+## 2.6.0（2026-09-26）
+
+### 新增
+- Dayline 适配 Obsidian 平板界面。此前所有分支都以 `isMobile` 判断，平板被错误地走手机布局，日历会顶掉正在阅读的笔记，两个视图无法共存。现在平板使用桌面侧栏路径（日历在左侧栏、时间线在右侧栏、当前笔记保留），手机的单 leaf 切换、模式切换按钮和共享时间线筛选仅在手机布局下生效。新增 `isTabletLayout`/`isPhoneLayout` 能力判断，优先读取实时视口，无媒体查询时回退到 Obsidian 的 `Platform` 标志；`usesPhoneLayout()` 让尚未支持新标志的宿主保持原有行为。
+- `npm run build:tablet` 产出独立标识的平板验证包（`dayline-tablet`，视图类型加命名空间），可与正式 Dayline 同时安装。Obsidian 的 `registerView` 遇到重复视图类型会抛错，两者无法共用同一标识。
+
+### 变更
+- 日历格子的天气图标改用 Lucide 描边字形（ISC）并去掉底板与 `backdrop-filter`，直接绘制。整族共用同一朵云的轮廓、各天气在其上叠加元素，让形状本身承载语义：多云有了独立图标，毛毛雨（短虚线）与雨（长线条）在结构上真正区分开，不再靠放大后必然消失的高光细节区分。此前的 Phosphor 实心图标正是败在这一点。
+- 徽章字形改为从 `icons/badge-*.svg` 内联，作为唯一数据源，取代原先重复的内联表；同时删除了 7 个已无引用的 Phosphor 徽章 SVG 及其失效的 data URI 负载。
+- 天气配色改用 `--cal-wx-*` 自定义属性，并在深色底上整体切换到亮色集。原先的单套配色以"底色必然是浅色"为前提，在深色主题格子、accent 填充的今天格子和照片格子上的对比度只有 1.1–2.7:1。照片格子（演示月份 34 格中占 21 格，且都压着 35% 黑蒙版，背景亮度跨度 0.0–0.92）额外加一层深色 halo，让笔画与图像分离。
+
+### 修复
+- 平板日历不再在每个日期上显示空的心情控件。此前整片网格都布满会抢走日期点击的空白热区，现在仅在确有心情或日记条目时渲染。
+- 心情选择器改为在 `click` 而非 `pointerdown` 打开。此前在按下时就弹出，会让同一次触摸的后续 click 落在弹窗遮罩上，除非一直按住，否则选择器会立刻被关掉。
+- 平板心情圆点按其约 48px 的格子重新定尺寸，并将平板排除在"触控桌面放大圆点"之外（该样式会覆盖大半个格子）。
+- 平板上的日历与时间线图标按钮保持方形内边距和 18px 字形。Obsidian 的 `.is-tablet button:not(.clickable-icon){padding:4px 20px}` 优先级高于 `.cal-icon-button`，会把 44px 按钮压成 4px 宽的字形槽。
+
+### 验证
+- `npm test` 通过：55 个测试文件、483 项测试。
+- `npm run typecheck`、`npm run build`（`main.js` 字节一致）、`npm run verify:release`、`npm run verify:release:zip` 和 `git diff --check` 通过。
+- 对全部 21 个照片格子的实际渲染像素实测徽章对比度：最坏 5.66:1，修复前约 1.0:1。
+
+---
+
 ## 2.5.0 (2026-09-25)
 
 ### Added

@@ -1,7 +1,7 @@
 {
   "name": "dayline",
   "private": true,
-  "version": "2.5.0",
+  "version": "2.6.0",
   "description": "Dayline Obsidian plugin source and test tooling",
   "author": "Haoo",
   "scripts": {
