@@ -555,7 +555,9 @@ button.cal-weather-refresh:hover {
 }
 /* --- Weather badge on day cells ---
    Lucide stroke glyphs, drawn bare: no plate, no backdrop-filter. The family shares one
-   cloud silhouette, so the shape itself carries the state and stays legible at 14px. */
+   cloud silhouette, so the shape itself carries the state and stays legible at 14px.
+   Condition colors are custom properties so the whole set can be re-pointed for a dark
+   surface in one place rather than duplicating eight rules per context. */
 .cal-weather-badge {
   position: absolute;
   top: 2px;
@@ -566,6 +568,16 @@ button.cal-weather-refresh:hover {
   box-sizing: border-box;
   z-index: 3;
   pointer-events: none;
+  /* Dark ink, for light surfaces. Measured against the real
+     `--background-secondary-alt` (#fcfcfc): every entry clears 3.2:1. */
+  --cal-wx-sun: #B7791F;
+  --cal-wx-cloud-sun: #7C8DA4;
+  --cal-wx-cloud: #64748B;
+  --cal-wx-fog: #7C8DA4;
+  --cal-wx-drizzle: #3B82F6;
+  --cal-wx-rain: #2563EB;
+  --cal-wx-snow: #0891B2;
+  --cal-wx-storm: #C2410C;
 }
 .cal-weather-badge svg {
   width: 14px;
@@ -573,19 +585,39 @@ button.cal-weather-refresh:hover {
   display: block;
   flex-shrink: 0;
 }
-/* Condition colors. Every value clears 3.2:1 against both a white and a #1e1e1e cell,
-   so one hue works in light and dark themes without a per-theme override. */
-.cal-weather-badge.weather-cat-sun        { color: #B7791F; }
-.cal-weather-badge.weather-cat-cloud-sun  { color: #7C8DA4; }
-.cal-weather-badge.weather-cat-cloud      { color: #64748B; }
-.cal-weather-badge.weather-cat-fog        { color: #7C8DA4; }
-.cal-weather-badge.weather-cat-drizzle    { color: #3B82F6; }
-.cal-weather-badge.weather-cat-rain       { color: #2563EB; }
-.cal-weather-badge.weather-cat-snow       { color: #0891B2; }
-.cal-weather-badge.weather-cat-storm      { color: #C2410C; }
-/* Photo cells give the stroke a faint halo so it survives a busy background. */
+.cal-weather-badge.weather-cat-sun        { color: var(--cal-wx-sun); }
+.cal-weather-badge.weather-cat-cloud-sun  { color: var(--cal-wx-cloud-sun); }
+.cal-weather-badge.weather-cat-cloud      { color: var(--cal-wx-cloud); }
+.cal-weather-badge.weather-cat-fog        { color: var(--cal-wx-fog); }
+.cal-weather-badge.weather-cat-drizzle    { color: var(--cal-wx-drizzle); }
+.cal-weather-badge.weather-cat-rain       { color: var(--cal-wx-rain); }
+.cal-weather-badge.weather-cat-snow       { color: var(--cal-wx-snow); }
+.cal-weather-badge.weather-cat-storm      { color: var(--cal-wx-storm); }
+
+/* A dark surface needs light ink. Three cases, and they are the common ones, not edge
+   cases: a plain cell in a dark theme (#333333), a photo cell (the day's image under a
+   35% black overlay — median sampled luminance 0.15), and today (a full accent fill,
+   luminance 0.20). The dark-ink set sits at 1.1–2.7:1 on all three, so it is replaced.
+   With the bright set every condition clears 4.9:1 on #333333 and 6.9:1 against the
+   halo below. */
+.theme-dark .cal-weather-badge,
+.cal-day.cal-has-image .cal-weather-badge,
+.cal-today .cal-weather-badge {
+  --cal-wx-sun: #FBBF24;
+  --cal-wx-cloud-sun: #94A3B8;
+  --cal-wx-cloud: #94A3B8;
+  --cal-wx-fog: #94A3B8;
+  --cal-wx-drizzle: #7DD3FC;
+  --cal-wx-rain: #60A5FA;
+  --cal-wx-snow: #A5F3FC;
+  --cal-wx-storm: #FDBA74;
+}
+/* Over an arbitrary photo a single flat colour is not enough: a bright patch of the
+   image can match the glyph. A dark halo separates the stroke from whatever is behind
+   it, which is what lifts the worst-case pixel from ~1.0:1 to >5:1. Flat dark surfaces
+   (dark-theme cells, today) already sit on a known colour and need no halo. */
 .cal-day.cal-has-image .cal-weather-badge {
-  filter: drop-shadow(0 0 1px rgba(255, 255, 255, 0.55)) drop-shadow(0 0 2px rgba(0, 0, 0, 0.45));
+  filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.9)) drop-shadow(0 0 2px rgba(0, 0, 0, 0.65));
 }
 
 /* --- Daily note weather overlay (Day One style frosted-glass chip) --- */

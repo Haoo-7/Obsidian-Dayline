@@ -71,19 +71,50 @@ What changed:
   `display: none` at `≤240px`. Photo cells get a two-sided drop-shadow halo.
 - `THIRD_PARTY_NOTICES.md`: Phosphor section replaced with Lucide.
 
-Per-condition colours, each chosen to clear 3:1 on **both** a white and a
-`#1e1e1e` cell, so no per-theme override is needed:
+Per-condition colours are declared as `--cal-wx-*` custom properties so the set can be
+re-pointed in one place. Two sets are needed, because the glyph is drawn straight onto
+the cell and the cell is not always light:
 
-| condition | colour |
-| --- | --- |
-| sun | `#B7791F` |
-| cloud-sun | `#7C8DA4` |
-| cloud | `#64748B` |
-| fog | `#7C8DA4` |
-| drizzle | `#3B82F6` |
-| rain | `#2563EB` |
-| snow | `#0891B2` |
-| storm | `#C2410C` |
+| condition | light-surface ink | dark-surface ink |
+| --- | --- | --- |
+| sun | `#B7791F` | `#FBBF24` |
+| cloud-sun | `#7C8DA4` | `#94A3B8` |
+| cloud | `#64748B` | `#94A3B8` |
+| fog | `#7C8DA4` | `#94A3B8` |
+| drizzle | `#3B82F6` | `#7DD3FC` |
+| rain | `#2563EB` | `#60A5FA` |
+| snow | `#0891B2` | `#A5F3FC` |
+| storm | `#C2410C` | `#FDBA74` |
+
+### 2b. Correction 2: one hue per condition does not work
+
+The round-2 record claimed a single hue per condition sufficed because each cleared 3:1
+"against both a white and a `#1e1e1e` cell". That tested two invented surfaces and missed
+the two that actually occur. Measured against the real ones:
+
+| surface | actual colour | dark-ink set | bright set |
+| --- | --- | --- | --- |
+| light cell | `#fcfcfc` | 3.3–5.1:1 ✅ | — |
+| dark-theme cell | `#333333` | **1.1–2.7:1 ❌** | 4.9–10.1:1 ✅ |
+| today (accent fill) | luminance 0.20 | **1.1–1.3:1 ❌** | 2.5–3.4:1, +halo 6.9:1 ✅ |
+| photo cell | median luminance 0.15 | **1.0–1.6:1 ❌** | see below |
+
+Photo cells were the worst case and the user's actual complaint. They are not an edge
+case: **21 of 34 cells** in the demo month carry an image, always under a 35% black
+overlay. A flat colour cannot be relied on there at all, because a bright patch of the
+photo can match the glyph — the sampled background ranges from luminance 0.0 to 0.92.
+So photo cells get both the bright ink and a dark halo
+(`drop-shadow(0 0 1px rgba(0,0,0,.9))`), which separates the stroke from whatever is
+behind it.
+
+Measured on the real rendered pixels of all 21 photo badges, with the badge hidden to
+recover the true background: the **worst-case glyph-vs-background contrast is 5.66:1**
+(the minimum was ~1.0:1 before). Dark-theme flat cells and today need no halo — they sit
+on a known colour.
+
+`tests/calendar-layout.test.ts` parses both token sets out of the CSS and now asserts
+3:1 on `#fcfcfc`, 3:1 on `#333333` and `#1e1e1e`, and 4.5:1 against the halo, so a
+one-theme regression cannot pass again.
 
 ## 3. Verified live in the Mac Sandbox
 
@@ -99,8 +130,13 @@ Obsidian CLI, and captured in both themes:
 - All 8 condition classes resolve to the intended computed RGB.
 - A 16-badge month renders `sun` ×7, `cloud` ×3, `rain` ×3, `cloud-sun` ×2,
   `drizzle` ×1 — matching the cached snapshots, with no fallback to cloud.
+- Photo month (2026-07, 21 of 34 cells with images): all 21 badges take the bright
+  set, and the rendered worst-case contrast against the underlying photo is 5.66:1.
+  The single bright-ink badge on a flat cell is the `cal-today` accent fill, as intended.
+- Dark theme confirmed: flat `#333333` cells and photo cells both resolve to the
+  bright set (e.g. rain `rgb(96,165,250)`), not the dark-ink default.
 
-Automated: `npm run typecheck` clean, **458/458** tests pass, `npm run build`
+Automated: `npm run typecheck` clean, **483/483** tests pass, `npm run build`
 clean, `git diff --check` clean, `npm run verify:release:zip` OK.
 
 `tests/calendar-layout.test.ts` no longer asserts the plate; it now asserts its
@@ -151,5 +187,5 @@ old `<img>` with no error anywhere.
 - `.obsidian/appearance.json`: switched to dark for verification and restored to
   `{"theme": "moonstone"}`; confirmed restored on disk.
 - Deployed artifacts are byte-identical to the repo:
-  `main.js` `04d50f5ab5d18d78bf9694121e747eed7ff34293152e28b3008406443de7a182`,
-  `styles.css` `74c366ec44ff73851a6c4adca7660ce6758542443c84e39a7e31b5949db69e65`.
+  `main.js` `9d3944657e7fd4b52f86317a22f88a6244c30d0c61700d907d5feaef8bcbd6af`,
+  `styles.css` `7176c160c682c66e6ebe3f3d632a7725b30b08211c634069661f97245c35e014`.

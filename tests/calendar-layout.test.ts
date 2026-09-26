@@ -38,10 +38,12 @@ describe('calendar compact cell layout', () => {
 
   it('renders weather badges as bare condition-colored outlines, with no backing plate', () => {
     const rule = cssRule(styles, '.cal-weather-badge {');
-    // The Lucide glyph family carries the state on its own; a plate is not needed.
-    expect(rule).not.toContain('backdrop-filter');
-    expect(rule).not.toContain('border-radius');
-    expect(rule).not.toContain('background');
+    // The Lucide glyph family carries the state on its own; no plate is drawn behind it.
+    // Match declarations, not prose: the comment in this block names a theme variable.
+    const declarations = rule.replace(/\/\*[\s\S]*?\*\//g, '');
+    expect(declarations).not.toMatch(/background(-color)?\s*:/);
+    expect(declarations).not.toContain('backdrop-filter');
+    expect(declarations).not.toContain('border-radius');
     // condition category classes
     expect(styles).toContain('weather-cat-sun');
     expect(styles).toContain('weather-cat-cloud-sun');
@@ -49,9 +51,10 @@ describe('calendar compact cell layout', () => {
     expect(styles).toContain('weather-cat-snow');
   });
 
-  it('gives every condition hue at least 3:1 contrast on light and dark cells', () => {
-    // A single hue per condition has to work in both themes, because the glyph is drawn
-    // straight onto the cell with no plate behind it.
+  it('keeps every condition legible on light, dark, photo, and today surfaces', () => {
+    // The glyph is drawn straight onto the cell with no plate, so the hue has to be
+    // re-pointed whenever the surface changes. The dark-ink defaults serve a light cell;
+    // a dark theme, a photo cell, and today all switch to the bright set.
     const channel = (value: number) => {
       const c = value / 255;
       return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
@@ -65,20 +68,41 @@ describe('calendar compact cell layout', () => {
     const parse = (hex: string) =>
       [1, 3, 5].map((i) => Number.parseInt(hex.slice(i, i + 2), 16));
 
-    const cells = [parse('#ffffff'), parse('#1e1e1e')];
+    const badge = cssRule(styles, '.cal-weather-badge {');
+    const darkSwitch = cssRule(styles, '.theme-dark .cal-weather-badge,');
     const conditions = [
       'sun', 'cloud-sun', 'cloud', 'fog', 'drizzle', 'rain', 'snow', 'storm',
     ];
-    for (const condition of conditions) {
-      const match = styles.match(
-        new RegExp(`\\.cal-weather-badge\\.weather-cat-${condition}\\s*\\{\\s*color:\\s*(#[0-9A-Fa-f]{6})`),
+
+    // Parse `--cal-wx-<name>: #RRGGBB;` out of a block.
+    const tokens = (block: string) =>
+      Object.fromEntries(
+        [...block.matchAll(/--cal-wx-([a-z-]+):\s*(#[0-9A-Fa-f]{6})/g)]
+          .map(([, name, hex]) => [name, hex]),
       );
-      expect(match, `missing color for weather-cat-${condition}`).not.toBeNull();
-      const rgb = parse(match![1]);
-      for (const cell of cells) {
-        expect(contrast(rgb, cell), `${condition} on ${cell}`).toBeGreaterThanOrEqual(3);
+
+    const darkInk = tokens(badge);
+    const brightInk = tokens(darkSwitch);
+
+    for (const condition of conditions) {
+      expect(darkInk[condition], `missing default token for ${condition}`).toBeTruthy();
+      expect(brightInk[condition], `missing dark-surface token for ${condition}`).toBeTruthy();
+      // Draws on the real light cell colour, and on a dark-theme / photo cell.
+      expect(contrast(parse(darkInk[condition]), parse('#fcfcfc')), `${condition} light`).toBeGreaterThanOrEqual(3);
+      for (const surface of ['#333333', '#1e1e1e']) {
+        expect(contrast(parse(brightInk[condition]), parse(surface)), `${condition} ${surface}`).toBeGreaterThanOrEqual(3);
       }
+      // The glyph must also separate from the dark halo drawn under it over a photo.
+      expect(contrast(parse(brightInk[condition]), [0, 0, 0]), `${condition} halo`).toBeGreaterThanOrEqual(4.5);
     }
+
+    // The four dark-surface selectors have to stay in agreement, or one context regresses.
+    expect(styles).toContain('.theme-dark .cal-weather-badge,');
+    expect(styles).toContain('.cal-day.cal-has-image .cal-weather-badge,');
+    expect(styles).toContain('.cal-today .cal-weather-badge {');
+    // Photo cells keep the halo; flat known-colour surfaces do not need it.
+    expect(cssRule(styles, '.cal-day.cal-has-image .cal-weather-badge {'))
+      .toContain('drop-shadow');
   });
 
   it('pins date, weather, and mood to corners below 360px', () => {
