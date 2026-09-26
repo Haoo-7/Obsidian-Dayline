@@ -185,7 +185,7 @@ describe('mobile Markdown quick entry', () => {
     expect(pluginSource).toContain('this._mobileQuickEntry?.sync()');
     expect(pluginSource).toContain('this._mobileQuickEntry?.dispose()');
     expect(pluginSource).toContain("classList.toggle('dayline-phone'");
-    expect(pluginSource).toContain("classList.remove('dayline-coarse-pointer', 'dayline-mobile', 'dayline-phone')");
+    expect(pluginSource).toContain("classList.remove('dayline-coarse-pointer', 'dayline-mobile', 'dayline-phone', 'dayline-tablet')");
     expect(stylesSource).toContain('body.dayline-mobile.dayline-phone .journal-mood-picker-modal');
     expect(stylesSource).toContain('100dvh');
     expect(stylesSource).toContain('env(safe-area-inset-bottom)');

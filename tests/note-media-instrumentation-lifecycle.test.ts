@@ -36,6 +36,7 @@ const CalendarView = runInNewContext(ts.transpileModule(`${declaration.getText()
   t: (_settings: unknown, key: string) => key,
   setIcon: () => {},
   getMediaControlOwner, shouldAddMediaInfoControl,
+  usesPhoneLayout: () => false,
   normalizeMediaLink, classifyMediaLink, MEDIA_EXTENSIONS, MEDIA_IMAGE_EXTENSIONS,
   HEIC_EXTS: ['heic', 'heif'],
   hasExistingImage: () => false,

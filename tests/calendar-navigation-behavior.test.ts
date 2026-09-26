@@ -24,6 +24,7 @@ const CalendarView = loadClass('CalendarView', {
   getCalendarGridOffset: () => 0,
   getDisplayLanguage: () => 'en',
   calendarCellTouchRouting: () => ({ showEntryCountControl: true }),
+  usesPhoneLayout: () => false,
   bindOpenOnPointer: () => {},
   shouldOpenCalendarDateFromPointer: () => true,
   _daylineDate: () => '2026-09-09',

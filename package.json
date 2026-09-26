@@ -11,7 +11,8 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "verify:release": "node scripts/verify-release-contents.mjs",
     "verify:release:zip": "node scripts/verify-release-contents.mjs --zip",
-    "package:release": "node scripts/package-release.mjs"
+    "package:release": "node scripts/package-release.mjs",
+    "build:tablet": "node scripts/build-tablet-variant.mjs"
   },
   "devDependencies": {
     "@types/jsdom": "^21.1.7",

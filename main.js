@@ -4225,8 +4225,8 @@ function isCalendarTapGesture(startX, startY, endX, endY, threshold = CALENDAR_P
   if (!values.every(Number.isFinite) || values[4] < 0) return false;
   return Math.hypot(values[2] - values[0], values[3] - values[1]) <= values[4];
 }
-function calendarCellTouchRouting(coarsePointer, isMobile = coarsePointer) {
-  if (coarsePointer && isMobile) {
+function calendarCellTouchRouting(coarsePointer, phoneLayout = coarsePointer) {
+  if (coarsePointer && phoneLayout) {
     return {
       primary: "date-open",
       secondary: "external-surface",
@@ -4261,6 +4261,110 @@ var init_touch_targets = __esm({
     "use strict";
     COARSE_POINTER_MIN = 44;
     CALENDAR_POINTER_MOVE_THRESHOLD = 10;
+  }
+});
+
+// src/platform-capabilities.ts
+var platform_capabilities_exports = {};
+__export(platform_capabilities_exports, {
+  detectPlatformCapabilities: () => detectPlatformCapabilities,
+  resolveCapabilityRoute: () => resolveCapabilityRoute,
+  usesPhoneLayout: () => usesPhoneLayout
+});
+function route(enabled, fallback) {
+  return enabled ? fallback ? "fallback" : "full" : "disabled";
+}
+function isWideTabletViewport(mediaQuery) {
+  if (typeof mediaQuery !== "function") return false;
+  return Boolean(mediaQuery("(min-width: 600px) and (min-height: 600px)")?.matches);
+}
+function detectPlatformCapabilities(input = {}) {
+  const host = typeof window !== "undefined" ? window : void 0;
+  const platform = input.Platform || host?.Platform || {};
+  const doc = input.document === void 0 ? host?.document : input.document;
+  const nav = input.navigator === void 0 ? host?.navigator : input.navigator;
+  const urlApi = input.URL === void 0 ? host?.URL : input.URL;
+  const wasmApi = input.WebAssembly === void 0 ? host?.WebAssembly : input.WebAssembly;
+  const mediaQuery = input.matchMedia || host?.matchMedia;
+  const isMobile = Boolean(platform.isMobile || platform.isMobileApp);
+  const isMobileApp = Boolean(platform.isMobileApp);
+  const isPhone = Boolean(platform.isPhone);
+  const isTablet = Boolean(platform.isTablet);
+  const viewportTablet = typeof mediaQuery === "function" ? isWideTabletViewport(mediaQuery) : void 0;
+  const isPhoneLayout = isMobile ? viewportTablet !== void 0 ? !viewportTablet : !isTablet : false;
+  const isTabletLayout = isMobile && !isPhoneLayout;
+  const isIos = Boolean(platform.isIosApp || platform.isIos || platform.isIOS);
+  const isAndroid = Boolean(platform.isAndroidApp || platform.isAndroid);
+  const coarsePointer = Boolean(
+    mediaQuery?.("(pointer: coarse)")?.matches || Number(nav?.maxTouchPoints) > 0 || isMobile
+  );
+  const dom = Boolean(doc?.createElement);
+  let canvas = false;
+  let video = false;
+  if (dom) {
+    try {
+      canvas = Boolean(doc.createElement("canvas")?.getContext?.("2d"));
+    } catch {
+      canvas = false;
+    }
+    try {
+      video = Boolean(doc.createElement("video")?.canPlayType);
+    } catch {
+      video = false;
+    }
+  }
+  const objectUrls = Boolean(typeof urlApi?.createObjectURL === "function" && typeof urlApi?.revokeObjectURL === "function");
+  const wasm = Boolean(typeof wasmApi?.instantiate === "function");
+  const memory = Number(nav?.deviceMemory);
+  const cores = Number(nav?.hardwareConcurrency);
+  const memoryConstrained = isMobile && (Number.isFinite(memory) && memory > 0 && memory <= 2 || Number.isFinite(cores) && cores > 0 && cores <= 2);
+  const filePicker = Boolean(
+    typeof doc?.createElement === "function" && typeof input.app?.vault?.createBinary === "function" && typeof input.app?.fileManager?.getAvailablePathForAttachment === "function"
+  );
+  const mediaCore = dom && video;
+  const heavyMedia = mediaCore && objectUrls && !memoryConstrained;
+  const mediaMetadata = mediaCore ? isMobile || memoryConstrained ? "fallback" : "full" : "disabled";
+  const mediaCover = isMobile ? "disabled" : route(heavyMedia, false);
+  const heic = isMobile ? "disabled" : route(dom && canvas && objectUrls && wasm && !memoryConstrained, false);
+  const audioArtwork = isMobile ? "disabled" : route(objectUrls && !memoryConstrained, false);
+  return {
+    isMobile,
+    isMobileApp,
+    isPhone,
+    isTablet,
+    isTabletLayout,
+    isPhoneLayout,
+    isIos,
+    isAndroid,
+    isDesktop: Boolean(platform.isDesktop || !isMobile && !isIos && !isAndroid),
+    coarsePointer,
+    dom,
+    canvas,
+    video,
+    wasm,
+    objectUrls,
+    filePicker,
+    memoryConstrained,
+    mobileCompatible: dom && (isMobile ? coarsePointer : true),
+    routes: {
+      mediaMetadata,
+      mediaCover,
+      heic,
+      audioArtwork,
+      attachment: filePicker ? "full" : "disabled"
+    }
+  };
+}
+function resolveCapabilityRoute(capabilities, feature) {
+  return capabilities?.routes?.[feature] || "full";
+}
+function usesPhoneLayout(capabilities) {
+  if (typeof capabilities?.isPhoneLayout === "boolean") return capabilities.isPhoneLayout;
+  return Boolean(capabilities?.isMobile);
+}
+var init_platform_capabilities = __esm({
+  "src/platform-capabilities.ts"() {
+    "use strict";
   }
 });
 
@@ -4309,6 +4413,7 @@ var init_journal_timeline_view = __esm({
     init_journal_index();
     init_dayline_mobile();
     init_touch_targets();
+    init_platform_capabilities();
     JOURNAL_TIMELINE_VIEW = "journal-timeline-view";
     TIMELINE_PAGE_SIZE = 50;
     JournalTimelineView = class extends import_obsidian2.ItemView {
@@ -4348,7 +4453,7 @@ var init_journal_timeline_view = __esm({
         return "list";
       }
       _renderMobileModeControls(root) {
-        if (!this.plugin.capabilities?.isMobile) return;
+        if (!usesPhoneLayout(this.plugin.capabilities)) return;
         renderMobileDaylineModeControls(root, {
           activeMode: "timeline",
           labels: {
@@ -4361,12 +4466,12 @@ var init_journal_timeline_view = __esm({
         });
       }
       _getMobileTimelineFilter() {
-        if (!this.plugin.capabilities?.isMobile) return {};
+        if (!usesPhoneLayout(this.plugin.capabilities)) return {};
         const filter = this.plugin._getMobileTimelineFilter?.();
         return filter && typeof filter === "object" ? { ...filter } : {};
       }
       _persistMobileTimelineFilter() {
-        if (this.plugin.capabilities?.isMobile) this.plugin._setMobileTimelineFilter?.(this.filter);
+        if (usesPhoneLayout(this.plugin.capabilities)) this.plugin._setMobileTimelineFilter?.(this.filter);
       }
       setDateFilter(date) {
         this.filter = { from: date, to: date };
@@ -4378,7 +4483,7 @@ var init_journal_timeline_view = __esm({
         this.closed = false;
         this.journalIndexError = null;
         const root = this.contentEl;
-        if (this.plugin.capabilities?.isMobile) this.containerEl.addClass("dayline-mobile-native-view");
+        if (usesPhoneLayout(this.plugin.capabilities)) this.containerEl.addClass("dayline-mobile-native-view");
         root.removeClass("cal-calendar-content");
         root.addEventListener("scroll", this.thumbnailScrollHandler, { passive: true });
         if (typeof ResizeObserver !== "undefined") {
@@ -4424,7 +4529,7 @@ var init_journal_timeline_view = __esm({
         this.thumbnailLoaders.clear();
         this.unsubscribe?.();
         this.unsubscribe = null;
-        if (!this.plugin.capabilities?.isMobile) {
+        if (!usesPhoneLayout(this.plugin.capabilities)) {
           this.plugin.viewVisibilityController?.viewClosed("timeline").then(() => this.plugin._syncDaylineRibbon()).catch((error) => console.warn("[Dayline] Timeline close state sync failed:", error?.message || error));
         } else {
           this.plugin._syncDaylineRibbon();
@@ -5103,7 +5208,7 @@ var init_journal_timeline_view = __esm({
           if (this.plugin.openJournalFile) {
             await this.plugin.openJournalFile(file);
           } else {
-            const leaf = getJournalOpenLeaf(this.app.workspace, this.plugin.capabilities?.isMobile);
+            const leaf = getJournalOpenLeaf(this.app.workspace, usesPhoneLayout(this.plugin.capabilities));
             if (!leaf) throw new Error("No markdown leaf is available");
             await leaf.openFile(file);
           }
@@ -7485,10 +7590,10 @@ var init_thumbnail_service = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/shared/bitstream.js
+// ../Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/shared/bitstream.js
 var Bitstream;
 var init_bitstream = __esm({
-  "node_modules/mediabunny/dist/modules/shared/bitstream.js"() {
+  "../Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/shared/bitstream.js"() {
     Bitstream = class _Bitstream {
       constructor(bytes) {
         this.bytes = bytes;
@@ -7552,10 +7657,10 @@ var init_bitstream = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/shared/aac-misc.js
+// ../Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/shared/aac-misc.js
 var aacFrequencyTable, aacChannelMap, parseAacAudioSpecificConfig;
 var init_aac_misc = __esm({
-  "node_modules/mediabunny/dist/modules/shared/aac-misc.js"() {
+  "../Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/shared/aac-misc.js"() {
     init_bitstream();
     aacFrequencyTable = [
       96e3,
@@ -7607,10 +7712,10 @@ var init_aac_misc = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/logging.js
+// ../Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/logging.js
 var LogLevel, Logging;
 var init_logging = __esm({
-  "node_modules/mediabunny/dist/modules/src/logging.js"() {
+  "../Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/logging.js"() {
     init_misc();
     (function(LogLevel2) {
       LogLevel2[LogLevel2["Silent"] = 0] = "Silent";
@@ -7666,7 +7771,7 @@ var init_logging = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/misc.js
+// ../Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/misc.js
 function assert(x) {
   if (!x) {
     throw new Error("Assertion failed.");
@@ -7674,7 +7779,7 @@ function assert(x) {
 }
 var normalizeRotation, last, readExpGolomb, readSignedExpGolomb, toUint8Array, toDataView, textDecoder, invertObject, COLOR_PRIMARIES_MAP, COLOR_PRIMARIES_MAP_INVERSE, TRANSFER_CHARACTERISTICS_MAP, TRANSFER_CHARACTERISTICS_MAP_INVERSE, MATRIX_COEFFICIENTS_MAP, MATRIX_COEFFICIENTS_MAP_INVERSE, AsyncMutex, HEX_STRING_REGEX, bytesToHexString, hexStringToBytes, reverseBitsU32, binarySearchExact, binarySearchLessOrEqual, promiseWithResolvers, removeItem, findLast, findLastIndex, assertNever, getUint24, clamp, UNDETERMINED_LANGUAGE, roundIfAlmostInteger, roundToMultiple, roundToDivisor, ilog, ISO_639_2_REGEX, isIso639Dash2LanguageCode, SECOND_TO_MICROSECOND_FACTOR, mergeRequestInit, normalizeHeaders, retriedFetch, isChromiumCache, isChromium, chromiumVersionCache, getChromiumVersion, coalesceIndex, closedIntervalsOverlap, base64ToBytes, uint8ArraysAreEqual, polyfillSymbolDispose, isNumber, arrayCount, arrayArgmin, simplifyRational, wait, EventEmitter;
 var init_misc = __esm({
-  "node_modules/mediabunny/dist/modules/src/misc.js"() {
+  "../Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/misc.js"() {
     init_logging();
     normalizeRotation = (rotation) => {
       const mappedRotation = (rotation % 360 + 360) % 360;
@@ -8110,10 +8215,10 @@ var init_misc = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/codec.js
+// ../Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/codec.js
 var PCM_AUDIO_CODECS, NON_PCM_AUDIO_CODECS, AUDIO_CODECS, AVC_LEVEL_TABLE, VP9_LEVEL_TABLE, VP9_DEFAULT_SUFFIX, AV1_DEFAULT_SUFFIX, PRORES_FOURCCS, extractVideoCodecString, extractAudioCodecString, OPUS_SAMPLE_RATE, PCM_CODEC_REGEX, parsePcmCodec, VALID_VIDEO_CODEC_STRING_PREFIXES;
 var init_codec = __esm({
-  "node_modules/mediabunny/dist/modules/src/codec.js"() {
+  "../Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/codec.js"() {
     init_aac_misc();
     init_misc();
     PCM_AUDIO_CODECS = [
@@ -8423,19 +8528,19 @@ var init_codec = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/shared/ac3-misc.js
+// ../Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/shared/ac3-misc.js
 var AC3_SAMPLE_RATES, EAC3_REDUCED_SAMPLE_RATES;
 var init_ac3_misc = __esm({
-  "node_modules/mediabunny/dist/modules/shared/ac3-misc.js"() {
+  "../Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/shared/ac3-misc.js"() {
     AC3_SAMPLE_RATES = [48e3, 44100, 32e3];
     EAC3_REDUCED_SAMPLE_RATES = [24e3, 22050, 16e3];
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/codec-data.js
+// ../Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/codec-data.js
 var AvcNalUnitType, HevcNalUnitType, iterateNalUnitsInAnnexB, iterateNalUnitsInLengthPrefixed, iterateAvcNalUnits, extractNalUnitTypeForAvc, removeEmulationPreventionBytes, ANNEX_B_START_CODE, extractAvcDecoderConfigurationRecord, AVC_HEVC_ASPECT_RATIO_IDC_TABLE, parseAvcSps, skipAvcHrdParameters, iterateHevcNalUnits, extractNalUnitTypeForHevc, parseHevcSps, extractHevcDecoderConfigurationRecord, parseProfileTierLevel, skipScalingListData, skipAllStRefPicSets, skipStRefPicSet, parseHevcVui, skipHevcHrdParameters, skipSubLayerHrdParameters, HevcNaluOrderState, extractVp9CodecInfoFromPacket, iterateAv1PacketObus, extractAv1CodecInfoFromPacket, parseOpusIdentificationHeader, OPUS_FRAME_DURATION_TABLE, parseOpusTocByte, parseModesFromVorbisSetupPacket, determineVideoPacketType, FlacBlockType, readVorbisComments, AC3_ACMOD_CHANNEL_COUNTS, AC3_FRAME_SIZES, AC3_REGISTRATION_DESCRIPTOR, EAC3_REGISTRATION_DESCRIPTOR, parseEac3Config, getEac3SampleRate, getEac3ChannelCount;
 var init_codec_data = __esm({
-  "node_modules/mediabunny/dist/modules/src/codec-data.js"() {
+  "../Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/codec-data.js"() {
     init_codec();
     init_misc();
     init_logging();
@@ -10222,10 +10327,10 @@ var init_codec_data = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/demuxer.js
+// ../Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/demuxer.js
 var Demuxer;
 var init_demuxer = __esm({
-  "node_modules/mediabunny/dist/modules/src/demuxer.js"() {
+  "../Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/demuxer.js"() {
     Demuxer = class {
       constructor(input) {
         this.input = input;
@@ -10236,10 +10341,10 @@ var init_demuxer = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/packet.js
+// ../Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/packet.js
 var PLACEHOLDER_DATA, EncodedPacket;
 var init_packet = __esm({
-  "node_modules/mediabunny/dist/modules/src/packet.js"() {
+  "../Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/packet.js"() {
     init_misc();
     PLACEHOLDER_DATA = /* @__PURE__ */ new Uint8Array(0);
     EncodedPacket = class _EncodedPacket {
@@ -10403,10 +10508,10 @@ var init_packet = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/isobmff/isobmff-misc.js
+// ../Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/isobmff/isobmff-misc.js
 var buildIsobmffMimeType, parsePsshBoxContents, psshBoxesAreEqual;
 var init_isobmff_misc = __esm({
-  "node_modules/mediabunny/dist/modules/src/isobmff/isobmff-misc.js"() {
+  "../Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/isobmff/isobmff-misc.js"() {
     init_misc();
     buildIsobmffMimeType = (info) => {
       const base = info.hasVideo ? "video/" : info.hasAudio ? "audio/" : "application/";
@@ -10449,10 +10554,10 @@ var init_isobmff_misc = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/metadata.js
+// ../Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/metadata.js
 var RichImageData, AttachedFile, DEFAULT_TRACK_DISPOSITION;
 var init_metadata = __esm({
-  "node_modules/mediabunny/dist/modules/src/metadata.js"() {
+  "../Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/metadata.js"() {
     RichImageData = class {
       /** Creates a new {@link RichImageData}. */
       constructor(data, mimeType) {
@@ -10499,10 +10604,10 @@ var init_metadata = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/source.js
+// ../Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/source.js
 var DEFAULT_MIN_READ_POSITION, DEFAULT_MAX_READ_POSITION, sourceFinalizationRegistry, Source, SourceRef, PathedSource, sourceRequestsAreEqual, URL_SOURCE_MIN_LOAD_AMOUNT, DEFAULT_RETRY_DELAY, warnedOrigins, UrlSource, BYTE_RANGE_REGEX, parseByteRangeHeader, PREFETCH_PROFILES, ReadOrchestrator, RangedSource;
 var init_source = __esm({
-  "node_modules/mediabunny/dist/modules/src/source.js"() {
+  "../Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/source.js"() {
     init_misc();
     init_input();
     init_logging();
@@ -11502,10 +11607,10 @@ var init_source = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/reader.js
+// ../Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/reader.js
 var Reader, FileSlice, checkIsInRange, readBytes, readU8, readU16, readU16Be, readU24Be, readI16Be, readU32, readU32Be, readU32Le, readI32Be, readI32Le, readU64, readU64Be, readI64Be, readI64Le, readF32Be, readF64Be, readAscii;
 var init_reader = __esm({
-  "node_modules/mediabunny/dist/modules/src/reader.js"() {
+  "../Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/reader.js"() {
     init_input();
     init_misc();
     init_source();
@@ -11765,10 +11870,10 @@ var init_reader = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/isobmff/isobmff-reader.js
+// ../Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/isobmff/isobmff-reader.js
 var MIN_BOX_HEADER_SIZE, MAX_BOX_HEADER_SIZE, readBoxHeader, readFixed_16_16, readFixed_2_30, readIsomVariableInteger, readMetadataStringShort, readDataBox;
 var init_isobmff_reader = __esm({
-  "node_modules/mediabunny/dist/modules/src/isobmff/isobmff-reader.js"() {
+  "../Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/isobmff/isobmff-reader.js"() {
     init_metadata();
     init_misc();
     init_reader();
@@ -11844,10 +11949,10 @@ var init_isobmff_reader = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/aes.js
+// ../Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/aes.js
 var AES_128_BLOCK_SIZE, Te4, Td0, Td1, Td2, Td3, Td4, rcon, tablesGenerated, generateAesTables, Aes128CbcContext;
 var init_aes = __esm({
-  "node_modules/mediabunny/dist/modules/src/aes.js"() {
+  "../Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/aes.js"() {
     init_misc();
     AES_128_BLOCK_SIZE = 16;
     Te4 = new Uint32Array(256);
@@ -11981,10 +12086,10 @@ var init_aes = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/isobmff/isobmff-demuxer.js
+// ../Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/isobmff/isobmff-demuxer.js
 var IsobmffDemuxer, IsobmffTrackBacking, IsobmffVideoTrackBacking, IsobmffAudioTrackBacking, getSampleIndexForTimestamp, getKeyframeSampleIndexForTimestamp, getSampleInfo, getNextKeyframeIndexForSample, offsetFragmentTrackDataByTimestamp, extractRotationFromMatrix, sampleTableIsEmpty, getOrCreateEncryptionAuxInfo, resolveEncryptionAuxInfo, decryptSample, decryptCtr, decryptCbcs, collectCryptRanges;
 var init_isobmff_demuxer = __esm({
-  "node_modules/mediabunny/dist/modules/src/isobmff/isobmff-demuxer.js"() {
+  "../Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/isobmff/isobmff-demuxer.js"() {
     init_aac_misc();
     init_codec();
     init_codec_data();
@@ -14916,7 +15021,7 @@ var init_isobmff_demuxer = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/matroska/ebml.js
+// ../Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/matroska/ebml.js
 function assertDefinedSize(size) {
   if (size === void 0) {
     throw new Error("Undefined element size is used in a place where it is not supported.");
@@ -14924,7 +15029,7 @@ function assertDefinedSize(size) {
 }
 var EBMLId, LEVEL_0_EBML_IDS, LEVEL_1_EBML_IDS, LEVEL_0_AND_1_EBML_IDS, MAX_VAR_INT_SIZE, MIN_HEADER_SIZE, MAX_HEADER_SIZE, readVarIntSize, readVarInt, readUnsignedInt, readUnsignedBigInt, readElementId, readElementSize, readElementHeader, readAsciiString, readUnicodeString, readFloat, searchForNextElementId, resync, CODEC_STRING_MAP;
 var init_ebml = __esm({
-  "node_modules/mediabunny/dist/modules/src/matroska/ebml.js"() {
+  "../Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/matroska/ebml.js"() {
     init_misc();
     init_reader();
     (function(EBMLId2) {
@@ -15260,10 +15365,10 @@ var init_ebml = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/matroska/matroska-misc.js
+// ../Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/matroska/matroska-misc.js
 var buildMatroskaMimeType;
 var init_matroska_misc = __esm({
-  "node_modules/mediabunny/dist/modules/src/matroska/matroska-misc.js"() {
+  "../Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/matroska/matroska-misc.js"() {
     buildMatroskaMimeType = (info) => {
       const base = info.hasVideo ? "video/" : info.hasAudio ? "audio/" : "application/";
       let string = base + (info.isWebM ? "webm" : "x-matroska");
@@ -15276,10 +15381,10 @@ var init_matroska_misc = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/matroska/matroska-demuxer.js
+// ../Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/matroska/matroska-demuxer.js
 var BlockLacing, ContentEncodingScope, ContentCompAlgo, METADATA_ELEMENTS, MAX_RESYNC_LENGTH, MatroskaDemuxer, MatroskaTrackBacking, MatroskaVideoTrackBacking, MatroskaAudioTrackBacking;
 var init_matroska_demuxer = __esm({
-  "node_modules/mediabunny/dist/modules/src/matroska/matroska-demuxer.js"() {
+  "../Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/matroska/matroska-demuxer.js"() {
     init_codec_data();
     init_codec();
     init_demuxer();
@@ -17327,10 +17432,10 @@ var init_matroska_demuxer = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/shared/mp3-misc.js
+// ../Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/shared/mp3-misc.js
 var MP3_FRAME_HEADER_SIZE, SAMPLING_RATES, KILOBIT_RATES, XING, INFO, computeMp3FrameSize, computeAverageMp3FrameSize, getXingOffset, readMp3FrameHeader, decodeSynchsafe, XingFlags, getMp3ChannelCount;
 var init_mp3_misc = __esm({
-  "node_modules/mediabunny/dist/modules/shared/mp3-misc.js"() {
+  "../Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/shared/mp3-misc.js"() {
     MP3_FRAME_HEADER_SIZE = 4;
     SAMPLING_RATES = [44100, 48e3, 32e3];
     KILOBIT_RATES = [
@@ -17597,10 +17702,10 @@ var init_mp3_misc = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/id3.js
+// ../Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/id3.js
 var Id3V2HeaderFlags, Id3V2TextEncoding, ID3_V1_TAG_SIZE, ID3_V2_HEADER_SIZE, ID3_V1_GENRES, parseId3V1Tag, readId3V1String, readId3V2Header, parseId3V2Tag, Id3V2Reader;
 var init_id3 = __esm({
-  "node_modules/mediabunny/dist/modules/src/id3.js"() {
+  "../Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/id3.js"() {
     init_mp3_misc();
     init_logging();
     init_misc();
@@ -18301,10 +18406,10 @@ var init_id3 = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/mp3/mp3-reader.js
+// ../Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/mp3/mp3-reader.js
 var readNextMp3FrameHeader;
 var init_mp3_reader = __esm({
-  "node_modules/mediabunny/dist/modules/src/mp3/mp3-reader.js"() {
+  "../Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/mp3/mp3-reader.js"() {
     init_mp3_misc();
     init_reader();
     readNextMp3FrameHeader = async (reader, startPos, until, ref = null) => {
@@ -18336,10 +18441,10 @@ var init_mp3_reader = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/mp3/mp3-demuxer.js
+// ../Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/mp3/mp3-demuxer.js
 var Mp3Demuxer, Mp3AudioTrackBacking;
 var init_mp3_demuxer = __esm({
-  "node_modules/mediabunny/dist/modules/src/mp3/mp3-demuxer.js"() {
+  "../Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/mp3/mp3-demuxer.js"() {
     init_demuxer();
     init_metadata();
     init_misc();
@@ -18647,10 +18752,10 @@ var init_mp3_demuxer = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/ogg/ogg-misc.js
+// ../Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/ogg/ogg-misc.js
 var OGGS, OGG_CRC_POLYNOMIAL, OGG_CRC_TABLE, computeOggPageCrc, extractSampleMetadata, buildOggMimeType;
 var init_ogg_misc = __esm({
-  "node_modules/mediabunny/dist/modules/src/ogg/ogg-misc.js"() {
+  "../Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/ogg/ogg-misc.js"() {
     init_codec_data();
     init_misc();
     OGGS = 1399285583;
@@ -18718,10 +18823,10 @@ var init_ogg_misc = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/ogg/ogg-reader.js
+// ../Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/ogg/ogg-reader.js
 var MIN_PAGE_HEADER_SIZE, MAX_PAGE_HEADER_SIZE, MAX_PAGE_SIZE, readPageHeader, findNextPageHeader;
 var init_ogg_reader = __esm({
-  "node_modules/mediabunny/dist/modules/src/ogg/ogg-reader.js"() {
+  "../Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/ogg/ogg-reader.js"() {
     init_reader();
     init_ogg_misc();
     MIN_PAGE_HEADER_SIZE = 27;
@@ -18782,10 +18887,10 @@ var init_ogg_reader = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/ogg/ogg-demuxer.js
+// ../Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/ogg/ogg-demuxer.js
 var OggDemuxer, OggAudioTrackBacking, findPacketStartPosition, findPreviousPacketEndPosition;
 var init_ogg_demuxer = __esm({
-  "node_modules/mediabunny/dist/modules/src/ogg/ogg-demuxer.js"() {
+  "../Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/ogg/ogg-demuxer.js"() {
     init_codec();
     init_codec_data();
     init_demuxer();
@@ -19473,10 +19578,10 @@ var init_ogg_demuxer = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/wave/wave-demuxer.js
+// ../Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/wave/wave-demuxer.js
 var WaveFormat, WaveDemuxer, PACKET_SIZE_IN_FRAMES, WaveAudioTrackBacking;
 var init_wave_demuxer = __esm({
-  "node_modules/mediabunny/dist/modules/src/wave/wave-demuxer.js"() {
+  "../Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/wave/wave-demuxer.js"() {
     init_demuxer();
     init_metadata();
     init_misc();
@@ -19930,10 +20035,10 @@ var init_wave_demuxer = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/adts/adts-reader.js
+// ../Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/adts/adts-reader.js
 var MIN_ADTS_FRAME_HEADER_SIZE, MAX_ADTS_FRAME_HEADER_SIZE, readAdtsFrameHeader;
 var init_adts_reader = __esm({
-  "node_modules/mediabunny/dist/modules/src/adts/adts-reader.js"() {
+  "../Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/adts/adts-reader.js"() {
     init_bitstream();
     init_reader();
     MIN_ADTS_FRAME_HEADER_SIZE = 7;
@@ -19991,10 +20096,10 @@ var init_adts_reader = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/adts/adts-demuxer.js
+// ../Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/adts/adts-demuxer.js
 var SAMPLES_PER_AAC_FRAME, AdtsDemuxer, AdtsAudioTrackBacking;
 var init_adts_demuxer = __esm({
-  "node_modules/mediabunny/dist/modules/src/adts/adts-demuxer.js"() {
+  "../Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/adts/adts-demuxer.js"() {
     init_aac_misc();
     init_demuxer();
     init_id3();
@@ -20263,10 +20368,10 @@ var init_adts_demuxer = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/flac/flac-misc.js
+// ../Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/flac/flac-misc.js
 var getBlockSizeOrUncommon, getSampleRateOrUncommon, readCodedNumber, readBlockSize, readSampleRate, calculateCrc8;
 var init_flac_misc = __esm({
-  "node_modules/mediabunny/dist/modules/src/flac/flac-misc.js"() {
+  "../Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/flac/flac-misc.js"() {
     init_bitstream();
     init_misc();
     init_reader();
@@ -20399,10 +20504,10 @@ var init_flac_misc = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/flac/flac-demuxer.js
+// ../Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/flac/flac-demuxer.js
 var FlacDemuxer, FlacAudioTrackBacking;
 var init_flac_demuxer = __esm({
-  "node_modules/mediabunny/dist/modules/src/flac/flac-demuxer.js"() {
+  "../Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/flac/flac-demuxer.js"() {
     init_codec_data();
     init_demuxer();
     init_misc();
@@ -20876,10 +20981,10 @@ var init_flac_demuxer = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/input-format.js
+// ../Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/input-format.js
 var InputFormat, IsobmffInputFormat, Mp4InputFormat, QuickTimeInputFormat, MatroskaInputFormat, Mp3InputFormat, WaveInputFormat, OggInputFormat, FlacInputFormat, AdtsInputFormat, MP4, QTFF, MATROSKA, MP3, WAVE, OGG, ADTS, FLAC, validateInputFormatOptions;
 var init_input_format = __esm({
-  "node_modules/mediabunny/dist/modules/src/input-format.js"() {
+  "../Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/input-format.js"() {
     init_isobmff_demuxer();
     init_ebml();
     init_matroska_demuxer();
@@ -21267,19 +21372,19 @@ var init_input_format = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/custom-coder.js
+// ../Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/custom-coder.js
 var customVideoDecoders, customAudioDecoders;
 var init_custom_coder = __esm({
-  "node_modules/mediabunny/dist/modules/src/custom-coder.js"() {
+  "../Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/custom-coder.js"() {
     customVideoDecoders = [];
     customAudioDecoders = [];
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/media-sink.js
+// ../Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/media-sink.js
 var validatePacketRetrievalOptions, validateTimestamp, maybeFixPacketType, EncodedPacketSink;
 var init_media_sink = __esm({
-  "node_modules/mediabunny/dist/modules/src/media-sink.js"() {
+  "../Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/media-sink.js"() {
     init_input();
     init_input_track();
     init_misc();
@@ -21541,10 +21646,10 @@ var init_media_sink = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/input-track.js
+// ../Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/input-track.js
 var InputTrack, requireSync, toValidatedPredicate, InputVideoTrack, InputAudioTrack, desc, prefer, toValidatedInputTrackQuery, mergeInputTrackQueries, queryInputTracks;
 var init_input_track = __esm({
-  "node_modules/mediabunny/dist/modules/src/input-track.js"() {
+  "../Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/input-track.js"() {
     init_codec_data();
     init_custom_coder();
     init_logging();
@@ -22313,10 +22418,10 @@ var init_input_track = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/input.js
+// ../Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/input.js
 var DEFAULT_SOURCE_CACHE_GROUP, Input, UnsupportedInputFormatError, InputDisposedError;
 var init_input = __esm({
-  "node_modules/mediabunny/dist/modules/src/input.js"() {
+  "../Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/input.js"() {
     init_input_format();
     init_input_track();
     init_misc();
@@ -24422,96 +24527,6 @@ var init_image_metadata = __esm({
   }
 });
 
-// src/platform-capabilities.ts
-var platform_capabilities_exports = {};
-__export(platform_capabilities_exports, {
-  detectPlatformCapabilities: () => detectPlatformCapabilities,
-  resolveCapabilityRoute: () => resolveCapabilityRoute
-});
-function route(enabled, fallback) {
-  return enabled ? fallback ? "fallback" : "full" : "disabled";
-}
-function detectPlatformCapabilities(input = {}) {
-  const host = typeof window !== "undefined" ? window : void 0;
-  const platform = input.Platform || host?.Platform || {};
-  const doc = input.document === void 0 ? host?.document : input.document;
-  const nav = input.navigator === void 0 ? host?.navigator : input.navigator;
-  const urlApi = input.URL === void 0 ? host?.URL : input.URL;
-  const wasmApi = input.WebAssembly === void 0 ? host?.WebAssembly : input.WebAssembly;
-  const mediaQuery = input.matchMedia || host?.matchMedia;
-  const isMobile = Boolean(platform.isMobile || platform.isMobileApp);
-  const isMobileApp = Boolean(platform.isMobileApp);
-  const isPhone = Boolean(platform.isPhone);
-  const isTablet = Boolean(platform.isTablet);
-  const isIos = Boolean(platform.isIosApp || platform.isIos || platform.isIOS);
-  const isAndroid = Boolean(platform.isAndroidApp || platform.isAndroid);
-  const coarsePointer = Boolean(
-    mediaQuery?.("(pointer: coarse)")?.matches || Number(nav?.maxTouchPoints) > 0 || isMobile
-  );
-  const dom = Boolean(doc?.createElement);
-  let canvas = false;
-  let video = false;
-  if (dom) {
-    try {
-      canvas = Boolean(doc.createElement("canvas")?.getContext?.("2d"));
-    } catch {
-      canvas = false;
-    }
-    try {
-      video = Boolean(doc.createElement("video")?.canPlayType);
-    } catch {
-      video = false;
-    }
-  }
-  const objectUrls = Boolean(typeof urlApi?.createObjectURL === "function" && typeof urlApi?.revokeObjectURL === "function");
-  const wasm = Boolean(typeof wasmApi?.instantiate === "function");
-  const memory = Number(nav?.deviceMemory);
-  const cores = Number(nav?.hardwareConcurrency);
-  const memoryConstrained = isMobile && (Number.isFinite(memory) && memory > 0 && memory <= 2 || Number.isFinite(cores) && cores > 0 && cores <= 2);
-  const filePicker = Boolean(
-    typeof doc?.createElement === "function" && typeof input.app?.vault?.createBinary === "function" && typeof input.app?.fileManager?.getAvailablePathForAttachment === "function"
-  );
-  const mediaCore = dom && video;
-  const heavyMedia = mediaCore && objectUrls && !memoryConstrained;
-  const mediaMetadata = mediaCore ? isMobile || memoryConstrained ? "fallback" : "full" : "disabled";
-  const mediaCover = isMobile ? "disabled" : route(heavyMedia, false);
-  const heic = isMobile ? "disabled" : route(dom && canvas && objectUrls && wasm && !memoryConstrained, false);
-  const audioArtwork = isMobile ? "disabled" : route(objectUrls && !memoryConstrained, false);
-  return {
-    isMobile,
-    isMobileApp,
-    isPhone,
-    isTablet,
-    isIos,
-    isAndroid,
-    isDesktop: Boolean(platform.isDesktop || !isMobile && !isIos && !isAndroid),
-    coarsePointer,
-    dom,
-    canvas,
-    video,
-    wasm,
-    objectUrls,
-    filePicker,
-    memoryConstrained,
-    mobileCompatible: dom && (isMobile ? coarsePointer : true),
-    routes: {
-      mediaMetadata,
-      mediaCover,
-      heic,
-      audioArtwork,
-      attachment: filePicker ? "full" : "disabled"
-    }
-  };
-}
-function resolveCapabilityRoute(capabilities, feature) {
-  return capabilities?.routes?.[feature] || "full";
-}
-var init_platform_capabilities = __esm({
-  "src/platform-capabilities.ts"() {
-    "use strict";
-  }
-});
-
 // src/mobile-quick-entry.ts
 var mobile_quick_entry_exports = {};
 __export(mobile_quick_entry_exports, {
@@ -24836,7 +24851,7 @@ var { calendarEntryAffectsDisplay: calendarEntryAffectsDisplay2, calendarMediaAc
 var { ViewVisibilityController: ViewVisibilityController2, normalizeViewVisibilitySettings: normalizeViewVisibilitySettings2 } = (init_view_visibility_controller(), __toCommonJS(view_visibility_controller_exports));
 var { hasExistingImage: hasExistingImage2 } = (init_heic_embed(), __toCommonJS(heic_embed_exports));
 var { ImageMetadataCache: ImageMetadataCache2, HeicCache: HeicCache2, HEIC_EXTS: HEIC_EXTS2, ReverseGeocoder: ReverseGeocoder2 } = (init_image_metadata(), __toCommonJS(image_metadata_exports));
-var { detectPlatformCapabilities: detectPlatformCapabilities2, resolveCapabilityRoute: resolveCapabilityRoute2 } = (init_platform_capabilities(), __toCommonJS(platform_capabilities_exports));
+var { detectPlatformCapabilities: detectPlatformCapabilities2, resolveCapabilityRoute: resolveCapabilityRoute2, usesPhoneLayout: usesPhoneLayout2 } = (init_platform_capabilities(), __toCommonJS(platform_capabilities_exports));
 var { createMobileMarkdownQuickEntry: createMobileMarkdownQuickEntry2 } = (init_mobile_quick_entry(), __toCommonJS(mobile_quick_entry_exports));
 var {
   getMediaControlOwner: getMediaControlOwner2,
@@ -24993,7 +25008,7 @@ var DaylinePlugin = class extends Plugin {
       onPersist: (kind, visible) => this._persistViewVisibility(kind, visible)
     });
     this._daylineRibbonEl = this.addRibbonIcon("calendar-range", "Dayline", (event) => {
-      if (this.capabilities?.isMobile) void this._activateMobileMode(this._mobileDaylineLastMode || "calendar");
+      if (this._usesPhoneDaylineMode()) void this._activateMobileMode(this._mobileDaylineLastMode || "calendar");
       else this._showDaylineMenu(event);
     });
     this._syncDaylineRibbon();
@@ -25048,7 +25063,7 @@ var DaylinePlugin = class extends Plugin {
     this._ensureExifTooltip();
     this._installExifDismissHandlers();
     this.app.workspace.onLayoutReady(async () => {
-      if (!this.capabilities.isMobile) {
+      if (!this._usesPhoneDaylineMode()) {
         await this.viewVisibilityController.restore();
       }
       this._syncDaylineRibbon();
@@ -25132,14 +25147,25 @@ var DaylinePlugin = class extends Plugin {
   _syncDaylineRibbon() {
     const ribbon = this._daylineRibbonEl;
     if (!ribbon || !this.viewVisibilityController) return;
-    const open = this.capabilities?.isMobile ? this._mobileDaylineViewTypes().some((viewType) => this.app.workspace.getLeavesOfType(viewType).length > 0) : this.viewVisibilityController.isAnyOpen();
+    const open = this._usesPhoneDaylineMode() ? this._mobileDaylineViewTypes().some((viewType) => this.app.workspace.getLeavesOfType(viewType).length > 0) : this.viewVisibilityController.isAnyOpen();
     ribbon.classList.toggle("is-active", open);
   }
   _applyCapabilityClasses() {
     const root = typeof document !== "undefined" ? document.body : null;
     root?.classList.toggle("dayline-coarse-pointer", Boolean(this.capabilities?.coarsePointer));
     root?.classList.toggle("dayline-mobile", Boolean(this.capabilities?.isMobile));
-    root?.classList.toggle("dayline-phone", Boolean(this.capabilities?.isPhone));
+    root?.classList.toggle("dayline-phone", this._usesPhoneDaylineMode());
+    root?.classList.toggle("dayline-tablet", Boolean(this.capabilities?.isTabletLayout));
+  }
+  /**
+   * Obsidian's phone interface gives a plugin a single leaf and no sidebar, so
+   * Dayline swaps that tab between calendar and timeline. Tablets keep the
+   * desktop workspace — ribbon, pin-able sidebars, stacked tabs — and must use
+   * the sidebar placement path, or the calendar lands in a main tab and covers
+   * the note the user was reading.
+   */
+  _usesPhoneDaylineMode() {
+    return usesPhoneLayout2(this.capabilities);
   }
   _recordMobileDiagnostic(name) {
     if (!Array.isArray(this._mobileDiagnosticEvents)) this._mobileDiagnosticEvents = [];
@@ -25173,7 +25199,7 @@ var DaylinePlugin = class extends Plugin {
   }
   _removeCapabilityClasses() {
     const root = typeof document !== "undefined" ? document.body : null;
-    root?.classList.remove("dayline-coarse-pointer", "dayline-mobile", "dayline-phone");
+    root?.classList.remove("dayline-coarse-pointer", "dayline-mobile", "dayline-phone", "dayline-tablet");
   }
   _installExifDismissHandlers() {
     if (typeof document === "undefined") return;
@@ -25220,7 +25246,7 @@ var DaylinePlugin = class extends Plugin {
     }
   }
   async activateTimeline() {
-    if (this.capabilities?.isMobile) return this._activateMobileMode("timeline");
+    if (this._usesPhoneDaylineMode()) return this._activateMobileMode("timeline");
     const opened = await this.viewVisibilityController.open("timeline");
     this._syncDaylineRibbon();
     return opened;
@@ -25302,7 +25328,7 @@ var DaylinePlugin = class extends Plugin {
     }
   }
   async openTimelineForDate(date) {
-    if (this.capabilities?.isMobile) {
+    if (this._usesPhoneDaylineMode()) {
       this._setMobileTimelineFilter({ from: date, to: date });
       await this._activateMobileMode("timeline", ({ leaf }) => leaf?.view?.setDateFilter?.(date));
       return;
@@ -25313,7 +25339,7 @@ var DaylinePlugin = class extends Plugin {
   }
   async openJournalFile(file) {
     const workspace = this.app.workspace;
-    const leaf = getJournalOpenLeaf2(workspace, this.capabilities?.isMobile);
+    const leaf = getJournalOpenLeaf2(workspace, this._usesPhoneDaylineMode());
     if (!leaf) throw new Error("No markdown leaf is available");
     await leaf.openFile(file);
     await workspace.revealLeaf?.(leaf);
@@ -25321,7 +25347,7 @@ var DaylinePlugin = class extends Plugin {
     return leaf;
   }
   async _openTimelineView() {
-    if (this.capabilities?.isMobile) {
+    if (this._usesPhoneDaylineMode()) {
       await this._openMobileDayline("timeline");
       return;
     }
@@ -25758,14 +25784,14 @@ ${path}`)) return false;
     }
   }
   async activateView() {
-    if (this.capabilities?.isMobile) return this._activateMobileMode("calendar");
+    if (this._usesPhoneDaylineMode()) return this._activateMobileMode("calendar");
     const opened = await this.viewVisibilityController.open("calendar");
     this._syncDaylineRibbon();
     return opened;
   }
   async _openCalendarView() {
     const { workspace } = this.app;
-    if (this.capabilities?.isMobile) {
+    if (this._usesPhoneDaylineMode()) {
       await this._openMobileDayline("calendar");
       return;
     }
@@ -25856,7 +25882,7 @@ var CalendarView = class extends ItemView2 {
     return "calendar";
   }
   _renderMobileModeControls(root) {
-    if (!this.plugin.capabilities?.isMobile) return;
+    if (!usesPhoneLayout2(this.plugin.capabilities)) return;
     renderMobileDaylineModeControls2(root, {
       activeMode: "calendar",
       labels: {
@@ -25875,7 +25901,7 @@ var CalendarView = class extends ItemView2 {
     const root = this.contentEl;
     this.containerEl.addClass("cal-sidebar");
     this._syncCalendarMoodMarkerClass();
-    if (this.plugin.capabilities?.isMobile) this.containerEl.addClass("dayline-mobile-native-view");
+    if (usesPhoneLayout2(this.plugin.capabilities)) this.containerEl.addClass("dayline-mobile-native-view");
     root.removeClass("journal-timeline-view");
     root.addClass("cal-calendar-content");
     root.setAttribute("tabindex", "0");
@@ -25895,7 +25921,7 @@ var CalendarView = class extends ItemView2 {
       this._onJournalIndexChanged(change).catch((error) => console.warn("[Dayline] Calendar index refresh failed:", error?.message || error));
     });
     this._syncActiveDate();
-    if (this.plugin.capabilities?.isMobile && !this._hasOpened) this._syncDisplayMonthToActiveDate();
+    if (usesPhoneLayout2(this.plugin.capabilities) && !this._hasOpened) this._syncDisplayMonthToActiveDate();
     this._hasOpened = true;
     this.render();
     const indexWasReady = Boolean(this.plugin.journalIndex?.isReady);
@@ -25936,7 +25962,7 @@ var CalendarView = class extends ItemView2 {
     this._disposeNoteMediaInstrumentation();
     this._removeAllOverlaysFromViews();
     this._hostPositionMarkers.clear();
-    if (!this.plugin.capabilities?.isMobile) {
+    if (!usesPhoneLayout2(this.plugin.capabilities)) {
       this.plugin.viewVisibilityController?.viewClosed("calendar").then(() => this.plugin._syncDaylineRibbon()).catch((error) => console.warn("[Dayline] Calendar close state sync failed:", error?.message || error));
     } else {
       this.plugin._syncDaylineRibbon();
@@ -25954,7 +25980,7 @@ var CalendarView = class extends ItemView2 {
     const activeView = this.app.workspace.activeLeaf?.view;
     if (shouldPreserveCalendarSelection2(activeView, this)) return;
     this._syncActiveDate();
-    if (this.plugin.capabilities?.isMobile && this.activeDate) {
+    if (usesPhoneLayout2(this.plugin.capabilities) && this.activeDate) {
       const nextMonth = this._monthKey(this._monthStartForDate(this.activeDate) || this.displayMonth);
       if (nextMonth !== previousMonth) {
         this.displayMonth = this._monthStartForDate(this.activeDate) || this.displayMonth;
@@ -26213,7 +26239,7 @@ var CalendarView = class extends ItemView2 {
     const grid = el.createDiv({ cls: "cal-grid" });
     const touchRouting = calendarCellTouchRouting2(
       Boolean(this.plugin.capabilities?.coarsePointer),
-      Boolean(this.plugin.capabilities?.isMobile)
+      usesPhoneLayout2(this.plugin.capabilities)
     );
     const firstDay = getCalendarGridOffset2(year, month, this.plugin.settings);
     const daysInMonth2 = new Date(year, month + 1, 0).getDate();
@@ -26321,7 +26347,8 @@ var CalendarView = class extends ItemView2 {
       const dailyPath = `${this.plugin.settings.dailyFolder}/${dateStr}.md`;
       const mood = shouldShowCalendarMood2(this.plugin.settings) ? this.plugin.moodStore?.get(dailyPath) || dateEntry.mood : void 0;
       const moodPath = dateEntry.primaryEntryPath || dateEntry.path || dailyPath;
-      if (touchRouting.showMoodControl && shouldShowCalendarMood2(this.plugin.settings)) {
+      const hasMoodTarget = Boolean(mood) || Boolean(dateEntry.hasRecord);
+      if (touchRouting.showMoodControl && shouldShowCalendarMood2(this.plugin.settings) && hasMoodTarget) {
         const moodButton = cell.createEl("button", {
           cls: `cal-mood-button ${mood ? `mood-${mood.score}` : "cal-mood-empty"}`,
           attr: {
@@ -26333,9 +26360,11 @@ var CalendarView = class extends ItemView2 {
         if (mood) moodButton.style.setProperty("--journal-mood-color", getMoodColor2(mood.score));
         moodButton.createSpan({ cls: "cal-mood-dot", attr: { "aria-hidden": "true" } });
         moodButton.addEventListener("pointerdown", (event) => {
-          event.preventDefault();
           event.stopPropagation();
-          this.plugin.openMoodPicker(moodPath, { allowDateSelection: true, ensureFile: false });
+        });
+        moodButton.addEventListener("click", (event) => {
+          event.stopPropagation();
+          void this.plugin.openMoodPicker(moodPath, { allowDateSelection: true, ensureFile: false });
         });
       }
       if (this.plugin.settings.onThisDayDot && this._otdDotCache) {
@@ -27317,7 +27346,7 @@ var CalendarView = class extends ItemView2 {
       cls: "cal-note-overlay",
       attr: { [OVERLAY_ATTR]: "true" }
     });
-    if (this.plugin.capabilities?.isMobile) {
+    if (usesPhoneLayout2(this.plugin.capabilities)) {
       const header = container.querySelector?.(".view-header");
       if (header?.getBoundingClientRect) {
         const hostRect = container.getBoundingClientRect();

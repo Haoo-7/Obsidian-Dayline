@@ -56,7 +56,7 @@ const { calendarEntryAffectsDisplay, calendarMediaAccessibilityLabel, calendarMo
 const { ViewVisibilityController, normalizeViewVisibilitySettings } = require('./view-visibility-controller');
 const { hasExistingImage } = require('./heic-embed');
 const { ImageMetadataCache, HeicCache, HEIC_EXTS, ReverseGeocoder } = require('./image-metadata');
-const { detectPlatformCapabilities, resolveCapabilityRoute } = require('./platform-capabilities');
+const { detectPlatformCapabilities, resolveCapabilityRoute, usesPhoneLayout } = require('./platform-capabilities');
 const { createMobileMarkdownQuickEntry } = require('./mobile-quick-entry');
 const {
   getMediaControlOwner,
@@ -225,7 +225,7 @@ class DaylinePlugin extends Plugin {
       onPersist: (kind, visible) => this._persistViewVisibility(kind, visible),
     });
     this._daylineRibbonEl = this.addRibbonIcon('calendar-range', 'Dayline', (event) => {
-      if (this.capabilities?.isMobile) void this._activateMobileMode(this._mobileDaylineLastMode || 'calendar');
+      if (this._usesPhoneDaylineMode()) void this._activateMobileMode(this._mobileDaylineLastMode || 'calendar');
       else this._showDaylineMenu(event);
     });
     this._syncDaylineRibbon();
@@ -293,7 +293,7 @@ class DaylinePlugin extends Plugin {
 
     // Restore view visibility after Obsidian has restored the workspace layout.
     this.app.workspace.onLayoutReady(async () => {
-      if (!this.capabilities.isMobile) {
+      if (!this._usesPhoneDaylineMode()) {
         await this.viewVisibilityController.restore();
       }
       this._syncDaylineRibbon();
@@ -396,7 +396,7 @@ class DaylinePlugin extends Plugin {
   _syncDaylineRibbon() {
     const ribbon = this._daylineRibbonEl;
     if (!ribbon || !this.viewVisibilityController) return;
-    const open = this.capabilities?.isMobile
+    const open = this._usesPhoneDaylineMode()
       ? this._mobileDaylineViewTypes().some((viewType) => this.app.workspace.getLeavesOfType(viewType).length > 0)
       : this.viewVisibilityController.isAnyOpen();
     ribbon.classList.toggle('is-active', open);
@@ -406,7 +406,21 @@ class DaylinePlugin extends Plugin {
     const root = typeof document !== 'undefined' ? document.body : null;
     root?.classList.toggle('dayline-coarse-pointer', Boolean(this.capabilities?.coarsePointer));
     root?.classList.toggle('dayline-mobile', Boolean(this.capabilities?.isMobile));
-    root?.classList.toggle('dayline-phone', Boolean(this.capabilities?.isPhone));
+    // Mirror the same layout decision the routing uses, so CSS can never
+    // disagree with which workspace path the plugin actually took.
+    root?.classList.toggle('dayline-phone', this._usesPhoneDaylineMode());
+    root?.classList.toggle('dayline-tablet', Boolean(this.capabilities?.isTabletLayout));
+  }
+
+  /**
+   * Obsidian's phone interface gives a plugin a single leaf and no sidebar, so
+   * Dayline swaps that tab between calendar and timeline. Tablets keep the
+   * desktop workspace — ribbon, pin-able sidebars, stacked tabs — and must use
+   * the sidebar placement path, or the calendar lands in a main tab and covers
+   * the note the user was reading.
+   */
+  _usesPhoneDaylineMode() {
+    return usesPhoneLayout(this.capabilities);
   }
 
   _recordMobileDiagnostic(name) {
@@ -443,7 +457,7 @@ class DaylinePlugin extends Plugin {
 
   _removeCapabilityClasses() {
     const root = typeof document !== 'undefined' ? document.body : null;
-    root?.classList.remove('dayline-coarse-pointer', 'dayline-mobile', 'dayline-phone');
+    root?.classList.remove('dayline-coarse-pointer', 'dayline-mobile', 'dayline-phone', 'dayline-tablet');
   }
 
   _installExifDismissHandlers() {
@@ -495,7 +509,7 @@ class DaylinePlugin extends Plugin {
   }
 
   async activateTimeline() {
-    if (this.capabilities?.isMobile) return this._activateMobileMode('timeline');
+    if (this._usesPhoneDaylineMode()) return this._activateMobileMode('timeline');
     const opened = await this.viewVisibilityController.open('timeline');
     this._syncDaylineRibbon();
     return opened;
@@ -590,7 +604,7 @@ class DaylinePlugin extends Plugin {
   }
 
   async openTimelineForDate(date) {
-    if (this.capabilities?.isMobile) {
+    if (this._usesPhoneDaylineMode()) {
       this._setMobileTimelineFilter({ from: date, to: date });
       await this._activateMobileMode('timeline', ({ leaf }) => leaf?.view?.setDateFilter?.(date));
       return;
@@ -602,7 +616,9 @@ class DaylinePlugin extends Plugin {
 
   async openJournalFile(file) {
     const workspace = this.app.workspace;
-    const leaf = getJournalOpenLeaf(workspace, this.capabilities?.isMobile);
+    // Only the phone interface lacks tabs to reuse, so only there may this
+    // create one. Tablets and desktop share the active or first Markdown leaf.
+    const leaf = getJournalOpenLeaf(workspace, this._usesPhoneDaylineMode());
     if (!leaf) throw new Error('No markdown leaf is available');
     await leaf.openFile(file);
     await workspace.revealLeaf?.(leaf);
@@ -611,7 +627,7 @@ class DaylinePlugin extends Plugin {
   }
 
   async _openTimelineView() {
-    if (this.capabilities?.isMobile) {
+    if (this._usesPhoneDaylineMode()) {
       await this._openMobileDayline('timeline');
       return;
     }
@@ -1107,7 +1123,7 @@ class DaylinePlugin extends Plugin {
 
 
   async activateView() {
-    if (this.capabilities?.isMobile) return this._activateMobileMode('calendar');
+    if (this._usesPhoneDaylineMode()) return this._activateMobileMode('calendar');
     const opened = await this.viewVisibilityController.open('calendar');
     this._syncDaylineRibbon();
     return opened;
@@ -1116,7 +1132,7 @@ class DaylinePlugin extends Plugin {
   async _openCalendarView() {
     const { workspace } = this.app;
 
-    if (this.capabilities?.isMobile) {
+    if (this._usesPhoneDaylineMode()) {
       await this._openMobileDayline('calendar');
       return;
     }
@@ -1236,7 +1252,7 @@ class CalendarView extends ItemView {
   getIcon()       { return 'calendar'; }
 
   _renderMobileModeControls(root) {
-    if (!this.plugin.capabilities?.isMobile) return;
+    if (!usesPhoneLayout(this.plugin.capabilities)) return;
     renderMobileDaylineModeControls(root, {
       activeMode: 'calendar',
       labels: {
@@ -1258,7 +1274,7 @@ class CalendarView extends ItemView {
     const root = this.contentEl;
     this.containerEl.addClass('cal-sidebar');
     this._syncCalendarMoodMarkerClass();
-    if (this.plugin.capabilities?.isMobile) this.containerEl.addClass('dayline-mobile-native-view');
+    if (usesPhoneLayout(this.plugin.capabilities)) this.containerEl.addClass('dayline-mobile-native-view');
     root.removeClass('journal-timeline-view');
     root.addClass('cal-calendar-content');
     root.setAttribute('tabindex', '0');
@@ -1281,7 +1297,7 @@ class CalendarView extends ItemView {
 
     // Detect which date the user is currently viewing
     this._syncActiveDate();
-    if (this.plugin.capabilities?.isMobile && !this._hasOpened) this._syncDisplayMonthToActiveDate();
+    if (usesPhoneLayout(this.plugin.capabilities) && !this._hasOpened) this._syncDisplayMonthToActiveDate();
     this._hasOpened = true;
     this.render();
 
@@ -1330,7 +1346,7 @@ class CalendarView extends ItemView {
     this._disposeNoteMediaInstrumentation();
     this._removeAllOverlaysFromViews();
     this._hostPositionMarkers.clear();
-    if (!this.plugin.capabilities?.isMobile) {
+    if (!usesPhoneLayout(this.plugin.capabilities)) {
       this.plugin.viewVisibilityController?.viewClosed('calendar')
         .then(() => this.plugin._syncDaylineRibbon())
         .catch((error) => console.warn('[Dayline] Calendar close state sync failed:', error?.message || error));
@@ -1351,7 +1367,7 @@ class CalendarView extends ItemView {
     const activeView = this.app.workspace.activeLeaf?.view;
     if (shouldPreserveCalendarSelection(activeView, this)) return;
     this._syncActiveDate();
-    if (this.plugin.capabilities?.isMobile && this.activeDate) {
+    if (usesPhoneLayout(this.plugin.capabilities) && this.activeDate) {
       const nextMonth = this._monthKey(this._monthStartForDate(this.activeDate) || this.displayMonth);
       if (nextMonth !== previousMonth) {
         this.displayMonth = this._monthStartForDate(this.activeDate) || this.displayMonth;
@@ -1659,7 +1675,7 @@ class CalendarView extends ItemView {
     const grid = el.createDiv({ cls: 'cal-grid' });
     const touchRouting = calendarCellTouchRouting(
       Boolean(this.plugin.capabilities?.coarsePointer),
-      Boolean(this.plugin.capabilities?.isMobile),
+      usesPhoneLayout(this.plugin.capabilities),
     );
 
     const firstDay = getCalendarGridOffset(year, month, this.plugin.settings);
@@ -1785,7 +1801,11 @@ class CalendarView extends ItemView {
           || dateEntry.mood
         : undefined;
       const moodPath = dateEntry.primaryEntryPath || dateEntry.path || dailyPath;
-      if (touchRouting.showMoodControl && shouldShowCalendarMood(this.plugin.settings)) {
+      // Only offer the control where a mood is already recorded or the date has a
+      // journal entry. Rendering an empty frame on every date littered the grid
+      // with targets that claimed taps meant for the date itself.
+      const hasMoodTarget = Boolean(mood) || Boolean(dateEntry.hasRecord);
+      if (touchRouting.showMoodControl && shouldShowCalendarMood(this.plugin.settings) && hasMoodTarget) {
         const moodButton = cell.createEl('button', {
           cls: `cal-mood-button ${mood ? `mood-${mood.score}` : 'cal-mood-empty'}`,
           attr: {
@@ -1796,10 +1816,17 @@ class CalendarView extends ItemView {
         });
         if (mood) moodButton.style.setProperty('--journal-mood-color', getMoodColor(mood.score));
         moodButton.createSpan({ cls: 'cal-mood-dot', attr: { 'aria-hidden': 'true' } });
+        // Claim the press so the cell's date gesture never starts here.
         moodButton.addEventListener('pointerdown', (event) => {
-          event.preventDefault();
           event.stopPropagation();
-          this.plugin.openMoodPicker(moodPath, { allowDateSelection: true, ensureFile: false });
+        });
+        // Open on the tap's final event. Opening on pointerdown placed the modal
+        // under the finger before release, so the trailing click landed on the
+        // modal backdrop — which Obsidian uses to dismiss — and the picker only
+        // survived while the finger was held down.
+        moodButton.addEventListener('click', (event) => {
+          event.stopPropagation();
+          void this.plugin.openMoodPicker(moodPath, { allowDateSelection: true, ensureFile: false });
         });
       }
 
@@ -2994,7 +3021,7 @@ class CalendarView extends ItemView {
       cls: 'cal-note-overlay',
       attr: { [OVERLAY_ATTR]: 'true' },
     });
-    if (this.plugin.capabilities?.isMobile) {
+    if (usesPhoneLayout(this.plugin.capabilities)) {
       const header = container.querySelector?.('.view-header');
       if (header?.getBoundingClientRect) {
         const hostRect = container.getBoundingClientRect();
