@@ -5932,6 +5932,104 @@ var init_dayline_wordmark_compact = __esm({
   }
 });
 
+// assets/dayline-logo.svg
+var dayline_logo_default;
+var init_dayline_logo = __esm({
+  "assets/dayline-logo.svg"() {
+    dayline_logo_default = '<svg xmlns="http://www.w3.org/2000/svg" width="354" height="225" viewBox="0 0 354 225" role="img" aria-labelledby="dayline-logo-title dayline-logo-desc">\n  <!--\n    In-app Dayline logo mark.\n\n    Geometry is identical to `assets/readme/dayline-mark.svg`; the only\n    difference is that the ring and calendar frame use `currentColor` instead of\n    a baked-in #0D1318. The README asset sits on a fixed light page, but this one\n    is injected into the settings pane, where it has to stay legible on both\n    light and dark themes. The coral lens keeps its brand colour and is the one\n    element that does not follow the theme.\n  -->\n  <title id="dayline-logo-title">Dayline logo</title>\n  <desc id="dayline-logo-desc">An interlocking journal ring and open rounded calendar frame, with a coral lens at their intersection.</desc>\n  <g transform="translate(-94 -159)">\n    <!-- The calendar frame stops short of both crossings. -->\n    <path fill="currentColor" d="M270 177 C284 166 300 160 319 160 H375 C415 160 447 190 447 231 V311 C447 352 416 383 376 383 H319 C300 383 284 377 270 367 C277 361 283 355 289 348 C298 355 308 358 320 358 H375 C402 358 423 338 423 311 V232 C423 205 402 185 375 185 H320 C308 185 298 188 289 195 C283 188 277 182 270 177 Z"/>\n    <!-- The left counter follows the inner crossing, not a full circle. -->\n    <path fill="currentColor" fill-rule="evenodd" d="M204 160 C264 160 315 211 315 272 C315 333 265 383 204 383 C144 383 94 333 94 273 C94 213 144 160 204 160 Z M204 185 C158 185 119 225 119 273 C119 320 157 359 204 359 C220 359 235 355 247 348 C230 326 220 301 220 273 C220 244 230 218 247 196 C234 189 220 185 204 185 Z"/>\n    <path fill="#F1694D" d="M267 212 C282 229 291 250 291 273 C291 296 282 318 267 334 C252 317 244 296 244 273 C244 250 252 228 267 212 Z"/>\n  </g>\n</svg>\n';
+  }
+});
+
+// src/settings-brand.ts
+function sanitizeSvgRoot(parsed) {
+  const root = parsed.documentElement;
+  if (!root || root.tagName.toLowerCase() !== "svg") return null;
+  if (parsed.querySelector("parsererror")) return null;
+  parsed.querySelectorAll(DROPPED_ELEMENTS).forEach((node) => node.remove());
+  parsed.querySelectorAll("*").forEach((node) => {
+    for (const attribute of Array.from(node.attributes)) {
+      const name = attribute.name.toLowerCase();
+      if (name.startsWith("on")) {
+        node.removeAttribute(attribute.name);
+      } else if (URL_ATTRIBUTES.includes(name) && UNSAFE_URL.test(attribute.value)) {
+        node.removeAttribute(attribute.name);
+      }
+    }
+  });
+  return root;
+}
+function resolveDomParser(doc) {
+  const parser = doc.defaultView?.DOMParser;
+  if (typeof parser === "function") return parser;
+  return typeof DOMParser === "function" ? DOMParser : null;
+}
+function createBrandSvg(markup, options, doc) {
+  if (typeof markup !== "string" || markup.trim() === "") return null;
+  const Parser = resolveDomParser(doc);
+  if (!Parser) return null;
+  let root = null;
+  try {
+    root = sanitizeSvgRoot(new Parser().parseFromString(markup, "image/svg+xml"));
+  } catch {
+    return null;
+  }
+  if (!root) return null;
+  const clone2 = doc.importNode(root, true);
+  clone2.setAttribute("class", options.className);
+  clone2.setAttribute("width", String(options.width));
+  clone2.setAttribute("height", String(options.height));
+  clone2.removeAttribute("aria-labelledby");
+  if (options.label) {
+    clone2.setAttribute("role", "img");
+    clone2.setAttribute("aria-label", options.label);
+  } else {
+    clone2.removeAttribute("role");
+    clone2.removeAttribute("aria-label");
+    clone2.setAttribute("aria-hidden", "true");
+    clone2.setAttribute("focusable", "false");
+  }
+  return clone2;
+}
+function renderSettingsBrand(container, options) {
+  const doc = options.doc ?? container.ownerDocument;
+  const label = options.label ?? BRAND_DEFAULT_LABEL;
+  const brand = container.createDiv({ cls: BRAND_CONTAINER_CLASS });
+  const mark = createBrandSvg(options.markSvg, {
+    className: BRAND_MARK_CLASS,
+    width: BRAND_MARK_SIZE.width,
+    height: BRAND_MARK_SIZE.height
+  }, doc);
+  if (mark) brand.appendChild(mark);
+  const wordmark = createBrandSvg(options.wordmarkSvg, {
+    className: BRAND_WORDMARK_CLASS,
+    width: BRAND_WORDMARK_SIZE.width,
+    height: BRAND_WORDMARK_SIZE.height,
+    label
+  }, doc);
+  if (wordmark) {
+    brand.appendChild(wordmark);
+  } else {
+    brand.createSpan({ cls: BRAND_FALLBACK_CLASS, text: label });
+  }
+  return brand;
+}
+var BRAND_CONTAINER_CLASS, BRAND_MARK_CLASS, BRAND_WORDMARK_CLASS, BRAND_FALLBACK_CLASS, BRAND_DEFAULT_LABEL, BRAND_MARK_SIZE, BRAND_WORDMARK_SIZE, URL_ATTRIBUTES, UNSAFE_URL, DROPPED_ELEMENTS;
+var init_settings_brand = __esm({
+  "src/settings-brand.ts"() {
+    "use strict";
+    BRAND_CONTAINER_CLASS = "dayline-settings-brand";
+    BRAND_MARK_CLASS = "dayline-settings-brand-mark";
+    BRAND_WORDMARK_CLASS = "dayline-settings-brand-wordmark";
+    BRAND_FALLBACK_CLASS = "dayline-settings-brand-text";
+    BRAND_DEFAULT_LABEL = "Dayline";
+    BRAND_MARK_SIZE = Object.freeze({ width: 41, height: 26 });
+    BRAND_WORDMARK_SIZE = Object.freeze({ width: 132, height: 32 });
+    URL_ATTRIBUTES = ["href", "xlink:href"];
+    UNSAFE_URL = /^\s*(?:javascript:|data:text\/html)/i;
+    DROPPED_ELEMENTS = "script, foreignObject";
+  }
+});
+
 // src/calendar-display.ts
 var calendar_display_exports = {};
 __export(calendar_display_exports, {
@@ -6357,6 +6455,8 @@ var init_settings_tab = __esm({
     init_i18n();
     init_locale();
     init_dayline_wordmark_compact();
+    init_dayline_logo();
+    init_settings_brand();
     init_calendar_display();
     init_journal_timeline_display();
     init_journal_source_settings();
@@ -6450,27 +6550,7 @@ var init_settings_tab = __esm({
         containerEl.empty();
         containerEl.addClass("dayline-settings-container");
         const _s = (key, ...args) => localize(this.plugin.settings.weatherLanguage, key, ...args);
-        const brand = containerEl.createDiv({ cls: "dayline-settings-brand", attr: { "aria-label": "Dayline" } });
-        try {
-          const parsed = new DOMParser().parseFromString(dayline_wordmark_compact_default, "image/svg+xml");
-          const svg = parsed.documentElement;
-          if (svg?.tagName?.toLowerCase() === "svg" && !parsed.querySelector("parsererror")) {
-            parsed.querySelectorAll("script").forEach((script) => script.remove());
-            parsed.querySelectorAll("*").forEach((node) => {
-              for (const attribute of Array.from(node.attributes)) {
-                if (attribute.name.toLowerCase().startsWith("on")) node.removeAttribute(attribute.name);
-              }
-            });
-            const clone2 = document.importNode(svg, true);
-            clone2.setAttribute("role", "img");
-            clone2.setAttribute("aria-label", "Dayline");
-            clone2.setAttribute("width", "132");
-            clone2.setAttribute("height", "32");
-            brand.appendChild(clone2);
-          }
-        } catch {
-          brand.setText("Dayline");
-        }
+        renderSettingsBrand(containerEl, { markSvg: dayline_logo_default, wordmarkSvg: dayline_wordmark_compact_default });
         this._addSection(containerEl, "general");
         new import_obsidian4.Setting(containerEl).setName(t(this.plugin.settings, "language")).setDesc(t(this.plugin.settings, "languageDesc")).addDropdown((dd) => dd.addOption("system", t(this.plugin.settings, "system")).addOption("en", t(this.plugin.settings, "english")).addOption("zh", t(this.plugin.settings, "chinese")).setValue(this.plugin.settings.displayLanguage).onChange(async (value) => {
           this.plugin.settings.displayLanguage = value;

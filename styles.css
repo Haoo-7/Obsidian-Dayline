@@ -52,13 +52,31 @@
 .dayline-settings-brand {
   display: flex;
   align-items: center;
+  gap: 10px;
   min-height: 32px;
   margin: -2px 0 14px;
+  min-width: 0;
 }
 .dayline-settings-brand svg {
   display: block;
-  max-width: 132px;
+  flex: 0 0 auto;
+}
+/* Sized per element because the logo mark (354x225) and the compact wordmark
+   (250x36) have very different aspect ratios: one shared `height` rule leaves
+   the wordmark letterboxed inside its own box. Keep in sync with
+   BRAND_MARK_SIZE / BRAND_WORDMARK_SIZE in src/settings-brand.ts. */
+.dayline-settings-brand-mark {
+  width: 41px;
+  height: 26px;
+}
+.dayline-settings-brand-wordmark {
+  width: 132px;
   height: 32px;
+}
+.dayline-settings-brand-text {
+  font-size: var(--font-ui-medium, 15px);
+  font-weight: 600;
+  letter-spacing: 0.01em;
 }
 .dayline-settings-action-row.setting-item {
   align-items: flex-start;
