@@ -179,6 +179,15 @@ function isGenericJournalTitle(title, date) {
   const normalized = title.trim().replace(/\s+/g, " ").toLowerCase();
   return GENERIC_TITLES.has(normalized) || Boolean(date && normalized === date.toLowerCase());
 }
+function renderExcerptTemplate(template, date, year, frontmatter, body) {
+  let result = template.replace(/\{body\}/g, body || "").replace(/\{year\}/g, String(year)).replace(/\{date\}/g, date);
+  for (const [key, value] of Object.entries(frontmatter)) {
+    if (typeof value !== "string" && typeof value !== "number") continue;
+    const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    result = result.replace(new RegExp(`\\{${escapedKey}\\}`, "g"), String(value));
+  }
+  return result.trim() || null;
+}
 var FRONTMATTER, FENCED_BLOCK, GENERIC_TITLES;
 var init_excerpt = __esm({
   "src/excerpt.ts"() {
@@ -5525,7 +5534,8 @@ var init_locale = __esm({
 var on_this_day_exports = {};
 __export(on_this_day_exports, {
   OnThisDayModal: () => OnThisDayModal,
-  OnThisDayProvider: () => OnThisDayProvider
+  OnThisDayProvider: () => OnThisDayProvider,
+  splitTitleFromBody: () => splitTitleFromBody
 });
 function isImageLink(link) {
   const clean = String(link || "").split("|", 1)[0].split("?", 1)[0];
@@ -5534,42 +5544,31 @@ function isImageLink(link) {
 function daylineDate(settings, date = /* @__PURE__ */ new Date()) {
   return getTodayDate(settings?.weatherTimezone || "auto", date);
 }
-function extractExcerpt2(content) {
-  let text = content.replace(/^---[\s\S]*?---\n*/, "");
-  text = text.replace(/!\[\[.*?\]\]/g, "");
-  text = text.replace(/\[\[([^\]|]+)(\|[^\]]+)?\]\]/g, "$1");
-  text = text.replace(/^#{1,6}\s+/gm, "");
-  text = text.replace(/[*_~`]+/g, "");
-  text = text.replace(/={2,}/g, "");
-  text = text.replace(/^>\s?/gm, "");
-  text = text.replace(/^\s*[-*+]\s/gm, "");
-  text = text.replace(/\n+/g, " ");
-  text = text.replace(/\s{2,}/g, " ").trim();
-  if (text.length > 100) text = `${text.substring(0, 100)}...`;
-  return text || null;
+function headingTextOf(line) {
+  return line.replace(/^[ \t]*#{1,6}[ \t]+/, "").replace(/[ \t]+$/, "").trim();
 }
-function renderExcerptTemplate(template, dateStr, year, frontmatter, bodyText) {
-  let result = template;
-  result = result.replace(/\{body\}/g, bodyText || "");
-  result = result.replace(/\{year\}/g, String(year));
-  result = result.replace(/\{date\}/g, dateStr);
-  for (const [key, value] of Object.entries(frontmatter)) {
-    if (typeof value === "string" || typeof value === "number") {
-      const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      result = result.replace(new RegExp(`\\{${escapedKey}\\}`, "g"), String(value));
-    }
-  }
-  result = result.trim();
-  return result || null;
+function splitTitleFromBody(content, indexTitle, date) {
+  const lines = (typeof content === "string" ? content : "").split("\n");
+  const headingIndex = lines.findIndex((line) => HEADING_LINE.test(line));
+  const headingText = headingIndex === -1 ? "" : headingTextOf(lines[headingIndex]);
+  const headingLeads = headingIndex !== -1 && lines.slice(0, headingIndex).every((line) => line.trim() === "");
+  const candidate = (typeof indexTitle === "string" ? indexTitle.trim() : "") || headingText;
+  const title = candidate && !isGenericJournalTitle(candidate, typeof date === "string" ? date : "") ? candidate : null;
+  const dropHeading = headingIndex !== -1 && (headingLeads || title !== null && headingText === title);
+  const body = dropHeading ? lines.filter((_line, index) => index !== headingIndex).join("\n") : lines.join("\n");
+  return { title, body };
 }
-var IMAGE_EXTENSIONS2, OnThisDayProvider, OnThisDayModal;
+var import_obsidian3, IMAGE_EXTENSIONS2, HEADING_LINE, OnThisDayProvider, OnThisDayModal;
 var init_on_this_day = __esm({
   "src/on-this-day.ts"() {
     "use strict";
+    import_obsidian3 = require("obsidian");
     init_date_utils();
+    init_excerpt();
     init_locale();
     init_i18n();
     IMAGE_EXTENSIONS2 = ["jpg", "jpeg", "png", "heic", "heif", "webp", "gif", "avif", "tiff", "tif", "bmp"];
+    HEADING_LINE = /^[ \t]*#{1,6}[ \t]+\S/;
     OnThisDayProvider = class {
       constructor(plugin) {
         __publicField(this, "plugin");
@@ -5611,6 +5610,7 @@ var init_on_this_day = __esm({
           const year = Number(entry.date.slice(0, 4));
           if (!Number.isFinite(year) || year >= thisYear || entry.date.slice(5) !== key) continue;
           const images = (entry.attachments || []).filter(isImageLink);
+          const { title, body } = splitTitleFromBody(entry.searchText ?? entry.excerpt ?? "", entry.title, entry.date);
           let excerpt = null;
           const mode = this.plugin.settings.onThisDayExcerptMode;
           if (mode === "frontmatter") {
@@ -5624,12 +5624,12 @@ var init_on_this_day = __esm({
               entry.date,
               year,
               entry.frontmatter || {},
-              extractExcerpt2(entry.searchText || entry.excerpt || "")
+              extractExcerpt(body)
             );
           } else if (mode !== "none") {
-            excerpt = extractExcerpt2(entry.searchText || entry.excerpt || "");
+            excerpt = extractExcerpt(body);
           }
-          entries.push({ year, dateStr: entry.date, path: entry.path, images, excerpt });
+          entries.push({ year, dateStr: entry.date, path: entry.path, title, images, excerpt });
         }
         entries.sort((a, b) => b.year - a.year);
         if (entries.length > 0) this.entryCache.set(key, entries);
@@ -5683,9 +5683,11 @@ var init_on_this_day = __esm({
         const header = panel.createDiv({ cls: "cal-otd-header" });
         header.createDiv({ cls: "cal-otd-header-title", text: localize(lang, "otd_title") });
         const nav = header.createDiv({ cls: "cal-otd-date-nav" });
-        const prevDayBtn = nav.createDiv({ cls: "cal-otd-nav-btn", text: "\u25C0" });
-        prevDayBtn.setAttribute("aria-label", localize(lang, "otd_prevDay"));
-        prevDayBtn.setAttribute("title", localize(lang, "otd_prevDay"));
+        const prevDayBtn = nav.createEl("button", {
+          cls: "cal-otd-nav-btn",
+          attr: { type: "button", "aria-label": localize(lang, "otd_prevDay"), title: localize(lang, "otd_prevDay") }
+        });
+        (0, import_obsidian3.setIcon)(prevDayBtn, "chevron-left");
         prevDayBtn.addEventListener("click", (e) => {
           e.stopPropagation();
           void this._navigateDate(-1);
@@ -5705,27 +5707,48 @@ var init_on_this_day = __esm({
             void this._navigateDate(0);
           }
         });
-        const nextDayBtn = nav.createDiv({ cls: "cal-otd-nav-btn", text: "\u25B6" });
-        nextDayBtn.setAttribute("aria-label", localize(lang, "otd_nextDay"));
-        nextDayBtn.setAttribute("title", localize(lang, "otd_nextDay"));
+        const nextDayBtn = nav.createEl("button", {
+          cls: "cal-otd-nav-btn",
+          attr: { type: "button", "aria-label": localize(lang, "otd_nextDay"), title: localize(lang, "otd_nextDay") }
+        });
+        (0, import_obsidian3.setIcon)(nextDayBtn, "chevron-right");
         nextDayBtn.addEventListener("click", (e) => {
           e.stopPropagation();
           void this._navigateDate(1);
         });
-        const closeBtn = header.createDiv({ cls: "cal-otd-close", text: "\u2715" });
-        closeBtn.setAttribute("aria-label", localize(lang, "otd_close"));
-        closeBtn.setAttribute("title", localize(lang, "otd_close"));
+        const closeBtn = header.createEl("button", {
+          cls: "cal-otd-close",
+          attr: { type: "button", "aria-label": localize(lang, "otd_close"), title: localize(lang, "otd_close") }
+        });
+        (0, import_obsidian3.setIcon)(closeBtn, "x");
         closeBtn.addEventListener("click", () => this.close());
         this.bodyEl = panel.createDiv({ cls: "cal-otd-grid" });
         if (this.entries.length === 0) {
-          const emptyMsg = this.bodyEl.createDiv({ cls: "cal-otd-empty-state" });
-          emptyMsg.setText(localize(lang, "otd_noMemories"));
+          this._renderMessage(localize(lang, "otd_noMemories"), "history");
         } else {
           this._renderGrid();
         }
         this.backdrop.appendChild(panel);
         document.body.appendChild(this.backdrop);
         document.addEventListener("keydown", this._onKey);
+      }
+      /**
+       * One layout for the empty, loading and error states. They used to be a bare
+       * centred sentence, which read as a rendering failure; an icon plus the
+       * message makes the state look deliberate. Text is passed in already
+       * localized because the empty state comes from the LOCALE table while the
+       * error comes from the `t()` catalogue.
+       */
+      _renderMessage(message, icon, detail) {
+        this.bodyEl.empty();
+        const state = this.bodyEl.createDiv({ cls: "cal-otd-empty-state" });
+        if (icon) {
+          const iconEl = state.createDiv({ cls: "cal-otd-empty-icon", attr: { "aria-hidden": "true" } });
+          (0, import_obsidian3.setIcon)(iconEl, icon);
+        }
+        state.createDiv({ cls: "cal-otd-empty-title", text: message });
+        if (detail) state.createDiv({ cls: "cal-otd-empty-detail", text: detail });
+        return state;
       }
       close() {
         this._closed = true;
@@ -5749,27 +5772,23 @@ var init_on_this_day = __esm({
         const d = new Date(2e3, this.month - 1, this.day + delta);
         this.month = d.getMonth() + 1;
         this.day = d.getDate();
-        const lang = this.plugin.settings.weatherLanguage;
         this._updateDateInput();
-        this.bodyEl.empty();
-        const loadingEl = this.bodyEl.createDiv({ cls: "cal-otd-empty-state" });
-        loadingEl.setText(localize(lang, "loading"));
+        this._renderMessage(localize(this.plugin.settings.weatherLanguage, "loading"));
         const requestToken = ++this._requestToken;
         try {
           this.entries = await this.provider.getEntries(this.month, this.day);
           if (this._closed || requestToken !== this._requestToken) return;
-          this.bodyEl.empty();
           if (this.entries.length === 0) {
-            const emptyMsg = this.bodyEl.createDiv({ cls: "cal-otd-empty-state" });
-            emptyMsg.setText(localize(lang, "otd_noMemories"));
+            this._renderMessage(localize(this.plugin.settings.weatherLanguage, "otd_noMemories"), "history");
           } else {
             this._renderGrid();
           }
         } catch (e) {
           if (this._closed || requestToken !== this._requestToken) return;
-          this.bodyEl.empty();
-          const errEl = this.bodyEl.createDiv({ cls: "cal-otd-empty-state" });
-          errEl.setText(t(this.plugin.settings, "onThisDayLoadFailed", { error: e?.message || e }));
+          this._renderMessage(
+            t(this.plugin.settings, "onThisDayLoadFailed", { error: e?.message || e }),
+            "alert-triangle"
+          );
         }
       }
       _updateDateInput() {
@@ -5781,22 +5800,40 @@ var init_on_this_day = __esm({
       _renderGrid() {
         this.bodyEl.empty();
         const lang = this.plugin.settings.weatherLanguage;
+        const currentYear = Number(daylineDate(this.plugin.settings).slice(0, 4));
+        const openLabel = localize(lang, "otd_openNote");
         for (const entry of this.entries) {
+          const images = entry.images || [];
+          const yearsAgo = Math.max(1, currentYear - entry.year);
+          const metaText = `${localize(lang, "otd_yearsAgo", yearsAgo)}  \xB7  ${entry.year}`;
           const card = this.bodyEl.createDiv({ cls: "cal-otd-wall-card" });
-          const badge = card.createDiv({ cls: "cal-otd-wall-badge" });
-          const currentYear = Number(daylineDate(this.plugin.settings).slice(0, 4));
-          badge.setText(localize(lang, "otd_yearsAgo", currentYear - entry.year) + `  \xB7  ${entry.year}`);
-          if (entry.images && entry.images.length > 0) {
+          card.setAttribute("role", "button");
+          card.setAttribute("tabindex", "0");
+          card.setAttribute("title", openLabel);
+          card.setAttribute("aria-label", [metaText, entry.title, openLabel].filter(Boolean).join(" \xB7 "));
+          const meta = card.createDiv({ cls: "cal-otd-wall-meta" });
+          meta.createSpan({ cls: "cal-otd-wall-badge", text: metaText });
+          if (images.length > 1) {
+            meta.createSpan({ cls: "cal-otd-wall-count", text: `+${images.length - 1}` });
+          }
+          if (images.length > 0) {
             const photo = card.createDiv({ cls: "cal-otd-wall-photo" });
-            this._setPhotoBackground(photo, entry.images[0], entry.dateStr, entry.path);
-          } else if (entry.excerpt) {
-            const textBlock = card.createDiv({ cls: "cal-otd-wall-text" });
-            textBlock.setText(entry.excerpt);
+            this._setPhotoBackground(photo, images[0], entry.dateStr, entry.path);
           }
-          if (entry.images && entry.images.length > 0 && entry.excerpt) {
-            card.createDiv({ cls: "cal-otd-wall-excerpt", text: entry.excerpt });
+          const hasPhoto = images.length > 0;
+          const needsPlaceholder = !entry.title && !entry.excerpt && !hasPhoto;
+          if (entry.title || entry.excerpt || needsPlaceholder) {
+            const text = card.createDiv({
+              cls: hasPhoto ? "cal-otd-wall-text" : "cal-otd-wall-text is-text-only"
+            });
+            if (entry.title) text.createDiv({ cls: "cal-otd-wall-title", text: entry.title });
+            if (entry.excerpt) {
+              text.createDiv({ cls: "cal-otd-wall-excerpt", text: entry.excerpt });
+            } else if (needsPlaceholder) {
+              text.createDiv({ cls: "cal-otd-wall-excerpt is-empty", text: localize(lang, "otd_emptyExcerpt") });
+            }
           }
-          card.addEventListener("click", () => {
+          const openNote = () => {
             const { TFile: TFile3, Notice: Notice5 } = require("obsidian");
             this.close();
             const file = entry.path && this.app.vault.getAbstractFileByPath(entry.path);
@@ -5804,6 +5841,12 @@ var init_on_this_day = __esm({
               console.warn("[Dayline] Open On This Day note failed:", error?.message || error);
               new Notice5(t(this.plugin.settings, "openNoteFailed", { error: error?.message || error }));
             });
+          };
+          card.addEventListener("click", openNote);
+          card.addEventListener("keydown", (event) => {
+            if (event.key !== "Enter" && event.key !== " ") return;
+            event.preventDefault();
+            openNote();
           });
         }
       }
@@ -6036,11 +6079,11 @@ function validateJournalSources(value) {
     return { ...source, id, path, type };
   });
 }
-var import_obsidian3, clone, JournalSourceSettingsEditor;
+var import_obsidian4, clone, JournalSourceSettingsEditor;
 var init_journal_source_settings = __esm({
   "src/journal-source-settings.ts"() {
     "use strict";
-    import_obsidian3 = require("obsidian");
+    import_obsidian4 = require("obsidian");
     init_date_utils();
     init_i18n();
     clone = (value) => JSON.parse(JSON.stringify(value));
@@ -6111,7 +6154,7 @@ var init_journal_source_settings = __esm({
           cls: "dayline-source-icon clickable-icon",
           attr: { type: "button", "aria-label": this.label(key), title: this.label(key) }
         });
-        (0, import_obsidian3.setIcon)(button, icon);
+        (0, import_obsidian4.setIcon)(button, icon);
         button.addEventListener("click", () => {
           if (!this.busy) callback();
         });
@@ -6190,7 +6233,7 @@ var init_journal_source_settings = __esm({
           if (!this.sources.length) list.createEl("p", { cls: "setting-item-description", text: this.label("sourceNoAdditional") });
         }
         this.addButton = list.createEl("button", { attr: { type: "button" }, cls: "dayline-source-add" });
-        (0, import_obsidian3.setIcon)(this.addButton.createSpan(), "plus");
+        (0, import_obsidian4.setIcon)(this.addButton.createSpan(), "plus");
         this.addButton.createSpan({ text: this.label("sourceAdd") });
         this.addButton.addEventListener("click", () => {
           const ids = new Set(this.sources.map((source, index) => source.id || `source-${index + 1}`));
@@ -6349,11 +6392,11 @@ function shouldShowOnThisDayExcerptSettings(settings) {
 function shouldShowExifGeocoding(settings) {
   return settings.showExif === true;
 }
-var import_obsidian4, VIEW_TYPE, SETTINGS_SECTION_IDS, SETTINGS_SECTION_LABEL_KEYS, SETTINGS_ACTION_ROWS, DaylineSettingsTab, FolderSuggestModal;
+var import_obsidian5, VIEW_TYPE, SETTINGS_SECTION_IDS, SETTINGS_SECTION_LABEL_KEYS, SETTINGS_ACTION_ROWS, DaylineSettingsTab, FolderSuggestModal;
 var init_settings_tab = __esm({
   "src/settings-tab.ts"() {
     "use strict";
-    import_obsidian4 = require("obsidian");
+    import_obsidian5 = require("obsidian");
     init_i18n();
     init_locale();
     init_dayline_wordmark_compact();
@@ -6386,7 +6429,7 @@ var init_settings_tab = __esm({
       metadataBackup: ["exportMetadataCommand", "restoreMetadataCommand"],
       dataMaintenance: ["integrityCommand", "importFrontmatterCommand"]
     };
-    DaylineSettingsTab = class extends import_obsidian4.PluginSettingTab {
+    DaylineSettingsTab = class extends import_obsidian5.PluginSettingTab {
       constructor(app, plugin) {
         super(app, plugin);
         this.plugin = plugin;
@@ -6398,14 +6441,14 @@ var init_settings_tab = __esm({
         } catch (error) {
           const message = error?.message || String(error);
           console.warn("[Dayline] Settings save failed:", message);
-          new import_obsidian4.Notice(t(this.plugin.settings, "settingsSaveFailed", { error: message }));
+          new import_obsidian5.Notice(t(this.plugin.settings, "settingsSaveFailed", { error: message }));
           return false;
         }
       }
       _notifyViewRefreshFailure(error) {
         const message = error?.message || String(error);
         console.warn("[Dayline] Settings view refresh failed:", message);
-        new import_obsidian4.Notice(t(this.plugin.settings, "viewRefreshFailed", { error: message }));
+        new import_obsidian5.Notice(t(this.plugin.settings, "viewRefreshFailed", { error: message }));
       }
       _refreshCalendarView() {
         for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE)) {
@@ -6437,7 +6480,7 @@ var init_settings_tab = __esm({
         }
       }
       _addSection(containerEl, id) {
-        const setting = new import_obsidian4.Setting(containerEl).setName(t(this.plugin.settings, SETTINGS_SECTION_LABEL_KEYS[id])).setHeading();
+        const setting = new import_obsidian5.Setting(containerEl).setName(t(this.plugin.settings, SETTINGS_SECTION_LABEL_KEYS[id])).setHeading();
         setting.settingEl.dataset.daylineSettingsSection = id;
       }
       _addActionRow(setting, id) {
@@ -6472,7 +6515,7 @@ var init_settings_tab = __esm({
           brand.setText("Dayline");
         }
         this._addSection(containerEl, "general");
-        new import_obsidian4.Setting(containerEl).setName(t(this.plugin.settings, "language")).setDesc(t(this.plugin.settings, "languageDesc")).addDropdown((dd) => dd.addOption("system", t(this.plugin.settings, "system")).addOption("en", t(this.plugin.settings, "english")).addOption("zh", t(this.plugin.settings, "chinese")).setValue(this.plugin.settings.displayLanguage).onChange(async (value) => {
+        new import_obsidian5.Setting(containerEl).setName(t(this.plugin.settings, "language")).setDesc(t(this.plugin.settings, "languageDesc")).addDropdown((dd) => dd.addOption("system", t(this.plugin.settings, "system")).addOption("en", t(this.plugin.settings, "english")).addOption("zh", t(this.plugin.settings, "chinese")).setValue(this.plugin.settings.displayLanguage).onChange(async (value) => {
           this.plugin.settings.displayLanguage = value;
           this.plugin.settings.weatherLanguage = getDisplayLanguage({ displayLanguage: value });
           if (!await this._saveSettings()) return;
@@ -6480,81 +6523,81 @@ var init_settings_tab = __esm({
           this._refreshCalendarView();
           this.plugin.refreshJournalViews();
         }));
-        new import_obsidian4.Setting(containerEl).setName(t(this.plugin.settings, "weekStart")).setDesc(t(this.plugin.settings, "weekStartDesc")).addDropdown((dd) => dd.addOption("system", t(this.plugin.settings, "weekStartSystem")).addOption("monday", t(this.plugin.settings, "weekStartMonday")).addOption("sunday", t(this.plugin.settings, "weekStartSunday")).setValue(this.plugin.settings.weekStart || "system").onChange(async (value) => {
+        new import_obsidian5.Setting(containerEl).setName(t(this.plugin.settings, "weekStart")).setDesc(t(this.plugin.settings, "weekStartDesc")).addDropdown((dd) => dd.addOption("system", t(this.plugin.settings, "weekStartSystem")).addOption("monday", t(this.plugin.settings, "weekStartMonday")).addOption("sunday", t(this.plugin.settings, "weekStartSunday")).setValue(this.plugin.settings.weekStart || "system").onChange(async (value) => {
           this.plugin.settings.weekStart = value;
           if (!await this._saveSettings()) return;
           this._refreshCalendarView();
         }));
         this._addSection(containerEl, "calendar-journal");
-        new import_obsidian4.Setting(containerEl).setName(t(this.plugin.settings, "journalSources"));
+        new import_obsidian5.Setting(containerEl).setName(t(this.plugin.settings, "journalSources"));
         this.sourceEditor ?? (this.sourceEditor = new JournalSourceSettingsEditor(this.plugin, {
           chooseFolder: (onSubmit) => new FolderSuggestModal(this.app, onSubmit).open(),
           refreshCalendar: () => this._refreshViews({ resetSource: true, throwOnError: true })
         }));
         this.sourceEditor.mount(containerEl);
-        new import_obsidian4.Setting(containerEl).setName(_s("s_thumbnailFilter")).setDesc(_s("s_thumbnailFilterDesc")).addDropdown((dd) => dd.addOption("all", _s("s_thumbnailAll")).addOption("date-prefixed", _s("s_thumbnailDate")).setValue(this.plugin.settings.thumbnailFilter).onChange(async (value) => {
+        new import_obsidian5.Setting(containerEl).setName(_s("s_thumbnailFilter")).setDesc(_s("s_thumbnailFilterDesc")).addDropdown((dd) => dd.addOption("all", _s("s_thumbnailAll")).addOption("date-prefixed", _s("s_thumbnailDate")).setValue(this.plugin.settings.thumbnailFilter).onChange(async (value) => {
           this.plugin.settings.thumbnailFilter = value;
           if (!await this._saveSettings()) return;
           this._refreshCalendarView();
         }));
-        this._addActionRow(new import_obsidian4.Setting(containerEl).setName(t(this.plugin.settings, "journalTools")).setDesc(t(this.plugin.settings, "journalToolsDesc")), "journalTools").addButton((button) => button.setButtonText(t(this.plugin.settings, "openTimeline")).onClick(() => this.plugin.activateTimeline())).addButton((button) => button.setButtonText(t(this.plugin.settings, "detectImports")).onClick(async () => {
+        this._addActionRow(new import_obsidian5.Setting(containerEl).setName(t(this.plugin.settings, "journalTools")).setDesc(t(this.plugin.settings, "journalToolsDesc")), "journalTools").addButton((button) => button.setButtonText(t(this.plugin.settings, "openTimeline")).onClick(() => this.plugin.activateTimeline())).addButton((button) => button.setButtonText(t(this.plugin.settings, "detectImports")).onClick(async () => {
           const result = await this.plugin.journalIndex.detectSources(this.plugin.settings);
-          new import_obsidian4.Notice(t(this.plugin.settings, "detectImportsResult", result));
+          new import_obsidian5.Notice(t(this.plugin.settings, "detectImportsResult", result));
         }));
-        new import_obsidian4.Setting(containerEl).setName(t(this.plugin.settings, "showTimelineMoodTrend")).setDesc(t(this.plugin.settings, "showTimelineMoodTrendDesc")).addToggle((toggle) => toggle.setValue(shouldShowTimelineMoodTrend(this.plugin.settings)).onChange(async (value) => {
+        new import_obsidian5.Setting(containerEl).setName(t(this.plugin.settings, "showTimelineMoodTrend")).setDesc(t(this.plugin.settings, "showTimelineMoodTrendDesc")).addToggle((toggle) => toggle.setValue(shouldShowTimelineMoodTrend(this.plugin.settings)).onChange(async (value) => {
           this.plugin.settings.showTimelineMoodTrend = value;
           if (!await this._saveSettings()) return;
           this.plugin.refreshJournalViews();
         }));
-        new import_obsidian4.Setting(containerEl).setName(t(this.plugin.settings, "showTimelineTitles")).setDesc(t(this.plugin.settings, "showTimelineTitlesDesc")).addToggle((toggle) => toggle.setValue(shouldShowTimelineTitles(this.plugin.settings)).onChange(async (value) => {
+        new import_obsidian5.Setting(containerEl).setName(t(this.plugin.settings, "showTimelineTitles")).setDesc(t(this.plugin.settings, "showTimelineTitlesDesc")).addToggle((toggle) => toggle.setValue(shouldShowTimelineTitles(this.plugin.settings)).onChange(async (value) => {
           this.plugin.settings.showTimelineTitles = value;
           if (!await this._saveSettings()) return;
           this.plugin.refreshJournalViews();
         }));
-        new import_obsidian4.Setting(containerEl).setName(t(this.plugin.settings, "showCalendarMood")).setDesc(t(this.plugin.settings, "showCalendarMoodDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showCalendarMood !== false).onChange(async (value) => {
+        new import_obsidian5.Setting(containerEl).setName(t(this.plugin.settings, "showCalendarMood")).setDesc(t(this.plugin.settings, "showCalendarMoodDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showCalendarMood !== false).onChange(async (value) => {
           this.plugin.settings.showCalendarMood = value;
           if (!await this._saveSettings()) return;
           this.display();
           await this._refreshViews();
         }));
         if (shouldShowCalendarMoodStyle(this.plugin.settings)) {
-          new import_obsidian4.Setting(containerEl).setName(t(this.plugin.settings, "calendarMoodMarker")).setDesc(t(this.plugin.settings, "calendarMoodMarkerDesc")).addDropdown((dd) => dd.addOption("dot", t(this.plugin.settings, "calendarMoodMarkerDot")).addOption("bar", t(this.plugin.settings, "calendarMoodMarkerBar")).setValue(calendarMoodMarker(this.plugin.settings)).onChange(async (value) => {
+          new import_obsidian5.Setting(containerEl).setName(t(this.plugin.settings, "calendarMoodMarker")).setDesc(t(this.plugin.settings, "calendarMoodMarkerDesc")).addDropdown((dd) => dd.addOption("dot", t(this.plugin.settings, "calendarMoodMarkerDot")).addOption("bar", t(this.plugin.settings, "calendarMoodMarkerBar")).setValue(calendarMoodMarker(this.plugin.settings)).onChange(async (value) => {
             this.plugin.settings.calendarMoodMarker = value === "bar" ? "bar" : "dot";
             if (!await this._saveSettings()) return;
             await this._refreshViews();
           }));
         }
-        new import_obsidian4.Setting(containerEl).setName(t(this.plugin.settings, "showCalendarEntryCount")).setDesc(t(this.plugin.settings, "showCalendarEntryCountDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showCalendarEntryCount !== false).onChange(async (value) => {
+        new import_obsidian5.Setting(containerEl).setName(t(this.plugin.settings, "showCalendarEntryCount")).setDesc(t(this.plugin.settings, "showCalendarEntryCountDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showCalendarEntryCount !== false).onChange(async (value) => {
           this.plugin.settings.showCalendarEntryCount = value;
           if (!await this._saveSettings()) return;
           await this._refreshViews();
         }));
         if (shouldShowCalendarWeatherOptions(this.plugin.settings)) {
-          new import_obsidian4.Setting(containerEl).setName(t(this.plugin.settings, "showCalendarWeatherCard")).setDesc(t(this.plugin.settings, "showCalendarWeatherCardDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showCalendarWeatherCard !== false).onChange(async (value) => {
+          new import_obsidian5.Setting(containerEl).setName(t(this.plugin.settings, "showCalendarWeatherCard")).setDesc(t(this.plugin.settings, "showCalendarWeatherCardDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showCalendarWeatherCard !== false).onChange(async (value) => {
             this.plugin.settings.showCalendarWeatherCard = value;
             if (!await this._saveSettings()) return;
             this.display();
             await this._refreshViews();
           }));
           if (shouldShowWeatherLocationOption(this.plugin.settings)) {
-            new import_obsidian4.Setting(containerEl).setName(t(this.plugin.settings, "showCalendarWeatherLocation")).setDesc(t(this.plugin.settings, "showCalendarWeatherLocationDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showCalendarWeatherLocation === true).onChange(async (value) => {
+            new import_obsidian5.Setting(containerEl).setName(t(this.plugin.settings, "showCalendarWeatherLocation")).setDesc(t(this.plugin.settings, "showCalendarWeatherLocationDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showCalendarWeatherLocation === true).onChange(async (value) => {
               this.plugin.settings.showCalendarWeatherLocation = value;
               if (!await this._saveSettings()) return;
               await this._refreshViews();
             }));
           }
-          new import_obsidian4.Setting(containerEl).setName(t(this.plugin.settings, "showCalendarWeatherBadge")).setDesc(t(this.plugin.settings, "showCalendarWeatherBadgeDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showCalendarWeatherBadge !== false).onChange(async (value) => {
+          new import_obsidian5.Setting(containerEl).setName(t(this.plugin.settings, "showCalendarWeatherBadge")).setDesc(t(this.plugin.settings, "showCalendarWeatherBadgeDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showCalendarWeatherBadge !== false).onChange(async (value) => {
             this.plugin.settings.showCalendarWeatherBadge = value;
             if (!await this._saveSettings()) return;
             await this._refreshViews();
           }));
         }
         this._addSection(containerEl, "mood");
-        new import_obsidian4.Setting(containerEl).setName(t(this.plugin.settings, "mirrorMood")).setDesc(t(this.plugin.settings, "mirrorMoodDesc")).addToggle((toggle) => toggle.setValue(Boolean(this.plugin.settings.mirrorMoodToFrontmatter)).onChange(async (value) => {
+        new import_obsidian5.Setting(containerEl).setName(t(this.plugin.settings, "mirrorMood")).setDesc(t(this.plugin.settings, "mirrorMoodDesc")).addToggle((toggle) => toggle.setValue(Boolean(this.plugin.settings.mirrorMoodToFrontmatter)).onChange(async (value) => {
           this.plugin.settings.mirrorMoodToFrontmatter = value;
           await this._saveSettings();
         }));
-        new import_obsidian4.Setting(containerEl).setName(t(this.plugin.settings, "reminder")).setDesc(t(this.plugin.settings, "reminderDesc")).addToggle((toggle) => toggle.setValue(Boolean(this.plugin.settings.reminderEnabled)).onChange(async (value) => {
+        new import_obsidian5.Setting(containerEl).setName(t(this.plugin.settings, "reminder")).setDesc(t(this.plugin.settings, "reminderDesc")).addToggle((toggle) => toggle.setValue(Boolean(this.plugin.settings.reminderEnabled)).onChange(async (value) => {
           this.plugin.settings.reminderEnabled = value;
           await this._saveSettings();
         })).addExtraButton((button) => button.setIcon("clock-3").setTooltip(t(this.plugin.settings, "reminderHour")).onClick(() => {
@@ -6566,7 +6609,7 @@ var init_settings_tab = __esm({
           }
         }));
         this._addSection(containerEl, "weather");
-        new import_obsidian4.Setting(containerEl).setName(_s("s_weatherEnable")).setDesc(_s("s_weatherEnableDesc")).addToggle(
+        new import_obsidian5.Setting(containerEl).setName(_s("s_weatherEnable")).setDesc(_s("s_weatherEnableDesc")).addToggle(
           (toggle) => toggle.setValue(this.plugin.settings.weatherEnabled).onChange(async (value) => {
             this.plugin.settings.weatherEnabled = value;
             if (!await this._saveSettings()) return;
@@ -6575,35 +6618,35 @@ var init_settings_tab = __esm({
           })
         );
         if (shouldShowWeatherSettings(this.plugin.settings)) {
-          new import_obsidian4.Setting(containerEl).setName(_s("s_latitude")).setDesc(_s("s_latitudeDesc")).addText(
+          new import_obsidian5.Setting(containerEl).setName(_s("s_latitude")).setDesc(_s("s_latitudeDesc")).addText(
             (text) => text.setPlaceholder("39.9042").setValue(String(this.plugin.settings.weatherLatitude)).onChange(async (value) => {
               this.plugin.settings.weatherLatitude = value.trim();
               if (!await this._saveSettings()) return;
               await this._refreshViews();
             })
           );
-          new import_obsidian4.Setting(containerEl).setName(_s("s_longitude")).setDesc(_s("s_longitudeDesc")).addText(
+          new import_obsidian5.Setting(containerEl).setName(_s("s_longitude")).setDesc(_s("s_longitudeDesc")).addText(
             (text) => text.setPlaceholder("116.4074").setValue(String(this.plugin.settings.weatherLongitude)).onChange(async (value) => {
               this.plugin.settings.weatherLongitude = value.trim();
               if (!await this._saveSettings()) return;
               await this._refreshViews();
             })
           );
-          new import_obsidian4.Setting(containerEl).setName(_s("s_locationName")).setDesc(_s("s_locationNameDesc")).addText(
+          new import_obsidian5.Setting(containerEl).setName(_s("s_locationName")).setDesc(_s("s_locationNameDesc")).addText(
             (text) => text.setPlaceholder(_s("s_locationName")).setValue(String(this.plugin.settings.weatherLocationName)).onChange(async (value) => {
               this.plugin.settings.weatherLocationName = value.trim();
               if (!await this._saveSettings()) return;
               await this._refreshViews();
             })
           );
-          new import_obsidian4.Setting(containerEl).setName(_s("s_tempUnits")).setDesc(_s("s_tempUnitsDesc")).addDropdown(
+          new import_obsidian5.Setting(containerEl).setName(_s("s_tempUnits")).setDesc(_s("s_tempUnitsDesc")).addDropdown(
             (dd) => dd.addOption("metric", _s("s_celsius")).addOption("imperial", _s("s_fahrenheit")).setValue(this.plugin.settings.weatherUnits).onChange(async (value) => {
               this.plugin.settings.weatherUnits = value;
               if (!await this._saveSettings()) return;
               await this._refreshViews();
             })
           );
-          const weatherFieldsSetting = new import_obsidian4.Setting(containerEl).setName(t(this.plugin.settings, "weatherExtraFields")).setDesc(t(this.plugin.settings, "weatherExtraFieldsDesc"));
+          const weatherFieldsSetting = new import_obsidian5.Setting(containerEl).setName(t(this.plugin.settings, "weatherExtraFields")).setDesc(t(this.plugin.settings, "weatherExtraFieldsDesc"));
           weatherFieldsSetting.settingEl.addClass("dayline-weather-fields-setting");
           {
             const control = weatherFieldsSetting.controlEl.createDiv({ cls: "dayline-weather-field-options" });
@@ -6634,18 +6677,18 @@ var init_settings_tab = __esm({
               });
             }
           }
-          new import_obsidian4.Setting(containerEl).setName(t(this.plugin.settings, "weatherTimezone")).setDesc(t(this.plugin.settings, "weatherTimezoneDesc")).addText((text) => text.setPlaceholder("auto or Asia/Shanghai").setValue(String(this.plugin.settings.weatherTimezone || "auto")).onChange(async (value) => {
+          new import_obsidian5.Setting(containerEl).setName(t(this.plugin.settings, "weatherTimezone")).setDesc(t(this.plugin.settings, "weatherTimezoneDesc")).addText((text) => text.setPlaceholder("auto or Asia/Shanghai").setValue(String(this.plugin.settings.weatherTimezone || "auto")).onChange(async (value) => {
             this.plugin.settings.weatherTimezone = value.trim() || "auto";
             if (!await this._saveSettings()) return;
             await this._refreshViews();
           }));
-          new import_obsidian4.Setting(containerEl).setName(_s("s_autoFetch")).setDesc(_s("s_autoFetchDesc")).addToggle(
+          new import_obsidian5.Setting(containerEl).setName(_s("s_autoFetch")).setDesc(_s("s_autoFetchDesc")).addToggle(
             (toggle) => toggle.setValue(this.plugin.settings.weatherAutoFetch).onChange(async (value) => {
               this.plugin.settings.weatherAutoFetch = value;
               await this._saveSettings();
             })
           );
-          new import_obsidian4.Setting(containerEl).setName(_s("s_cacheTtl")).setDesc(_s("s_cacheTtlDesc")).addText(
+          new import_obsidian5.Setting(containerEl).setName(_s("s_cacheTtl")).setDesc(_s("s_cacheTtlDesc")).addText(
             (text) => text.setPlaceholder("2").setValue(String(this.plugin.settings.weatherTtlHours)).onChange(async (value) => {
               const n = parseInt(value, 10);
               this.plugin.settings.weatherTtlHours = isNaN(n) || n < 1 ? 2 : n;
@@ -6655,19 +6698,19 @@ var init_settings_tab = __esm({
           );
         }
         this._addSection(containerEl, "media-privacy");
-        new import_obsidian4.Setting(containerEl).setName(_s("s_exifEnable")).setDesc(_s("s_exifEnableDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showExif).onChange(async (value) => {
+        new import_obsidian5.Setting(containerEl).setName(_s("s_exifEnable")).setDesc(_s("s_exifEnableDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showExif).onChange(async (value) => {
           this.plugin.settings.showExif = value;
           if (!await this._saveSettings()) return;
           this.display();
         }));
         if (shouldShowExifGeocoding(this.plugin.settings)) {
-          new import_obsidian4.Setting(containerEl).setName(_s("s_exifGeocode")).setDesc(_s("s_exifGeocodeDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.exifReverseGeocode).onChange(async (value) => {
+          new import_obsidian5.Setting(containerEl).setName(_s("s_exifGeocode")).setDesc(_s("s_exifGeocodeDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.exifReverseGeocode).onChange(async (value) => {
             this.plugin.settings.exifReverseGeocode = value;
             await this._saveSettings();
           }));
         }
         this._addSection(containerEl, "on-this-day");
-        new import_obsidian4.Setting(containerEl).setName(_s("s_otdEntry")).setDesc(_s("s_otdEntryDesc")).addDropdown(
+        new import_obsidian5.Setting(containerEl).setName(_s("s_otdEntry")).setDesc(_s("s_otdEntryDesc")).addDropdown(
           (dropdown) => dropdown.addOptions({
             off: _s("s_otdEntryOff"),
             merged: _s("s_otdEntryMerged"),
@@ -6681,7 +6724,7 @@ var init_settings_tab = __esm({
             if (leaf?.view) leaf.view.render();
           })
         );
-        new import_obsidian4.Setting(containerEl).setName(_s("s_otdDot")).setDesc(_s("s_otdDotDesc")).addToggle(
+        new import_obsidian5.Setting(containerEl).setName(_s("s_otdDot")).setDesc(_s("s_otdDotDesc")).addToggle(
           (toggle) => toggle.setValue(this.plugin.settings.onThisDayDot).onChange(async (value) => {
             this.plugin.settings.onThisDayDot = value;
             if (!await this._saveSettings()) return;
@@ -6689,7 +6732,7 @@ var init_settings_tab = __esm({
           })
         );
         if (shouldShowOnThisDayExcerptSettings(this.plugin.settings)) {
-          new import_obsidian4.Setting(containerEl).setName(_s("s_otdExcerptMode")).setDesc(_s("s_otdExcerptModeDesc")).addDropdown((dropdown) => dropdown.addOptions({
+          new import_obsidian5.Setting(containerEl).setName(_s("s_otdExcerptMode")).setDesc(_s("s_otdExcerptModeDesc")).addDropdown((dropdown) => dropdown.addOptions({
             auto: _s("s_otdExcerptAuto"),
             frontmatter: _s("s_otdExcerptFrontmatter"),
             template: _s("s_otdExcerptTemplate"),
@@ -6702,14 +6745,14 @@ var init_settings_tab = __esm({
             this.display();
           }));
           if (this.plugin.settings.onThisDayExcerptMode === "frontmatter") {
-            new import_obsidian4.Setting(containerEl).setName(_s("s_otdExcerptKey")).setDesc(_s("s_otdExcerptKeyDesc")).addText((text) => text.setValue(this.plugin.settings.onThisDayExcerptKey || "excerpt").onChange(async (value) => {
+            new import_obsidian5.Setting(containerEl).setName(_s("s_otdExcerptKey")).setDesc(_s("s_otdExcerptKeyDesc")).addText((text) => text.setValue(this.plugin.settings.onThisDayExcerptKey || "excerpt").onChange(async (value) => {
               this.plugin.settings.onThisDayExcerptKey = value;
               if (!await this._saveSettings()) return;
               this.app.workspace.getLeavesOfType(VIEW_TYPE)[0]?.view?._otdProvider?.invalidate();
             }));
           }
           if (this.plugin.settings.onThisDayExcerptMode === "template") {
-            new import_obsidian4.Setting(containerEl).setName(_s("s_otdTemplate")).setDesc(_s("s_otdTemplateDesc")).addText((text) => text.setValue(this.plugin.settings.onThisDayExcerptTemplate || "{body}").onChange(async (value) => {
+            new import_obsidian5.Setting(containerEl).setName(_s("s_otdTemplate")).setDesc(_s("s_otdTemplateDesc")).addText((text) => text.setValue(this.plugin.settings.onThisDayExcerptTemplate || "{body}").onChange(async (value) => {
               this.plugin.settings.onThisDayExcerptTemplate = value;
               if (!await this._saveSettings()) return;
               this.app.workspace.getLeavesOfType(VIEW_TYPE)[0]?.view?._otdProvider?.invalidate();
@@ -6717,7 +6760,7 @@ var init_settings_tab = __esm({
           }
         }
         this._addSection(containerEl, "data-maintenance");
-        new import_obsidian4.Setting(containerEl).setName(t(this.plugin.settings, "moodMetadataPath")).setDesc(t(this.plugin.settings, "moodMetadataPathDesc")).addText((text) => text.setValue(this.plugin.settings.moodMetadataPath).setPlaceholder("Calendar/journal-metadata.json").onChange(async (value) => {
+        new import_obsidian5.Setting(containerEl).setName(t(this.plugin.settings, "moodMetadataPath")).setDesc(t(this.plugin.settings, "moodMetadataPathDesc")).addText((text) => text.setValue(this.plugin.settings.moodMetadataPath).setPlaceholder("Calendar/journal-metadata.json").onChange(async (value) => {
           const next = value.trim() || "Calendar/journal-metadata.json";
           this.plugin.settings.moodMetadataPath = next;
           if (!await this._saveSettings()) return;
@@ -6726,27 +6769,27 @@ var init_settings_tab = __esm({
           await this.plugin.journalIndex.refresh(this.plugin.settings);
           this.plugin.refreshJournalViews();
         }));
-        this._addActionRow(new import_obsidian4.Setting(containerEl).setName(t(this.plugin.settings, "moodExport")).setDesc(t(this.plugin.settings, "moodExportDesc")), "moodExport").addButton((button) => button.setButtonText(t(this.plugin.settings, "exportMoodCsvCommand")).onClick(() => this.plugin.exportMood("csv"))).addButton((button) => button.setButtonText(t(this.plugin.settings, "exportMoodJsonCommand")).onClick(() => this.plugin.exportMood("json")));
-        this._addActionRow(new import_obsidian4.Setting(containerEl).setName(t(this.plugin.settings, "metadataBackup")).setDesc(t(this.plugin.settings, "metadataBackupDesc")), "metadataBackup").addButton((button) => button.setButtonText(t(this.plugin.settings, "exportMetadataCommand")).onClick(async () => {
+        this._addActionRow(new import_obsidian5.Setting(containerEl).setName(t(this.plugin.settings, "moodExport")).setDesc(t(this.plugin.settings, "moodExportDesc")), "moodExport").addButton((button) => button.setButtonText(t(this.plugin.settings, "exportMoodCsvCommand")).onClick(() => this.plugin.exportMood("csv"))).addButton((button) => button.setButtonText(t(this.plugin.settings, "exportMoodJsonCommand")).onClick(() => this.plugin.exportMood("json")));
+        this._addActionRow(new import_obsidian5.Setting(containerEl).setName(t(this.plugin.settings, "metadataBackup")).setDesc(t(this.plugin.settings, "metadataBackupDesc")), "metadataBackup").addButton((button) => button.setButtonText(t(this.plugin.settings, "exportMetadataCommand")).onClick(async () => {
           try {
             const path = await this.plugin.moodStore.exportTo();
-            new import_obsidian4.Notice(t(this.plugin.settings, "metadataExported", { path }));
+            new import_obsidian5.Notice(t(this.plugin.settings, "metadataExported", { path }));
           } catch (error) {
-            new import_obsidian4.Notice(t(this.plugin.settings, "metadataExportFailed", { error: error?.message || error }));
+            new import_obsidian5.Notice(t(this.plugin.settings, "metadataExportFailed", { error: error?.message || error }));
           }
         })).addButton((button) => button.setButtonText(t(this.plugin.settings, "restoreMetadataCommand")).onClick(async () => {
           try {
             await this.plugin.moodStore.restoreBackup();
             await this.plugin.journalIndex.refresh(this.plugin.settings);
             this.plugin.refreshJournalViews();
-            new import_obsidian4.Notice(t(this.plugin.settings, "metadataRestored"));
+            new import_obsidian5.Notice(t(this.plugin.settings, "metadataRestored"));
           } catch (error) {
-            new import_obsidian4.Notice(t(this.plugin.settings, "metadataRestoreFailed", { error: error?.message || error }));
+            new import_obsidian5.Notice(t(this.plugin.settings, "metadataRestoreFailed", { error: error?.message || error }));
           }
         }));
-        this._addActionRow(new import_obsidian4.Setting(containerEl).setName(t(this.plugin.settings, "dataMaintenance")).setDesc(t(this.plugin.settings, "dataMaintenanceDesc")), "dataMaintenance").addButton((button) => button.setButtonText(t(this.plugin.settings, "integrityCommand")).onClick(async () => {
+        this._addActionRow(new import_obsidian5.Setting(containerEl).setName(t(this.plugin.settings, "dataMaintenance")).setDesc(t(this.plugin.settings, "dataMaintenanceDesc")), "dataMaintenance").addButton((button) => button.setButtonText(t(this.plugin.settings, "integrityCommand")).onClick(async () => {
           const result = await this.plugin.moodStore.checkIntegrity();
-          new import_obsidian4.Notice(result.valid ? t(this.plugin.settings, "metadataValid") : t(this.plugin.settings, "metadataIntegrityIssues", {
+          new import_obsidian5.Notice(result.valid ? t(this.plugin.settings, "metadataValid") : t(this.plugin.settings, "metadataIntegrityIssues", {
             metadata: result.invalidMetadata.length,
             records: result.invalidRecords.length,
             orphans: result.invalidOrphans.length,
@@ -6759,27 +6802,27 @@ var init_settings_tab = __esm({
           );
           await this.plugin.journalIndex.refresh(this.plugin.settings);
           this.plugin.refreshJournalViews();
-          new import_obsidian4.Notice(t(this.plugin.settings, "importedMoods", { count }));
+          new import_obsidian5.Notice(t(this.plugin.settings, "importedMoods", { count }));
         }));
         const orphanCount = Object.keys(this.plugin.moodStore?.getOrphans?.() || {}).length;
         if (orphanCount > 0) {
-          new import_obsidian4.Setting(containerEl).setName(t(this.plugin.settings, "moodRecoveryTitle")).setDesc(t(this.plugin.settings, "moodRecoveryDescription")).addButton((button) => button.setButtonText(t(this.plugin.settings, "moodRecoveryCommand")).onClick(() => this.plugin.openMoodRecovery()));
+          new import_obsidian5.Setting(containerEl).setName(t(this.plugin.settings, "moodRecoveryTitle")).setDesc(t(this.plugin.settings, "moodRecoveryDescription")).addButton((button) => button.setButtonText(t(this.plugin.settings, "moodRecoveryCommand")).onClick(() => this.plugin.openMoodRecovery()));
         }
         if (shouldShowWeatherSettings(this.plugin.settings)) {
-          new import_obsidian4.Setting(containerEl).setName(_s("s_backfill")).setDesc(_s("s_backfillDesc")).addButton((btn) => btn.setButtonText(_s("s_backfillBtn")).onClick(async () => {
+          new import_obsidian5.Setting(containerEl).setName(_s("s_backfill")).setDesc(_s("s_backfillDesc")).addButton((btn) => btn.setButtonText(_s("s_backfillBtn")).onClick(async () => {
             const leaf = this.app.workspace.getLeavesOfType(VIEW_TYPE)[0];
             if (leaf?.view) leaf.view.startWeatherBackfill();
           }));
         }
       }
     };
-    FolderSuggestModal = class extends import_obsidian4.SuggestModal {
+    FolderSuggestModal = class extends import_obsidian5.SuggestModal {
       constructor(app, onSubmit) {
         super(app);
         this.onSubmit = onSubmit;
       }
       getSuggestions(query) {
-        const folders = this.app.vault.getAllLoadedFiles().filter((f) => f instanceof import_obsidian4.TFolder);
+        const folders = this.app.vault.getAllLoadedFiles().filter((f) => f instanceof import_obsidian5.TFolder);
         if (!query) return folders;
         return folders.filter(
           (f) => f.path.toLowerCase().includes(query.toLowerCase())
@@ -24854,7 +24897,7 @@ var init_mobile_diagnostics = __esm({
 });
 
 // src/plugin.ts
-var { Plugin, ItemView: ItemView2, TFile: TFile2, Notice: Notice4, Modal: Modal2, Menu, setIcon: setIcon4, Platform } = require("obsidian");
+var { Plugin, ItemView: ItemView2, TFile: TFile2, Notice: Notice4, Modal: Modal2, Menu, setIcon: setIcon5, Platform } = require("obsidian");
 var { PLUGIN_ID: PLUGIN_ID2, LEGACY_PLUGIN_IDS: LEGACY_PLUGIN_IDS2 } = (init_plugin_identity(), __toCommonJS(plugin_identity_exports));
 var { JournalIndex: JournalIndex2, startJournalIndexLoad: startJournalIndexLoad2, waitForJournalIndexStartup: waitForJournalIndexStartup2 } = (init_journal_index(), __toCommonJS(journal_index_exports));
 var { subscribeJournalMetadataRefresh: subscribeJournalMetadataRefresh2 } = (init_journal_metadata_refresh(), __toCommonJS(journal_metadata_refresh_exports));
@@ -25944,7 +25987,7 @@ var CalendarView = class extends ItemView2 {
         timeline: t2(this.plugin.settings, "timelineTitle")
       },
       onSelect: (mode) => mode === "timeline" ? this.plugin.activateTimeline() : this.plugin.activateView(),
-      setIcon: setIcon4,
+      setIcon: setIcon5,
       onReturn: () => this.plugin._returnToMobileMarkdown()
     });
   }
@@ -26229,7 +26272,7 @@ var CalendarView = class extends ItemView2 {
       cls: "cal-nav cal-icon-button",
       attr: { type: "button", "data-calendar-focus": "previous", "aria-label": t2(this.plugin.settings, "previousMonth"), title: t2(this.plugin.settings, "previousMonth") }
     });
-    setIcon4(prevBtn, "chevron-left");
+    setIcon5(prevBtn, "chevron-left");
     prevBtn.addEventListener("click", (e) => {
       e.stopPropagation();
       prevBtn.focus({ preventScroll: true });
@@ -26263,7 +26306,7 @@ var CalendarView = class extends ItemView2 {
       cls: "cal-nav cal-icon-button",
       attr: { type: "button", "data-calendar-focus": "next", "aria-label": t2(this.plugin.settings, "nextMonth"), title: t2(this.plugin.settings, "nextMonth") }
     });
-    setIcon4(nextBtn, "chevron-right");
+    setIcon5(nextBtn, "chevron-right");
     nextBtn.addEventListener("click", (e) => {
       e.stopPropagation();
       nextBtn.focus({ preventScroll: true });
@@ -26276,7 +26319,7 @@ var CalendarView = class extends ItemView2 {
         cls: "cal-icon-button cal-today-button",
         attr: { type: "button", "data-calendar-focus": "today", "aria-label": t2(this.plugin.settings, "today"), title: t2(this.plugin.settings, "today") }
       });
-      setIcon4(todayBtn, "calendar-check");
+      setIcon5(todayBtn, "calendar-check");
       todayBtn.addEventListener("click", (event) => {
         event.stopPropagation();
         todayBtn.focus({ preventScroll: true });
@@ -26468,7 +26511,7 @@ var CalendarView = class extends ItemView2 {
       cls: "cal-icon-button cal-jump-apply",
       attr: { type: "button", "data-calendar-focus": "jump-apply", "aria-label": t2(this.plugin.settings, "apply"), title: t2(this.plugin.settings, "apply") }
     });
-    setIcon4(apply, "check");
+    setIcon5(apply, "check");
     apply.addEventListener("click", (event) => {
       event.stopPropagation();
       apply.focus({ preventScroll: true });
@@ -26656,7 +26699,7 @@ var CalendarView = class extends ItemView2 {
       cls: "cal-weather-refresh",
       attr: { "aria-label": _l(s.weatherLanguage, "refresh"), title: _l(s.weatherLanguage, "refresh") }
     });
-    setIcon4(refreshBtn, "refresh-cw");
+    setIcon5(refreshBtn, "refresh-cw");
     refreshBtn.addEventListener("click", (e) => {
       e.stopPropagation();
       this._performRefresh(cardDate, refreshBtn).catch((err) => {
@@ -26703,7 +26746,7 @@ var CalendarView = class extends ItemView2 {
         title: label
       }
     });
-    setIcon4(btn, "history");
+    setIcon5(btn, "history");
     const mmdd = dateStr.slice(5);
     if (this._otdDotCache?.has(mmdd)) {
       btn.createDiv({ cls: "cal-otd-header-badge", attr: { "aria-hidden": "true" } });
@@ -26743,7 +26786,7 @@ var CalendarView = class extends ItemView2 {
     });
     const photo = strip.querySelector(".cal-otd-strip-photo");
     const chevron = strip.querySelector(".cal-otd-strip-chevron");
-    if (chevron) setIcon4(chevron, "chevron-right");
+    if (chevron) setIcon5(chevron, "chevron-right");
     if (photo && preview.image) {
       const notePath = preview.imageNotePath || `${this.plugin.settings.dailyFolder}/${preview.imageDateStr || dateStr}.md`;
       this.plugin.thumbnailService?.load(preview.image, notePath).then((result) => {
@@ -26751,7 +26794,7 @@ var CalendarView = class extends ItemView2 {
       }).catch((error) => console.warn("[Dayline] On This Day thumbnail load failed:", error?.message || error));
     } else if (photo) {
       photo.classList.add("is-empty");
-      setIcon4(photo, "history");
+      setIcon5(photo, "history");
     }
     this._bindOnThisDayOpener(strip, dateStr);
   }
@@ -27270,7 +27313,7 @@ var CalendarView = class extends ItemView2 {
     button.type = "button";
     button.setAttribute("aria-label", t2(this.plugin.settings, "mediaMetadata"));
     button.title = t2(this.plugin.settings, "mediaMetadata");
-    setIcon4(button, "info");
+    setIcon5(button, "info");
     const onPointerDown = (event) => {
       event.preventDefault();
       event.stopPropagation();
@@ -27430,7 +27473,7 @@ var CalendarView = class extends ItemView2 {
       cls: "cal-overlay-refresh",
       attr: { "aria-label": refreshLabel, title: refreshLabel }
     });
-    setIcon4(refreshBtn, "refresh-cw");
+    setIcon5(refreshBtn, "refresh-cw");
     refreshBtn.addEventListener("click", (e) => {
       e.stopPropagation();
       this._performOverlayRefresh(dateStr, refreshBtn, overlay).catch((err) => {

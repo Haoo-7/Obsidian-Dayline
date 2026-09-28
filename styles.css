@@ -882,6 +882,15 @@ button.cal-weather-refresh:hover {
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  animation: cal-otd-panel-in 200ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+/* A modal is not anchored to a trigger, so it keeps the default centre origin. */
+@keyframes cal-otd-panel-in {
+  from { opacity: 0; transform: scale(0.97); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cal-otd-panel { animation: none; }
 }
 .theme-light .cal-otd-panel {
   background: rgba(255,255,255,0.92);
@@ -895,31 +904,59 @@ button.cal-weather-refresh:hover {
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid rgba(255,255,255,0.1);
 }
+/* The title bar and the memory wall are two zones: without this seam the first
+   card read as part of the header and the header looked like it was floating. */
 .cal-otd-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 16px 10px;
+  gap: 8px;
+  flex: 0 0 auto;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--background-modifier-border);
 }
 .cal-otd-header-title {
   font-size: 15px;
   font-weight: 600;
   color: var(--text-normal);
 }
-.cal-otd-close {
-  cursor: pointer;
-  font-size: 16px;
-  color: var(--text-muted);
-  width: 28px; height: 28px;
+/* Both header controls are real buttons, so they reset the theme's button
+   chrome and stay keyboard-operable. */
+.cal-otd-close,
+.cal-otd-nav-btn {
+  appearance: none;
+  -webkit-appearance: none;
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 0;
+  border: 0;
   border-radius: 6px;
-  transition: background 0.15s;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background-color 150ms ease, color 150ms ease;
 }
-.cal-otd-close:hover {
-  background: var(--background-modifier-hover);
+.cal-otd-close {
+  width: 28px; height: 28px;
+}
+.cal-otd-nav-btn {
+  width: 24px; height: 24px;
+}
+.cal-otd-close:hover,
+.cal-otd-nav-btn:hover {
+  background-color: var(--background-modifier-hover);
   color: var(--text-normal);
+}
+.cal-otd-close:active,
+.cal-otd-nav-btn:active {
+  transform: scale(0.94);
+}
+.cal-otd-close svg,
+.cal-otd-nav-btn svg {
+  width: 16px;
+  height: 16px;
 }
 .cal-otd-date-nav {
   display: flex;
@@ -952,65 +989,149 @@ button.cal-weather-refresh:hover {
 }
 .cal-otd-empty-state {
   grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
   text-align: center;
-  padding: 40px 20px;
+  padding: 44px 20px;
+}
+.cal-otd-empty-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 6px;
+  color: var(--text-faint);
+}
+.cal-otd-empty-icon svg {
+  width: 26px;
+  height: 26px;
+}
+.cal-otd-empty-title {
   color: var(--text-muted);
   font-size: 13px;
+  font-weight: 500;
 }
-/* 2-column photo wall */
+.cal-otd-empty-detail {
+  color: var(--text-faint);
+  font-size: 12px;
+  max-width: 34ch;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+/* Photo wall. `auto-fit` so a date with a single memory fills the row instead of
+   leaving a hole where a second year would go; two or more still pair up. */
 .cal-otd-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  padding: 0 16px 16px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  align-content: start;
+  gap: 12px;
+  padding: 14px 16px 16px;
   overflow-y: auto;
 }
 .cal-otd-wall-card {
+  position: relative;
   border-radius: 10px;
   overflow: hidden;
   cursor: pointer;
-  transition: box-shadow 0.15s;
   background: var(--background-secondary-alt);
+  transition: box-shadow 150ms ease, transform 120ms ease;
 }
-.cal-otd-wall-card:hover {
-  box-shadow: 0 0 0 2px var(--interactive-accent-hover);
+.cal-otd-wall-card:active {
+  transform: scale(0.99);
+}
+.cal-otd-wall-card:focus-visible {
+  outline: 2px solid var(--interactive-accent);
+  outline-offset: 2px;
+}
+/* Hover rings are for pointers that can hover: on touch they fire on tap. */
+@media (hover: hover) and (pointer: fine) {
+  .cal-otd-wall-card:hover {
+    box-shadow: 0 0 0 2px var(--interactive-accent-hover);
+  }
+  .cal-otd-wall-card:hover .cal-otd-wall-title {
+    color: var(--text-accent);
+  }
+}
+.cal-otd-wall-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 8px 10px 6px;
 }
 .cal-otd-wall-badge {
   font-size: 11px;
   font-weight: 600;
+  letter-spacing: 0.01em;
   color: var(--text-muted);
-  padding: 8px 10px 4px;
+}
+.cal-otd-wall-count {
+  flex: 0 0 auto;
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: var(--background-modifier-border);
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 .cal-otd-wall-photo {
   width: 100%;
-  aspect-ratio: 1;
+  aspect-ratio: 4 / 3;
+  /* Keeps a single full-width memory from pushing the panel past its height cap. */
+  max-height: 320px;
   background-size: cover;
   background-position: center top;
+  background-color: var(--background-modifier-hover);
 }
+/* Title and body are separate rows with their own type, so a diary's title
+   never reads as the first sentence of its body. */
 .cal-otd-wall-text {
-  padding: 16px 10px;
-  font-size: 12px;
-  line-height: 1.6;
-  color: var(--text-muted);
+  padding: 8px 10px 10px;
+}
+.cal-otd-wall-text.is-text-only {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 104px;
+  padding: 14px 12px;
+}
+.cal-otd-wall-title {
+  color: var(--text-normal);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
   display: -webkit-box;
-  -webkit-line-clamp: 5;
+  -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  min-height: 80px;
-}
-.cal-otd-wall-text-empty {
-  font-style: italic;
-  opacity: 0.5;
+  overflow-wrap: anywhere;
+  transition: color 150ms ease;
 }
 .cal-otd-wall-excerpt {
-  padding: 6px 10px 10px;
+  margin-top: 3px;
+  color: var(--text-muted);
   font-size: 12px;
   line-height: 1.5;
-  color: var(--text-muted);
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  overflow-wrap: anywhere;
+}
+.cal-otd-wall-excerpt.is-empty {
+  font-style: italic;
+  color: var(--text-faint);
+}
+@media (prefers-reduced-motion: reduce) {
+  .cal-otd-wall-card,
+  .cal-otd-close,
+  .cal-otd-nav-btn,
+  .cal-otd-wall-title {
+    transition: none;
+  }
+  .cal-otd-wall-card:active { transform: none; }
 }
 @media (max-width: 480px) {
   .cal-otd-panel { width: 94vw; }
@@ -1468,7 +1589,7 @@ body.dayline-tablet .cal-sidebar .cal-mood-empty {
   .journal-mood-picker button,
   .journal-mood-picker input, .journal-mood-picker textarea,
   .journal-mood-picker select, .journal-mood-recovery-row button,
-  .cal-jump-apply, .cal-otd-close, .dayline-mobile-mode-button {
+  .cal-jump-apply, .cal-otd-close, .cal-otd-nav-btn, .dayline-mobile-mode-button {
     min-width: 44px;
     min-height: 44px;
   }
