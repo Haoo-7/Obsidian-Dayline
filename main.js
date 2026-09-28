@@ -5834,12 +5834,11 @@ var init_on_this_day = __esm({
             }
           }
           const openNote = () => {
-            const { TFile: TFile3, Notice: Notice5 } = require("obsidian");
             this.close();
             const file = entry.path && this.app.vault.getAbstractFileByPath(entry.path);
-            Promise.resolve().then(() => file instanceof TFile3 ? this.app.workspace.getLeaf("split").openFile(file) : this.app.workspace.openLinkText(entry.dateStr, this.plugin.settings.dailyFolder, false)).catch((error) => {
+            Promise.resolve().then(() => file instanceof import_obsidian3.TFile ? this.plugin.openJournalFile(file) : this.app.workspace.openLinkText(entry.dateStr, this.plugin.settings.dailyFolder, false)).catch((error) => {
               console.warn("[Dayline] Open On This Day note failed:", error?.message || error);
-              new Notice5(t(this.plugin.settings, "openNoteFailed", { error: error?.message || error }));
+              new import_obsidian3.Notice(t(this.plugin.settings, "openNoteFailed", { error: error?.message || error }));
             });
           };
           card.addEventListener("click", openNote);
@@ -7227,8 +7226,8 @@ var init_weather_service = __esm({
         for (const path of candidatePaths) {
           const existingFile = app?.vault?.getAbstractFileByPath?.(path);
           if (!existingFile) continue;
-          const TFile3 = getObsidianWeatherDeps().TFile;
-          if (!(existingFile instanceof TFile3)) continue;
+          const TFile4 = getObsidianWeatherDeps().TFile;
+          if (!(existingFile instanceof TFile4)) continue;
           const cache = app.metadataCache?.getFileCache?.(existingFile);
           const snapshot = compatibleSnapshot(cache?.frontmatter?._calendar_weather, settings);
           if (snapshot) snapshots.push({ snapshot: normalizeIcon(snapshot), source: "frontmatter" });
@@ -24897,7 +24896,7 @@ var init_mobile_diagnostics = __esm({
 });
 
 // src/plugin.ts
-var { Plugin, ItemView: ItemView2, TFile: TFile2, Notice: Notice4, Modal: Modal2, Menu, setIcon: setIcon5, Platform } = require("obsidian");
+var { Plugin, ItemView: ItemView2, TFile: TFile3, Notice: Notice5, Modal: Modal2, Menu, setIcon: setIcon5, Platform } = require("obsidian");
 var { PLUGIN_ID: PLUGIN_ID2, LEGACY_PLUGIN_IDS: LEGACY_PLUGIN_IDS2 } = (init_plugin_identity(), __toCommonJS(plugin_identity_exports));
 var { JournalIndex: JournalIndex2, startJournalIndexLoad: startJournalIndexLoad2, waitForJournalIndexStartup: waitForJournalIndexStartup2 } = (init_journal_index(), __toCommonJS(journal_index_exports));
 var { subscribeJournalMetadataRefresh: subscribeJournalMetadataRefresh2 } = (init_journal_metadata_refresh(), __toCommonJS(journal_metadata_refresh_exports));
@@ -25288,10 +25287,10 @@ var DaylinePlugin = class extends Plugin {
       } else {
         throw new Error("clipboard is unavailable");
       }
-      new Notice4("Dayline mobile diagnostics copied");
+      new Notice5("Dayline mobile diagnostics copied");
     } catch (error) {
       console.warn("[Dayline] Could not copy mobile diagnostics:", error?.message || error);
-      new Notice4("Unable to copy Dayline diagnostics");
+      new Notice5("Unable to copy Dayline diagnostics");
     }
   }
   _removeCapabilityClasses() {
@@ -25420,7 +25419,7 @@ var DaylinePlugin = class extends Plugin {
     } catch (error) {
       this._recordMobileDiagnostic("mobile-view-open-failed");
       console.warn("[Dayline] Failed to open mobile Dayline:", error?.message || error);
-      new Notice4(t2(this.settings, "openNoteFailed", { error: error?.message || error }));
+      new Notice5(t2(this.settings, "openNoteFailed", { error: error?.message || error }));
       return false;
     }
   }
@@ -25462,7 +25461,7 @@ var DaylinePlugin = class extends Plugin {
       await this.journalIndex.refreshFile(path, this.settings);
     } catch (error) {
       console.warn("[Dayline] Create daily note failed:", error?.message || error);
-      new Notice4(t2(this.settings, "createNoteFailed", { error: error?.message || error }));
+      new Notice5(t2(this.settings, "createNoteFailed", { error: error?.message || error }));
     }
   }
   async recordCurrentMood() {
@@ -25474,7 +25473,7 @@ var DaylinePlugin = class extends Plugin {
   }
   async saveJournalTitle(path, title) {
     const file = this.app.vault.getAbstractFileByPath(path);
-    if (!(file instanceof TFile2)) throw new Error(`Journal file not found: ${path}`);
+    if (!(file instanceof TFile3)) throw new Error(`Journal file not found: ${path}`);
     const sources = this.journalIndex.resolveSources(this.settings);
     const isJournal = sources.some((source) => path === source.path || path.startsWith(`${source.path}/`));
     if (!isJournal) throw new Error(`Not a journal file: ${path}`);
@@ -25510,7 +25509,7 @@ var DaylinePlugin = class extends Plugin {
         await this.moodStore.set(targetPath, score, labels, this.settings, note);
         await this.journalIndex.refreshFile(targetPath, this.settings);
         this.refreshJournalViews();
-        new Notice4(`${t2(this.settings, "moodSaved")}: ${targetPath}`);
+        new Notice5(`${t2(this.settings, "moodSaved")}: ${targetPath}`);
       }
     }).open();
   }
@@ -25534,11 +25533,11 @@ ${path}`)) return false;
       if (!deleted) return false;
       await this.journalIndex.refresh(this.settings);
       this.refreshJournalViews();
-      new Notice4(t2(this.settings, "moodDeleted"));
+      new Notice5(t2(this.settings, "moodDeleted"));
       return true;
     } catch (error) {
       console.warn("[Dayline] Delete mood failed:", error?.message || error);
-      new Notice4(t2(this.settings, "moodDeleteFailed", { error: error?.message || error }));
+      new Notice5(t2(this.settings, "moodDeleteFailed", { error: error?.message || error }));
       return false;
     }
   }
@@ -25548,9 +25547,9 @@ ${path}`)) return false;
       const content = format === "csv" ? serializeMoodCsv2(metadata) : serializeMoodJson2(metadata);
       const stamp = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
       const path = await saveMoodExport2(this.app, content, `dayline-moods-${stamp}.${format === "csv" ? "csv" : "json"}`);
-      new Notice4(t2(this.settings, "moodExported", { path }));
+      new Notice5(t2(this.settings, "moodExported", { path }));
     } catch (error) {
-      new Notice4(t2(this.settings, "moodExportFailed", { error: error?.message || error }));
+      new Notice5(t2(this.settings, "moodExportFailed", { error: error?.message || error }));
     }
   }
   refreshJournalViews() {
@@ -25567,23 +25566,23 @@ ${path}`)) return false;
     if (clock.hour !== Number(this.settings.reminderHour ?? 21) || clock.minute !== 0) return;
     const date = _daylineDate(this.settings, now);
     if (this.journalIndex.getEntries().some((entry) => entry.date === date)) return;
-    new Notice4(t2(this.settings, "dailyReminder"));
+    new Notice5(t2(this.settings, "dailyReminder"));
   }
   async createDailyNoteForDate(dateStr) {
     const path = `${this.settings.dailyFolder}/${dateStr}.md`;
     const existing = this.app.vault.getAbstractFileByPath(path);
-    if (existing instanceof TFile2) return existing;
+    if (existing instanceof TFile3) return existing;
     await this.ensureFolder(this.settings.dailyFolder);
     const dnPlugin = this.app.internalPlugins?.getPluginById?.("daily-notes");
     const templatePath = dnPlugin?.instance?.options?.template;
     if (templatePath) {
       const templateFile = this.app.vault.getAbstractFileByPath(String(templatePath).replace(/\.md$/, "") + ".md");
-      if (templateFile instanceof TFile2) {
+      if (templateFile instanceof TFile3) {
         const tp = this.app.plugins?.getPlugin?.("templater-obsidian")?.templater;
         if (tp?.create_new_note_from_template) {
           await tp.create_new_note_from_template(templateFile, this.settings.dailyFolder, dateStr, false);
           const created = this.app.vault.getAbstractFileByPath(path);
-          if (created instanceof TFile2) return created;
+          if (created instanceof TFile3) return created;
         }
         const content = await this.app.vault.read(templateFile);
         const resolved = content.replace(/\{\{date\}\}/g, dateStr).replace(/\{\{title\}\}/g, dateStr);
@@ -25604,18 +25603,18 @@ ${path}`)) return false;
   }
   async ensureJournalFile(path, content) {
     const existing = this.app.vault.getAbstractFileByPath(path);
-    if (existing instanceof TFile2) return existing;
+    if (existing instanceof TFile3) return existing;
     await this.ensureFolder(path.slice(0, path.lastIndexOf("/")));
     return this.app.vault.create(path, content);
   }
   _handleJournalCreateOrModify(file) {
     this._notifyCalendarImageChange(file);
-    if (!(file instanceof TFile2) || file.extension !== "md") return;
+    if (!(file instanceof TFile3) || file.extension !== "md") return;
     this.journalIndex.refreshFile(file.path, this.settings).catch((error) => console.warn("[Dayline] Journal index refresh failed:", error?.message || error));
   }
   _handleJournalDelete(file) {
     this._notifyCalendarImageChange(file);
-    if (!(file instanceof TFile2) || file.extension !== "md") return;
+    if (!(file instanceof TFile3) || file.extension !== "md") return;
     this._queueJournalWrite("move deleted mood to orphan", () => this.moodStore.removeToOrphan(file.path));
     this.journalIndex.removeFile(file.path);
   }
@@ -25624,12 +25623,12 @@ ${path}`)) return false;
     if (oldPath && MEDIA_EXTENSIONS2.includes(String(oldPath).split(".").pop()?.toLowerCase())) {
       this._invalidateMediaCaches(oldPath);
     }
-    if (!(file instanceof TFile2) || file.extension !== "md") return;
+    if (!(file instanceof TFile3) || file.extension !== "md") return;
     try {
       await this._journalWriteQueue.add(() => this.moodStore.rename(oldPath, file.path));
     } catch (error) {
       console.warn("[Dayline] rename mood metadata failed:", error?.message || error);
-      new Notice4(`rename mood metadata: ${error?.message || error}`);
+      new Notice5(`rename mood metadata: ${error?.message || error}`);
       return;
     }
     this.journalIndex.renameFile(oldPath, file.path);
@@ -25640,7 +25639,7 @@ ${path}`)) return false;
     }
   }
   _notifyCalendarImageChange(file) {
-    if (!(file instanceof TFile2) || !MEDIA_EXTENSIONS2.includes(file.extension?.toLowerCase())) return;
+    if (!(file instanceof TFile3) || !MEDIA_EXTENSIONS2.includes(file.extension?.toLowerCase())) return;
     this._invalidateMediaCaches(file.path);
     for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE2)) {
       leaf.view?._onMediaChanged?.(file);
@@ -25658,7 +25657,7 @@ ${path}`)) return false;
   _queueJournalWrite(label, task) {
     return this._journalWriteQueue.add(task).catch((error) => {
       console.warn(`[Dayline] ${label} failed:`, error?.message || error);
-      new Notice4(`${label}: ${error?.message || error}`);
+      new Notice5(`${label}: ${error?.message || error}`);
     });
   }
   /** Remove all overlay elements from markdown view containers. */
@@ -25698,7 +25697,7 @@ ${path}`)) return false;
       new OnThisDayModal2(this.app, this, provider, month, day, entries).open();
     }).catch((err) => {
       console.warn("[Dayline] On This Day load failed:", err?.message || err);
-      new Notice4(t2(this.settings, "onThisDayLoadFailed", { error: err?.message || err }));
+      new Notice5(t2(this.settings, "onThisDayLoadFailed", { error: err?.message || err }));
     });
   }
   /* ----- Shared EXIF Tooltip (used by calendar view + note-image hover) ----- */
@@ -25897,7 +25896,7 @@ ${path}`)) return false;
       leaf = workspace.getLeftLeaf(false);
     }
     if (!leaf) {
-      new Notice4("Dayline: could not create calendar leaf");
+      new Notice5("Dayline: could not create calendar leaf");
       return;
     }
     await leaf.setViewState({ type: VIEW_TYPE2, active: true });
@@ -26031,7 +26030,7 @@ var CalendarView = class extends ItemView2 {
         refresh.catch((error) => {
           console.warn("[Dayline] Initial calendar month load failed:", error?.message || error);
           this.monthCache.delete(this._monthKey(this.displayMonth));
-          new Notice4(t2(this.plugin.settings, "calendarMonthLoadFailed", { error: error?.message || error }));
+          new Notice5(t2(this.plugin.settings, "calendarMonthLoadFailed", { error: error?.message || error }));
         });
       },
       (error) => {
@@ -26092,7 +26091,7 @@ var CalendarView = class extends ItemView2 {
   }
   /* ----- File change refresh (debounced) ----- */
   _onMediaChanged(file) {
-    if (!(file instanceof TFile2)) return;
+    if (!(file instanceof TFile3)) return;
     const extension = file.extension?.toLowerCase();
     if (!MEDIA_EXTENSIONS2.includes(extension)) return;
     const affectedMonths = cachedMonthsReferencingMedia2(
@@ -26112,7 +26111,7 @@ var CalendarView = class extends ItemView2 {
         } catch (error) {
           console.warn("[Dayline] Calendar image refresh failed:", error?.message || error);
           this.monthCache.delete(this._monthKey(this.displayMonth));
-          new Notice4(t2(this.plugin.settings, "calendarMonthLoadFailed", { error: error?.message || error }));
+          new Notice5(t2(this.plugin.settings, "calendarMonthLoadFailed", { error: error?.message || error }));
         }
       })();
     }, 300);
@@ -26167,7 +26166,7 @@ var CalendarView = class extends ItemView2 {
         this.render();
       }).catch((error) => {
         console.warn("[Dayline] On This Day index refresh failed:", error?.message || error);
-        new Notice4(t2(this.plugin.settings, "onThisDayLoadFailed", { error: error?.message || error }));
+        new Notice5(t2(this.plugin.settings, "onThisDayLoadFailed", { error: error?.message || error }));
       });
     }
   }
@@ -26533,7 +26532,7 @@ var CalendarView = class extends ItemView2 {
     return this.buildMonthCache(targetMonth).then(() => this.render()).catch((error) => {
       console.warn("[Dayline] Calendar month jump failed:", error?.message || error);
       this.monthCache.delete(this._monthKey(targetMonth));
-      new Notice4(t2(this.plugin.settings, "calendarMonthLoadFailed", { error: error?.message || error }));
+      new Notice5(t2(this.plugin.settings, "calendarMonthLoadFailed", { error: error?.message || error }));
     });
   }
   /* ----- EXIF Tooltip (delegates to plugin) ----- */
@@ -26555,7 +26554,7 @@ var CalendarView = class extends ItemView2 {
         try {
           const notePath = sourcePath || `${this.plugin.settings.dailyFolder}/${dateStr}.md`;
           const file = this.app.metadataCache.getFirstLinkpathDest(imageLink, notePath);
-          if (!(file instanceof TFile2)) return;
+          if (!(file instanceof TFile3)) return;
           if (!this.plugin._isCurrentExifHover(hoverToken)) return;
           this.plugin._showExifTooltip(cell, null, true);
           const fields = await this._getPersistedExifFields(file, notePath, imageLink);
@@ -26606,7 +26605,7 @@ var CalendarView = class extends ItemView2 {
   async _getPersistedExifFields(file, notePath, imageLink) {
     const note = this.app.vault.getAbstractFileByPath(notePath);
     const normalizedLink = normalizeMediaLink2(imageLink);
-    const frontmatter = note instanceof TFile2 ? this.app.metadataCache.getFileCache(note)?.frontmatter : null;
+    const frontmatter = note instanceof TFile3 ? this.app.metadataCache.getFileCache(note)?.frontmatter : null;
     const records = Array.isArray(frontmatter?._dayline_media_metadata) ? frontmatter._dayline_media_metadata : [];
     const cached = records.find((record) => record && (record.normalizedLink === normalizedLink || record.link === imageLink));
     const statPromise = this.app.vault?.adapter?.stat?.(file.path);
@@ -26616,11 +26615,11 @@ var CalendarView = class extends ItemView2 {
       return cached.fields;
     }
     const fields = await this.exifCache.get(file);
-    if (note instanceof TFile2 && fields?.length) void this._persistExifFields(note, normalizedLink, fields, version);
+    if (note instanceof TFile3 && fields?.length) void this._persistExifFields(note, normalizedLink, fields, version);
     return fields;
   }
   async _persistExifFields(note, normalizedLink, fields, version = null) {
-    if (!(note instanceof TFile2) || !Array.isArray(fields) || fields.length === 0) return;
+    if (!(note instanceof TFile3) || !Array.isArray(fields) || fields.length === 0) return;
     await this.app.fileManager.processFrontMatter(note, (frontmatter) => {
       const records = Array.isArray(frontmatter._dayline_media_metadata) ? frontmatter._dayline_media_metadata.filter((record2) => record2?.normalizedLink !== normalizedLink) : [];
       const record = { normalizedLink, fields };
@@ -26949,16 +26948,16 @@ var CalendarView = class extends ItemView2 {
       this.render();
       const lang = this.plugin.settings.weatherLanguage;
       if (snap) {
-        new Notice4(_l(lang, "weatherUpdated", dateStr));
+        new Notice5(_l(lang, "weatherUpdated", dateStr));
       } else {
-        new Notice4(_l(lang, "noDataFor", dateStr));
+        new Notice5(_l(lang, "noDataFor", dateStr));
       }
     } catch (err) {
       this._weatherError = true;
       this._weatherLoading = false;
       this._updateWeatherCardUI();
       const lang = this.plugin.settings.weatherLanguage;
-      new Notice4(_l(lang, "refreshFailed", err.message || "unknown error"));
+      new Notice5(_l(lang, "refreshFailed", err.message || "unknown error"));
     } finally {
       if (wasLoading && btnEl) {
         btnEl.removeAttribute("disabled");
@@ -27008,13 +27007,13 @@ var CalendarView = class extends ItemView2 {
     return this.buildMonthCache(newMonth).then(() => this.render()).catch((error) => {
       console.warn("[Dayline] Calendar month load failed:", error?.message || error);
       this.monthCache.delete(this._monthKey(newMonth));
-      new Notice4(t2(this.plugin.settings, "calendarMonthLoadFailed", { error: error?.message || error }));
+      new Notice5(t2(this.plugin.settings, "calendarMonthLoadFailed", { error: error?.message || error }));
     });
   }
   /* ----- Open (or create + open) daily note ----- */
   _openNote(dateStr, indexedPath) {
     const indexedFile = indexedPath && this.app.vault.getAbstractFileByPath(indexedPath);
-    const path = indexedFile instanceof TFile2 ? indexedPath : `${this.plugin.settings.dailyFolder}/${dateStr}.md`;
+    const path = indexedFile instanceof TFile3 ? indexedPath : `${this.plugin.settings.dailyFolder}/${dateStr}.md`;
     const file = this.app.vault.getAbstractFileByPath(path);
     const openFileInLeaf = (f) => {
       this.plugin.openJournalFile(f).then((leaf) => {
@@ -27023,10 +27022,10 @@ var CalendarView = class extends ItemView2 {
         this._triggerWeatherAfterOpen(dateStr);
       }).catch((error) => {
         console.warn("[Dayline] Open note failed:", error?.message || error);
-        new Notice4(t2(this.plugin.settings, "openNoteFailed", { error: error?.message || error }));
+        new Notice5(t2(this.plugin.settings, "openNoteFailed", { error: error?.message || error }));
       });
     };
-    if (file instanceof TFile2) {
+    if (file instanceof TFile3) {
       openFileInLeaf(file);
     } else {
       new CreateNoteModal(this.app, this.plugin.settings, dateStr, () => {
@@ -27035,7 +27034,7 @@ var CalendarView = class extends ItemView2 {
           window.setTimeout(() => this._triggerWeatherAfterOpen(dateStr), 500);
         }).catch((error) => {
           console.warn("[Dayline] Create daily note failed:", error?.message || error);
-          new Notice4(t2(this.plugin.settings, "createNoteFailed", { error: error?.message || error }));
+          new Notice5(t2(this.plugin.settings, "createNoteFailed", { error: error?.message || error }));
         });
       }).open();
     }
@@ -27077,7 +27076,7 @@ var CalendarView = class extends ItemView2 {
     const validJournalFiles = /* @__PURE__ */ new Set();
     for (const leaf of mdLeaves) {
       const file = leaf.view?.file;
-      if (!(file instanceof TFile2)) continue;
+      if (!(file instanceof TFile3)) continue;
       const entry = indexedEntries.get(file.path);
       if (!entry) continue;
       validJournalFiles.add(file.path);
@@ -27114,7 +27113,7 @@ var CalendarView = class extends ItemView2 {
       const mdLeaves = this.app.workspace.getLeavesOfType("markdown");
       for (const leaf of mdLeaves) {
         const file = leaf.view?.file;
-        if (!(file instanceof TFile2)) continue;
+        if (!(file instanceof TFile3)) continue;
         if (!indexedPaths.has(file.path)) continue;
         activeJournalLeaves.add(leaf);
         this._observeNoteImages(leaf);
@@ -27198,7 +27197,7 @@ var CalendarView = class extends ItemView2 {
     try {
       const notePath = this._notePathForElement(el);
       const file = this.app.metadataCache.getFirstLinkpathDest(src, notePath);
-      if (!(file instanceof TFile2)) return;
+      if (!(file instanceof TFile3)) return;
       const thumb = await this.plugin.heicCache.getThumbnail(file);
       if (this.closed) {
         loader.remove();
@@ -27236,7 +27235,7 @@ var CalendarView = class extends ItemView2 {
       void (async () => {
         try {
           const file = this._resolveImageFile(img);
-          if (!(file instanceof TFile2)) return;
+          if (!(file instanceof TFile3)) return;
           if (!this.plugin._isCurrentExifHover(hoverToken)) return;
           this.plugin._showExifTooltip(img, null, true);
           const fields = await this.exifCache.get(file);
@@ -27348,7 +27347,7 @@ var CalendarView = class extends ItemView2 {
       const embedSrc = el.getAttribute("src");
       if (embedSrc && notePath) {
         const f = this.app.metadataCache.getFirstLinkpathDest(embedSrc, notePath);
-        if (f instanceof TFile2) return f;
+        if (f instanceof TFile3) return f;
       }
     }
     let parent = el.parentElement;
@@ -27357,7 +27356,7 @@ var CalendarView = class extends ItemView2 {
         const embedSrc = parent.getAttribute("src");
         if (embedSrc && notePath) {
           const f = this.app.metadataCache.getFirstLinkpathDest(embedSrc, notePath);
-          if (f instanceof TFile2) return f;
+          if (f instanceof TFile3) return f;
         }
         break;
       }
@@ -27380,12 +27379,12 @@ var CalendarView = class extends ItemView2 {
     if (vaultPath && normalized.startsWith(vaultPath)) {
       const relative = normalized.substring(vaultPath.length + 1);
       const f = this.app.vault.getAbstractFileByPath(relative);
-      if (f instanceof TFile2) return f;
+      if (f instanceof TFile3) return f;
     }
     const fileName = normalized.split("/").pop();
     if (fileName) {
       const f = this.app.vault.getAbstractFileByPath(fileName);
-      if (f instanceof TFile2) return f;
+      if (f instanceof TFile3) return f;
     }
     return null;
   }
@@ -27418,7 +27417,7 @@ var CalendarView = class extends ItemView2 {
     const myVersion = (this._overlayVersions.get(leaf) || 0) + 1;
     this._overlayVersions.set(leaf, myVersion);
     const currentFile = leaf.view?.file;
-    if (currentFile !== file || !(currentFile instanceof TFile2)) return;
+    if (currentFile !== file || !(currentFile instanceof TFile3)) return;
     const cache = this.app.metadataCache.getFileCache(currentFile);
     let snap = this.weather.getCachedSnapshot(dateStr) || cache?.frontmatter?._calendar_weather || null;
     if (snap && !this.weather.isSnapshotCompatible(snap)) snap = null;
@@ -27432,7 +27431,7 @@ var CalendarView = class extends ItemView2 {
     }
     if (snap && !this.weather.isSnapshotCompatible(snap)) snap = null;
     const latestFile = leaf.view?.file;
-    if (this.closed || generation !== (this._overlayGeneration || 0) || this._overlayDates.get(leaf) !== dateStr || latestFile !== file || !(latestFile instanceof TFile2)) return;
+    if (this.closed || generation !== (this._overlayGeneration || 0) || this._overlayDates.get(leaf) !== dateStr || latestFile !== file || !(latestFile instanceof TFile3)) return;
     if (myVersion < (this._overlayVersions.get(leaf) || 0)) return;
     if (!snap) return;
     this._claimOverlay(container);
@@ -27561,7 +27560,7 @@ var CalendarView = class extends ItemView2 {
       return;
     }
     const file = leaf.view?.file;
-    if (!(file instanceof TFile2)) {
+    if (!(file instanceof TFile3)) {
       this._clearActiveDate();
       return;
     }
@@ -27595,17 +27594,17 @@ var CalendarView = class extends ItemView2 {
     )).sort();
     const missingDates = dateStrs.filter((date) => !this.weather.hasCachedSnapshot(date));
     if (missingDates.length === 0) {
-      new Notice4(_l(this.plugin.settings.weatherLanguage, "s_backfillAllDone"));
+      new Notice5(_l(this.plugin.settings.weatherLanguage, "s_backfillAllDone"));
       return;
     }
     const lang = this.plugin.settings.weatherLanguage;
-    new Notice4(_l(lang, "s_backfillStarted", missingDates.length));
+    new Notice5(_l(lang, "s_backfillStarted", missingDates.length));
     await this.weather.bulkBackfill(missingDates, (done, total) => {
       if (done % 5 === 0 || done === total) {
-        new Notice4(_l(lang, "s_backfillProgress", done, total));
+        new Notice5(_l(lang, "s_backfillProgress", done, total));
       }
     });
-    new Notice4(_l(lang, "s_backfillDone", missingDates.length));
+    new Notice5(_l(lang, "s_backfillDone", missingDates.length));
     this.render();
   }
 };
@@ -27632,7 +27631,7 @@ var MobileDaylineView = class extends ItemView2 {
       this.redirectTimer = null;
       this.plugin._redirectLegacyMobileDaylineLeaf(this.leaf).catch((error) => {
         console.warn("[Dayline] Could not migrate legacy mobile view:", error?.message || error);
-        new Notice4(t2(this.plugin.settings, "openNoteFailed", { error: error?.message || error }));
+        new Notice5(t2(this.plugin.settings, "openNoteFailed", { error: error?.message || error }));
       }).finally(() => {
         this.redirecting = false;
       });

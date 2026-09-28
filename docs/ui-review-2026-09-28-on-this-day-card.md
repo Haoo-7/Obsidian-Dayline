@@ -1,8 +1,8 @@
-# On This Day — Title/Body Separation and Card Polish
+# On This Day — Title/Body Separation, Card Polish, and Where a Memory Opens
 
 Date: 2026-09-28. Scope: the 去年今日 memory card in the On This Day modal
-(`src/on-this-day.ts`, `.cal-otd-*` in `styles.css`). Branch:
-`feat/on-this-day-polish`, cut from `master` (`caf863f`).
+(`src/on-this-day.ts`, `.cal-otd-*` in `styles.css`) and the leaf a memory opens
+into. Branch: `feat/on-this-day-polish`, cut from `master` (`caf863f`).
 
 ## 0. The report
 
@@ -89,6 +89,24 @@ which they were not before: only a click listener existed. The header's three
 controls are real `<button>` elements with Lucide icons instead of the `◀ ▶ ✕`
 text glyphs, so they are tabbable and render like the rest of the plugin.
 
+### Where the memory opens
+
+Clicking a card called `workspace.getLeaf('split').openFile(file)`, which made
+this the one Dayline surface that grew the workspace a pane instead of replacing
+the journal note the reader already had open. The calendar cell
+(`CalendarView._openNote`) and the timeline card (`JournalTimelineView.openEntry`)
+both route through `plugin.openJournalFile` → `getJournalOpenLeaf`, which reuses
+the active Markdown leaf, then the first one, and only creates a tab when no
+Markdown leaf exists at all.
+
+| Before | After | Why |
+| --- | --- | --- |
+| `this.app.workspace.getLeaf('split').openFile(file)` | `this.plugin.openJournalFile(file)` | One journal-open policy for the calendar, the timeline and the memory card |
+| `const { TFile, Notice } = require('obsidian')` inside the handler | hoisted to the module's `import { Notice, setIcon, TFile } from 'obsidian'` | The inline `require` could not be reached by the module mock, so the click path had no test |
+
+The `openLinkText(dateStr, dailyFolder, false)` fallback for a path that no
+longer resolves is unchanged; its third argument already meant "reuse the leaf".
+
 ### Chrome and states (`styles.css`)
 
 | Before | After | Why |
@@ -135,6 +153,17 @@ Screenshots: `output/on-this-day-review/before.png`,
 matching the original report's geometry and the `max-width: 480px`
 single-column rule).
 
+Opening a card, counted over the CLI with one Markdown leaf open:
+
+| Build | Markdown leaves before → after | Active file after |
+| --- | --- | --- |
+| `getLeaf('split')` (old) | 1 → **2** | `Dayline Demo/Daily/2025-07-18.md` |
+| `openJournalFile` (this change) | 1 → **1** | `Dayline Demo/Daily/2025-07-18.md` |
+
+The modal closed itself, `dev:errors` reported nothing, and the card still
+lands on the memory's note — it just no longer costs a pane.
+`after-click-reuses-leaf.png` is that state: a single tab holding the 2025 note.
+
 Reminder for the next Sandbox round: `dev:screenshot` returns a stale frame
 while the Obsidian window is occluded — activate the app first, or the capture
 shows a state that has already changed. `plugin:reload` also leaves any modal
@@ -148,13 +177,16 @@ until it is removed.
   hidden), plus the updated provider shape.
 - `tests/on-this-day-card.test.ts` (new): renders the modal in JSDOM and asserts
   the title and body are separate adjacent rows and that the title never leaks
-  into any excerpt mode; the keyboard/aria contract; the `+N` photo count; the
-  photo-only and empty-card cases; the empty state; and a `styles.css` contract
-  (title vs body type, header seam, hover gated behind a fine pointer, reduced
-  motion, single-memory wall).
-- Mutation check: forcing `dropHeading = false` turns 5 of those tests red.
+  into any excerpt mode; the keyboard/aria contract; the replaced-leaf open path
+  (`openJournalFile` called with the file, `getLeaf('split')` never called) and
+  the missing-path `openLinkText` fallback; the `+N` photo count; the photo-only
+  and empty-card cases; the empty state; and a `styles.css` contract (title vs
+  body type, header seam, hover gated behind a fine pointer, reduced motion,
+  single-memory wall).
+- Mutation checks: forcing `dropHeading = false` turns 5 assertions red;
+  restoring `getLeaf('split')` turns the open-path test red.
 
-`npm run typecheck`, `npm test` (57 files, 505 tests), `npm run build` and
+`npm run typecheck`, `npm test` (57 files, 507 tests), `npm run build` and
 `git diff --check` all pass. `npm run lint` is red before and after this change
 (repo-wide `no-unsafe-*` errors in `// @ts-nocheck` modules); this change adds 17
 of that same family inside `src/on-this-day.ts`, whose plugin surface is typed
@@ -162,6 +194,18 @@ of that same family inside `src/on-this-day.ts`, whose plugin surface is typed
 
 ## 5. Still open (recorded, not fixed)
 
+0. **The merged strip says "0年前" when the calendar's active date sits in a past
+   year, and previews the note you are already reading.** Measured in the
+   Sandbox: with `activeDate = 2026-07-18` the strip reads
+   `去年今日 / 1年前 · 7月18日`; open the 2025 memory (which legitimately sets
+   `activeDate = 2025-07-18` through `active-leaf-change` → `_syncActiveDate`)
+   and it reads `去年今日 / 0年前 · 7月18日`. `OnThisDayProvider.getEntries`
+   filters `year >= currentYear` against *today*, while
+   `_mountMergedOnThisDayStrip` computes `yearsAgo` against the *active date's*
+   year, so for an active date in a past year the two disagree and the memory
+   for that same year is offered as a "past year". Pre-existing; it fires the
+   same way under the old `getLeaf('split')` open, so it is not a regression
+   from this change.
 1. **The wall never shows more than one photo per year.** The first image is the
    card; extra photos are only counted (`+2`). A per-year gallery needs a
    viewer, not a card tweak.

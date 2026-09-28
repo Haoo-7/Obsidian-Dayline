@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { setIcon } from 'obsidian';
+import { Notice, setIcon, TFile } from 'obsidian';
 import { getTodayDate } from './date-utils';
 import { extractExcerpt, isGenericJournalTitle, renderExcerptTemplate } from './excerpt';
 import { localize as _l } from './locale';
@@ -381,13 +381,17 @@ export class OnThisDayModal {
       }
 
       // Click (or Enter/Space — the card is the keyboard entry point) opens the note.
+      // `getLeaf('split')` used to be called here, which made this the one
+      // Dayline surface that forced the workspace to grow a new pane instead of
+      // replacing the journal note the reader already had open. The calendar
+      // cell and the timeline card both route through `openJournalFile`, so a
+      // memory now lands in the same leaf they would use.
       const openNote = () => {
-        const { TFile, Notice } = require('obsidian');
         this.close();
         const file = entry.path && this.app.vault.getAbstractFileByPath(entry.path);
         Promise.resolve()
           .then(() => file instanceof TFile
-            ? this.app.workspace.getLeaf('split').openFile(file)
+            ? this.plugin.openJournalFile(file)
             : this.app.workspace.openLinkText(entry.dateStr, this.plugin.settings.dailyFolder, false))
           .catch((error) => {
             console.warn('[Dayline] Open On This Day note failed:', error?.message || error);

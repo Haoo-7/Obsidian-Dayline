@@ -28,6 +28,7 @@ vi.mock('obsidian', () => ({
   TFile: class {},
 }));
 
+import { TFile } from 'obsidian';
 import { OnThisDayModal, OnThisDayProvider } from '../src/on-this-day';
 
 const styles = readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
@@ -65,6 +66,8 @@ function createPlugin() {
       onThisDayEntry: 'merged',
     },
     thumbnailService: { load: async () => ({ url: 'blob:dayline-thumb' }) },
+    // Mirrors the real plugin: reuse the reader's journal leaf, never split.
+    openJournalFile: vi.fn(async (file: unknown) => ({ file })),
   };
 }
 
@@ -114,11 +117,33 @@ describe('On This Day card: title zone vs body zone', () => {
 
   function render(settings: Record<string, unknown> = {}) {
     const provider = createProvider([SPLICED_ENTRY], settings);
+    const plugin = createPlugin();
     return provider.getEntries(7, 18).then((resolved) => {
-      const modal = new OnThisDayModal({}, createPlugin(), provider, 7, 18, resolved);
+      const modal = new OnThisDayModal({}, plugin, provider, 7, 18, resolved);
       modal.open();
-      return modal;
+      return { modal, plugin };
     });
+  }
+
+  /** An app whose vault resolves the memory's path to `file` (null = deleted). */
+  function createApp(file: unknown) {
+    return {
+      vault: { getAbstractFileByPath: vi.fn(() => file) },
+      workspace: {
+        getLeaf: vi.fn(() => ({ openFile: vi.fn() })),
+        openLinkText: vi.fn(),
+      },
+    };
+  }
+
+  /** Open the memory card through the real click path and let it settle. */
+  async function clickCard(app: unknown, plugin: unknown) {
+    const provider = createProvider([SPLICED_ENTRY]);
+    const entries = await provider.getEntries(7, 18);
+    const modal = new OnThisDayModal(app, plugin, provider, 7, 18, entries);
+    modal.open();
+    document.querySelector('.cal-otd-wall-card').dispatchEvent(new Event('click'));
+    await new Promise((resolve) => setTimeout(resolve, 0));
   }
 
   it('renders the diary title and the body as two separate rows', async () => {
@@ -156,6 +181,37 @@ describe('On This Day card: title zone vs body zone', () => {
     expect(card.getAttribute('tabindex')).toBe('0');
     expect(card.getAttribute('title')).toBe('打开笔记');
     expect(card.getAttribute('aria-label')).toContain('Low Tide Last Year / 去年低潮线');
+  });
+
+  it('replaces the open journal note instead of growing the workspace a pane', async () => {
+    const file = new TFile();
+    const app = createApp(file);
+    const plugin = createPlugin();
+
+    await clickCard(app, plugin);
+
+    // Same route the calendar cell and the timeline card take: reuse the
+    // reader's Markdown leaf via the plugin's journal-open policy.
+    expect(plugin.openJournalFile).toHaveBeenCalledWith(file);
+    expect(app.workspace.getLeaf).not.toHaveBeenCalledWith('split');
+    expect(app.workspace.openLinkText).not.toHaveBeenCalled();
+    // The wall is dismissed on the way out.
+    expect(document.querySelector('.cal-otd-modal')).toBeNull();
+  });
+
+  it('still falls back to a link open when the indexed path is gone', async () => {
+    const app = createApp(null);
+    const plugin = createPlugin();
+
+    await clickCard(app, plugin);
+
+    expect(plugin.openJournalFile).not.toHaveBeenCalled();
+    expect(app.workspace.getLeaf).not.toHaveBeenCalledWith('split');
+    expect(app.workspace.openLinkText).toHaveBeenCalledWith(
+      SPLICED_ENTRY.date,
+      'Dayline Demo/Daily',
+      false,
+    );
   });
 
   it('counts the extra photos so a multi-image day is not silently cropped', async () => {
