@@ -11,6 +11,10 @@ export type MobileDaylineModeLabels = {
 export type MobileDaylineModeControlsOptions = {
   activeMode: unknown;
   labels: MobileDaylineModeLabels;
+  /** Accessible name for the control group; callers pass a localized string. */
+  groupLabel?: string;
+  /** Accessible name for the "return to the note" button. */
+  returnLabel?: string;
   onSelect: (mode: DaylineMobileMode) => void | Promise<void>;
   onError?: (error: unknown, mode: DaylineMobileMode) => void;
   setIcon?: (element: any, icon: string) => void;
@@ -131,7 +135,7 @@ export function getMobileMarkdownLeaf(workspace: any): any {
 export function renderMobileDaylineModeControls(parent: any, options: MobileDaylineModeControlsOptions): any {
   const controls = parent?.createDiv?.({
     cls: 'dayline-mobile-mode-controls dayline-mobile-native-mode-controls',
-    attr: { role: 'group', 'aria-label': 'Dayline view' },
+    attr: { role: 'group', 'aria-label': options?.groupLabel || 'Dayline view' },
   });
   if (!controls?.createEl) return null;
 
@@ -164,7 +168,8 @@ export function renderMobileDaylineModeControls(parent: any, options: MobileDayl
     });
   }
   if (options?.onReturn) {
-    const button = controls.createEl('button', { cls: 'dayline-mobile-mode-button dayline-mobile-return-button', attr: { type: 'button', 'aria-label': 'Back to note', title: 'Back to note' } });
+    const returnLabel = options?.returnLabel || 'Back to note';
+    const button = controls.createEl('button', { cls: 'dayline-mobile-mode-button dayline-mobile-return-button', attr: { type: 'button', 'aria-label': returnLabel, title: returnLabel } });
     options?.setIcon?.(button, 'arrow-left');
     button.addEventListener('click', () => Promise.resolve(options.onReturn?.()).catch((error) => console.warn('[Dayline] Mobile note return failed:', error)));
   }

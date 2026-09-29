@@ -1,9 +1,13 @@
 // @ts-nocheck
+import { Notice, setIcon, TFile } from 'obsidian';
 import { getTodayDate, joinVaultPath } from './date-utils';
+import { extractExcerpt, isGenericJournalTitle, renderExcerptTemplate } from './excerpt';
+import { onThisDayYearsAgo } from './on-this-day-entry';
 import { localize as _l } from './locale';
 import { t } from './i18n';
 
 const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'heic', 'heif', 'webp', 'gif', 'avif', 'tiff', 'tif', 'bmp'];
+const HEADING_LINE = /^[ \t]*#{1,6}[ \t]+\S/;
 
 function isImageLink(link: unknown): boolean {
   const clean = String(link || '').split('|', 1)[0].split('?', 1)[0];
@@ -14,42 +18,49 @@ function daylineDate(settings: { weatherTimezone?: string }, date = new Date()):
   return getTodayDate(settings?.weatherTimezone || 'auto', date);
 }
 
-/** Strip Markdown/wiki syntax and return the first ~100 characters of plain text. */
-function extractExcerpt(content: string): string | null {
-  let text = content.replace(/^---[\s\S]*?---\n*/, '');
-  text = text.replace(/!\[\[.*?\]\]/g, '');
-  text = text.replace(/\[\[([^\]|]+)(\|[^\]]+)?\]\]/g, '$1');
-  text = text.replace(/^#{1,6}\s+/gm, '');
-  text = text.replace(/[*_~`]+/g, '');
-  text = text.replace(/={2,}/g, '');
-  text = text.replace(/^>\s?/gm, '');
-  text = text.replace(/^\s*[-*+]\s/gm, '');
-  text = text.replace(/\n+/g, ' ');
-  text = text.replace(/\s{2,}/g, ' ').trim();
-  if (text.length > 100) text = `${text.substring(0, 100)}...`;
-  return text || null;
+function headingTextOf(line: string): string {
+  return line.replace(/^[ \t]*#{1,6}[ \t]+/, '').replace(/[ \t]+$/, '').trim();
 }
 
-/** Render a user-customizable excerpt template. */
-function renderExcerptTemplate(
-  template: string,
-  dateStr: string,
-  year: number,
-  frontmatter: Record<string, unknown>,
-  bodyText: string | null,
-): string | null {
-  let result = template;
-  result = result.replace(/\{body\}/g, bodyText || '');
-  result = result.replace(/\{year\}/g, String(year));
-  result = result.replace(/\{date\}/g, dateStr);
-  for (const [key, value] of Object.entries(frontmatter)) {
-    if (typeof value === 'string' || typeof value === 'number') {
-      const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      result = result.replace(new RegExp(`\\{${escapedKey}\\}`, 'g'), String(value));
-    }
-  }
-  result = result.trim();
-  return result || null;
+/**
+ * Separate a diary's title from the text that belongs in the card body.
+ *
+ * The journal index already promotes a frontmatter `title` or the note's first
+ * `# Heading` to `entry.title`, but that same heading line stayed inside the
+ * body. The card therefore rendered "Low Tide Last Year / 去年低潮线 Same
+ * calendar date, previous year…" as one paragraph, with no seam between the
+ * title and the body — the title read as the body's first sentence.
+ *
+ * `titleFromContent` treats a leading heading as the note's title, so the body
+ * drops it; a heading matching the resolved title is dropped too, so a title
+ * that only lives in the body cannot reappear there. Anything else is left
+ * alone, which keeps section headings that sit after the opening paragraph.
+ *
+ * A date-only or placeholder title (`2025-07-18`, `Daily note`) carries no
+ * information for a memory card, so it resolves to `null` and the card renders
+ * its body without a title row.
+ */
+export function splitTitleFromBody(
+  content: unknown,
+  indexTitle: unknown,
+  date: unknown,
+): { title: string | null; body: string } {
+  const lines = (typeof content === 'string' ? content : '').split('\n');
+  const headingIndex = lines.findIndex((line) => HEADING_LINE.test(line));
+  const headingText = headingIndex === -1 ? '' : headingTextOf(lines[headingIndex]);
+  const headingLeads = headingIndex !== -1 && lines.slice(0, headingIndex).every((line) => line.trim() === '');
+
+  const candidate = (typeof indexTitle === 'string' ? indexTitle.trim() : '') || headingText;
+  const title = candidate && !isGenericJournalTitle(candidate, typeof date === 'string' ? date : '')
+    ? candidate
+    : null;
+
+  const dropHeading = headingIndex !== -1 && (headingLeads || (title !== null && headingText === title));
+  const body = dropHeading
+    ? lines.filter((_line, index) => index !== headingIndex).join('\n')
+    : lines.join('\n');
+
+  return { title, body };
 }
 
 export class OnThisDayProvider {
@@ -101,6 +112,10 @@ export class OnThisDayProvider {
       if (!Number.isFinite(year) || year >= thisYear || entry.date.slice(5) !== key) continue;
 
       const images = (entry.attachments || []).filter(isImageLink);
+      // Raw Markdown is what the excerpt and the title split need; older index
+      // shapes only carry the pre-cleaned `excerpt`.
+      const { title, body } = splitTitleFromBody(entry.searchText ?? entry.excerpt ?? '', entry.title, entry.date);
+
       let excerpt: string | null = null;
       const mode = this.plugin.settings.onThisDayExcerptMode;
       if (mode === 'frontmatter') {
@@ -114,13 +129,13 @@ export class OnThisDayProvider {
           entry.date,
           year,
           entry.frontmatter || {},
-          extractExcerpt(entry.searchText || entry.excerpt || ''),
+          extractExcerpt(body),
         );
       } else if (mode !== 'none') {
-        excerpt = extractExcerpt(entry.searchText || entry.excerpt || '');
+        excerpt = extractExcerpt(body);
       }
 
-      entries.push({ year, dateStr: entry.date, path: entry.path, images, excerpt });
+      entries.push({ year, dateStr: entry.date, path: entry.path, title, images, excerpt });
     }
 
     entries.sort((a, b) => b.year - a.year);
@@ -192,9 +207,11 @@ export class OnThisDayModal {
     header.createDiv({ cls: 'cal-otd-header-title', text: _l(lang, 'otd_title') });
 
     const nav = header.createDiv({ cls: 'cal-otd-date-nav' });
-    const prevDayBtn = nav.createDiv({ cls: 'cal-otd-nav-btn', text: '◀' });
-    prevDayBtn.setAttribute('aria-label', _l(lang, 'otd_prevDay'));
-    prevDayBtn.setAttribute('title', _l(lang, 'otd_prevDay'));
+    const prevDayBtn = nav.createEl('button', {
+      cls: 'cal-otd-nav-btn',
+      attr: { type: 'button', 'aria-label': _l(lang, 'otd_prevDay'), title: _l(lang, 'otd_prevDay') },
+    });
+    setIcon(prevDayBtn, 'chevron-left');
     prevDayBtn.addEventListener('click', (e) => { e.stopPropagation(); void this._navigateDate(-1); });
 
     const dateInput = nav.createEl('input', {
@@ -213,23 +230,25 @@ export class OnThisDayModal {
       }
     });
 
-    const nextDayBtn = nav.createDiv({ cls: 'cal-otd-nav-btn', text: '▶' });
-    nextDayBtn.setAttribute('aria-label', _l(lang, 'otd_nextDay'));
-    nextDayBtn.setAttribute('title', _l(lang, 'otd_nextDay'));
+    const nextDayBtn = nav.createEl('button', {
+      cls: 'cal-otd-nav-btn',
+      attr: { type: 'button', 'aria-label': _l(lang, 'otd_nextDay'), title: _l(lang, 'otd_nextDay') },
+    });
+    setIcon(nextDayBtn, 'chevron-right');
     nextDayBtn.addEventListener('click', (e) => { e.stopPropagation(); void this._navigateDate(1); });
 
-    const closeBtn = header.createDiv({ cls: 'cal-otd-close', text: '\u2715' });
-    closeBtn.setAttribute('aria-label', _l(lang, 'otd_close'));
-    closeBtn.setAttribute('title', _l(lang, 'otd_close'));
+    const closeBtn = header.createEl('button', {
+      cls: 'cal-otd-close',
+      attr: { type: 'button', 'aria-label': _l(lang, 'otd_close'), title: _l(lang, 'otd_close') },
+    });
+    setIcon(closeBtn, 'x');
     closeBtn.addEventListener('click', () => this.close());
 
     // --- Grid body ---
     this.bodyEl = panel.createDiv({ cls: 'cal-otd-grid' });
 
-    // Empty state or content
     if (this.entries.length === 0) {
-      const emptyMsg = this.bodyEl.createDiv({ cls: 'cal-otd-empty-state' });
-      emptyMsg.setText(_l(lang, 'otd_noMemories'));
+      this._renderMessage(_l(lang, 'otd_noMemories'), 'history');
     } else {
       this._renderGrid();
     }
@@ -237,6 +256,25 @@ export class OnThisDayModal {
     this.backdrop.appendChild(panel);
     document.body.appendChild(this.backdrop);
     document.addEventListener('keydown', this._onKey);
+  }
+
+  /**
+   * One layout for the empty, loading and error states. They used to be a bare
+   * centred sentence, which read as a rendering failure; an icon plus the
+   * message makes the state look deliberate. Text is passed in already
+   * localized because the empty state comes from the LOCALE table while the
+   * error comes from the `t()` catalogue.
+   */
+  _renderMessage(message, icon, detail) {
+    this.bodyEl.empty();
+    const state = this.bodyEl.createDiv({ cls: 'cal-otd-empty-state' });
+    if (icon) {
+      const iconEl = state.createDiv({ cls: 'cal-otd-empty-icon', attr: { 'aria-hidden': 'true' } });
+      setIcon(iconEl, icon);
+    }
+    state.createDiv({ cls: 'cal-otd-empty-title', text: message });
+    if (detail) state.createDiv({ cls: 'cal-otd-empty-detail', text: detail });
+    return state;
   }
 
   close() {
@@ -263,32 +301,28 @@ export class OnThisDayModal {
     this.month = d.getMonth() + 1;
     this.day = d.getDate();
 
-    // Update label
-    const lang = this.plugin.settings.weatherLanguage;
+    // Update the visible date label
     this._updateDateInput();
 
     // Show loading
-    this.bodyEl.empty();
-    const loadingEl = this.bodyEl.createDiv({ cls: 'cal-otd-empty-state' });
-    loadingEl.setText(_l(lang, 'loading'));
+    this._renderMessage(_l(this.plugin.settings.weatherLanguage, 'loading'));
 
     // Fetch
     const requestToken = ++this._requestToken;
     try {
       this.entries = await this.provider.getEntries(this.month, this.day);
       if (this._closed || requestToken !== this._requestToken) return;
-      this.bodyEl.empty();
       if (this.entries.length === 0) {
-        const emptyMsg = this.bodyEl.createDiv({ cls: 'cal-otd-empty-state' });
-        emptyMsg.setText(_l(lang, 'otd_noMemories'));
+        this._renderMessage(_l(this.plugin.settings.weatherLanguage, 'otd_noMemories'), 'history');
       } else {
         this._renderGrid();
       }
     } catch (e) {
       if (this._closed || requestToken !== this._requestToken) return;
-      this.bodyEl.empty();
-      const errEl = this.bodyEl.createDiv({ cls: 'cal-otd-empty-state' });
-      errEl.setText(t(this.plugin.settings, 'onThisDayLoadFailed', { error: e?.message || e }));
+      this._renderMessage(
+        t(this.plugin.settings, 'onThisDayLoadFailed', { error: e?.message || e }),
+        'alert-triangle',
+      );
     }
   }
 
@@ -302,44 +336,74 @@ export class OnThisDayModal {
   _renderGrid() {
     this.bodyEl.empty();
     const lang = this.plugin.settings.weatherLanguage;
+    const currentYear = Number(daylineDate(this.plugin.settings).slice(0, 4));
+    const openLabel = _l(lang, 'otd_openNote');
 
     for (const entry of this.entries) {
+      const images = entry.images || [];
+      const yearsAgo = onThisDayYearsAgo(entry.year, currentYear);
+      const metaText = `${_l(lang, 'otd_yearsAgo', yearsAgo)}  ·  ${entry.year}`;
+
       const card = this.bodyEl.createDiv({ cls: 'cal-otd-wall-card' });
+      card.setAttribute('role', 'button');
+      card.setAttribute('tabindex', '0');
+      card.setAttribute('title', openLabel);
+      card.setAttribute('aria-label', [metaText, entry.title, openLabel].filter(Boolean).join(' · '));
 
-      // Year badge
-      const badge = card.createDiv({ cls: 'cal-otd-wall-badge' });
-      const currentYear = Number(daylineDate(this.plugin.settings).slice(0, 4));
-      badge.setText(_l(lang, 'otd_yearsAgo', currentYear - entry.year) + `  ·  ${entry.year}`);
+      // Meta row: how long ago, which year, and how many photos are inside.
+      const meta = card.createDiv({ cls: 'cal-otd-wall-meta' });
+      meta.createSpan({ cls: 'cal-otd-wall-badge', text: metaText });
+      if (images.length > 1) {
+        meta.createSpan({ cls: 'cal-otd-wall-count', text: `+${images.length - 1}` });
+      }
 
-      // Photo or text block
-      if (entry.images && entry.images.length > 0) {
+      if (images.length > 0) {
         const photo = card.createDiv({ cls: 'cal-otd-wall-photo' });
-        this._setPhotoBackground(photo, entry.images[0], entry.dateStr, entry.path);
-      } else if (entry.excerpt) {
-        // Text-only preview when diary has no images but does have excerpt
-        const textBlock = card.createDiv({ cls: 'cal-otd-wall-text' });
-        textBlock.setText(entry.excerpt);
-      }
-      // If no image AND no excerpt → compact card with just the year badge
-
-      // Excerpt below photo
-      if (entry.images && entry.images.length > 0 && entry.excerpt) {
-        card.createDiv({ cls: 'cal-otd-wall-excerpt', text: entry.excerpt });
+        this._setPhotoBackground(photo, images[0], entry.dateStr, entry.path);
       }
 
-      // Click to open the note
-      card.addEventListener('click', () => {
-        const { TFile, Notice } = require('obsidian');
+      // The title and the body are separate rows with their own type. They used
+      // to be one run-on excerpt, so a diary title was indistinguishable from
+      // the first sentence of its body.
+      const hasPhoto = images.length > 0;
+      // Only a photo-less, text-less card needs the placeholder: without it the
+      // card collapses to a bare year badge. A photo-only card speaks for itself.
+      const needsPlaceholder = !entry.title && !entry.excerpt && !hasPhoto;
+      if (entry.title || entry.excerpt || needsPlaceholder) {
+        const text = card.createDiv({
+          cls: hasPhoto ? 'cal-otd-wall-text' : 'cal-otd-wall-text is-text-only',
+        });
+        if (entry.title) text.createDiv({ cls: 'cal-otd-wall-title', text: entry.title });
+        if (entry.excerpt) {
+          text.createDiv({ cls: 'cal-otd-wall-excerpt', text: entry.excerpt });
+        } else if (needsPlaceholder) {
+          text.createDiv({ cls: 'cal-otd-wall-excerpt is-empty', text: _l(lang, 'otd_emptyExcerpt') });
+        }
+      }
+
+      // Click (or Enter/Space — the card is the keyboard entry point) opens the note.
+      // `getLeaf('split')` used to be called here, which made this the one
+      // Dayline surface that forced the workspace to grow a new pane instead of
+      // replacing the journal note the reader already had open. The calendar
+      // cell and the timeline card both route through `openJournalFile`, so a
+      // memory now lands in the same leaf they would use.
+      const openNote = () => {
         this.close();
         const file = entry.path && this.app.vault.getAbstractFileByPath(entry.path);
         Promise.resolve()
           .then(() => file instanceof TFile
-            ? this.app.workspace.getLeaf('split').openFile(file)
+            ? this.plugin.openJournalFile(file)
             : this.app.workspace.openLinkText(entry.dateStr, this.plugin.settings.dailyFolder, false))
           .catch((error) => {
             console.warn('[Dayline] Open On This Day note failed:', error?.message || error);
             new Notice(t(this.plugin.settings, 'openNoteFailed', { error: error?.message || error }));
           });
+      };
+      card.addEventListener('click', openNote);
+      card.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        event.preventDefault();
+        openNote();
       });
     }
   }

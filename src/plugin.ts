@@ -17,6 +17,7 @@ const {
   normalizeOnThisDayEntryMode,
   onThisDayEntryDate,
   onThisDayStripMeta,
+  onThisDayYearsAgo,
   parseOnThisDayMonthDay,
   pickOnThisDayPreview,
   shouldPreserveCalendarSelection,
@@ -40,6 +41,7 @@ const badgeRainSvg = require('../icons/badge-rain.svg?raw');
 const badgeSnowSvg = require('../icons/badge-snow.svg?raw');
 const badgeStormSvg = require('../icons/badge-storm.svg?raw');
 const { WeatherService, lookupWeatherCode, validateWeatherCoordinates, weatherBadgeIcon } = require('./weather-service');
+const { weatherConditionLabel } = require('./weather-conditions');
 const { buildWeatherCardParts, buildWeatherStatus, normalizeWeatherDisplayFields } = require('./weather-display');
 const { localize: _l } = require('./locale');
 const { formatDateParts, getClockPartsInTimeZone, getTodayDate, isPathInFolder, joinVaultPath, normalizeVaultPath, parentVaultPath } = require('./date-utils');
@@ -50,7 +52,7 @@ const { cachedMonthsReferencingMedia } = require('./calendar-media-refresh');
 const { MEDIA_EXTENSIONS, IMAGE_EXTENSIONS: MEDIA_IMAGE_EXTENSIONS, classifyMediaLink, createMediaAttachment, normalizeMediaLink } = require('./media-links');
 const { OverlayRegistry } = require('./overlay-registry');
 const { SerialTaskQueue } = require('./task-queue');
-const { formatCalendarMonth, getCalendarGridOffset, getCalendarWeekdays, getDisplayLanguage, moodLabel, t } = require('./i18n');
+const { formatCalendarMonth, getCalendarGridOffset, getCalendarWeekdays, getDisplayLanguage, LOCALE_TAGS, moodLabel, normalizeDisplayLanguageSetting, t } = require('./i18n');
 const { getMoodColor } = require('./mood');
 const { shouldHandleCalendarMonthShortcut } = require('./calendar-keyboard');
 const { calendarEntryAffectsDisplay, calendarMediaAccessibilityLabel, calendarMoodMarker, calendarMoodMarkerClass, isCurrentCalendarMonth, shouldShowCalendarMood, shouldShowCalendarWeatherCard, shouldShowCalendarWeatherBadge, shouldShowCalendarWeatherLocation } = require('./calendar-display');
@@ -96,8 +98,8 @@ const DEFAULT_SETTINGS = {
   weatherAutoFetch: true, // auto-fetch weather when opening a daily note
   weatherTtlHours: 2,     // cache TTL in hours before re-fetch
   weatherTimezone: 'auto', // Open-Meteo timezone mode
-  weatherLanguage: 'zh',  // 'en' | 'zh' — display language for weather labels
-  displayLanguage: 'zh',  // 'system' | 'en' | 'zh'; migrated from weatherLanguage
+  weatherLanguage: 'zh',  // resolved DisplayLanguage ('en' | 'zh' | 'zh-tw' | 'ja' | 'ko' | 'fr' | 'de' | 'es' | 'ru')
+  displayLanguage: 'zh',  // 'system' | DisplayLanguage; canonical setting, migrated from weatherLanguage
   weekStart: 'system', // 'system' | 'monday' | 'sunday'
   showCalendarMood: true,
   calendarMoodMarker: 'dot',
@@ -184,7 +186,8 @@ class DaylinePlugin extends Plugin {
     // Reverse geocoder for EXIF GPS coordinates (Nominatim, free)
     this.geocoder = new ReverseGeocoder({
       cache: this.geocoderCache,
-      getLanguage: () => this.settings.weatherLanguage || getDisplayLanguage(this.settings),
+      // The geocoder turns this language code into an Accept-Language tag.
+      getLanguage: () => getDisplayLanguage(this.settings),
       onChange: () => this._saveGeocoderCache(),
     });
 
@@ -269,7 +272,7 @@ class DaylinePlugin extends Plugin {
     });
     this.addCommand({
       id: 'copy-mobile-diagnostics',
-      name: 'Copy Dayline mobile diagnostics',
+      name: t(this.settings, 'copyDiagnosticsCommand'),
       callback: () => this._copyMobileDiagnostics(),
     });
 
@@ -439,10 +442,10 @@ class DaylinePlugin extends Plugin {
       } else {
         throw new Error('clipboard is unavailable');
       }
-      new Notice('Dayline mobile diagnostics copied');
+      new Notice(t(this.settings, 'diagnosticsCopied'));
     } catch (error) {
       console.warn('[Dayline] Could not copy mobile diagnostics:', error?.message || error);
-      new Notice('Unable to copy Dayline diagnostics');
+      new Notice(t(this.settings, 'diagnosticsCopyFailed'));
     }
   }
 
@@ -810,7 +813,11 @@ class DaylinePlugin extends Plugin {
   _handleJournalDelete(file) {
     this._notifyCalendarImageChange(file);
     if (!(file instanceof TFile) || file.extension !== 'md') return;
-    this._queueJournalWrite('move deleted mood to orphan', () => this.moodStore.removeToOrphan(file.path));
+    this._queueJournalWrite(
+      'move deleted mood to orphan',
+      () => this.moodStore.removeToOrphan(file.path),
+      (detail) => t(this.settings, 'moodMoveToOrphanFailed', { error: detail }),
+    );
     this.journalIndex.removeFile(file.path);
   }
 
@@ -828,7 +835,7 @@ class DaylinePlugin extends Plugin {
       await this._journalWriteQueue.add(() => this.moodStore.rename(oldPath, file.path));
     } catch (error) {
       console.warn('[Dayline] rename mood metadata failed:', error?.message || error);
-      new Notice(`rename mood metadata: ${error?.message || error}`);
+      new Notice(t(this.settings, 'moodMetadataRenameFailed', { error: error?.message || error }));
       // Keep the old in-memory entry visible until a later refresh can retry
       // the persistence operation instead of publishing a partial entry.
       return;
@@ -860,10 +867,11 @@ class DaylinePlugin extends Plugin {
     this.mediaService?.invalidate(path);
   }
 
-  _queueJournalWrite(label, task) {
+  _queueJournalWrite(label, task, formatNotice) {
     return this._journalWriteQueue.add(task).catch((error) => {
       console.warn(`[Dayline] ${label} failed:`, error?.message || error);
-      new Notice(`${label}: ${error?.message || error}`);
+      const detail = error?.message || error;
+      new Notice(formatNotice ? formatNotice(detail) : `${label}: ${detail}`);
     });
   }
 
@@ -1008,10 +1016,7 @@ class DaylinePlugin extends Plugin {
     const legacyWeatherVisible = data.showCalendarWeather !== false;
     if (data.showCalendarWeatherCard === undefined) this.settings.showCalendarWeatherCard = legacyWeatherVisible;
     if (data.showCalendarWeatherBadge === undefined) this.settings.showCalendarWeatherBadge = legacyWeatherVisible;
-    const rawDisplayLanguage = data.displayLanguage;
-    this.settings.displayLanguage = rawDisplayLanguage === 'system' || rawDisplayLanguage === 'en' || rawDisplayLanguage === 'zh'
-      ? rawDisplayLanguage
-      : (data.weatherLanguage === 'en' ? 'en' : 'zh');
+    this.settings.displayLanguage = normalizeDisplayLanguageSetting(data);
     this.settings.weatherLanguage = getDisplayLanguage({
       displayLanguage: this.settings.displayLanguage,
       weatherLanguage: data.weatherLanguage,
@@ -1138,7 +1143,7 @@ class DaylinePlugin extends Plugin {
       leaf = workspace.getLeftLeaf(false);
     }
     if (!leaf) {
-      new Notice('Dayline: could not create calendar leaf');
+      new Notice(t(this.settings, 'calendarLeafCreateFailed'));
       return;
     }
 
@@ -1254,6 +1259,8 @@ class CalendarView extends ItemView {
         calendar: t(this.plugin.settings, 'calendarTitle'),
         timeline: t(this.plugin.settings, 'timelineTitle'),
       },
+      groupLabel: t(this.plugin.settings, 'daylineViewGroupLabel'),
+      returnLabel: t(this.plugin.settings, 'backToNote'),
       onSelect: (mode) => mode === 'timeline'
         ? this.plugin.activateTimeline()
         : this.plugin.activateView(),
@@ -1783,8 +1790,9 @@ class CalendarView extends ItemView {
           const category = BADGE_ICON_CATEGORY[iconFile] ?? 'weather-cat-cloud';
           const badge = cell.createSpan({ cls: `cal-weather-badge ${category}` });
           appendBadgeSvg(badge, BADGE_SVG[iconFile] ?? BADGE_SVG['badge-cloud.svg']);
-          badge.setAttribute('aria-label', `${snap.condition}, ${snap.temperature}${this._unitSymbol(snap.units)}`);
-          badge.title = `${snap.condition} · ${snap.temperature}${this._unitSymbol(snap.units)}`;
+          const condition = weatherConditionLabel(snap, this.plugin.settings);
+          badge.setAttribute('aria-label', `${condition}, ${snap.temperature}${this._unitSymbol(snap.units)}`);
+          badge.title = `${condition} · ${snap.temperature}${this._unitSymbol(snap.units)}`;
         }
       }
 
@@ -1866,7 +1874,7 @@ class CalendarView extends ItemView {
     const monthLabel = panel.createEl('label', { cls: 'cal-filter-field' });
     monthLabel.createSpan({ text: t(this.plugin.settings, 'month') });
     const monthSelect = monthLabel.createEl('select', { attr: { 'data-calendar-focus': 'jump-month', 'aria-label': t(this.plugin.settings, 'month') } });
-    const locale = getDisplayLanguage(this.plugin.settings) === 'en' ? 'en-US' : 'zh-CN';
+    const locale = LOCALE_TAGS[getDisplayLanguage(this.plugin.settings)] || 'en-US';
     const monthFormatter = new Intl.DateTimeFormat(locale, { month: 'long', timeZone: 'UTC' });
     for (let index = 0; index < 12; index++) {
       const option = monthSelect.createEl('option', {
@@ -2083,7 +2091,7 @@ class CalendarView extends ItemView {
     const iconEl = main.createEl('img', { cls: 'cal-weather-icon' });
     const loading = this._weatherLoading ? '\u231B\uFE0F' : '';
     if (loading) iconEl.alt = loading;
-    else { iconEl.src = _iconUrl('overcast.svg'); iconEl.alt = 'weather'; }
+    else { iconEl.src = _iconUrl('overcast.svg'); iconEl.alt = t(this.plugin.settings, 'weatherIconAlt'); }
 
     const infoEl = main.createDiv({ cls: 'cal-weather-info' });
     const tempEl = infoEl.createDiv({ cls: 'cal-weather-temp' });
@@ -2187,8 +2195,12 @@ class CalendarView extends ItemView {
 
     const host = resolveWeatherOnThisDayHost(containerEl) || createStandaloneOnThisDayHost(containerEl);
     const lang = this.plugin.settings.weatherLanguage;
-    const currentYear = Number(dateStr.slice(0, 4));
-    const yearsAgo = Number.isFinite(currentYear) ? currentYear - preview.year : 1;
+    // "How long ago" is measured from today, the same basis the provider uses to
+    // pick which years are past. The browsed date only supplies the month/day:
+    // deriving the year from `dateStr` made a memory from the year already on
+    // screen read as "0年前" and handed back the open note as a past year.
+    const todayYear = Number(_daylineDate(this.plugin.settings).slice(0, 4));
+    const yearsAgo = onThisDayYearsAgo(preview.year, todayYear);
     const title = _l(lang, 'otd_title');
     const meta = onThisDayStripMeta(_l(lang, 'otd_yearsAgo', yearsAgo), _l(lang, 'otd_entryDate', month, day));
     const strip = mountOnThisDayStrip(host, {
@@ -2288,8 +2300,9 @@ class CalendarView extends ItemView {
     const iconEl = card.querySelector('.cal-weather-icon');
     if (iconEl) {
       iconEl.src = _iconUrl(snap.icon) || '';
-      iconEl.alt = snap.condition;
-      iconEl.title = snap.condition;
+      const condition = weatherConditionLabel(snap, this.plugin.settings);
+      iconEl.alt = condition;
+      iconEl.title = condition;
     }
 
     const tempEl = card.querySelector('.cal-weather-temp');
@@ -2395,7 +2408,7 @@ class CalendarView extends ItemView {
       this._weatherLoading = false;
       this._updateWeatherCardUI();
       const lang = this.plugin.settings.weatherLanguage;
-      new Notice(_l(lang, 'refreshFailed', err.message || 'unknown error'));
+      new Notice(_l(lang, 'refreshFailed', err.message || t(this.plugin.settings, 'unknownError')));
     } finally {
       // Always restore button state
       if (wasLoading && btnEl) {
@@ -3029,8 +3042,9 @@ class CalendarView extends ItemView {
     // Icon
     const iconEl = overlay.createEl('img', { cls: 'cal-overlay-icon' });
     iconEl.src = _iconUrl(snap.icon) || '';
-    iconEl.alt = snap.condition || '';
-    iconEl.title = snap.condition;
+    const condition = weatherConditionLabel(snap, this.plugin.settings);
+    iconEl.alt = condition;
+    iconEl.title = condition;
 
     // Info column
     const infoEl = overlay.createDiv({ cls: 'cal-overlay-info' });
@@ -3046,7 +3060,7 @@ class CalendarView extends ItemView {
     if (snap.feelsLike != null) parts.push(`${_l(lang, 'feels')} ${snap.feelsLike}${unitSym}`);
     if (snap.humidity != null) parts.push(`${_l(lang, 'humidity')} ${snap.humidity}%`);
     detailEl.setText(parts.join(' · ') || '');
-    detailEl.title = snap.condition;
+    detailEl.title = condition;
 
     // Refresh button inside overlay
     const refreshLabel = _l(lang, 'refresh');
@@ -3104,7 +3118,7 @@ class CalendarView extends ItemView {
       if (tempEl) tempEl.textContent = `${_l(lang, labelKey)} ${snap.temperature ?? '?'}${unitSym}`;
       if (iconEl) {
         iconEl.src = _iconUrl(snap.icon) || '';
-        iconEl.title = snap.condition;
+        iconEl.title = weatherConditionLabel(snap, this.plugin.settings);
       }
 
       const parts = [];

@@ -82,6 +82,25 @@ export function onThisDayStripMeta(yearsAgoLabel: string, dateLabel: string): st
   return `${yearsAgoLabel} · ${dateLabel}`;
 }
 
+/**
+ * Years between a memory and today.
+ *
+ * Every On This Day surface measures "how long ago" against **today**, because
+ * that is the same basis `OnThisDayProvider.getEntries` uses to decide which
+ * years count as past. Measuring against the date being browsed instead made
+ * the merged strip label a memory as `0年前` whenever the calendar's active date
+ * sat in a past year: the memory for that same year was offered back as a
+ * "previous year" while its note was the one already on screen.
+ *
+ * A non-positive delta is only reachable through a clock or timezone edge
+ * between the entry fetch and the render, so it clamps to 1 rather than
+ * printing "0年前".
+ */
+export function onThisDayYearsAgo(memoryYear: number, todayYear: number): number {
+  const delta = Number(todayYear) - Number(memoryYear);
+  return Number.isFinite(delta) && delta > 0 ? Math.trunc(delta) : 1;
+}
+
 export function clearOnThisDayStrip(root: ParentNode): void {
   for (const el of Array.from(root.querySelectorAll('.cal-otd-strip'))) el.remove();
   for (const el of Array.from(root.querySelectorAll('.cal-weather-card.cal-otd-standalone'))) el.remove();

@@ -26,6 +26,7 @@ const CalendarView = loadClass('CalendarView', {
   getCalendarWeekdays: () => [],
   getCalendarGridOffset: () => 0,
   getDisplayLanguage: () => 'en',
+  LOCALE_TAGS: { en: 'en-US', zh: 'zh-CN', 'zh-tw': 'zh-TW' },
   calendarCellTouchRouting: () => ({ showEntryCountControl: true }),
   usesPhoneLayout: () => false,
   bindOpenOnPointer: () => {},
