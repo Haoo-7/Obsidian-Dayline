@@ -1,6 +1,7 @@
 import { JSDOM } from 'jsdom';
 import { installObsidianDomShim } from './setup/obsidian-dom';
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { localize } from '../src/locale';
 import {
   clearOnThisDayStrip,
@@ -9,6 +10,7 @@ import {
   normalizeOnThisDayEntryMode,
   onThisDayEntryDate,
   onThisDayStripMeta,
+  onThisDayYearsAgo,
   parseOnThisDayMonthDay,
   pickOnThisDayPreview,
   resolveWeatherOnThisDayHost,
@@ -63,6 +65,31 @@ describe('on-this-day sidebar entry mode', () => {
     expect(localize('en', 'otd_entryDate', 9, 15)).toBe('9/15');
     expect(localize('zh', 's_otdEntryMerged')).toBe('合并进天气卡');
     expect(localize('en', 's_otdEntryHeader')).toBe('Header icon');
+  });
+
+  it('measures "how long ago" from today, never from the browsed date', () => {
+    expect(onThisDayYearsAgo(2025, 2026)).toBe(1);
+    expect(onThisDayYearsAgo(2023, 2026)).toBe(3);
+    // The regression: browsing 2025-07-18 while the 2025 note is on screen made
+    // the strip read "0年前" and offer that same note as a past year.
+    expect(onThisDayYearsAgo(2025, 2025)).toBe(1);
+    expect(onThisDayYearsAgo(2026, 2025)).toBe(1);
+    expect(onThisDayYearsAgo(Number.NaN, 2026)).toBe(1);
+  });
+});
+
+describe('on-this-day strip year basis', () => {
+  const pluginSource = readFileSync(new URL('../src/plugin.ts', import.meta.url), 'utf8');
+  const stripSource = pluginSource.slice(
+    pluginSource.indexOf('_mountMergedOnThisDayStrip(containerEl'),
+    pluginSource.indexOf('_bindOnThisDayOpener(strip, dateStr)'),
+  );
+
+  it('derives the year from today rather than from the browsed date', () => {
+    expect(stripSource).toContain('onThisDayYearsAgo(preview.year, todayYear)');
+    expect(stripSource).toContain('_daylineDate(this.plugin.settings)');
+    // The old basis read the year out of the target date string.
+    expect(stripSource).not.toMatch(/currentYear\s*=\s*Number\(dateStr\.slice/);
   });
 });
 

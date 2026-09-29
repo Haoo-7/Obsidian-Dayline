@@ -17,6 +17,7 @@ const {
   normalizeOnThisDayEntryMode,
   onThisDayEntryDate,
   onThisDayStripMeta,
+  onThisDayYearsAgo,
   parseOnThisDayMonthDay,
   pickOnThisDayPreview,
   shouldPreserveCalendarSelection,
@@ -2195,8 +2196,12 @@ class CalendarView extends ItemView {
 
     const host = resolveWeatherOnThisDayHost(containerEl) || createStandaloneOnThisDayHost(containerEl);
     const lang = this.plugin.settings.weatherLanguage;
-    const currentYear = Number(dateStr.slice(0, 4));
-    const yearsAgo = Number.isFinite(currentYear) ? currentYear - preview.year : 1;
+    // "How long ago" is measured from today, the same basis the provider uses to
+    // pick which years are past. The browsed date only supplies the month/day:
+    // deriving the year from `dateStr` made a memory from the year already on
+    // screen read as "0年前" and handed back the open note as a past year.
+    const todayYear = Number(_daylineDate(this.plugin.settings).slice(0, 4));
+    const yearsAgo = onThisDayYearsAgo(preview.year, todayYear);
     const title = _l(lang, 'otd_title');
     const meta = onThisDayStripMeta(_l(lang, 'otd_yearsAgo', yearsAgo), _l(lang, 'otd_entryDate', month, day));
     const strip = mountOnThisDayStrip(host, {

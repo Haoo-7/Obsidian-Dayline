@@ -2,6 +2,7 @@
 import { Notice, setIcon, TFile } from 'obsidian';
 import { getTodayDate } from './date-utils';
 import { extractExcerpt, isGenericJournalTitle, renderExcerptTemplate } from './excerpt';
+import { onThisDayYearsAgo } from './on-this-day-entry';
 import { localize as _l } from './locale';
 import { t } from './i18n';
 
@@ -340,7 +341,7 @@ export class OnThisDayModal {
 
     for (const entry of this.entries) {
       const images = entry.images || [];
-      const yearsAgo = Math.max(1, currentYear - entry.year);
+      const yearsAgo = onThisDayYearsAgo(entry.year, currentYear);
       const metaText = `${_l(lang, 'otd_yearsAgo', yearsAgo)}  ·  ${entry.year}`;
 
       const card = this.bodyEl.createDiv({ cls: 'cal-otd-wall-card' });

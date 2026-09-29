@@ -1,8 +1,10 @@
-# On This Day — Title/Body Separation, Card Polish, and Where a Memory Opens
+# On This Day — Title/Body Separation, Card Polish, Open Target, and the Strip's Year Basis
 
-Date: 2026-09-28. Scope: the 去年今日 memory card in the On This Day modal
-(`src/on-this-day.ts`, `.cal-otd-*` in `styles.css`) and the leaf a memory opens
-into. Branch: `feat/on-this-day-polish`, cut from `master` (`caf863f`).
+Date: 2026-09-28. Scope: the 去年今日 memory card in the On This Day modal, the
+leaf a memory opens into, and the merged weather-card strip's "how long ago"
+label (`src/on-this-day.ts`, `src/on-this-day-entry.ts`, the `_mountMergedOnThisDayStrip`
+path in `src/plugin.ts`, `.cal-otd-*` in `styles.css`). Branch:
+`feat/on-this-day-polish`, cut from `master` (`caf863f`).
 
 ## 0. The report
 
@@ -107,6 +109,17 @@ Markdown leaf exists at all.
 The `openLinkText(dateStr, dailyFolder, false)` fallback for a path that no
 longer resolves is unchanged; its third argument already meant "reuse the leaf".
 
+### The merged strip's year basis
+
+Found while verifying the open path: with the calendar's active date in a past
+year the strip read `0年前` and previewed the note already on screen.
+`OnThisDayProvider.getEntries` filters `year >= currentYear` against **today**,
+but `_mountMergedOnThisDayStrip` derived its year from the browsed `dateStr`, so
+the two disagreed and the memory for the browsed year was offered back as a
+"past year". Both surfaces now call one rule,
+`onThisDayYearsAgo(memoryYear, todayYear)`, which measures from today and clamps
+a non-positive delta to 1 so a clock or timezone edge cannot print `0年前`.
+
 ### Chrome and states (`styles.css`)
 
 | Before | After | Why |
@@ -164,6 +177,18 @@ The modal closed itself, `dev:errors` reported nothing, and the card still
 lands on the memory's note — it just no longer costs a pane.
 `after-click-reuses-leaf.png` is that state: a single tab holding the 2025 note.
 
+The merged strip's label, read over the CLI for the same memory while the
+calendar's active date moves:
+
+| Active date | Before | After |
+| --- | --- | --- |
+| `2026-07-18` (today's year) | `1年前 · 7月18日` | `1年前 · 7月18日` |
+| `2025-07-18` (a past year) | **`0年前 · 7月18日`** | `1年前 · 7月18日` |
+| `2025-09-14` / `2026-09-14` | `0年前` / `1年前 · 9月14日` | `1年前 · 9月14日` for both |
+
+The open note legitimately sets the active date through `active-leaf-change` →
+`_syncActiveDate`, so that path is reached in normal use, not only in a test.
+
 Reminder for the next Sandbox round: `dev:screenshot` returns a stale frame
 while the Obsidian window is occluded — activate the app first, or the capture
 shows a state that has already changed. `plugin:reload` also leaves any modal
@@ -184,9 +209,10 @@ until it is removed.
   body type, header seam, hover gated behind a fine pointer, reduced motion,
   single-memory wall).
 - Mutation checks: forcing `dropHeading = false` turns 5 assertions red;
-  restoring `getLeaf('split')` turns the open-path test red.
+  restoring `getLeaf('split')` turns the open-path test red; restoring the
+  strip's `Number(dateStr.slice(0, 4))` basis turns the year-basis test red.
 
-`npm run typecheck`, `npm test` (57 files, 507 tests), `npm run build` and
+`npm run typecheck`, `npm test` (57 files, 510 tests), `npm run build` and
 `git diff --check` all pass. `npm run lint` is red before and after this change
 (repo-wide `no-unsafe-*` errors in `// @ts-nocheck` modules); this change adds 17
 of that same family inside `src/on-this-day.ts`, whose plugin surface is typed
@@ -194,18 +220,6 @@ of that same family inside `src/on-this-day.ts`, whose plugin surface is typed
 
 ## 5. Still open (recorded, not fixed)
 
-0. **The merged strip says "0年前" when the calendar's active date sits in a past
-   year, and previews the note you are already reading.** Measured in the
-   Sandbox: with `activeDate = 2026-07-18` the strip reads
-   `去年今日 / 1年前 · 7月18日`; open the 2025 memory (which legitimately sets
-   `activeDate = 2025-07-18` through `active-leaf-change` → `_syncActiveDate`)
-   and it reads `去年今日 / 0年前 · 7月18日`. `OnThisDayProvider.getEntries`
-   filters `year >= currentYear` against *today*, while
-   `_mountMergedOnThisDayStrip` computes `yearsAgo` against the *active date's*
-   year, so for an active date in a past year the two disagree and the memory
-   for that same year is offered as a "past year". Pre-existing; it fires the
-   same way under the old `getLeaf('split')` open, so it is not a regression
-   from this change.
 1. **The wall never shows more than one photo per year.** The first image is the
    card; extra photos are only counted (`+2`). A per-year gallery needs a
    viewer, not a card tweak.

@@ -5247,6 +5247,115 @@ var init_journal_timeline_view = __esm({
   }
 });
 
+// src/on-this-day-entry.ts
+var on_this_day_entry_exports = {};
+__export(on_this_day_entry_exports, {
+  ON_THIS_DAY_ENTRY_MODES: () => ON_THIS_DAY_ENTRY_MODES,
+  clearOnThisDayStrip: () => clearOnThisDayStrip,
+  createStandaloneOnThisDayHost: () => createStandaloneOnThisDayHost,
+  mountOnThisDayStrip: () => mountOnThisDayStrip,
+  normalizeOnThisDayEntryMode: () => normalizeOnThisDayEntryMode,
+  onThisDayEntryDate: () => onThisDayEntryDate,
+  onThisDayStripMeta: () => onThisDayStripMeta,
+  onThisDayYearsAgo: () => onThisDayYearsAgo,
+  parseOnThisDayMonthDay: () => parseOnThisDayMonthDay,
+  pickOnThisDayPreview: () => pickOnThisDayPreview,
+  resolveWeatherOnThisDayHost: () => resolveWeatherOnThisDayHost,
+  shouldPreserveCalendarSelection: () => shouldPreserveCalendarSelection,
+  shouldShowHeaderOnThisDayEntry: () => shouldShowHeaderOnThisDayEntry,
+  shouldShowMergedOnThisDayEntry: () => shouldShowMergedOnThisDayEntry
+});
+function normalizeOnThisDayEntryMode(settings = {}) {
+  const raw = settings.onThisDayEntry;
+  if (raw === "off" || raw === "merged" || raw === "header") return raw;
+  if (settings.onThisDayButton === false) return "off";
+  return "merged";
+}
+function shouldShowMergedOnThisDayEntry(settings = {}) {
+  return normalizeOnThisDayEntryMode(settings) === "merged";
+}
+function shouldShowHeaderOnThisDayEntry(settings = {}) {
+  return normalizeOnThisDayEntryMode(settings) === "header";
+}
+function onThisDayEntryDate(activeDate, today) {
+  return activeDate || today;
+}
+function parseOnThisDayMonthDay(dateStr) {
+  const parts = String(dateStr || "").split("-").map(Number);
+  const month = parts[1];
+  const day = parts[2];
+  if (!month || !day) return null;
+  return { month, day };
+}
+function shouldPreserveCalendarSelection(activeView, calendarView) {
+  return Boolean(calendarView) && activeView === calendarView;
+}
+function pickOnThisDayPreview(entries = []) {
+  if (!entries.length) return null;
+  const latest = entries[0];
+  const withImage = entries.find((entry) => (entry.images || []).length > 0);
+  return {
+    year: latest.year,
+    image: withImage?.images?.[0] || null,
+    imageNotePath: withImage?.path,
+    imageDateStr: withImage?.dateStr,
+    excerpt: latest.excerpt || null,
+    count: entries.length
+  };
+}
+function onThisDayStripMeta(yearsAgoLabel, dateLabel) {
+  return `${yearsAgoLabel} \xB7 ${dateLabel}`;
+}
+function onThisDayYearsAgo(memoryYear, todayYear) {
+  const delta = Number(todayYear) - Number(memoryYear);
+  return Number.isFinite(delta) && delta > 0 ? Math.trunc(delta) : 1;
+}
+function clearOnThisDayStrip(root) {
+  for (const el of Array.from(root.querySelectorAll(".cal-otd-strip"))) el.remove();
+  for (const el of Array.from(root.querySelectorAll(".cal-weather-card.cal-otd-standalone"))) el.remove();
+  for (const el of Array.from(root.querySelectorAll(".cal-weather-card.has-otd"))) {
+    el.classList.remove("has-otd");
+  }
+}
+function asHtmlElement(node) {
+  return node && node.nodeType === 1 ? node : null;
+}
+function resolveWeatherOnThisDayHost(container) {
+  return asHtmlElement(container.querySelector(".cal-weather-card:not(.cal-otd-standalone)"));
+}
+function createStandaloneOnThisDayHost(container) {
+  const existing = asHtmlElement(container.querySelector(".cal-weather-card.cal-otd-standalone"));
+  if (existing) return existing;
+  const card = container.createDiv({ cls: "cal-weather-card cal-otd-standalone" });
+  const setup = container.querySelector(".cal-weather-setup");
+  const weekdays = container.querySelector(".cal-weekdays");
+  if (setup?.parentElement === container) setup.insertAdjacentElement("afterend", card);
+  else if (weekdays?.parentElement === container) container.insertBefore(card, weekdays);
+  else container.append(card);
+  return card;
+}
+function mountOnThisDayStrip(host, model) {
+  host.classList.add("has-otd");
+  host.querySelector(".cal-otd-strip")?.remove();
+  const strip = host.createEl("button", { cls: "cal-otd-strip" });
+  strip.type = "button";
+  strip.setAttribute("aria-label", model.ariaLabel);
+  if (model.dateStr) strip.dataset.otdDate = model.dateStr;
+  strip.createSpan({ cls: "cal-otd-strip-photo", attr: { "aria-hidden": "true" } });
+  const text = strip.createSpan({ cls: "cal-otd-strip-text" });
+  text.createSpan({ cls: "cal-otd-strip-title", text: model.title });
+  text.createSpan({ cls: "cal-otd-strip-meta", text: model.meta });
+  strip.createSpan({ cls: "cal-otd-strip-chevron", attr: { "aria-hidden": "true" } });
+  return strip;
+}
+var ON_THIS_DAY_ENTRY_MODES;
+var init_on_this_day_entry = __esm({
+  "src/on-this-day-entry.ts"() {
+    "use strict";
+    ON_THIS_DAY_ENTRY_MODES = ["off", "merged", "header"];
+  }
+});
+
 // src/locale.ts
 var locale_exports = {};
 __export(locale_exports, {
@@ -5565,6 +5674,7 @@ var init_on_this_day = __esm({
     import_obsidian3 = require("obsidian");
     init_date_utils();
     init_excerpt();
+    init_on_this_day_entry();
     init_locale();
     init_i18n();
     IMAGE_EXTENSIONS2 = ["jpg", "jpeg", "png", "heic", "heif", "webp", "gif", "avif", "tiff", "tif", "bmp"];
@@ -5804,7 +5914,7 @@ var init_on_this_day = __esm({
         const openLabel = localize(lang, "otd_openNote");
         for (const entry of this.entries) {
           const images = entry.images || [];
-          const yearsAgo = Math.max(1, currentYear - entry.year);
+          const yearsAgo = onThisDayYearsAgo(entry.year, currentYear);
           const metaText = `${localize(lang, "otd_yearsAgo", yearsAgo)}  \xB7  ${entry.year}`;
           const card = this.bodyEl.createDiv({ cls: "cal-otd-wall-card" });
           card.setAttribute("role", "button");
@@ -5859,110 +5969,6 @@ var init_on_this_day = __esm({
         }
       }
     };
-  }
-});
-
-// src/on-this-day-entry.ts
-var on_this_day_entry_exports = {};
-__export(on_this_day_entry_exports, {
-  ON_THIS_DAY_ENTRY_MODES: () => ON_THIS_DAY_ENTRY_MODES,
-  clearOnThisDayStrip: () => clearOnThisDayStrip,
-  createStandaloneOnThisDayHost: () => createStandaloneOnThisDayHost,
-  mountOnThisDayStrip: () => mountOnThisDayStrip,
-  normalizeOnThisDayEntryMode: () => normalizeOnThisDayEntryMode,
-  onThisDayEntryDate: () => onThisDayEntryDate,
-  onThisDayStripMeta: () => onThisDayStripMeta,
-  parseOnThisDayMonthDay: () => parseOnThisDayMonthDay,
-  pickOnThisDayPreview: () => pickOnThisDayPreview,
-  resolveWeatherOnThisDayHost: () => resolveWeatherOnThisDayHost,
-  shouldPreserveCalendarSelection: () => shouldPreserveCalendarSelection,
-  shouldShowHeaderOnThisDayEntry: () => shouldShowHeaderOnThisDayEntry,
-  shouldShowMergedOnThisDayEntry: () => shouldShowMergedOnThisDayEntry
-});
-function normalizeOnThisDayEntryMode(settings = {}) {
-  const raw = settings.onThisDayEntry;
-  if (raw === "off" || raw === "merged" || raw === "header") return raw;
-  if (settings.onThisDayButton === false) return "off";
-  return "merged";
-}
-function shouldShowMergedOnThisDayEntry(settings = {}) {
-  return normalizeOnThisDayEntryMode(settings) === "merged";
-}
-function shouldShowHeaderOnThisDayEntry(settings = {}) {
-  return normalizeOnThisDayEntryMode(settings) === "header";
-}
-function onThisDayEntryDate(activeDate, today) {
-  return activeDate || today;
-}
-function parseOnThisDayMonthDay(dateStr) {
-  const parts = String(dateStr || "").split("-").map(Number);
-  const month = parts[1];
-  const day = parts[2];
-  if (!month || !day) return null;
-  return { month, day };
-}
-function shouldPreserveCalendarSelection(activeView, calendarView) {
-  return Boolean(calendarView) && activeView === calendarView;
-}
-function pickOnThisDayPreview(entries = []) {
-  if (!entries.length) return null;
-  const latest = entries[0];
-  const withImage = entries.find((entry) => (entry.images || []).length > 0);
-  return {
-    year: latest.year,
-    image: withImage?.images?.[0] || null,
-    imageNotePath: withImage?.path,
-    imageDateStr: withImage?.dateStr,
-    excerpt: latest.excerpt || null,
-    count: entries.length
-  };
-}
-function onThisDayStripMeta(yearsAgoLabel, dateLabel) {
-  return `${yearsAgoLabel} \xB7 ${dateLabel}`;
-}
-function clearOnThisDayStrip(root) {
-  for (const el of Array.from(root.querySelectorAll(".cal-otd-strip"))) el.remove();
-  for (const el of Array.from(root.querySelectorAll(".cal-weather-card.cal-otd-standalone"))) el.remove();
-  for (const el of Array.from(root.querySelectorAll(".cal-weather-card.has-otd"))) {
-    el.classList.remove("has-otd");
-  }
-}
-function asHtmlElement(node) {
-  return node && node.nodeType === 1 ? node : null;
-}
-function resolveWeatherOnThisDayHost(container) {
-  return asHtmlElement(container.querySelector(".cal-weather-card:not(.cal-otd-standalone)"));
-}
-function createStandaloneOnThisDayHost(container) {
-  const existing = asHtmlElement(container.querySelector(".cal-weather-card.cal-otd-standalone"));
-  if (existing) return existing;
-  const card = container.createDiv({ cls: "cal-weather-card cal-otd-standalone" });
-  const setup = container.querySelector(".cal-weather-setup");
-  const weekdays = container.querySelector(".cal-weekdays");
-  if (setup?.parentElement === container) setup.insertAdjacentElement("afterend", card);
-  else if (weekdays?.parentElement === container) container.insertBefore(card, weekdays);
-  else container.append(card);
-  return card;
-}
-function mountOnThisDayStrip(host, model) {
-  host.classList.add("has-otd");
-  host.querySelector(".cal-otd-strip")?.remove();
-  const strip = host.createEl("button", { cls: "cal-otd-strip" });
-  strip.type = "button";
-  strip.setAttribute("aria-label", model.ariaLabel);
-  if (model.dateStr) strip.dataset.otdDate = model.dateStr;
-  strip.createSpan({ cls: "cal-otd-strip-photo", attr: { "aria-hidden": "true" } });
-  const text = strip.createSpan({ cls: "cal-otd-strip-text" });
-  text.createSpan({ cls: "cal-otd-strip-title", text: model.title });
-  text.createSpan({ cls: "cal-otd-strip-meta", text: model.meta });
-  strip.createSpan({ cls: "cal-otd-strip-chevron", attr: { "aria-hidden": "true" } });
-  return strip;
-}
-var ON_THIS_DAY_ENTRY_MODES;
-var init_on_this_day_entry = __esm({
-  "src/on-this-day-entry.ts"() {
-    "use strict";
-    ON_THIS_DAY_ENTRY_MODES = ["off", "merged", "header"];
   }
 });
 
@@ -7676,10 +7682,10 @@ var init_thumbnail_service = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/shared/bitstream.js
+// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/shared/bitstream.js
 var Bitstream;
 var init_bitstream = __esm({
-  "node_modules/mediabunny/dist/modules/shared/bitstream.js"() {
+  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/shared/bitstream.js"() {
     Bitstream = class _Bitstream {
       constructor(bytes) {
         this.bytes = bytes;
@@ -7743,10 +7749,10 @@ var init_bitstream = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/shared/aac-misc.js
+// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/shared/aac-misc.js
 var aacFrequencyTable, aacChannelMap, parseAacAudioSpecificConfig;
 var init_aac_misc = __esm({
-  "node_modules/mediabunny/dist/modules/shared/aac-misc.js"() {
+  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/shared/aac-misc.js"() {
     init_bitstream();
     aacFrequencyTable = [
       96e3,
@@ -7798,10 +7804,10 @@ var init_aac_misc = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/logging.js
+// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/logging.js
 var LogLevel, Logging;
 var init_logging = __esm({
-  "node_modules/mediabunny/dist/modules/src/logging.js"() {
+  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/logging.js"() {
     init_misc();
     (function(LogLevel2) {
       LogLevel2[LogLevel2["Silent"] = 0] = "Silent";
@@ -7857,7 +7863,7 @@ var init_logging = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/misc.js
+// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/misc.js
 function assert(x) {
   if (!x) {
     throw new Error("Assertion failed.");
@@ -7865,7 +7871,7 @@ function assert(x) {
 }
 var normalizeRotation, last, readExpGolomb, readSignedExpGolomb, toUint8Array, toDataView, textDecoder, invertObject, COLOR_PRIMARIES_MAP, COLOR_PRIMARIES_MAP_INVERSE, TRANSFER_CHARACTERISTICS_MAP, TRANSFER_CHARACTERISTICS_MAP_INVERSE, MATRIX_COEFFICIENTS_MAP, MATRIX_COEFFICIENTS_MAP_INVERSE, AsyncMutex, HEX_STRING_REGEX, bytesToHexString, hexStringToBytes, reverseBitsU32, binarySearchExact, binarySearchLessOrEqual, promiseWithResolvers, removeItem, findLast, findLastIndex, assertNever, getUint24, clamp, UNDETERMINED_LANGUAGE, roundIfAlmostInteger, roundToMultiple, roundToDivisor, ilog, ISO_639_2_REGEX, isIso639Dash2LanguageCode, SECOND_TO_MICROSECOND_FACTOR, mergeRequestInit, normalizeHeaders, retriedFetch, isChromiumCache, isChromium, chromiumVersionCache, getChromiumVersion, coalesceIndex, closedIntervalsOverlap, base64ToBytes, uint8ArraysAreEqual, polyfillSymbolDispose, isNumber, arrayCount, arrayArgmin, simplifyRational, wait, EventEmitter;
 var init_misc = __esm({
-  "node_modules/mediabunny/dist/modules/src/misc.js"() {
+  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/misc.js"() {
     init_logging();
     normalizeRotation = (rotation) => {
       const mappedRotation = (rotation % 360 + 360) % 360;
@@ -8301,10 +8307,10 @@ var init_misc = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/codec.js
+// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/codec.js
 var PCM_AUDIO_CODECS, NON_PCM_AUDIO_CODECS, AUDIO_CODECS, AVC_LEVEL_TABLE, VP9_LEVEL_TABLE, VP9_DEFAULT_SUFFIX, AV1_DEFAULT_SUFFIX, PRORES_FOURCCS, extractVideoCodecString, extractAudioCodecString, OPUS_SAMPLE_RATE, PCM_CODEC_REGEX, parsePcmCodec, VALID_VIDEO_CODEC_STRING_PREFIXES;
 var init_codec = __esm({
-  "node_modules/mediabunny/dist/modules/src/codec.js"() {
+  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/codec.js"() {
     init_aac_misc();
     init_misc();
     PCM_AUDIO_CODECS = [
@@ -8614,19 +8620,19 @@ var init_codec = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/shared/ac3-misc.js
+// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/shared/ac3-misc.js
 var AC3_SAMPLE_RATES, EAC3_REDUCED_SAMPLE_RATES;
 var init_ac3_misc = __esm({
-  "node_modules/mediabunny/dist/modules/shared/ac3-misc.js"() {
+  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/shared/ac3-misc.js"() {
     AC3_SAMPLE_RATES = [48e3, 44100, 32e3];
     EAC3_REDUCED_SAMPLE_RATES = [24e3, 22050, 16e3];
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/codec-data.js
+// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/codec-data.js
 var AvcNalUnitType, HevcNalUnitType, iterateNalUnitsInAnnexB, iterateNalUnitsInLengthPrefixed, iterateAvcNalUnits, extractNalUnitTypeForAvc, removeEmulationPreventionBytes, ANNEX_B_START_CODE, extractAvcDecoderConfigurationRecord, AVC_HEVC_ASPECT_RATIO_IDC_TABLE, parseAvcSps, skipAvcHrdParameters, iterateHevcNalUnits, extractNalUnitTypeForHevc, parseHevcSps, extractHevcDecoderConfigurationRecord, parseProfileTierLevel, skipScalingListData, skipAllStRefPicSets, skipStRefPicSet, parseHevcVui, skipHevcHrdParameters, skipSubLayerHrdParameters, HevcNaluOrderState, extractVp9CodecInfoFromPacket, iterateAv1PacketObus, extractAv1CodecInfoFromPacket, parseOpusIdentificationHeader, OPUS_FRAME_DURATION_TABLE, parseOpusTocByte, parseModesFromVorbisSetupPacket, determineVideoPacketType, FlacBlockType, readVorbisComments, AC3_ACMOD_CHANNEL_COUNTS, AC3_FRAME_SIZES, AC3_REGISTRATION_DESCRIPTOR, EAC3_REGISTRATION_DESCRIPTOR, parseEac3Config, getEac3SampleRate, getEac3ChannelCount;
 var init_codec_data = __esm({
-  "node_modules/mediabunny/dist/modules/src/codec-data.js"() {
+  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/codec-data.js"() {
     init_codec();
     init_misc();
     init_logging();
@@ -10413,10 +10419,10 @@ var init_codec_data = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/demuxer.js
+// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/demuxer.js
 var Demuxer;
 var init_demuxer = __esm({
-  "node_modules/mediabunny/dist/modules/src/demuxer.js"() {
+  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/demuxer.js"() {
     Demuxer = class {
       constructor(input) {
         this.input = input;
@@ -10427,10 +10433,10 @@ var init_demuxer = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/packet.js
+// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/packet.js
 var PLACEHOLDER_DATA, EncodedPacket;
 var init_packet = __esm({
-  "node_modules/mediabunny/dist/modules/src/packet.js"() {
+  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/packet.js"() {
     init_misc();
     PLACEHOLDER_DATA = /* @__PURE__ */ new Uint8Array(0);
     EncodedPacket = class _EncodedPacket {
@@ -10594,10 +10600,10 @@ var init_packet = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/isobmff/isobmff-misc.js
+// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/isobmff/isobmff-misc.js
 var buildIsobmffMimeType, parsePsshBoxContents, psshBoxesAreEqual;
 var init_isobmff_misc = __esm({
-  "node_modules/mediabunny/dist/modules/src/isobmff/isobmff-misc.js"() {
+  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/isobmff/isobmff-misc.js"() {
     init_misc();
     buildIsobmffMimeType = (info) => {
       const base = info.hasVideo ? "video/" : info.hasAudio ? "audio/" : "application/";
@@ -10640,10 +10646,10 @@ var init_isobmff_misc = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/metadata.js
+// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/metadata.js
 var RichImageData, AttachedFile, DEFAULT_TRACK_DISPOSITION;
 var init_metadata = __esm({
-  "node_modules/mediabunny/dist/modules/src/metadata.js"() {
+  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/metadata.js"() {
     RichImageData = class {
       /** Creates a new {@link RichImageData}. */
       constructor(data, mimeType) {
@@ -10690,10 +10696,10 @@ var init_metadata = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/source.js
+// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/source.js
 var DEFAULT_MIN_READ_POSITION, DEFAULT_MAX_READ_POSITION, sourceFinalizationRegistry, Source, SourceRef, PathedSource, sourceRequestsAreEqual, URL_SOURCE_MIN_LOAD_AMOUNT, DEFAULT_RETRY_DELAY, warnedOrigins, UrlSource, BYTE_RANGE_REGEX, parseByteRangeHeader, PREFETCH_PROFILES, ReadOrchestrator, RangedSource;
 var init_source = __esm({
-  "node_modules/mediabunny/dist/modules/src/source.js"() {
+  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/source.js"() {
     init_misc();
     init_input();
     init_logging();
@@ -11693,10 +11699,10 @@ var init_source = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/reader.js
+// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/reader.js
 var Reader, FileSlice, checkIsInRange, readBytes, readU8, readU16, readU16Be, readU24Be, readI16Be, readU32, readU32Be, readU32Le, readI32Be, readI32Le, readU64, readU64Be, readI64Be, readI64Le, readF32Be, readF64Be, readAscii;
 var init_reader = __esm({
-  "node_modules/mediabunny/dist/modules/src/reader.js"() {
+  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/reader.js"() {
     init_input();
     init_misc();
     init_source();
@@ -11956,10 +11962,10 @@ var init_reader = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/isobmff/isobmff-reader.js
+// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/isobmff/isobmff-reader.js
 var MIN_BOX_HEADER_SIZE, MAX_BOX_HEADER_SIZE, readBoxHeader, readFixed_16_16, readFixed_2_30, readIsomVariableInteger, readMetadataStringShort, readDataBox;
 var init_isobmff_reader = __esm({
-  "node_modules/mediabunny/dist/modules/src/isobmff/isobmff-reader.js"() {
+  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/isobmff/isobmff-reader.js"() {
     init_metadata();
     init_misc();
     init_reader();
@@ -12035,10 +12041,10 @@ var init_isobmff_reader = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/aes.js
+// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/aes.js
 var AES_128_BLOCK_SIZE, Te4, Td0, Td1, Td2, Td3, Td4, rcon, tablesGenerated, generateAesTables, Aes128CbcContext;
 var init_aes = __esm({
-  "node_modules/mediabunny/dist/modules/src/aes.js"() {
+  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/aes.js"() {
     init_misc();
     AES_128_BLOCK_SIZE = 16;
     Te4 = new Uint32Array(256);
@@ -12172,10 +12178,10 @@ var init_aes = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/isobmff/isobmff-demuxer.js
+// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/isobmff/isobmff-demuxer.js
 var IsobmffDemuxer, IsobmffTrackBacking, IsobmffVideoTrackBacking, IsobmffAudioTrackBacking, getSampleIndexForTimestamp, getKeyframeSampleIndexForTimestamp, getSampleInfo, getNextKeyframeIndexForSample, offsetFragmentTrackDataByTimestamp, extractRotationFromMatrix, sampleTableIsEmpty, getOrCreateEncryptionAuxInfo, resolveEncryptionAuxInfo, decryptSample, decryptCtr, decryptCbcs, collectCryptRanges;
 var init_isobmff_demuxer = __esm({
-  "node_modules/mediabunny/dist/modules/src/isobmff/isobmff-demuxer.js"() {
+  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/isobmff/isobmff-demuxer.js"() {
     init_aac_misc();
     init_codec();
     init_codec_data();
@@ -15107,7 +15113,7 @@ var init_isobmff_demuxer = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/matroska/ebml.js
+// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/matroska/ebml.js
 function assertDefinedSize(size) {
   if (size === void 0) {
     throw new Error("Undefined element size is used in a place where it is not supported.");
@@ -15115,7 +15121,7 @@ function assertDefinedSize(size) {
 }
 var EBMLId, LEVEL_0_EBML_IDS, LEVEL_1_EBML_IDS, LEVEL_0_AND_1_EBML_IDS, MAX_VAR_INT_SIZE, MIN_HEADER_SIZE, MAX_HEADER_SIZE, readVarIntSize, readVarInt, readUnsignedInt, readUnsignedBigInt, readElementId, readElementSize, readElementHeader, readAsciiString, readUnicodeString, readFloat, searchForNextElementId, resync, CODEC_STRING_MAP;
 var init_ebml = __esm({
-  "node_modules/mediabunny/dist/modules/src/matroska/ebml.js"() {
+  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/matroska/ebml.js"() {
     init_misc();
     init_reader();
     (function(EBMLId2) {
@@ -15451,10 +15457,10 @@ var init_ebml = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/matroska/matroska-misc.js
+// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/matroska/matroska-misc.js
 var buildMatroskaMimeType;
 var init_matroska_misc = __esm({
-  "node_modules/mediabunny/dist/modules/src/matroska/matroska-misc.js"() {
+  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/matroska/matroska-misc.js"() {
     buildMatroskaMimeType = (info) => {
       const base = info.hasVideo ? "video/" : info.hasAudio ? "audio/" : "application/";
       let string = base + (info.isWebM ? "webm" : "x-matroska");
@@ -15467,10 +15473,10 @@ var init_matroska_misc = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/matroska/matroska-demuxer.js
+// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/matroska/matroska-demuxer.js
 var BlockLacing, ContentEncodingScope, ContentCompAlgo, METADATA_ELEMENTS, MAX_RESYNC_LENGTH, MatroskaDemuxer, MatroskaTrackBacking, MatroskaVideoTrackBacking, MatroskaAudioTrackBacking;
 var init_matroska_demuxer = __esm({
-  "node_modules/mediabunny/dist/modules/src/matroska/matroska-demuxer.js"() {
+  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/matroska/matroska-demuxer.js"() {
     init_codec_data();
     init_codec();
     init_demuxer();
@@ -17518,10 +17524,10 @@ var init_matroska_demuxer = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/shared/mp3-misc.js
+// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/shared/mp3-misc.js
 var MP3_FRAME_HEADER_SIZE, SAMPLING_RATES, KILOBIT_RATES, XING, INFO, computeMp3FrameSize, computeAverageMp3FrameSize, getXingOffset, readMp3FrameHeader, decodeSynchsafe, XingFlags, getMp3ChannelCount;
 var init_mp3_misc = __esm({
-  "node_modules/mediabunny/dist/modules/shared/mp3-misc.js"() {
+  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/shared/mp3-misc.js"() {
     MP3_FRAME_HEADER_SIZE = 4;
     SAMPLING_RATES = [44100, 48e3, 32e3];
     KILOBIT_RATES = [
@@ -17788,10 +17794,10 @@ var init_mp3_misc = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/id3.js
+// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/id3.js
 var Id3V2HeaderFlags, Id3V2TextEncoding, ID3_V1_TAG_SIZE, ID3_V2_HEADER_SIZE, ID3_V1_GENRES, parseId3V1Tag, readId3V1String, readId3V2Header, parseId3V2Tag, Id3V2Reader;
 var init_id3 = __esm({
-  "node_modules/mediabunny/dist/modules/src/id3.js"() {
+  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/id3.js"() {
     init_mp3_misc();
     init_logging();
     init_misc();
@@ -18492,10 +18498,10 @@ var init_id3 = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/mp3/mp3-reader.js
+// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/mp3/mp3-reader.js
 var readNextMp3FrameHeader;
 var init_mp3_reader = __esm({
-  "node_modules/mediabunny/dist/modules/src/mp3/mp3-reader.js"() {
+  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/mp3/mp3-reader.js"() {
     init_mp3_misc();
     init_reader();
     readNextMp3FrameHeader = async (reader, startPos, until, ref = null) => {
@@ -18527,10 +18533,10 @@ var init_mp3_reader = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/mp3/mp3-demuxer.js
+// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/mp3/mp3-demuxer.js
 var Mp3Demuxer, Mp3AudioTrackBacking;
 var init_mp3_demuxer = __esm({
-  "node_modules/mediabunny/dist/modules/src/mp3/mp3-demuxer.js"() {
+  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/mp3/mp3-demuxer.js"() {
     init_demuxer();
     init_metadata();
     init_misc();
@@ -18838,10 +18844,10 @@ var init_mp3_demuxer = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/ogg/ogg-misc.js
+// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/ogg/ogg-misc.js
 var OGGS, OGG_CRC_POLYNOMIAL, OGG_CRC_TABLE, computeOggPageCrc, extractSampleMetadata, buildOggMimeType;
 var init_ogg_misc = __esm({
-  "node_modules/mediabunny/dist/modules/src/ogg/ogg-misc.js"() {
+  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/ogg/ogg-misc.js"() {
     init_codec_data();
     init_misc();
     OGGS = 1399285583;
@@ -18909,10 +18915,10 @@ var init_ogg_misc = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/ogg/ogg-reader.js
+// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/ogg/ogg-reader.js
 var MIN_PAGE_HEADER_SIZE, MAX_PAGE_HEADER_SIZE, MAX_PAGE_SIZE, readPageHeader, findNextPageHeader;
 var init_ogg_reader = __esm({
-  "node_modules/mediabunny/dist/modules/src/ogg/ogg-reader.js"() {
+  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/ogg/ogg-reader.js"() {
     init_reader();
     init_ogg_misc();
     MIN_PAGE_HEADER_SIZE = 27;
@@ -18973,10 +18979,10 @@ var init_ogg_reader = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/ogg/ogg-demuxer.js
+// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/ogg/ogg-demuxer.js
 var OggDemuxer, OggAudioTrackBacking, findPacketStartPosition, findPreviousPacketEndPosition;
 var init_ogg_demuxer = __esm({
-  "node_modules/mediabunny/dist/modules/src/ogg/ogg-demuxer.js"() {
+  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/ogg/ogg-demuxer.js"() {
     init_codec();
     init_codec_data();
     init_demuxer();
@@ -19664,10 +19670,10 @@ var init_ogg_demuxer = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/wave/wave-demuxer.js
+// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/wave/wave-demuxer.js
 var WaveFormat, WaveDemuxer, PACKET_SIZE_IN_FRAMES, WaveAudioTrackBacking;
 var init_wave_demuxer = __esm({
-  "node_modules/mediabunny/dist/modules/src/wave/wave-demuxer.js"() {
+  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/wave/wave-demuxer.js"() {
     init_demuxer();
     init_metadata();
     init_misc();
@@ -20121,10 +20127,10 @@ var init_wave_demuxer = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/adts/adts-reader.js
+// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/adts/adts-reader.js
 var MIN_ADTS_FRAME_HEADER_SIZE, MAX_ADTS_FRAME_HEADER_SIZE, readAdtsFrameHeader;
 var init_adts_reader = __esm({
-  "node_modules/mediabunny/dist/modules/src/adts/adts-reader.js"() {
+  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/adts/adts-reader.js"() {
     init_bitstream();
     init_reader();
     MIN_ADTS_FRAME_HEADER_SIZE = 7;
@@ -20182,10 +20188,10 @@ var init_adts_reader = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/adts/adts-demuxer.js
+// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/adts/adts-demuxer.js
 var SAMPLES_PER_AAC_FRAME, AdtsDemuxer, AdtsAudioTrackBacking;
 var init_adts_demuxer = __esm({
-  "node_modules/mediabunny/dist/modules/src/adts/adts-demuxer.js"() {
+  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/adts/adts-demuxer.js"() {
     init_aac_misc();
     init_demuxer();
     init_id3();
@@ -20454,10 +20460,10 @@ var init_adts_demuxer = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/flac/flac-misc.js
+// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/flac/flac-misc.js
 var getBlockSizeOrUncommon, getSampleRateOrUncommon, readCodedNumber, readBlockSize, readSampleRate, calculateCrc8;
 var init_flac_misc = __esm({
-  "node_modules/mediabunny/dist/modules/src/flac/flac-misc.js"() {
+  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/flac/flac-misc.js"() {
     init_bitstream();
     init_misc();
     init_reader();
@@ -20590,10 +20596,10 @@ var init_flac_misc = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/flac/flac-demuxer.js
+// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/flac/flac-demuxer.js
 var FlacDemuxer, FlacAudioTrackBacking;
 var init_flac_demuxer = __esm({
-  "node_modules/mediabunny/dist/modules/src/flac/flac-demuxer.js"() {
+  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/flac/flac-demuxer.js"() {
     init_codec_data();
     init_demuxer();
     init_misc();
@@ -21067,10 +21073,10 @@ var init_flac_demuxer = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/input-format.js
+// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/input-format.js
 var InputFormat, IsobmffInputFormat, Mp4InputFormat, QuickTimeInputFormat, MatroskaInputFormat, Mp3InputFormat, WaveInputFormat, OggInputFormat, FlacInputFormat, AdtsInputFormat, MP4, QTFF, MATROSKA, MP3, WAVE, OGG, ADTS, FLAC, validateInputFormatOptions;
 var init_input_format = __esm({
-  "node_modules/mediabunny/dist/modules/src/input-format.js"() {
+  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/input-format.js"() {
     init_isobmff_demuxer();
     init_ebml();
     init_matroska_demuxer();
@@ -21458,19 +21464,19 @@ var init_input_format = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/custom-coder.js
+// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/custom-coder.js
 var customVideoDecoders, customAudioDecoders;
 var init_custom_coder = __esm({
-  "node_modules/mediabunny/dist/modules/src/custom-coder.js"() {
+  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/custom-coder.js"() {
     customVideoDecoders = [];
     customAudioDecoders = [];
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/media-sink.js
+// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/media-sink.js
 var validatePacketRetrievalOptions, validateTimestamp, maybeFixPacketType, EncodedPacketSink;
 var init_media_sink = __esm({
-  "node_modules/mediabunny/dist/modules/src/media-sink.js"() {
+  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/media-sink.js"() {
     init_input();
     init_input_track();
     init_misc();
@@ -21732,10 +21738,10 @@ var init_media_sink = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/input-track.js
+// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/input-track.js
 var InputTrack, requireSync, toValidatedPredicate, InputVideoTrack, InputAudioTrack, desc, prefer, toValidatedInputTrackQuery, mergeInputTrackQueries, queryInputTracks;
 var init_input_track = __esm({
-  "node_modules/mediabunny/dist/modules/src/input-track.js"() {
+  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/input-track.js"() {
     init_codec_data();
     init_custom_coder();
     init_logging();
@@ -22504,10 +22510,10 @@ var init_input_track = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/input.js
+// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/input.js
 var DEFAULT_SOURCE_CACHE_GROUP, Input, UnsupportedInputFormatError, InputDisposedError;
 var init_input = __esm({
-  "node_modules/mediabunny/dist/modules/src/input.js"() {
+  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/input.js"() {
     init_input_format();
     init_input_track();
     init_misc();
@@ -24909,6 +24915,7 @@ var {
   normalizeOnThisDayEntryMode: normalizeOnThisDayEntryMode2,
   onThisDayEntryDate: onThisDayEntryDate2,
   onThisDayStripMeta: onThisDayStripMeta2,
+  onThisDayYearsAgo: onThisDayYearsAgo2,
   parseOnThisDayMonthDay: parseOnThisDayMonthDay2,
   pickOnThisDayPreview: pickOnThisDayPreview2,
   shouldPreserveCalendarSelection: shouldPreserveCalendarSelection2,
@@ -26773,8 +26780,8 @@ var CalendarView = class extends ItemView2 {
     if (!preview) return;
     const host = resolveWeatherOnThisDayHost2(containerEl) || createStandaloneOnThisDayHost2(containerEl);
     const lang = this.plugin.settings.weatherLanguage;
-    const currentYear = Number(dateStr.slice(0, 4));
-    const yearsAgo = Number.isFinite(currentYear) ? currentYear - preview.year : 1;
+    const todayYear = Number(_daylineDate(this.plugin.settings).slice(0, 4));
+    const yearsAgo = onThisDayYearsAgo2(preview.year, todayYear);
     const title = _l(lang, "otd_title");
     const meta = onThisDayStripMeta2(_l(lang, "otd_yearsAgo", yearsAgo), _l(lang, "otd_entryDate", month, day));
     const strip = mountOnThisDayStrip2(host, {

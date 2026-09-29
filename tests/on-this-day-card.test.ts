@@ -224,6 +224,16 @@ describe('On This Day card: title zone vs body zone', () => {
     expect(document.querySelector('.cal-otd-wall-count')?.textContent).toBe('+2');
   });
 
+  it('labels the badge from today, the same rule the merged strip uses', async () => {
+    const provider = createProvider([
+      { ...SPLICED_ENTRY, date: `${CURRENT_YEAR - 2}-07-18`, path: 'older.md' },
+    ]);
+    const entries = await provider.getEntries(7, 18);
+    new OnThisDayModal({}, createPlugin(), provider, 7, 18, entries).open();
+
+    expect(document.querySelector('.cal-otd-wall-badge')?.textContent).toBe(`2年前  ·  ${CURRENT_YEAR - 2}`);
+  });
+
   it('leaves a photo-only card without a text row, and marks a truly empty one', async () => {
     const photoOnly = createProvider([
       { date: `${CURRENT_YEAR - 1}-07-18`, path: 'x.md', attachments: ['a.png'], searchText: '![[a.png]]\n' },
