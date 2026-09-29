@@ -1,5 +1,63 @@
 # Changelog
 
+## 2.7.0 (2026-09-29)
+
+### Added
+- The display language setting offers nine languages — Simplified Chinese, Traditional Chinese, English, Japanese, Korean, French, German, Spanish, and Russian — plus `system`, which resolves the host locale at call time. `src/i18n.ts` exports the supported list so the settings dropdown, the migration path, and the tests read one source instead of repeating it; the legacy weather key column still names the resolved language for the weather, EXIF, media, and On This Day surfaces.
+- Weather conditions are localized. `src/weather-service.ts` keeps one English `condition` per WMO code because cached snapshots already store that text, so `src/weather-conditions.ts` maps 24 conditions plus a "Weather code N" fallback into all nine languages and `weatherConditionLabel()` resolves a snapshot from its `weatherCode`. A snapshot without a code keeps its stored text, and an unlisted code degrades to the localized fallback rather than throwing.
+- The settings header shows the Dayline brand mark ahead of the wordmark.
+
+### Changed
+- The HEIC decoder ships inside `main.js`. It used to be `libheif-bundle.js` next to the plugin, loaded with a runtime `require()` of an absolute path inside the plugin folder. Obsidian's installer only downloads `main.js`, `manifest.json`, and `styles.css`, so community-store installs never received that file and HEIC thumbnails fell back to the raw attachment silently. The decoder is now a lazy `import()` in `src/heic-codec.ts` that calls the bundled Emscripten factory on the first conversion, the sidecar leaves the release set, and `THIRD_PARTY_NOTICES.md` plus the bundle banner cover the bundled libheif-js (LGPL-3.0). `main.js` grows from 1.18 MB to about 2.9 MB.
+- Ten user-visible strings that were still hardcoded English — the copy-mobile-diagnostics command and its two notices, the calendar-leaf and mood notices, the weather timezone placeholder, the unknown-error fallback, the date-overlay title, and the mobile view group and back-button aria-labels — now resolve through `t()`. What deliberately stays English is recorded in `docs/2026-09-29-nine-language-display.md`: console diagnostics, the mobile-diagnostics report body, error detail inside `{error}`, vault paths, and the canonical WMO labels.
+
+### Fixed
+- The vault root works as a journal source. Picking the root in the folder picker stored `/`, which path normalization collapsed to an empty string, and validation then rejected it with "enter a default daily-note folder" — the picker offered a folder the plugin refused to save. A root source now matches the files directly at the top level only (an empty folder used as a prefix would claim every note in the vault), and an empty folder setting still means "unset" and keeps resolving to the default, so vaults that stored an empty string are not flipped to the root. Every `${dailyFolder}/${date}.md` join goes through `joinVaultPath`, so a root folder no longer produces a leading slash that `getAbstractFileByPath` does not resolve, and `ensureJournalFile` derives parents with `parentVaultPath` instead of turning a root-level `note.md` into `note.m`.
+- On This Day opens a memory in the journal leaf instead of splitting a new pane, and the card's title and body are separate rows rather than one run-on excerpt.
+- "How long ago" is measured from today on every On This Day surface, so opening a past-year memory no longer reads "0年前 · 7月18日".
+- The timeline title keeps its text height on touch devices; the 44px tap box it had been given left 18px of dead space above the excerpt.
+
+### Verification
+- `npm run typecheck`, `npm test` (61 files, 555 tests), `npm run build`, `npm run build:tablet`, `npm run verify:release:zip`, and `git diff --check` pass on the merged tree.
+- The bundled HEIC decoder decoded a real sample end to end under the same esbuild settings the plugin uses: one image, 850x236, 200,600 opaque RGBA pixels, and a second load returned the same decoder. Loading the bundle costs about 5 ms and instantiates no WASM, so the payload is only touched on the first conversion.
+- Both merges were re-tested as a combination, not just per branch: the nine-language tables, the weather-condition table, the On This Day rewrites, the HEIC decoder, and the vault-root path helpers all pass together.
+
+### Notes
+- HEIC conversion remains desktop-only. `src/platform-capabilities.ts` disables the route on mobile because a decode can allocate a large buffer; that is a memory decision, not a limitation of where the codec comes from.
+- `dayline.zip` was rebuilt without `libheif-bundle.js`. An archive from an earlier release still lists the sidecar; it is simply unused now.
+- The `libheif-js` notice points at the upstream source and the exact version, and replacing `libheif-bundle.js` before a rebuild replaces the library. Shipping the GPL/LGPL license texts themselves next to that notice is a known follow-up.
+
+---
+
+## 2.7.0（2026-09-29）
+
+### 新增
+- 显示语言设置提供九种语言——简体中文、繁體中文、English、日本語、한국어、Français、Deutsch、Español、Русский——外加 `system`，在调用时解析宿主语言。`src/i18n.ts` 导出受支持的语言列表，设置下拉框、迁移路径和测试都读同一份来源；旧的 weather 语言列仍为天气、EXIF、媒体和「去年今日」界面记录解析后的语言。
+- 天气状况已本地化。`src/weather-service.ts` 为每个 WMO 代码保留一条英文 `condition`，因为缓存快照里存的就是那段文本，因此新增 `src/weather-conditions.ts`，把 24 种状况加上「Weather code N」回退翻译进九种语言，`weatherConditionLabel()` 通过快照的 `weatherCode` 解析标签。没有 code 的快照保留原文本，未收录的代码降级为本地化回退文案而不是抛错。
+- 设置页头部在文字标识前显示 Dayline 品牌图标。
+
+### 变更
+- HEIC 解码器并入 `main.js`。它原本是插件目录里的 `libheif-bundle.js`，通过运行时 `require()` 绝对路径加载。Obsidian 安装器只下载 `main.js`、`manifest.json` 和 `styles.css`，所以商店安装的用户永远拿不到这个文件，HEIC 缩略图静默回退成原图。现在由 `src/heic-codec.ts` 里的懒加载 `import()` 在首次转换时调用内置的 Emscripten 工厂，旁挂文件退出发布集，`THIRD_PARTY_NOTICES.md` 与 bundle 头部注释覆盖了内置的 libheif-js（LGPL-3.0）。`main.js` 从 1.18 MB 增长到约 2.9 MB。
+- 十处仍是硬编码英文的用户可见文案——复制移动端诊断命令及其两条提示、日历页失败提示、心情重命名与孤立记录迁移提示、天气时区占位符、未知错误回退、日期浮层标题，以及移动端视图分组与返回按钮的 aria-label——现在都经 `t()` 解析。刻意保留英文的部分记录在 `docs/2026-09-29-nine-language-display.md`：控制台诊断、移动端诊断报告正文、`{error}` 里的错误详情、笔记库路径，以及 WMO 规范标签。
+
+### 修复
+- 笔记库根目录可作为日记来源。在文件夹选择器里选根目录会得到 `/`，路径归一化把它压成空字符串，校验随即以「请填写笔记库内的默认日记目录」拒绝——选择器给出了一个插件却不肯保存的目录。现在根目录来源只匹配顶层文件（把空目录当目录前缀会把整个库都算作来源），而空目录设置依旧表示「未设置」并继续解析为默认目录，因此存过空字符串的库不会被翻成根目录。所有 `${dailyFolder}/${date}.md` 拼接都走 `joinVaultPath`，根目录不再产生 `getAbstractFileByPath` 无法解析的前导斜杠；`ensureJournalFile` 改用 `parentVaultPath` 推导父目录，不再把根目录下的 `note.md` 变成 `note.m`。
+- 「去年今日」改为在日记页内打开回忆，不再分裂出新的面板；卡片标题与正文拆成两行，不再是一段连读摘要。
+- 「多久以前」在所有「去年今日」界面都以今天为基准计算，打开往年的回忆不再显示「0年前 · 7月18日」。
+- 触屏设备上时间线标题恢复文本高度；此前给它加的 44px 点击区在摘要上方留了 18px 空白。
+
+### 验证
+- 合并后的树上 `npm run typecheck`、`npm test`（61 个文件、555 项测试）、`npm run build`、`npm run build:tablet`、`npm run verify:release:zip`、`git diff --check` 全部通过。
+- 内置 HEIC 解码器在插件同款 esbuild 设置下真实解码样本：1 张图、850x236、200,600 个不透明 RGBA 像素，第二次加载返回同一个解码器。加载 bundle 约 5 ms 且不实例化任何 WASM，因此只在首次转换时才触碰负载。
+- 两次合并按组合重新验证，而非只看各自分支：九语言表、天气状况表、「去年今日」重写、HEIC 解码器与根目录路径辅助函数放在一起全部通过。
+
+### 说明
+- HEIC 转换仍为桌面端专属。`src/platform-capabilities.ts` 因单次解码可能分配大缓冲而在移动端禁用该路由；这是内存决定，与解码器来自哪里无关。
+- `dayline.zip` 已重打，不再包含 `libheif-bundle.js`；更早版本的归档仍列出该旁挂文件，但它已不再被使用。
+- libheif-js 的声明指向上游源码与确切版本，构建前替换 `libheif-bundle.js` 即可替换该库。随声明一并分发 GPL/LGPL 许可证全文是已知的后续事项。
+
+---
+
 ## 2.6.1 (2026-09-27)
 
 ### Fixed
