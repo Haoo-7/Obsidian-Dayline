@@ -51,4 +51,12 @@ describe('calendar day aggregation', () => {
     });
     expect(summaries.has('not-a-date')).toBe(false);
   });
+
+  it('leaves out the folder separator when the daily notes live at the vault root', () => {
+    const summaries = withWeatherOnlyDays(new Map(), ['2026-08-07'], '/');
+    expect(summaries.get('2026-08-07')).toMatchObject({
+      path: '2026-08-07.md',
+      primaryEntryPath: '2026-08-07.md',
+    });
+  });
 });

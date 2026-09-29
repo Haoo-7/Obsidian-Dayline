@@ -42,7 +42,7 @@ const badgeStormSvg = require('../icons/badge-storm.svg?raw');
 const { WeatherService, lookupWeatherCode, validateWeatherCoordinates, weatherBadgeIcon } = require('./weather-service');
 const { buildWeatherCardParts, buildWeatherStatus, normalizeWeatherDisplayFields } = require('./weather-display');
 const { localize: _l } = require('./locale');
-const { formatDateParts, getClockPartsInTimeZone, getTodayDate } = require('./date-utils');
+const { formatDateParts, getClockPartsInTimeZone, getTodayDate, isPathInFolder, joinVaultPath, normalizeVaultPath, parentVaultPath } = require('./date-utils');
 const { ThumbnailService } = require('./thumbnail-service');
 const { MediaService, formatMediaMetadataForDisplay } = require('./media-service');
 const { aggregateCalendarDays, withWeatherOnlyDays } = require('./calendar-summary');
@@ -642,7 +642,7 @@ class DaylinePlugin extends Plugin {
 
   async createDailyNoteForToday() {
     const date = _daylineDate(this.settings);
-    const path = `${this.settings.dailyFolder}/${date}.md`;
+    const path = joinVaultPath(this.settings.dailyFolder, `${date}.md`);
     try {
       const file = await this.createDailyNoteForDate(date);
       await this.openJournalFile(file);
@@ -657,10 +657,10 @@ class DaylinePlugin extends Plugin {
     const activeFile = this.app.workspace.activeLeaf?.view?.file;
     const sources = this.journalIndex.resolveSources(this.settings);
     const activeIsJournal = activeFile?.extension === 'md'
-      && sources.some((source) => activeFile.path === source.path || activeFile.path.startsWith(`${source.path}/`));
+      && sources.some((source) => isPathInFolder(activeFile.path, source.path));
     const path = activeIsJournal
       ? activeFile.path
-      : `${this.settings.dailyFolder}/${_daylineDate(this.settings)}.md`;
+      : joinVaultPath(this.settings.dailyFolder, `${_daylineDate(this.settings)}.md`);
     void this.openMoodPicker(path, { allowDateSelection: true, ensureFile: false });
   }
 
@@ -668,8 +668,7 @@ class DaylinePlugin extends Plugin {
     const file = this.app.vault.getAbstractFileByPath(path);
     if (!(file instanceof TFile)) throw new Error(`Journal file not found: ${path}`);
     const sources = this.journalIndex.resolveSources(this.settings);
-    const isJournal = sources.some((source) =>
-      path === source.path || path.startsWith(`${source.path}/`));
+    const isJournal = sources.some((source) => isPathInFolder(path, source.path));
     if (!isJournal) throw new Error(`Not a journal file: ${path}`);
 
     await this.app.fileManager.processFrontMatter(file, (frontmatter) => {
@@ -691,7 +690,7 @@ class DaylinePlugin extends Plugin {
       settings: this.settings,
       allowDateSelection: options.allowDateSelection === true,
       onDateChange: async (date) => {
-        const nextPath = `${this.settings.dailyFolder}/${date}.md`;
+        const nextPath = joinVaultPath(this.settings.dailyFolder, `${date}.md`);
         const nextEntry = this.journalIndex.getEntries().find((item) => item.path === nextPath);
         return {
           filePath: nextPath,
@@ -770,10 +769,11 @@ class DaylinePlugin extends Plugin {
   }
 
   async createDailyNoteForDate(dateStr) {
-    const path = `${this.settings.dailyFolder}/${dateStr}.md`;
+    const folder = normalizeVaultPath(this.settings.dailyFolder);
+    const path = joinVaultPath(folder, `${dateStr}.md`);
     const existing = this.app.vault.getAbstractFileByPath(path);
     if (existing instanceof TFile) return existing;
-    await this.ensureFolder(this.settings.dailyFolder);
+    await this.ensureFolder(folder);
     const dnPlugin = this.app.internalPlugins?.getPluginById?.('daily-notes');
     const templatePath = dnPlugin?.instance?.options?.template;
     if (templatePath) {
@@ -781,7 +781,7 @@ class DaylinePlugin extends Plugin {
       if (templateFile instanceof TFile) {
         const tp = this.app.plugins?.getPlugin?.('templater-obsidian')?.templater;
         if (tp?.create_new_note_from_template) {
-          await tp.create_new_note_from_template(templateFile, this.settings.dailyFolder, dateStr, false);
+          await tp.create_new_note_from_template(templateFile, folder, dateStr, false);
           const created = this.app.vault.getAbstractFileByPath(path);
           if (created instanceof TFile) return created;
         }
@@ -804,7 +804,9 @@ class DaylinePlugin extends Plugin {
   async ensureJournalFile(path, content) {
     const existing = this.app.vault.getAbstractFileByPath(path);
     if (existing instanceof TFile) return existing;
-    await this.ensureFolder(path.slice(0, path.lastIndexOf('/')));
+    // A file at the vault root has no parent folder to create. Deriving it from
+    // lastIndexOf would also mangle a root-level name into a bogus folder.
+    await this.ensureFolder(parentVaultPath(path));
     return this.app.vault.create(path, content);
   }
 
@@ -1798,7 +1800,7 @@ class CalendarView extends ItemView {
 
       // Mood is stored outside Markdown. A frontmatter-only mood remains
       // visible through the index until the user explicitly imports it.
-      const dailyPath = `${this.plugin.settings.dailyFolder}/${dateStr}.md`;
+      const dailyPath = joinVaultPath(this.plugin.settings.dailyFolder, `${dateStr}.md`);
       const mood = shouldShowCalendarMood(this.plugin.settings)
         ? this.plugin.moodStore?.get(dailyPath)
           || dateEntry.mood
@@ -1930,7 +1932,7 @@ class CalendarView extends ItemView {
     this.plugin._exifHoverTimer = window.setTimeout(() => {
       void (async () => {
         try {
-          const notePath = sourcePath || `${this.plugin.settings.dailyFolder}/${dateStr}.md`;
+          const notePath = sourcePath || joinVaultPath(this.plugin.settings.dailyFolder, `${dateStr}.md`);
           const file = this.app.metadataCache.getFirstLinkpathDest(imageLink, notePath);
           if (!(file instanceof TFile)) return;
           if (!this.plugin._isCurrentExifHover(hoverToken)) return;
@@ -2210,7 +2212,7 @@ class CalendarView extends ItemView {
     const chevron = strip.querySelector('.cal-otd-strip-chevron');
     if (chevron) setIcon(chevron, 'chevron-right');
     if (photo && preview.image) {
-      const notePath = preview.imageNotePath || `${this.plugin.settings.dailyFolder}/${preview.imageDateStr || dateStr}.md`;
+      const notePath = preview.imageNotePath || joinVaultPath(this.plugin.settings.dailyFolder, `${preview.imageDateStr || dateStr}.md`);
       this.plugin.thumbnailService?.load(preview.image, notePath)
         .then((result) => {
           if (result && photo.isConnected) photo.style.backgroundImage = `url(${result.url})`;
@@ -2472,7 +2474,7 @@ class CalendarView extends ItemView {
     const indexedFile = indexedPath && this.app.vault.getAbstractFileByPath(indexedPath);
     const path = indexedFile instanceof TFile
       ? indexedPath
-      : `${this.plugin.settings.dailyFolder}/${dateStr}.md`;
+      : joinVaultPath(this.plugin.settings.dailyFolder, `${dateStr}.md`);
     const file = this.app.vault.getAbstractFileByPath(path);
 
     const openFileInLeaf = (f) => {
@@ -3171,7 +3173,8 @@ class CalendarView extends ItemView {
     }
     const indexedEntry = this.plugin.journalIndex?.getEntries?.().find((entry) => entry.path === file.path);
     const fallbackMatch = file.name.match(/^(\d{4}-\d{2}-\d{2})\.md$/);
-    const newDate = indexedEntry?.date || (fallbackMatch && file.path.startsWith(`${this.plugin.settings.dailyFolder}/`) ? fallbackMatch[1] : null);
+    const newDate = indexedEntry?.date
+      || (fallbackMatch && isPathInFolder(file.path, this.plugin.settings.dailyFolder) ? fallbackMatch[1] : null);
     if (newDate) {
       // Reset weather card state when the active date actually changes
       if (newDate !== this.activeDate) {

@@ -46,10 +46,36 @@ export function normalizeVaultPath(path: string): string {
   return path.replace(/\\/g, '/').replace(/^\.?\//, '').replace(/\/{2,}/g, '/').replace(/\/$/, '');
 }
 
+/**
+ * Whether `path` lives in `folder`. An empty folder is the vault root, which
+ * contains only the files directly at the top level: treating it as a prefix
+ * would make a root source claim every note in the vault.
+ */
 export function isPathInFolder(path: string, folder: string): boolean {
   const normalizedPath = normalizeVaultPath(path);
   const normalizedFolder = normalizeVaultPath(folder);
-  return normalizedFolder.length === 0 || normalizedPath === normalizedFolder || normalizedPath.startsWith(`${normalizedFolder}/`);
+  if (normalizedFolder.length === 0) return normalizedPath.length > 0 && !normalizedPath.includes('/');
+  return normalizedPath === normalizedFolder || normalizedPath.startsWith(`${normalizedFolder}/`);
+}
+
+/**
+ * Join a vault-relative folder and a file name. An empty folder is the vault
+ * root, so the name is already vault-relative and no leading slash is added.
+ */
+export function joinVaultPath(folder: string | null | undefined, name: string): string {
+  const normalizedFolder = typeof folder === 'string' ? normalizeVaultPath(folder) : '';
+  return normalizedFolder.length > 0 ? `${normalizedFolder}/${name}` : name;
+}
+
+/**
+ * The folder holding a vault file. A root-level file has no parent, so the
+ * result is empty instead of a slice from lastIndexOf (which would turn
+ * "note.md" into "note.m").
+ */
+export function parentVaultPath(path: string): string {
+  const normalized = normalizeVaultPath(String(path ?? ''));
+  const index = normalized.lastIndexOf('/');
+  return index > 0 ? normalized.slice(0, index) : '';
 }
 
 export function formatDate(date: Date): string {

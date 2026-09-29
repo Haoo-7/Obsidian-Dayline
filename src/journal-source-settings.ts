@@ -14,8 +14,11 @@ export function validateJournalSources(value) {
     const fail = (key) => { throw Object.assign(new Error(key), { row: index + 1 }); };
     if (!source || typeof source !== 'object' || Array.isArray(source)) fail('sourceInvalidRow');
     if (typeof source.path !== 'string' || !source.path.trim()) fail('sourcePathRequired');
+    // "/" is the vault root and normalizes to an empty path; store it back as
+    // "/" so an empty path keeps meaning "unset". A blank field stays an
+    // unfinished row, and an explicit . or .. segment is still rejected.
     const path = normalizeVaultPath(source.path.trim());
-    if (!path || path.split('/').some(part => part === '.' || part === '..')) fail('sourcePathRequired');
+    if (path.split('/').some(part => part === '.' || part === '..')) fail('sourcePathRequired');
     for (const key of ['id', 'label', 'dateField']) {
       if (source[key] !== undefined && typeof source[key] !== 'string') fail('sourceInvalidRow');
     }
@@ -31,7 +34,7 @@ export function validateJournalSources(value) {
       paths.add(path);
       daily ||= type === 'daily';
     }
-    return { ...source, id, path, type };
+    return { ...source, id, path: path || '/', type };
   });
 }
 
@@ -44,7 +47,13 @@ export class JournalSourceSettingsEditor {
   }
 
   reset() {
-    this.dailyFolder = this.plugin.settings.dailyFolder || 'Calendar/Daily';
+    const dailyFolder = this.plugin.settings.dailyFolder;
+    // The vault root is shown as "/". A missing or empty setting keeps the
+    // default folder, which is what older builds stored when the field was
+    // cleared, so showing "/" there would flip those vaults to the root.
+    this.dailyFolder = typeof dailyFolder === 'string' && dailyFolder.trim().length > 0
+      ? (normalizeVaultPath(dailyFolder) || '/')
+      : 'Calendar/Daily';
     this.sources = clone(this.plugin.settings.journalSources || []);
     this.jsonOpen = false;
     this.raw = '';
@@ -238,8 +247,12 @@ export class JournalSourceSettingsEditor {
     let dailyFolder;
     try {
       sources = validateJournalSources(this.jsonOpen ? JSON.parse(this.raw) : this.sources);
-      dailyFolder = normalizeVaultPath(this.dailyFolder.trim());
-      if (!dailyFolder || dailyFolder.split('/').some(part => part === '.' || part === '..')) throw new Error('sourceDailyRequired');
+      // "/" is the vault root: normalize it for path building, but store it back
+      // as "/" because an empty setting keeps meaning "unset".
+      const dailyRaw = this.dailyFolder.trim();
+      const normalizedDaily = normalizeVaultPath(dailyRaw);
+      if (!dailyRaw || normalizedDaily.split('/').some(part => part === '.' || part === '..')) throw new Error('sourceDailyRequired');
+      dailyFolder = normalizedDaily || '/';
     } catch (error) {
       this.showError(error);
       return;

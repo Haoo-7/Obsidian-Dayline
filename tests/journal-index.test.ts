@@ -153,6 +153,49 @@ describe('journal index', () => {
     expect(index.getDiagnostics()).toEqual([{ path: 'Imports/no-date.md', reason: 'missing-date' }]);
   });
 
+  it('indexes daily notes stored at the vault root without claiming nested folders', async () => {
+    const files = [
+      { path: '2026-07-18.md', name: '2026-07-18.md', frontmatter: {}, content: '# Root entry' },
+      { path: 'Notes/2026-07-19.md', name: '2026-07-19.md', frontmatter: {}, content: '# Nested entry' },
+    ];
+    const index = new JournalIndex(makeApp(files), () => undefined);
+    await index.refresh({ dailyFolder: '/' });
+
+    expect(index.getEntries().map((entry) => entry.path)).toEqual(['2026-07-18.md']);
+  });
+
+  it('keeps an empty daily folder on the default so legacy settings do not flip to the root', async () => {
+    const files = [
+      { path: '2026-07-18.md', name: '2026-07-18.md', frontmatter: {}, content: '# Root entry' },
+      { path: 'Calendar/Daily/2026-07-19.md', name: '2026-07-19.md', frontmatter: {}, content: '# Daily entry' },
+    ];
+    const index = new JournalIndex(makeApp(files), () => undefined);
+    await index.refresh({ dailyFolder: '' });
+
+    expect(index.getEntries().map((entry) => entry.path)).toEqual(['Calendar/Daily/2026-07-19.md']);
+  });
+
+  it('treats a "/" source as the top level only and still indexes nested sources', async () => {
+    const files = [
+      { path: 'note.md', name: 'note.md', frontmatter: { creationDate: '2026-07-18' }, content: '# Root import' },
+      { path: 'Deep/2026-07-19.md', name: '2026-07-19.md', frontmatter: {}, content: '# Nested daily' },
+      { path: 'Other/2026-07-20.md', name: '2026-07-20.md', frontmatter: {}, content: '# Outside sources' },
+    ];
+    const index = new JournalIndex(makeApp(files), () => undefined);
+    await index.refresh({
+      journalSources: [
+        { id: 'root-imports', path: '/', type: 'external', dateField: 'creationDate' },
+        { id: 'deep', path: 'Deep', type: 'daily' },
+      ],
+    });
+
+    const entries = index.getEntries();
+    expect(entries.map((entry) => entry.path).sort()).toEqual(['Deep/2026-07-19.md', 'note.md']);
+    expect(entries.find((entry) => entry.path === 'note.md')).toMatchObject({
+      date: '2026-07-18', sourceId: 'root-imports', sourceType: 'external',
+    });
+  });
+
   it('rejects out-of-range location coordinates', () => {
     expect(normalizeLocation({
       location: { latitude: 91, longitude: 181 },

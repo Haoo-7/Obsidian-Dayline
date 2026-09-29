@@ -4,6 +4,7 @@ import ts from 'typescript';
 import { JSDOM } from 'jsdom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { isCurrentCalendarMonth } from '../src/calendar-display';
+import { isPathInFolder, joinVaultPath } from '../src/date-utils';
 
 // Execute the actual classes without loading the plugin's unrelated host services.
 const source = readFileSync(new URL('../src/plugin.ts', import.meta.url), 'utf8');
@@ -15,8 +16,10 @@ function loadClass(name, dependencies) {
 
 let document;
 const translate = vi.fn((settings, key, values = {}) => `${settings.language}:${key}:${JSON.stringify(values)}`);
+class TestTFile {}
 const CalendarView = loadClass('CalendarView', {
   ItemView: class {},
+  TFile: TestTFile,
   t: translate,
   setIcon: () => {},
   formatCalendarMonth: (year, month) => `${year}-${month}`,
@@ -32,6 +35,8 @@ const CalendarView = loadClass('CalendarView', {
   shouldShowCalendarMood: () => false,
   calendarMoodMarkerClass: () => 'cal-mood-marker-dot',
   isCurrentCalendarMonth,
+  isPathInFolder,
+  joinVaultPath,
   Notice: class {},
 });
 const CreateNoteModal = loadClass('CreateNoteModal', {
@@ -301,5 +306,24 @@ describe('calendar localized labels', () => {
     modal.contentEl.querySelector('.mod-cta').click();
     expect(confirm).toHaveBeenCalledOnce();
     expect(source).toContain('new CreateNoteModal(this.app, this.plugin.settings, dateStr,');
+  });
+});
+
+describe('root-level daily notes', () => {
+  it('queries a top-level daily note without a leading slash', () => {
+    const view = makeView();
+    view.plugin.settings.dailyFolder = '/';
+    const file = new TestTFile();
+    Object.assign(file, { path: '2026-07-18.md' });
+    const queried: string[] = [];
+    view.app = { vault: { getAbstractFileByPath: (path: string) => { queried.push(path); return file; } } };
+    view.plugin.openJournalFile = vi.fn(async () => ({}));
+    view._syncActiveDate = () => {};
+    view.render = () => {};
+    view._triggerWeatherAfterOpen = () => {};
+
+    view._openNote('2026-07-18');
+
+    expect(queried).toEqual(['2026-07-18.md']);
   });
 });

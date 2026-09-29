@@ -26,9 +26,9 @@ beforeAll(() => {
 });
 afterEach(() => { document.body.replaceChildren(); });
 
-function setup(sources = []) {
+function setup(sources = [], settings = {}) {
   const plugin = {
-    settings: { displayLanguage: 'en', dailyFolder: 'Daily', journalSources: sources },
+    settings: { displayLanguage: 'en', dailyFolder: 'Daily', journalSources: sources, ...settings },
     saveSettings: vi.fn().mockResolvedValue(undefined),
     journalIndex: { refresh: vi.fn().mockResolvedValue(undefined) },
     refreshJournalViews: vi.fn(),
@@ -58,15 +58,23 @@ describe('journal source validation', () => {
     expect(raw[0].path).toBe('Imports\\Entries/');
   });
 
+  it('normalizes the vault root to "/" and keeps blank rows invalid', () => {
+    expect(validateJournalSources([{ path: '/' }])).toEqual([{ path: '/', id: 'source-1', type: 'external' }]);
+    expect(validateJournalSources([{ path: '//' }])).toEqual([{ path: '/', id: 'source-1', type: 'external' }]);
+    expect(validateJournalSources([{ path: './Daily' }])[0].path).toBe('Daily');
+  });
+
   it.each([
     [{}, 'sourceInvalidArray'],
     [[null], 'sourceInvalidRow'],
     [[{ path: '' }], 'sourcePathRequired'],
+    [[{ path: '   ' }], 'sourcePathRequired'],
     [[{ path: '../Daily' }], 'sourcePathRequired'],
     [[{ path: 'Daily', enabled: 'false' }], 'sourceInvalidRow'],
     [[{ path: 'Daily', type: 'bad' }], 'sourceInvalidType'],
     [[{ id: 'same', path: 'A' }, { id: 'same', path: 'B' }], 'sourceDuplicateId'],
     [[{ path: 'A' }, { path: 'A/' }], 'sourceDuplicatePath'],
+    [[{ path: '/' }, { path: '//' }], 'sourceDuplicatePath'],
     [[{ path: 'A', type: 'daily' }, { path: 'B', type: 'daily' }], 'sourceMultipleDaily'],
   ])('rejects invalid source contracts without saving', (raw, key) => {
     expect(() => validateJournalSources(raw)).toThrow(key);
@@ -88,6 +96,31 @@ describe('journal source form', () => {
     expect(plugin.journalIndex.refresh).toHaveBeenCalledAfter(plugin.saveSettings);
     expect(callbacks.refreshCalendar).toHaveBeenCalledTimes(1);
     expect(editor.status.textContent).toBe('Sources saved');
+  });
+
+  it('saves the vault root as "/" and shows it again after a remount', async () => {
+    const { editor, plugin } = setup();
+    input(editor.fields.querySelector('input'), '/');
+    await editor.apply();
+    expect(plugin.settings.dailyFolder).toBe('/');
+    expect(editor.dailyFolder).toBe('/');
+    document.body.replaceChildren();
+    editor.mount(document.body);
+    expect(editor.fields.querySelector('input').value).toBe('/');
+  });
+
+  it('rejects a blank daily folder so an empty value cannot silently mean the root', async () => {
+    const { editor, plugin } = setup();
+    input(editor.fields.querySelector('input'), '   ');
+    await editor.apply();
+    expect(plugin.saveSettings).not.toHaveBeenCalled();
+    expect(editor.status.getAttribute('role')).toBe('alert');
+    expect(editor.status.textContent).toContain('daily-note folder');
+  });
+
+  it('shows a legacy empty folder as the default instead of the vault root', () => {
+    expect(setup([], { dailyFolder: '' }).editor.dailyFolder).toBe('Calendar/Daily');
+    expect(setup([], { dailyFolder: 'Calendar/Daily/' }).editor.dailyFolder).toBe('Calendar/Daily');
   });
 
   it('keeps invalid JSON local, shows an inline error and recovers without notices', async () => {

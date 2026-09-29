@@ -82,7 +82,7 @@ When the new plugin folder has no `data.json`, Dayline migrates settings from an
 
 | Setting | What it controls |
 | --- | --- |
-| **Journal source directories** | Configure the daily-notes directory (the `Default daily-note folder` field, default `Calendar/Daily`) and optional external import directories. Legacy standalone entry sources are no longer enabled by default. |
+| **Journal source directories** | Configure the daily-notes directory (the `Default daily-note folder` field, default `Calendar/Daily`; use `/` when the notes sit directly in the vault root, which reads top-level files only) and optional external import directories. Legacy standalone entry sources are no longer enabled by default. |
 | **Thumbnail filter** | Which embedded images to show as date thumbnails: `All embedded images` (default) or `Only date-prefixed (YYYY-MM-DD_*)`. |
 | **Journal tools** | Open the timeline or inspect external import directories. |
 | **Show timeline mood trend** | Show the recent seven-day mood trajectory at the top of the journal timeline. On by default. |

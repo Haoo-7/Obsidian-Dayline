@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { getTodayDate } from './date-utils';
+import { getTodayDate, joinVaultPath } from './date-utils';
 import {
   weatherConfigKey,
   migrateCompatibleSnapshot,
@@ -302,7 +302,7 @@ export class WeatherService {
 
   _readLegacySnapshots(dateStr, sourcePath, settings = this.plugin.settings) {
     const app = this.plugin.app;
-    const candidatePaths = [sourcePath, `${settings.dailyFolder}/${dateStr}.md`]
+    const candidatePaths = [sourcePath, joinVaultPath(settings.dailyFolder, `${dateStr}.md`)]
       .filter((path, index, paths) => path && paths.indexOf(path) === index);
     const snapshots = [];
     for (const path of candidatePaths) {

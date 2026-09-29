@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { getTodayDate } from './date-utils';
+import { getTodayDate, joinVaultPath } from './date-utils';
 import { localize as _l } from './locale';
 import { t } from './i18n';
 
@@ -346,7 +346,7 @@ export class OnThisDayModal {
 
   _setPhotoBackground(bgEl, imageLink, dateStr, sourcePath) {
     try {
-      const notePath = sourcePath || `${this.plugin.settings.dailyFolder}/${dateStr}.md`;
+      const notePath = sourcePath || joinVaultPath(this.plugin.settings.dailyFolder, `${dateStr}.md`);
       this.plugin.thumbnailService.load(imageLink, notePath)
         .then((result) => {
           if (result && bgEl.isConnected) bgEl.style.backgroundImage = `url(${result.url})`;

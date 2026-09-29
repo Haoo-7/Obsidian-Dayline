@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatDate, formatDateInTimeZone, formatDateParts, getClockPartsInTimeZone, getTodayDate, matchesDatePrefixedImage, parseDateFromFilename, parseDateString, parseDiaryDate } from '../src/date-utils';
+import { formatDate, formatDateInTimeZone, formatDateParts, getClockPartsInTimeZone, getTodayDate, isPathInFolder, joinVaultPath, matchesDatePrefixedImage, parentVaultPath, parseDateFromFilename, parseDateString, parseDiaryDate } from '../src/date-utils';
 
 describe('date utilities', () => {
   it('accepts valid diary dates and rejects impossible dates', () => {
@@ -39,5 +39,37 @@ describe('date utilities', () => {
     expect(getTodayDate('America/Los_Angeles', instant)).toBe('2026-07-18');
     expect(getClockPartsInTimeZone(instant, 'Asia/Shanghai')).toEqual({ hour: 7, minute: 30 });
     expect(getClockPartsInTimeZone(instant, 'America/Los_Angeles')).toEqual({ hour: 16, minute: 30 });
+  });
+});
+
+describe('vault path helpers', () => {
+  it('scopes an empty or root folder to the top level of the vault', () => {
+    expect(isPathInFolder('2026-07-18.md', '')).toBe(true);
+    expect(isPathInFolder('2026-07-18.md', '/')).toBe(true);
+    expect(isPathInFolder('Calendar/Daily/2026-07-18.md', '')).toBe(false);
+    expect(isPathInFolder('Calendar/Daily/2026-07-18.md', '/')).toBe(false);
+    expect(isPathInFolder('', '')).toBe(false);
+  });
+
+  it('keeps prefix matching for named folders', () => {
+    expect(isPathInFolder('Calendar/Daily/2026-07-18.md', 'Calendar/Daily')).toBe(true);
+    expect(isPathInFolder('Calendar/Daily/2026-07-18.md', 'Calendar/Daily/')).toBe(true);
+    expect(isPathInFolder('Calendar/Daily-old/2026-07-18.md', 'Calendar/Daily')).toBe(false);
+    expect(isPathInFolder('Calendar/Daily', 'Calendar/Daily')).toBe(true);
+  });
+
+  it('joins note names without a leading slash at the vault root', () => {
+    expect(joinVaultPath('/', '2026-07-18.md')).toBe('2026-07-18.md');
+    expect(joinVaultPath('', '2026-07-18.md')).toBe('2026-07-18.md');
+    expect(joinVaultPath(undefined, '2026-07-18.md')).toBe('2026-07-18.md');
+    expect(joinVaultPath('Calendar/Daily', '2026-07-18.md')).toBe('Calendar/Daily/2026-07-18.md');
+    expect(joinVaultPath('Calendar\\Daily\\', '2026-07-18.md')).toBe('Calendar/Daily/2026-07-18.md');
+  });
+
+  it('derives an empty parent for root-level files instead of mangling the name', () => {
+    expect(parentVaultPath('2026-07-18.md')).toBe('');
+    expect(parentVaultPath('/2026-07-18.md')).toBe('');
+    expect(parentVaultPath('Calendar/Daily/2026-07-18.md')).toBe('Calendar/Daily');
+    expect(parentVaultPath('Calendar\\Daily\\2026-07-18.md')).toBe('Calendar/Daily');
   });
 });

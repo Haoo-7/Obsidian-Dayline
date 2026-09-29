@@ -378,17 +378,24 @@ export class JournalIndex {
   resolveSources(settings: JournalIndexSettings): JournalSource[] {
     const configured = Array.isArray(settings.journalSources) ? settings.journalSources : [];
     const normalized = configured
+      // A row without a path was never a valid source. The vault root is stored
+      // as "/" and normalizes to an empty path below.
+      .filter((source) => Boolean(source) && typeof source.path === 'string' && source.path.trim().length > 0)
       .map((source, index): JournalSource => ({
         ...source,
         id: source.id || `source-${index + 1}`,
         path: normalizeVaultPath(source.path),
         type: String(source.type) === 'daily' ? 'daily' : 'external',
       }))
-      .filter((source) => source.path.length > 0 && source.enabled !== false);
+      .filter((source) => source.enabled !== false);
     const explicitDaily = normalized.find((source) => source.type === 'daily');
     const daily: JournalSource = explicitDaily ?? {
       ...DEFAULT_JOURNAL_SOURCES[0],
-      path: normalizeVaultPath(settings.dailyFolder || DEFAULT_JOURNAL_SOURCES[0].path),
+      // An explicit "/" is the vault root and normalizes to an empty path.
+      // An unset folder keeps the default, as it did before.
+      path: typeof settings.dailyFolder === 'string' && settings.dailyFolder.trim().length > 0
+        ? normalizeVaultPath(settings.dailyFolder)
+        : DEFAULT_JOURNAL_SOURCES[0].path,
     };
     const seenPaths = new Set([daily.path]);
     const result = [daily];

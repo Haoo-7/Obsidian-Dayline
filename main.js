@@ -51,9 +51,11 @@ __export(date_utils_exports, {
   getTodayDate: () => getTodayDate,
   imageBasename: () => imageBasename,
   isPathInFolder: () => isPathInFolder,
+  joinVaultPath: () => joinVaultPath,
   matchesDatePrefixedImage: () => matchesDatePrefixedImage,
   monthKey: () => monthKey,
   normalizeVaultPath: () => normalizeVaultPath,
+  parentVaultPath: () => parentVaultPath,
   parseDateFromFilename: () => parseDateFromFilename,
   parseDateString: () => parseDateString,
   parseDiaryDate: () => parseDiaryDate
@@ -89,7 +91,17 @@ function normalizeVaultPath(path) {
 function isPathInFolder(path, folder) {
   const normalizedPath2 = normalizeVaultPath(path);
   const normalizedFolder = normalizeVaultPath(folder);
-  return normalizedFolder.length === 0 || normalizedPath2 === normalizedFolder || normalizedPath2.startsWith(`${normalizedFolder}/`);
+  if (normalizedFolder.length === 0) return normalizedPath2.length > 0 && !normalizedPath2.includes("/");
+  return normalizedPath2 === normalizedFolder || normalizedPath2.startsWith(`${normalizedFolder}/`);
+}
+function joinVaultPath(folder, name) {
+  const normalizedFolder = typeof folder === "string" ? normalizeVaultPath(folder) : "";
+  return normalizedFolder.length > 0 ? `${normalizedFolder}/${name}` : name;
+}
+function parentVaultPath(path) {
+  const normalized = normalizeVaultPath(String(path ?? ""));
+  const index = normalized.lastIndexOf("/");
+  return index > 0 ? normalized.slice(0, index) : "";
 }
 function formatDate(date) {
   return [
@@ -812,16 +824,18 @@ var init_journal_index = __esm({
       }
       resolveSources(settings) {
         const configured = Array.isArray(settings.journalSources) ? settings.journalSources : [];
-        const normalized = configured.map((source, index) => ({
+        const normalized = configured.filter((source) => Boolean(source) && typeof source.path === "string" && source.path.trim().length > 0).map((source, index) => ({
           ...source,
           id: source.id || `source-${index + 1}`,
           path: normalizeVaultPath(source.path),
           type: String(source.type) === "daily" ? "daily" : "external"
-        })).filter((source) => source.path.length > 0 && source.enabled !== false);
+        })).filter((source) => source.enabled !== false);
         const explicitDaily = normalized.find((source) => source.type === "daily");
         const daily = explicitDaily ?? {
           ...DEFAULT_JOURNAL_SOURCES[0],
-          path: normalizeVaultPath(settings.dailyFolder || DEFAULT_JOURNAL_SOURCES[0].path)
+          // An explicit "/" is the vault root and normalizes to an empty path.
+          // An unset folder keeps the default, as it did before.
+          path: typeof settings.dailyFolder === "string" && settings.dailyFolder.trim().length > 0 ? normalizeVaultPath(settings.dailyFolder) : DEFAULT_JOURNAL_SOURCES[0].path
         };
         const seenPaths = /* @__PURE__ */ new Set([daily.path]);
         const result = [daily];
@@ -5809,7 +5823,7 @@ var init_on_this_day = __esm({
       }
       _setPhotoBackground(bgEl, imageLink, dateStr, sourcePath) {
         try {
-          const notePath = sourcePath || `${this.plugin.settings.dailyFolder}/${dateStr}.md`;
+          const notePath = sourcePath || joinVaultPath(this.plugin.settings.dailyFolder, `${dateStr}.md`);
           this.plugin.thumbnailService.load(imageLink, notePath).then((result) => {
             if (result && bgEl.isConnected) bgEl.style.backgroundImage = `url(${result.url})`;
           }).catch((error) => console.warn("[Dayline] On This Day thumbnail load failed:", error?.message || error));
@@ -6017,7 +6031,7 @@ function validateJournalSources(value) {
     if (!source || typeof source !== "object" || Array.isArray(source)) fail("sourceInvalidRow");
     if (typeof source.path !== "string" || !source.path.trim()) fail("sourcePathRequired");
     const path = normalizeVaultPath(source.path.trim());
-    if (!path || path.split("/").some((part) => part === "." || part === "..")) fail("sourcePathRequired");
+    if (path.split("/").some((part) => part === "." || part === "..")) fail("sourcePathRequired");
     for (const key of ["id", "label", "dateField"]) {
       if (source[key] !== void 0 && typeof source[key] !== "string") fail("sourceInvalidRow");
     }
@@ -6033,7 +6047,7 @@ function validateJournalSources(value) {
       paths.add(path);
       daily || (daily = type === "daily");
     }
-    return { ...source, id, path, type };
+    return { ...source, id, path: path || "/", type };
   });
 }
 var import_obsidian3, clone, JournalSourceSettingsEditor;
@@ -6052,7 +6066,8 @@ var init_journal_source_settings = __esm({
         this.reset();
       }
       reset() {
-        this.dailyFolder = this.plugin.settings.dailyFolder || "Calendar/Daily";
+        const dailyFolder = this.plugin.settings.dailyFolder;
+        this.dailyFolder = typeof dailyFolder === "string" && dailyFolder.trim().length > 0 ? normalizeVaultPath(dailyFolder) || "/" : "Calendar/Daily";
         this.sources = clone(this.plugin.settings.journalSources || []);
         this.jsonOpen = false;
         this.raw = "";
@@ -6262,8 +6277,10 @@ var init_journal_source_settings = __esm({
         let dailyFolder;
         try {
           sources = validateJournalSources(this.jsonOpen ? JSON.parse(this.raw) : this.sources);
-          dailyFolder = normalizeVaultPath(this.dailyFolder.trim());
-          if (!dailyFolder || dailyFolder.split("/").some((part) => part === "." || part === "..")) throw new Error("sourceDailyRequired");
+          const dailyRaw = this.dailyFolder.trim();
+          const normalizedDaily = normalizeVaultPath(dailyRaw);
+          if (!dailyRaw || normalizedDaily.split("/").some((part) => part === "." || part === "..")) throw new Error("sourceDailyRequired");
+          dailyFolder = normalizedDaily || "/";
         } catch (error) {
           this.showError(error);
           return;
@@ -7179,7 +7196,7 @@ var init_weather_service = __esm({
       }
       _readLegacySnapshots(dateStr, sourcePath, settings = this.plugin.settings) {
         const app = this.plugin.app;
-        const candidatePaths = [sourcePath, `${settings.dailyFolder}/${dateStr}.md`].filter((path, index, paths) => path && paths.indexOf(path) === index);
+        const candidatePaths = [sourcePath, joinVaultPath(settings.dailyFolder, `${dateStr}.md`)].filter((path, index, paths) => path && paths.indexOf(path) === index);
         const snapshots = [];
         for (const path of candidatePaths) {
           const existingFile = app?.vault?.getAbstractFileByPath?.(path);
@@ -7634,10 +7651,10 @@ var init_thumbnail_service = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/shared/bitstream.js
+// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/shared/bitstream.js
 var Bitstream;
 var init_bitstream = __esm({
-  "node_modules/mediabunny/dist/modules/shared/bitstream.js"() {
+  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/shared/bitstream.js"() {
     Bitstream = class _Bitstream {
       constructor(bytes) {
         this.bytes = bytes;
@@ -7701,10 +7718,10 @@ var init_bitstream = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/shared/aac-misc.js
+// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/shared/aac-misc.js
 var aacFrequencyTable, aacChannelMap, parseAacAudioSpecificConfig;
 var init_aac_misc = __esm({
-  "node_modules/mediabunny/dist/modules/shared/aac-misc.js"() {
+  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/shared/aac-misc.js"() {
     init_bitstream();
     aacFrequencyTable = [
       96e3,
@@ -7756,10 +7773,10 @@ var init_aac_misc = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/logging.js
+// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/logging.js
 var LogLevel, Logging;
 var init_logging = __esm({
-  "node_modules/mediabunny/dist/modules/src/logging.js"() {
+  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/logging.js"() {
     init_misc();
     (function(LogLevel2) {
       LogLevel2[LogLevel2["Silent"] = 0] = "Silent";
@@ -7815,7 +7832,7 @@ var init_logging = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/misc.js
+// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/misc.js
 function assert(x) {
   if (!x) {
     throw new Error("Assertion failed.");
@@ -7823,7 +7840,7 @@ function assert(x) {
 }
 var normalizeRotation, last, readExpGolomb, readSignedExpGolomb, toUint8Array, toDataView, textDecoder, invertObject, COLOR_PRIMARIES_MAP, COLOR_PRIMARIES_MAP_INVERSE, TRANSFER_CHARACTERISTICS_MAP, TRANSFER_CHARACTERISTICS_MAP_INVERSE, MATRIX_COEFFICIENTS_MAP, MATRIX_COEFFICIENTS_MAP_INVERSE, AsyncMutex, HEX_STRING_REGEX, bytesToHexString, hexStringToBytes, reverseBitsU32, binarySearchExact, binarySearchLessOrEqual, promiseWithResolvers, removeItem, findLast, findLastIndex, assertNever, getUint24, clamp, UNDETERMINED_LANGUAGE, roundIfAlmostInteger, roundToMultiple, roundToDivisor, ilog, ISO_639_2_REGEX, isIso639Dash2LanguageCode, SECOND_TO_MICROSECOND_FACTOR, mergeRequestInit, normalizeHeaders, retriedFetch, isChromiumCache, isChromium, chromiumVersionCache, getChromiumVersion, coalesceIndex, closedIntervalsOverlap, base64ToBytes, uint8ArraysAreEqual, polyfillSymbolDispose, isNumber, arrayCount, arrayArgmin, simplifyRational, wait, EventEmitter;
 var init_misc = __esm({
-  "node_modules/mediabunny/dist/modules/src/misc.js"() {
+  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/misc.js"() {
     init_logging();
     normalizeRotation = (rotation) => {
       const mappedRotation = (rotation % 360 + 360) % 360;
@@ -8259,10 +8276,10 @@ var init_misc = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/codec.js
+// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/codec.js
 var PCM_AUDIO_CODECS, NON_PCM_AUDIO_CODECS, AUDIO_CODECS, AVC_LEVEL_TABLE, VP9_LEVEL_TABLE, VP9_DEFAULT_SUFFIX, AV1_DEFAULT_SUFFIX, PRORES_FOURCCS, extractVideoCodecString, extractAudioCodecString, OPUS_SAMPLE_RATE, PCM_CODEC_REGEX, parsePcmCodec, VALID_VIDEO_CODEC_STRING_PREFIXES;
 var init_codec = __esm({
-  "node_modules/mediabunny/dist/modules/src/codec.js"() {
+  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/codec.js"() {
     init_aac_misc();
     init_misc();
     PCM_AUDIO_CODECS = [
@@ -8572,19 +8589,19 @@ var init_codec = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/shared/ac3-misc.js
+// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/shared/ac3-misc.js
 var AC3_SAMPLE_RATES, EAC3_REDUCED_SAMPLE_RATES;
 var init_ac3_misc = __esm({
-  "node_modules/mediabunny/dist/modules/shared/ac3-misc.js"() {
+  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/shared/ac3-misc.js"() {
     AC3_SAMPLE_RATES = [48e3, 44100, 32e3];
     EAC3_REDUCED_SAMPLE_RATES = [24e3, 22050, 16e3];
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/codec-data.js
+// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/codec-data.js
 var AvcNalUnitType, HevcNalUnitType, iterateNalUnitsInAnnexB, iterateNalUnitsInLengthPrefixed, iterateAvcNalUnits, extractNalUnitTypeForAvc, removeEmulationPreventionBytes, ANNEX_B_START_CODE, extractAvcDecoderConfigurationRecord, AVC_HEVC_ASPECT_RATIO_IDC_TABLE, parseAvcSps, skipAvcHrdParameters, iterateHevcNalUnits, extractNalUnitTypeForHevc, parseHevcSps, extractHevcDecoderConfigurationRecord, parseProfileTierLevel, skipScalingListData, skipAllStRefPicSets, skipStRefPicSet, parseHevcVui, skipHevcHrdParameters, skipSubLayerHrdParameters, HevcNaluOrderState, extractVp9CodecInfoFromPacket, iterateAv1PacketObus, extractAv1CodecInfoFromPacket, parseOpusIdentificationHeader, OPUS_FRAME_DURATION_TABLE, parseOpusTocByte, parseModesFromVorbisSetupPacket, determineVideoPacketType, FlacBlockType, readVorbisComments, AC3_ACMOD_CHANNEL_COUNTS, AC3_FRAME_SIZES, AC3_REGISTRATION_DESCRIPTOR, EAC3_REGISTRATION_DESCRIPTOR, parseEac3Config, getEac3SampleRate, getEac3ChannelCount;
 var init_codec_data = __esm({
-  "node_modules/mediabunny/dist/modules/src/codec-data.js"() {
+  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/codec-data.js"() {
     init_codec();
     init_misc();
     init_logging();
@@ -10371,10 +10388,10 @@ var init_codec_data = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/demuxer.js
+// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/demuxer.js
 var Demuxer;
 var init_demuxer = __esm({
-  "node_modules/mediabunny/dist/modules/src/demuxer.js"() {
+  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/demuxer.js"() {
     Demuxer = class {
       constructor(input) {
         this.input = input;
@@ -10385,10 +10402,10 @@ var init_demuxer = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/packet.js
+// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/packet.js
 var PLACEHOLDER_DATA, EncodedPacket;
 var init_packet = __esm({
-  "node_modules/mediabunny/dist/modules/src/packet.js"() {
+  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/packet.js"() {
     init_misc();
     PLACEHOLDER_DATA = /* @__PURE__ */ new Uint8Array(0);
     EncodedPacket = class _EncodedPacket {
@@ -10552,10 +10569,10 @@ var init_packet = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/isobmff/isobmff-misc.js
+// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/isobmff/isobmff-misc.js
 var buildIsobmffMimeType, parsePsshBoxContents, psshBoxesAreEqual;
 var init_isobmff_misc = __esm({
-  "node_modules/mediabunny/dist/modules/src/isobmff/isobmff-misc.js"() {
+  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/isobmff/isobmff-misc.js"() {
     init_misc();
     buildIsobmffMimeType = (info) => {
       const base = info.hasVideo ? "video/" : info.hasAudio ? "audio/" : "application/";
@@ -10598,10 +10615,10 @@ var init_isobmff_misc = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/metadata.js
+// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/metadata.js
 var RichImageData, AttachedFile, DEFAULT_TRACK_DISPOSITION;
 var init_metadata = __esm({
-  "node_modules/mediabunny/dist/modules/src/metadata.js"() {
+  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/metadata.js"() {
     RichImageData = class {
       /** Creates a new {@link RichImageData}. */
       constructor(data, mimeType) {
@@ -10648,10 +10665,10 @@ var init_metadata = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/source.js
+// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/source.js
 var DEFAULT_MIN_READ_POSITION, DEFAULT_MAX_READ_POSITION, sourceFinalizationRegistry, Source, SourceRef, PathedSource, sourceRequestsAreEqual, URL_SOURCE_MIN_LOAD_AMOUNT, DEFAULT_RETRY_DELAY, warnedOrigins, UrlSource, BYTE_RANGE_REGEX, parseByteRangeHeader, PREFETCH_PROFILES, ReadOrchestrator, RangedSource;
 var init_source = __esm({
-  "node_modules/mediabunny/dist/modules/src/source.js"() {
+  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/source.js"() {
     init_misc();
     init_input();
     init_logging();
@@ -11651,10 +11668,10 @@ var init_source = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/reader.js
+// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/reader.js
 var Reader, FileSlice, checkIsInRange, readBytes, readU8, readU16, readU16Be, readU24Be, readI16Be, readU32, readU32Be, readU32Le, readI32Be, readI32Le, readU64, readU64Be, readI64Be, readI64Le, readF32Be, readF64Be, readAscii;
 var init_reader = __esm({
-  "node_modules/mediabunny/dist/modules/src/reader.js"() {
+  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/reader.js"() {
     init_input();
     init_misc();
     init_source();
@@ -11914,10 +11931,10 @@ var init_reader = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/isobmff/isobmff-reader.js
+// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/isobmff/isobmff-reader.js
 var MIN_BOX_HEADER_SIZE, MAX_BOX_HEADER_SIZE, readBoxHeader, readFixed_16_16, readFixed_2_30, readIsomVariableInteger, readMetadataStringShort, readDataBox;
 var init_isobmff_reader = __esm({
-  "node_modules/mediabunny/dist/modules/src/isobmff/isobmff-reader.js"() {
+  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/isobmff/isobmff-reader.js"() {
     init_metadata();
     init_misc();
     init_reader();
@@ -11993,10 +12010,10 @@ var init_isobmff_reader = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/aes.js
+// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/aes.js
 var AES_128_BLOCK_SIZE, Te4, Td0, Td1, Td2, Td3, Td4, rcon, tablesGenerated, generateAesTables, Aes128CbcContext;
 var init_aes = __esm({
-  "node_modules/mediabunny/dist/modules/src/aes.js"() {
+  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/aes.js"() {
     init_misc();
     AES_128_BLOCK_SIZE = 16;
     Te4 = new Uint32Array(256);
@@ -12130,10 +12147,10 @@ var init_aes = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/isobmff/isobmff-demuxer.js
+// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/isobmff/isobmff-demuxer.js
 var IsobmffDemuxer, IsobmffTrackBacking, IsobmffVideoTrackBacking, IsobmffAudioTrackBacking, getSampleIndexForTimestamp, getKeyframeSampleIndexForTimestamp, getSampleInfo, getNextKeyframeIndexForSample, offsetFragmentTrackDataByTimestamp, extractRotationFromMatrix, sampleTableIsEmpty, getOrCreateEncryptionAuxInfo, resolveEncryptionAuxInfo, decryptSample, decryptCtr, decryptCbcs, collectCryptRanges;
 var init_isobmff_demuxer = __esm({
-  "node_modules/mediabunny/dist/modules/src/isobmff/isobmff-demuxer.js"() {
+  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/isobmff/isobmff-demuxer.js"() {
     init_aac_misc();
     init_codec();
     init_codec_data();
@@ -15065,7 +15082,7 @@ var init_isobmff_demuxer = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/matroska/ebml.js
+// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/matroska/ebml.js
 function assertDefinedSize(size) {
   if (size === void 0) {
     throw new Error("Undefined element size is used in a place where it is not supported.");
@@ -15073,7 +15090,7 @@ function assertDefinedSize(size) {
 }
 var EBMLId, LEVEL_0_EBML_IDS, LEVEL_1_EBML_IDS, LEVEL_0_AND_1_EBML_IDS, MAX_VAR_INT_SIZE, MIN_HEADER_SIZE, MAX_HEADER_SIZE, readVarIntSize, readVarInt, readUnsignedInt, readUnsignedBigInt, readElementId, readElementSize, readElementHeader, readAsciiString, readUnicodeString, readFloat, searchForNextElementId, resync, CODEC_STRING_MAP;
 var init_ebml = __esm({
-  "node_modules/mediabunny/dist/modules/src/matroska/ebml.js"() {
+  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/matroska/ebml.js"() {
     init_misc();
     init_reader();
     (function(EBMLId2) {
@@ -15409,10 +15426,10 @@ var init_ebml = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/matroska/matroska-misc.js
+// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/matroska/matroska-misc.js
 var buildMatroskaMimeType;
 var init_matroska_misc = __esm({
-  "node_modules/mediabunny/dist/modules/src/matroska/matroska-misc.js"() {
+  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/matroska/matroska-misc.js"() {
     buildMatroskaMimeType = (info) => {
       const base = info.hasVideo ? "video/" : info.hasAudio ? "audio/" : "application/";
       let string = base + (info.isWebM ? "webm" : "x-matroska");
@@ -15425,10 +15442,10 @@ var init_matroska_misc = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/matroska/matroska-demuxer.js
+// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/matroska/matroska-demuxer.js
 var BlockLacing, ContentEncodingScope, ContentCompAlgo, METADATA_ELEMENTS, MAX_RESYNC_LENGTH, MatroskaDemuxer, MatroskaTrackBacking, MatroskaVideoTrackBacking, MatroskaAudioTrackBacking;
 var init_matroska_demuxer = __esm({
-  "node_modules/mediabunny/dist/modules/src/matroska/matroska-demuxer.js"() {
+  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/matroska/matroska-demuxer.js"() {
     init_codec_data();
     init_codec();
     init_demuxer();
@@ -17476,10 +17493,10 @@ var init_matroska_demuxer = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/shared/mp3-misc.js
+// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/shared/mp3-misc.js
 var MP3_FRAME_HEADER_SIZE, SAMPLING_RATES, KILOBIT_RATES, XING, INFO, computeMp3FrameSize, computeAverageMp3FrameSize, getXingOffset, readMp3FrameHeader, decodeSynchsafe, XingFlags, getMp3ChannelCount;
 var init_mp3_misc = __esm({
-  "node_modules/mediabunny/dist/modules/shared/mp3-misc.js"() {
+  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/shared/mp3-misc.js"() {
     MP3_FRAME_HEADER_SIZE = 4;
     SAMPLING_RATES = [44100, 48e3, 32e3];
     KILOBIT_RATES = [
@@ -17746,10 +17763,10 @@ var init_mp3_misc = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/id3.js
+// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/id3.js
 var Id3V2HeaderFlags, Id3V2TextEncoding, ID3_V1_TAG_SIZE, ID3_V2_HEADER_SIZE, ID3_V1_GENRES, parseId3V1Tag, readId3V1String, readId3V2Header, parseId3V2Tag, Id3V2Reader;
 var init_id3 = __esm({
-  "node_modules/mediabunny/dist/modules/src/id3.js"() {
+  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/id3.js"() {
     init_mp3_misc();
     init_logging();
     init_misc();
@@ -18450,10 +18467,10 @@ var init_id3 = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/mp3/mp3-reader.js
+// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/mp3/mp3-reader.js
 var readNextMp3FrameHeader;
 var init_mp3_reader = __esm({
-  "node_modules/mediabunny/dist/modules/src/mp3/mp3-reader.js"() {
+  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/mp3/mp3-reader.js"() {
     init_mp3_misc();
     init_reader();
     readNextMp3FrameHeader = async (reader, startPos, until, ref = null) => {
@@ -18485,10 +18502,10 @@ var init_mp3_reader = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/mp3/mp3-demuxer.js
+// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/mp3/mp3-demuxer.js
 var Mp3Demuxer, Mp3AudioTrackBacking;
 var init_mp3_demuxer = __esm({
-  "node_modules/mediabunny/dist/modules/src/mp3/mp3-demuxer.js"() {
+  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/mp3/mp3-demuxer.js"() {
     init_demuxer();
     init_metadata();
     init_misc();
@@ -18796,10 +18813,10 @@ var init_mp3_demuxer = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/ogg/ogg-misc.js
+// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/ogg/ogg-misc.js
 var OGGS, OGG_CRC_POLYNOMIAL, OGG_CRC_TABLE, computeOggPageCrc, extractSampleMetadata, buildOggMimeType;
 var init_ogg_misc = __esm({
-  "node_modules/mediabunny/dist/modules/src/ogg/ogg-misc.js"() {
+  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/ogg/ogg-misc.js"() {
     init_codec_data();
     init_misc();
     OGGS = 1399285583;
@@ -18867,10 +18884,10 @@ var init_ogg_misc = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/ogg/ogg-reader.js
+// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/ogg/ogg-reader.js
 var MIN_PAGE_HEADER_SIZE, MAX_PAGE_HEADER_SIZE, MAX_PAGE_SIZE, readPageHeader, findNextPageHeader;
 var init_ogg_reader = __esm({
-  "node_modules/mediabunny/dist/modules/src/ogg/ogg-reader.js"() {
+  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/ogg/ogg-reader.js"() {
     init_reader();
     init_ogg_misc();
     MIN_PAGE_HEADER_SIZE = 27;
@@ -18931,10 +18948,10 @@ var init_ogg_reader = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/ogg/ogg-demuxer.js
+// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/ogg/ogg-demuxer.js
 var OggDemuxer, OggAudioTrackBacking, findPacketStartPosition, findPreviousPacketEndPosition;
 var init_ogg_demuxer = __esm({
-  "node_modules/mediabunny/dist/modules/src/ogg/ogg-demuxer.js"() {
+  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/ogg/ogg-demuxer.js"() {
     init_codec();
     init_codec_data();
     init_demuxer();
@@ -19622,10 +19639,10 @@ var init_ogg_demuxer = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/wave/wave-demuxer.js
+// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/wave/wave-demuxer.js
 var WaveFormat, WaveDemuxer, PACKET_SIZE_IN_FRAMES, WaveAudioTrackBacking;
 var init_wave_demuxer = __esm({
-  "node_modules/mediabunny/dist/modules/src/wave/wave-demuxer.js"() {
+  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/wave/wave-demuxer.js"() {
     init_demuxer();
     init_metadata();
     init_misc();
@@ -20079,10 +20096,10 @@ var init_wave_demuxer = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/adts/adts-reader.js
+// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/adts/adts-reader.js
 var MIN_ADTS_FRAME_HEADER_SIZE, MAX_ADTS_FRAME_HEADER_SIZE, readAdtsFrameHeader;
 var init_adts_reader = __esm({
-  "node_modules/mediabunny/dist/modules/src/adts/adts-reader.js"() {
+  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/adts/adts-reader.js"() {
     init_bitstream();
     init_reader();
     MIN_ADTS_FRAME_HEADER_SIZE = 7;
@@ -20140,10 +20157,10 @@ var init_adts_reader = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/adts/adts-demuxer.js
+// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/adts/adts-demuxer.js
 var SAMPLES_PER_AAC_FRAME, AdtsDemuxer, AdtsAudioTrackBacking;
 var init_adts_demuxer = __esm({
-  "node_modules/mediabunny/dist/modules/src/adts/adts-demuxer.js"() {
+  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/adts/adts-demuxer.js"() {
     init_aac_misc();
     init_demuxer();
     init_id3();
@@ -20412,10 +20429,10 @@ var init_adts_demuxer = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/flac/flac-misc.js
+// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/flac/flac-misc.js
 var getBlockSizeOrUncommon, getSampleRateOrUncommon, readCodedNumber, readBlockSize, readSampleRate, calculateCrc8;
 var init_flac_misc = __esm({
-  "node_modules/mediabunny/dist/modules/src/flac/flac-misc.js"() {
+  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/flac/flac-misc.js"() {
     init_bitstream();
     init_misc();
     init_reader();
@@ -20548,10 +20565,10 @@ var init_flac_misc = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/flac/flac-demuxer.js
+// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/flac/flac-demuxer.js
 var FlacDemuxer, FlacAudioTrackBacking;
 var init_flac_demuxer = __esm({
-  "node_modules/mediabunny/dist/modules/src/flac/flac-demuxer.js"() {
+  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/flac/flac-demuxer.js"() {
     init_codec_data();
     init_demuxer();
     init_misc();
@@ -21025,10 +21042,10 @@ var init_flac_demuxer = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/input-format.js
+// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/input-format.js
 var InputFormat, IsobmffInputFormat, Mp4InputFormat, QuickTimeInputFormat, MatroskaInputFormat, Mp3InputFormat, WaveInputFormat, OggInputFormat, FlacInputFormat, AdtsInputFormat, MP4, QTFF, MATROSKA, MP3, WAVE, OGG, ADTS, FLAC, validateInputFormatOptions;
 var init_input_format = __esm({
-  "node_modules/mediabunny/dist/modules/src/input-format.js"() {
+  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/input-format.js"() {
     init_isobmff_demuxer();
     init_ebml();
     init_matroska_demuxer();
@@ -21416,19 +21433,19 @@ var init_input_format = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/custom-coder.js
+// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/custom-coder.js
 var customVideoDecoders, customAudioDecoders;
 var init_custom_coder = __esm({
-  "node_modules/mediabunny/dist/modules/src/custom-coder.js"() {
+  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/custom-coder.js"() {
     customVideoDecoders = [];
     customAudioDecoders = [];
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/media-sink.js
+// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/media-sink.js
 var validatePacketRetrievalOptions, validateTimestamp, maybeFixPacketType, EncodedPacketSink;
 var init_media_sink = __esm({
-  "node_modules/mediabunny/dist/modules/src/media-sink.js"() {
+  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/media-sink.js"() {
     init_input();
     init_input_track();
     init_misc();
@@ -21690,10 +21707,10 @@ var init_media_sink = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/input-track.js
+// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/input-track.js
 var InputTrack, requireSync, toValidatedPredicate, InputVideoTrack, InputAudioTrack, desc, prefer, toValidatedInputTrackQuery, mergeInputTrackQueries, queryInputTracks;
 var init_input_track = __esm({
-  "node_modules/mediabunny/dist/modules/src/input-track.js"() {
+  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/input-track.js"() {
     init_codec_data();
     init_custom_coder();
     init_logging();
@@ -22462,10 +22479,10 @@ var init_input_track = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/input.js
+// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/input.js
 var DEFAULT_SOURCE_CACHE_GROUP, Input, UnsupportedInputFormatError, InputDisposedError;
 var init_input = __esm({
-  "node_modules/mediabunny/dist/modules/src/input.js"() {
+  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/input.js"() {
     init_input_format();
     init_input_track();
     init_misc();
@@ -24890,7 +24907,7 @@ var badgeStormSvg = require_badge_storm();
 var { WeatherService: WeatherService2, lookupWeatherCode: lookupWeatherCode2, validateWeatherCoordinates: validateWeatherCoordinates2, weatherBadgeIcon: weatherBadgeIcon2 } = (init_weather_service(), __toCommonJS(weather_service_exports));
 var { buildWeatherCardParts: buildWeatherCardParts2, buildWeatherStatus: buildWeatherStatus2, normalizeWeatherDisplayFields: normalizeWeatherDisplayFields2 } = (init_weather_display(), __toCommonJS(weather_display_exports));
 var { localize: _l } = (init_locale(), __toCommonJS(locale_exports));
-var { formatDateParts: formatDateParts2, getClockPartsInTimeZone: getClockPartsInTimeZone2, getTodayDate: getTodayDate2 } = (init_date_utils(), __toCommonJS(date_utils_exports));
+var { formatDateParts: formatDateParts2, getClockPartsInTimeZone: getClockPartsInTimeZone2, getTodayDate: getTodayDate2, isPathInFolder: isPathInFolder2, joinVaultPath: joinVaultPath2, normalizeVaultPath: normalizeVaultPath2, parentVaultPath: parentVaultPath2 } = (init_date_utils(), __toCommonJS(date_utils_exports));
 var { ThumbnailService: ThumbnailService2 } = (init_thumbnail_service(), __toCommonJS(thumbnail_service_exports));
 var { MediaService: MediaService2, formatMediaMetadataForDisplay: formatMediaMetadataForDisplay2 } = (init_media_service(), __toCommonJS(media_service_exports));
 var { aggregateCalendarDays: aggregateCalendarDays2, withWeatherOnlyDays: withWeatherOnlyDays2 } = (init_calendar_summary(), __toCommonJS(calendar_summary_exports));
@@ -25412,7 +25429,7 @@ var DaylinePlugin = class extends Plugin {
   }
   async createDailyNoteForToday() {
     const date = _daylineDate(this.settings);
-    const path = `${this.settings.dailyFolder}/${date}.md`;
+    const path = joinVaultPath2(this.settings.dailyFolder, `${date}.md`);
     try {
       const file = await this.createDailyNoteForDate(date);
       await this.openJournalFile(file);
@@ -25425,15 +25442,15 @@ var DaylinePlugin = class extends Plugin {
   async recordCurrentMood() {
     const activeFile = this.app.workspace.activeLeaf?.view?.file;
     const sources = this.journalIndex.resolveSources(this.settings);
-    const activeIsJournal = activeFile?.extension === "md" && sources.some((source) => activeFile.path === source.path || activeFile.path.startsWith(`${source.path}/`));
-    const path = activeIsJournal ? activeFile.path : `${this.settings.dailyFolder}/${_daylineDate(this.settings)}.md`;
+    const activeIsJournal = activeFile?.extension === "md" && sources.some((source) => isPathInFolder2(activeFile.path, source.path));
+    const path = activeIsJournal ? activeFile.path : joinVaultPath2(this.settings.dailyFolder, `${_daylineDate(this.settings)}.md`);
     void this.openMoodPicker(path, { allowDateSelection: true, ensureFile: false });
   }
   async saveJournalTitle(path, title) {
     const file = this.app.vault.getAbstractFileByPath(path);
     if (!(file instanceof TFile2)) throw new Error(`Journal file not found: ${path}`);
     const sources = this.journalIndex.resolveSources(this.settings);
-    const isJournal = sources.some((source) => path === source.path || path.startsWith(`${source.path}/`));
+    const isJournal = sources.some((source) => isPathInFolder2(path, source.path));
     if (!isJournal) throw new Error(`Not a journal file: ${path}`);
     await this.app.fileManager.processFrontMatter(file, (frontmatter) => {
       const value = String(title || "").trim();
@@ -25453,7 +25470,7 @@ var DaylinePlugin = class extends Plugin {
       settings: this.settings,
       allowDateSelection: options.allowDateSelection === true,
       onDateChange: async (date) => {
-        const nextPath = `${this.settings.dailyFolder}/${date}.md`;
+        const nextPath = joinVaultPath2(this.settings.dailyFolder, `${date}.md`);
         const nextEntry = this.journalIndex.getEntries().find((item) => item.path === nextPath);
         return {
           filePath: nextPath,
@@ -25527,10 +25544,11 @@ ${path}`)) return false;
     new Notice4(t2(this.settings, "dailyReminder"));
   }
   async createDailyNoteForDate(dateStr) {
-    const path = `${this.settings.dailyFolder}/${dateStr}.md`;
+    const folder = normalizeVaultPath2(this.settings.dailyFolder);
+    const path = joinVaultPath2(folder, `${dateStr}.md`);
     const existing = this.app.vault.getAbstractFileByPath(path);
     if (existing instanceof TFile2) return existing;
-    await this.ensureFolder(this.settings.dailyFolder);
+    await this.ensureFolder(folder);
     const dnPlugin = this.app.internalPlugins?.getPluginById?.("daily-notes");
     const templatePath = dnPlugin?.instance?.options?.template;
     if (templatePath) {
@@ -25538,7 +25556,7 @@ ${path}`)) return false;
       if (templateFile instanceof TFile2) {
         const tp = this.app.plugins?.getPlugin?.("templater-obsidian")?.templater;
         if (tp?.create_new_note_from_template) {
-          await tp.create_new_note_from_template(templateFile, this.settings.dailyFolder, dateStr, false);
+          await tp.create_new_note_from_template(templateFile, folder, dateStr, false);
           const created = this.app.vault.getAbstractFileByPath(path);
           if (created instanceof TFile2) return created;
         }
@@ -25562,7 +25580,7 @@ ${path}`)) return false;
   async ensureJournalFile(path, content) {
     const existing = this.app.vault.getAbstractFileByPath(path);
     if (existing instanceof TFile2) return existing;
-    await this.ensureFolder(path.slice(0, path.lastIndexOf("/")));
+    await this.ensureFolder(parentVaultPath2(path));
     return this.app.vault.create(path, content);
   }
   _handleJournalCreateOrModify(file) {
@@ -26398,7 +26416,7 @@ var CalendarView = class extends ItemView2 {
           badge.title = `${snap.condition} \xB7 ${snap.temperature}${this._unitSymbol(snap.units)}`;
         }
       }
-      const dailyPath = `${this.plugin.settings.dailyFolder}/${dateStr}.md`;
+      const dailyPath = joinVaultPath2(this.plugin.settings.dailyFolder, `${dateStr}.md`);
       const mood = shouldShowCalendarMood2(this.plugin.settings) ? this.plugin.moodStore?.get(dailyPath) || dateEntry.mood : void 0;
       const moodPath = dateEntry.primaryEntryPath || dateEntry.path || dailyPath;
       const hasMoodTarget = Boolean(mood) || Boolean(dateEntry.hasRecord);
@@ -26510,7 +26528,7 @@ var CalendarView = class extends ItemView2 {
     this.plugin._exifHoverTimer = window.setTimeout(() => {
       void (async () => {
         try {
-          const notePath = sourcePath || `${this.plugin.settings.dailyFolder}/${dateStr}.md`;
+          const notePath = sourcePath || joinVaultPath2(this.plugin.settings.dailyFolder, `${dateStr}.md`);
           const file = this.app.metadataCache.getFirstLinkpathDest(imageLink, notePath);
           if (!(file instanceof TFile2)) return;
           if (!this.plugin._isCurrentExifHover(hoverToken)) return;
@@ -26745,7 +26763,7 @@ var CalendarView = class extends ItemView2 {
     const chevron = strip.querySelector(".cal-otd-strip-chevron");
     if (chevron) setIcon4(chevron, "chevron-right");
     if (photo && preview.image) {
-      const notePath = preview.imageNotePath || `${this.plugin.settings.dailyFolder}/${preview.imageDateStr || dateStr}.md`;
+      const notePath = preview.imageNotePath || joinVaultPath2(this.plugin.settings.dailyFolder, `${preview.imageDateStr || dateStr}.md`);
       this.plugin.thumbnailService?.load(preview.image, notePath).then((result) => {
         if (result && photo.isConnected) photo.style.backgroundImage = `url(${result.url})`;
       }).catch((error) => console.warn("[Dayline] On This Day thumbnail load failed:", error?.message || error));
@@ -26971,7 +26989,7 @@ var CalendarView = class extends ItemView2 {
   /* ----- Open (or create + open) daily note ----- */
   _openNote(dateStr, indexedPath) {
     const indexedFile = indexedPath && this.app.vault.getAbstractFileByPath(indexedPath);
-    const path = indexedFile instanceof TFile2 ? indexedPath : `${this.plugin.settings.dailyFolder}/${dateStr}.md`;
+    const path = indexedFile instanceof TFile2 ? indexedPath : joinVaultPath2(this.plugin.settings.dailyFolder, `${dateStr}.md`);
     const file = this.app.vault.getAbstractFileByPath(path);
     const openFileInLeaf = (f) => {
       this.plugin.openJournalFile(f).then((leaf) => {
@@ -27524,7 +27542,7 @@ var CalendarView = class extends ItemView2 {
     }
     const indexedEntry = this.plugin.journalIndex?.getEntries?.().find((entry) => entry.path === file.path);
     const fallbackMatch = file.name.match(/^(\d{4}-\d{2}-\d{2})\.md$/);
-    const newDate = indexedEntry?.date || (fallbackMatch && file.path.startsWith(`${this.plugin.settings.dailyFolder}/`) ? fallbackMatch[1] : null);
+    const newDate = indexedEntry?.date || (fallbackMatch && isPathInFolder2(file.path, this.plugin.settings.dailyFolder) ? fallbackMatch[1] : null);
     if (newDate) {
       if (newDate !== this.activeDate) {
         this._weatherCardDate = null;
