@@ -10,8 +10,9 @@
  * - The required release set defined by `verify-release-contents.mjs`:
  *   `main.js`, `manifest.json`, `styles.css`.
  * - The assets the current product loads from the plugin folder at runtime:
- *   `libheif-bundle.js` (optional HEIC decoder), `THIRD_PARTY_NOTICES.md`, and
- *   every weather SVG under `icons/`.
+ *   `THIRD_PARTY_NOTICES.md`, and every weather SVG under `icons/`.
+ *   (The HEIC decoder is bundled into `main.js`; it is no longer a separate
+ *   asset, because Obsidian's installer only downloads the required set.)
  *
  * The contents rules are not duplicated here. `verifyRootReleaseFiles` proves the
  * staged tree is complete and non-empty before zipping, and `verifyReleaseEntries`
@@ -40,7 +41,6 @@ export const PACKAGE_FILES = Object.freeze([
   'main.js',
   'manifest.json',
   'styles.css',
-  'libheif-bundle.js',
   'THIRD_PARTY_NOTICES.md',
 ]);
 

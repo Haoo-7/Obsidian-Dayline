@@ -25,7 +25,7 @@ await build({
   sourcemap: false,
   legalComments: 'none',
   banner: {
-    js: '/* Includes Mediabunny 1.52.3 (MPL-2.0). Source and notice: https://github.com/Haoo-7/Obsidian-Dayline/blob/master/THIRD_PARTY_NOTICES.md */',
+    js: '/* Includes Mediabunny 1.52.3 (MPL-2.0) and libheif-js (LGPL-3.0). Source and notices: https://github.com/Haoo-7/Obsidian-Dayline/blob/master/THIRD_PARTY_NOTICES.md */',
   },
 });
 

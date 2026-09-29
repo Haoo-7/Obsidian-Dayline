@@ -56,6 +56,7 @@ const { shouldHandleCalendarMonthShortcut } = require('./calendar-keyboard');
 const { calendarEntryAffectsDisplay, calendarMediaAccessibilityLabel, calendarMoodMarker, calendarMoodMarkerClass, isCurrentCalendarMonth, shouldShowCalendarMood, shouldShowCalendarWeatherCard, shouldShowCalendarWeatherBadge, shouldShowCalendarWeatherLocation } = require('./calendar-display');
 const { ViewVisibilityController, normalizeViewVisibilitySettings } = require('./view-visibility-controller');
 const { hasExistingImage } = require('./heic-embed');
+const { loadHeicCodec } = require('./heic-codec');
 const { ImageMetadataCache, HeicCache, HEIC_EXTS, ReverseGeocoder } = require('./image-metadata');
 const { detectPlatformCapabilities, resolveCapabilityRoute, usesPhoneLayout } = require('./platform-capabilities');
 const { createMobileMarkdownQuickEntry } = require('./mobile-quick-entry');
@@ -187,24 +188,13 @@ class DaylinePlugin extends Plugin {
       onChange: () => this._saveGeocoderCache(),
     });
 
-    // libheif is an optional desktop asset. Mobile and browser-only builds use
-    // the HEIC service's null fallback instead of attempting a Node path load.
+    // HEIC decoding ships inside main.js: Obsidian's installer only downloads
+    // main.js, manifest.json and styles.css, so a decoder file next to the
+    // plugin never reached community-store installs. The embedded WASM is
+    // imported and instantiated lazily, on the first conversion.
     this._libheifFactory = null;
     if (this.capabilities.isDesktop && resolveCapabilityRoute(this.capabilities, 'heic') === 'full') {
-      try {
-        const basePath = String(this.app.vault?.adapter?.basePath || '').replace(/[\\/]+$/, '');
-        const dynamicRequire = typeof require === 'function' ? require : null;
-        if (basePath && dynamicRequire) {
-          const configDir = String(this.app.vault?.configDir || '').replace(/[\\/]+$/, '');
-          // Without a real vault config directory the plugin folder cannot be
-          // resolved, so keep the null HEIC fallback instead of guessing a path.
-          if (configDir) {
-            this._libheifFactory = dynamicRequire(`${basePath}/${configDir}/plugins/${PLUGIN_ID}/libheif-bundle.js`);
-          }
-        }
-      } catch (e) {
-        console.warn('[Dayline] Failed to load optional libheif:', e.message);
-      }
+      this._libheifFactory = loadHeicCodec;
     }
     // Track containers where we set position:relative so we can revert on unload
     this._hostPositionMarkers = new Set();

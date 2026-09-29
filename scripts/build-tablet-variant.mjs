@@ -162,9 +162,7 @@ async function main() {
   writeFileSync(join(targetDir, 'manifest.json'), `${JSON.stringify(variantManifest, null, 2)}\n`);
   copyFileSync(join(REPO_ROOT, 'styles.css'), join(targetDir, 'styles.css'));
 
-  // libheif is resolved at runtime from the variant's own folder.
-  const libheif = join(REPO_ROOT, 'libheif-bundle.js');
-  if (existsSync(libheif)) copyFileSync(libheif, join(targetDir, 'libheif-bundle.js'));
+  // The HEIC decoder is bundled into main.js, so the variant needs no sidecar.
   const notices = join(REPO_ROOT, 'THIRD_PARTY_NOTICES.md');
   if (existsSync(notices)) copyFileSync(notices, join(targetDir, 'THIRD_PARTY_NOTICES.md'));
 

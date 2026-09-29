@@ -266,7 +266,7 @@ describe('release contents: archive listing check', () => {
   });
 
   it('accepts a zip release set that contains all three files', () => {
-    const zipPath = writeFixtureZip('zip-complete', ['main.js', 'manifest.json', 'styles.css', 'icons/', 'libheif-bundle.js']);
+    const zipPath = writeFixtureZip('zip-complete', ['main.js', 'manifest.json', 'styles.css', 'icons/', 'THIRD_PARTY_NOTICES.md']);
     expect(verifyZipReleaseContents(zipPath).ok).toBe(true);
     expect(runCli(['--root', REPO_ROOT, `--zip=${zipPath}`]).status).toBe(0);
   });
@@ -303,8 +303,9 @@ describe('release packaging: dayline.zip can be rebuilt repeatably', () => {
       expect(REQUIRED_RELEASE_FILES).toContain(file);
       expect(PACKAGE_FILES).toContain(file);
     }
-    // Product assets Obsidian loads from the plugin folder at runtime.
-    expect(PACKAGE_FILES).toContain('libheif-bundle.js');
+    // Product assets Obsidian loads from the plugin folder at runtime. The HEIC
+    // decoder is bundled into main.js, so it must not be a sidecar again.
+    expect(PACKAGE_FILES).not.toContain('libheif-bundle.js');
     expect(PACKAGE_FILES).toContain('THIRD_PARTY_NOTICES.md');
     expect(PACKAGE_DIRECTORIES).toContain('icons');
   });
@@ -367,7 +368,8 @@ describe('release packaging: dayline.zip can be rebuilt repeatably', () => {
     const names = readZipEntryNames(readFileSync(DEFAULT_ZIP_PATH));
     expect(verifyReleaseEntries(names).ok).toBe(true);
     expect(names).toContain('styles.css');
-    expect(names).toContain('libheif-bundle.js');
+    // The HEIC decoder used to ship as `libheif-bundle.js`. It lives inside
+    // main.js now, so a repackaged archive simply will not list the sidecar.
     expect(names).toContain('THIRD_PARTY_NOTICES.md');
     expect(names.filter((name) => name.startsWith('icons/') && name.endsWith('.svg')).length).toBeGreaterThan(0);
   });

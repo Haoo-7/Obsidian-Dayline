@@ -8,6 +8,12 @@ The corresponding source code is available from the Dayline source repository an
 
 Mediabunny is not modified by Dayline. This notice applies only to the bundled Mediabunny portions; Dayline remains a larger work with its own source files in this repository.
 
+## libheif-js (HEIC/HEIF decoder)
+
+Dayline's distributed `main.js` bundles the prebuilt `libheif-js` browser bundle (`wasm-bundle` from `libheif-js` 1.23.2), an Emscripten build of [libheif](https://github.com/strukturag/libheif) that has the WebAssembly binary embedded as base64. `libheif-js` is distributed under the [GNU Lesser General Public License, version 3.0](https://github.com/catdad-experiments/libheif-js/blob/master/LICENSE); libheif itself is licensed under the LGPL-3.0 as well.
+
+The corresponding source is available from the [libheif-js repository](https://github.com/catdad-experiments/libheif-js) and the [libheif-js npm package](https://www.npmjs.com/package/libheif-js). Dayline ships the `wasm-bundle` build unmodified as `libheif-bundle.js` in this repository and bundles it into `main.js` at build time; rebuilding Dayline with a different `libheif-bundle.js` replaces the library. The decoder is loaded lazily on the first conversion and is disabled on mobile by `src/platform-capabilities.ts`.
+
 ## Lucide Icons
 
 Calendar date-cell weather badges use a small subset of [Lucide](https://github.com/lucide-icons/lucide) (icons from `lucide-static` 1.48.0) under the [ISC License](https://github.com/lucide-icons/lucide/blob/main/LICENSE): sun, cloud-sun, cloud, cloud-fog, cloud-drizzle, cloud-rain, snowflake, and cloud-lightning.
