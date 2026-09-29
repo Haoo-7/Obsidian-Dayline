@@ -52,13 +52,31 @@
 .dayline-settings-brand {
   display: flex;
   align-items: center;
+  gap: 10px;
   min-height: 32px;
   margin: -2px 0 14px;
+  min-width: 0;
 }
 .dayline-settings-brand svg {
   display: block;
-  max-width: 132px;
+  flex: 0 0 auto;
+}
+/* Sized per element because the logo mark (354x225) and the compact wordmark
+   (250x36) have very different aspect ratios: one shared `height` rule leaves
+   the wordmark letterboxed inside its own box. Keep in sync with
+   BRAND_MARK_SIZE / BRAND_WORDMARK_SIZE in src/settings-brand.ts. */
+.dayline-settings-brand-mark {
+  width: 41px;
+  height: 26px;
+}
+.dayline-settings-brand-wordmark {
+  width: 132px;
   height: 32px;
+}
+.dayline-settings-brand-text {
+  font-size: var(--font-ui-medium, 15px);
+  font-weight: 600;
+  letter-spacing: 0.01em;
 }
 .dayline-settings-action-row.setting-item {
   align-items: flex-start;
@@ -1598,7 +1616,14 @@ body.dayline-tablet .cal-sidebar .cal-mood-empty {
   .journal-timeline-filter-menu input[type='date'] { -webkit-appearance: none; appearance: none; }
   .journal-timeline-favorite-filter { min-height: 44px; }
   .journal-timeline-actions button, .journal-timeline-filter-row > button { width: 44px; height: 44px; flex-basis: 44px; padding: 10px; }
-  .journal-timeline-entry-title { min-height: 44px; padding-top: 7px; padding-bottom: 7px; }
+  /* `.journal-timeline-entry-title` is deliberately absent from this sweep.
+     It is a single 19.5px line whose next sibling sits 4px away, so a 44px box
+     turned the surplus into 18px of dead space — the gap that opened between the
+     title and the excerpt. The space cannot be re-claimed either: the card and
+     the entry body both clip with `overflow: hidden`, so an overlay or a
+     negative margin only shifts the hit area onto the excerpt's first line.
+     The title keeps its text height and stays tappable across the full row
+     width; the card is still the 44px+ target for opening the note. */
   .cal-sidebar { padding-left: max(8px, env(safe-area-inset-left)); padding-right: max(8px, env(safe-area-inset-right)); }
 }
 @media (max-width: 420px) {

@@ -3,6 +3,8 @@ import { Notice, PluginSettingTab, Setting, SuggestModal, TFolder } from 'obsidi
 import { DISPLAY_LANGUAGE_LABEL_KEYS, DISPLAY_LANGUAGE_OPTIONS, getDisplayLanguage, t } from './i18n';
 import { localize as _l } from './locale';
 import compactWordmarkSvg from '../assets/dayline-wordmark-compact.svg';
+import daylineLogoSvg from '../assets/dayline-logo.svg';
+import { renderSettingsBrand } from './settings-brand';
 import { calendarMoodMarker, shouldShowCalendarMoodStyle } from './calendar-display';
 import { shouldShowTimelineMoodTrend, shouldShowTimelineTitles } from './journal-timeline-display';
 import { JournalSourceSettingsEditor } from './journal-source-settings';
@@ -145,27 +147,7 @@ export class DaylineSettingsTab extends PluginSettingTab {
     containerEl.addClass('dayline-settings-container');
     const _s = (key, ...args) => _l(this.plugin.settings.weatherLanguage, key, ...args);
 
-    const brand = containerEl.createDiv({ cls: 'dayline-settings-brand', attr: { 'aria-label': 'Dayline' } });
-    try {
-      const parsed = new DOMParser().parseFromString(compactWordmarkSvg, 'image/svg+xml');
-      const svg = parsed.documentElement;
-      if (svg?.tagName?.toLowerCase() === 'svg' && !parsed.querySelector('parsererror')) {
-        parsed.querySelectorAll('script').forEach((script) => script.remove());
-        parsed.querySelectorAll('*').forEach((node) => {
-          for (const attribute of Array.from(node.attributes)) {
-            if (attribute.name.toLowerCase().startsWith('on')) node.removeAttribute(attribute.name);
-          }
-        });
-        const clone = document.importNode(svg, true);
-        clone.setAttribute('role', 'img');
-        clone.setAttribute('aria-label', 'Dayline');
-        clone.setAttribute('width', '132');
-        clone.setAttribute('height', '32');
-        brand.appendChild(clone);
-      }
-    } catch {
-      brand.setText('Dayline');
-    }
+    renderSettingsBrand(containerEl, { markSvg: daylineLogoSvg, wordmarkSvg: compactWordmarkSvg });
 
     this._addSection(containerEl, 'general');
 
