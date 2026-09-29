@@ -481,7 +481,7 @@ export class DaylineSettingsTab extends PluginSettingTab {
       .setName(t(this.plugin.settings, 'weatherTimezone'))
       .setDesc(t(this.plugin.settings, 'weatherTimezoneDesc'))
       .addText((text) => text
-        .setPlaceholder('auto or Asia/Shanghai')
+        .setPlaceholder(t(this.plugin.settings, 'timezonePlaceholder'))
         .setValue(String(this.plugin.settings.weatherTimezone || 'auto'))
         .onChange(async (value) => {
           this.plugin.settings.weatherTimezone = value.trim() || 'auto';

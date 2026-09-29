@@ -69,13 +69,46 @@ languages with their names rendered in their own script. A new language takes
 effect immediately — the tab re-renders and both the calendar and timeline views
 refresh.
 
+## Weather conditions
+
+`src/weather-conditions.ts` owns the localized WMO text. `weather-service.ts`
+keeps its English `condition` strings because they are the canonical label for a
+code and the value already persisted inside cached snapshots; `weatherCondition
+Label(snapshot, settings)` maps a snapshot's `weatherCode` onto the localized
+table for the badge tooltip, the weather-card icon `alt`/`title`, and the date
+overlay. A snapshot cached before this table existed carries no `weatherCode`, so
+it keeps its stored English text; a code outside the table degrades to a
+localized "Weather code N" instead of throwing.
+
+The test ties the two tables together: every code `weather-service.ts` resolves
+must have an English label equal to its `condition`, so adding a code without a
+translation fails the suite.
+
+## Strings that stay English on purpose
+
+- **Developer-facing diagnostics** — `console.warn` labels
+  (`move deleted mood to orphan`) and the `mobile-diagnostics.ts` report body,
+  which is pasted into bug reports and compared across locales.
+- **Error detail inside a `{error}` placeholder** — the frame is localized
+  (`Failed to refresh weather: …`), the reason is not: network, HTTP, and
+  libheif messages are English in every locale, so localizing only Dayline's own
+  throws would be inconsistent without being more correct.
+- **Data, not prose** — vault paths (`Calendar/journal-metadata.json`, the
+  `Dayline Exports` folder), numeric placeholders, view types, CSS class names,
+  the `User-Agent`, and the brand name `Dayline`.
+- **Canonical WMO labels** in `weather-service.ts`, per above.
+
 ## Verification
 
-- `npx tsc --noEmit`, `npm run build`, and `git diff --check` pass.
-- `npm test` passes: 57 test files, 522 tests. New coverage asserts the nine
+- `npx tsc --noEmit`, `npm run build`, `npm run build:tablet`, and
+  `git diff --check` pass.
+- `npm test` passes: 58 test files, 527 tests. Coverage asserts the nine
   language list, locale tags, system-locale resolution, `zh-tw`/`ja`/`ko` date
   and weekday output, the localize-everything load-more label, dropdown label
-  uniqueness per locale, and geocoder language normalization, tags, and
-  per-language caching.
+  uniqueness per locale, geocoder language normalization, tags, and per-language
+  caching, plus the weather-condition table: every WMO code labelled in all nine
+  languages, the English table pinned to `weather-service.ts`, no duplicate
+  labels per language, and the legacy/unknown-code fallbacks.
 - Key parity between all nine language blocks is checked while editing
-  (269 keys in `i18n.ts`, 129 in `locale.ts` per language).
+  (280 keys in `i18n.ts`, 129 in `locale.ts`, and 24 condition labels plus one
+  "Weather code" label per language in `weather-conditions.ts`).

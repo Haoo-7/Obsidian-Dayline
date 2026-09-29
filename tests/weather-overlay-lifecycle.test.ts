@@ -5,6 +5,7 @@ import { runInNewContext } from 'node:vm';
 import ts from 'typescript';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { usesPhoneLayout } from '../src/platform-capabilities';
+import { weatherConditionLabel } from '../src/weather-conditions';
 
 // Execute the actual view class without booting Obsidian or loading optional codecs.
 const source = ts.createSourceFile('plugin.ts', readFileSync(join(process.cwd(), 'src/plugin.ts'), 'utf8'), ts.ScriptTarget.Latest, true);
@@ -37,6 +38,7 @@ const CalendarView = runInNewContext(ts.transpileModule(`${declaration.getText()
   _l: (_language: string, key: string) => key,
   _iconUrl: () => '', setIcon: () => {}, requestAnimationFrame: (callback: () => void) => callback(),
   usesPhoneLayout,
+  weatherConditionLabel,
 });
 
 function deferred<T>() {

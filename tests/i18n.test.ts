@@ -114,4 +114,36 @@ describe('nine-language display support', () => {
     expect(t({ displayLanguage: 'es' }, 'showMoreEntries', { count: 50 })).toBe('Mostrar 50 entradas más');
     expect(t({ displayLanguage: 'ru' }, 'showMoreEntries', { count: 50 })).toBe('Показать ещё 50');
   });
+
+  it('provides the strings the notices, commands, and accessible labels ask for', () => {
+    const keys = [
+      'backToNote',
+      'calendarLeafCreateFailed',
+      'copyDiagnosticsCommand',
+      'daylineViewGroupLabel',
+      'diagnosticsCopied',
+      'diagnosticsCopyFailed',
+      'moodMetadataRenameFailed',
+      'moodMoveToOrphanFailed',
+      'timezonePlaceholder',
+      'unknownError',
+      'weatherIconAlt',
+    ];
+    for (const key of keys) {
+      for (const language of SUPPORTED_DISPLAY_LANGUAGES) {
+        const value = t({ displayLanguage: language }, key);
+        expect(value, `${language}/${key}`).not.toBe(key);
+        expect(value.length, `${language}/${key}`).toBeGreaterThan(0);
+      }
+    }
+    expect(t({ displayLanguage: 'zh' }, 'backToNote')).toBe('返回笔记');
+    expect(t({ displayLanguage: 'ja' }, 'copyDiagnosticsCommand')).toBe('Dayline モバイル診断情報をコピー');
+    expect(t({ displayLanguage: 'ru' }, 'unknownError')).toBe('неизвестная ошибка');
+    expect(t({ displayLanguage: 'de' }, 'weatherIconAlt')).toBe('Wetter');
+    expect(t({ displayLanguage: 'de' }, 'timezonePlaceholder')).toBe('auto oder Asia/Shanghai');
+    expect(t({ displayLanguage: 'zh' }, 'moodMetadataRenameFailed', { error: '磁盘只读' }))
+      .toBe('重命名心情元数据失败：磁盘只读');
+    expect(t({ displayLanguage: 'fr' }, 'moodMoveToOrphanFailed', { error: 'EACCES' }))
+      .toBe("Impossible de déplacer l'humeur supprimée vers la liste de récupération : EACCES");
+  });
 });

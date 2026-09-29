@@ -86,6 +86,8 @@ export class JournalTimelineView extends ItemView {
         calendar: t(this.plugin.settings, 'calendarTitle'),
         timeline: t(this.plugin.settings, 'timelineTitle'),
       },
+      groupLabel: t(this.plugin.settings, 'daylineViewGroupLabel'),
+      returnLabel: t(this.plugin.settings, 'backToNote'),
       onSelect: (mode) => mode === 'calendar'
         ? this.plugin.activateView()
         : this.plugin.activateTimeline(),

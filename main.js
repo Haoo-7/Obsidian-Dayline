@@ -2645,10 +2645,12 @@ var init_i18n = __esm({
         anxious: "\u7126\u8651",
         apply: "\u5E94\u7528",
         back: "\u8FD4\u56DE",
+        backToNote: "\u8FD4\u56DE\u7B14\u8BB0",
         calendarDisplay: "\u65E5\u5386\u663E\u793A",
         calendarEntriesOnDate: "{date}\uFF1A{entries}",
         calendarEntryCount: "{count} \u6761\u65E5\u8BB0",
         calendarEntryCountOne: "{count} \u6761\u65E5\u8BB0",
+        calendarLeafCreateFailed: "Dayline\uFF1A\u65E0\u6CD5\u521B\u5EFA\u65E5\u5386\u9762\u677F",
         calendarMonthLoadFailed: "\u52A0\u8F7D\u65E5\u5386\u6708\u4EFD\u5931\u8D25\uFF1A{error}",
         calendarMoodMarker: "\u65E5\u5386\u5FC3\u60C5\u6837\u5F0F",
         calendarMoodMarkerBar: "\u8272\u6761",
@@ -2665,6 +2667,7 @@ var init_i18n = __esm({
         closeFilters: "\u5173\u95ED\u7B5B\u9009",
         content: "\u6EE1\u8DB3",
         continue: "\u7EE7\u7EED",
+        copyDiagnosticsCommand: "\u590D\u5236 Dayline \u79FB\u52A8\u7AEF\u8BCA\u65AD\u4FE1\u606F",
         createDailyNote: "\u6253\u5F00\u6216\u521B\u5EFA\u4ECA\u65E5\u7B14\u8BB0",
         createNoteAction: "\u521B\u5EFA",
         createNoteFailed: "\u521B\u5EFA\u65E5\u8BB0\u5931\u8D25\uFF1A{error}",
@@ -2678,11 +2681,14 @@ var init_i18n = __esm({
         dailyReminder: "\u4ECA\u5929\u8FD8\u6CA1\u6709\u65E5\u8BB0\u8BB0\u5F55",
         dataMaintenance: "\u6570\u636E\u7EF4\u62A4",
         dataMaintenanceDesc: "\u68C0\u67E5\u6570\u636E\u5B8C\u6574\u6027\u6216\u5BFC\u5165 frontmatter \u8BB0\u5F55\u3002",
+        daylineViewGroupLabel: "Dayline \u89C6\u56FE",
         deleteMood: "\u5220\u9664\u5FC3\u60C5\u8BB0\u5F55",
         deleteMoodConfirm: "\u5220\u9664\u8FD9\u6761\u5FC3\u60C5\u8BB0\u5F55\uFF1F\u8BB0\u5F55\u4F1A\u4FDD\u7559\u5728\u6062\u590D\u5217\u8868\u4E2D\u3002",
         detectImports: "\u68C0\u6D4B\u5BFC\u5165",
         detectImportsCommand: "\u68C0\u6D4B\u65E5\u8BB0\u5BFC\u5165\u76EE\u5F55",
         detectImportsResult: "\u627E\u5230 {files} \u4E2A\u6587\u4EF6\uFF0C\u5176\u4E2D {noDate} \u4E2A\u6CA1\u6709\u65E5\u671F\u3002",
+        diagnosticsCopyFailed: "\u65E0\u6CD5\u590D\u5236 Dayline \u8BCA\u65AD\u4FE1\u606F",
+        diagnosticsCopied: "\u5DF2\u590D\u5236 Dayline \u79FB\u52A8\u7AEF\u8BCA\u65AD\u4FE1\u606F",
         discardChanges: "\u820D\u5F03\u66F4\u6539",
         editJournalTitle: "\u7F16\u8F91\u65E5\u8BB0\u6807\u9898",
         editMood: "\u7F16\u8F91\u5FC3\u60C5\u8BB0\u5F55",
@@ -2765,6 +2771,8 @@ var init_i18n = __esm({
         moodLabelUses: "\u6B21\u4F7F\u7528",
         moodMetadataPath: "\u5FC3\u60C5\u5143\u6570\u636E\u8DEF\u5F84",
         moodMetadataPathDesc: "vault \u5185 JSON \u8DEF\u5F84\uFF0CJSON \u662F\u5FC3\u60C5\u4E3B\u6570\u636E\u6E90\u3002",
+        moodMoveToOrphanFailed: "\u65E0\u6CD5\u628A\u5DF2\u5220\u9664\u7684\u5FC3\u60C5\u8BB0\u5F55\u79FB\u5165\u6062\u590D\u5217\u8868\uFF1A{error}",
+        moodMetadataRenameFailed: "\u91CD\u547D\u540D\u5FC3\u60C5\u5143\u6570\u636E\u5931\u8D25\uFF1A{error}",
         moodNote: "\u5FC3\u60C5\u5907\u6CE8",
         moodNotePlaceholder: "\u53EF\u9009\uFF1A\u5199\u4E0B\u6B64\u523B\u7684\u60F3\u6CD5\u2026\u2026",
         moodQuestion: "\u4ECA\u5929\u7684\u611F\u53D7\u5982\u4F55\uFF1F",
@@ -2873,10 +2881,12 @@ var init_i18n = __esm({
         thoughtful: "\u82E5\u6709\u6240\u601D",
         timelineOpenFailed: "\u6253\u5F00\u65F6\u95F4\u7EBF\u6761\u76EE\u5931\u8D25\uFF1A{error}",
         timelineTitle: "\u65E5\u8BB0\u65F6\u95F4\u7EBF",
+        timezonePlaceholder: "auto \u6216 Asia/Shanghai",
         tired: "\u75B2\u60EB",
         toDate: "\u7ED3\u675F\u65E5\u671F",
         today: "\u4ECA\u5929",
         traditionalChinese: "\u7E41\u4F53\u4E2D\u6587",
+        unknownError: "\u672A\u77E5\u9519\u8BEF",
         unsavedTitle: "\u672A\u4FDD\u5B58\u7684\u6807\u9898",
         untitledJournalTitle: "\u6807\u9898",
         updatedAt: "\u66F4\u65B0\u4E8E {time}",
@@ -2893,6 +2903,7 @@ var init_i18n = __esm({
         weatherFieldSunrise: "\u65E5\u51FA",
         weatherFieldSunset: "\u65E5\u843D",
         weatherFieldWind: "\u98CE\u901F",
+        weatherIconAlt: "\u5929\u6C14",
         weatherTimezone: "\u5929\u6C14\u65F6\u533A",
         weatherTimezoneDesc: "\u65E5\u8BB0\u65E5\u671F\u6BD4\u8F83\u548C Open-Meteo \u4F7F\u7528\u7684 IANA \u65F6\u533A\u3002auto \u4F7F\u7528\u7CFB\u7EDF\u65F6\u533A\u3002",
         weekStart: "\u6BCF\u5468\u8D77\u59CB\u65E5",
@@ -2916,10 +2927,12 @@ var init_i18n = __esm({
         anxious: "\u7126\u616E",
         apply: "\u5957\u7528",
         back: "\u8FD4\u56DE",
+        backToNote: "\u8FD4\u56DE\u7B46\u8A18",
         calendarDisplay: "\u65E5\u66C6\u986F\u793A",
         calendarEntriesOnDate: "{date}\uFF1A{entries}",
         calendarEntryCount: "{count} \u5247\u65E5\u8A18",
         calendarEntryCountOne: "{count} \u5247\u65E5\u8A18",
+        calendarLeafCreateFailed: "Dayline\uFF1A\u7121\u6CD5\u5EFA\u7ACB\u884C\u4E8B\u66C6\u9762\u677F",
         calendarMonthLoadFailed: "\u8F09\u5165\u65E5\u66C6\u6708\u4EFD\u5931\u6557\uFF1A{error}",
         calendarMoodMarker: "\u65E5\u66C6\u5FC3\u60C5\u6A23\u5F0F",
         calendarMoodMarkerBar: "\u8272\u689D",
@@ -2936,6 +2949,7 @@ var init_i18n = __esm({
         closeFilters: "\u95DC\u9589\u7BE9\u9078",
         content: "\u6EFF\u8DB3",
         continue: "\u7E7C\u7E8C",
+        copyDiagnosticsCommand: "\u8907\u88FD Dayline \u884C\u52D5\u7248\u8A3A\u65B7\u8CC7\u8A0A",
         createDailyNote: "\u958B\u555F\u6216\u5EFA\u7ACB\u4ECA\u65E5\u7B46\u8A18",
         createNoteAction: "\u5EFA\u7ACB",
         createNoteFailed: "\u5EFA\u7ACB\u65E5\u8A18\u5931\u6557\uFF1A{error}",
@@ -2949,11 +2963,14 @@ var init_i18n = __esm({
         dailyReminder: "\u4ECA\u5929\u9084\u6C92\u6709\u65E5\u8A18\u8A18\u9304",
         dataMaintenance: "\u8CC7\u6599\u7DAD\u8B77",
         dataMaintenanceDesc: "\u6AA2\u67E5\u8CC7\u6599\u5B8C\u6574\u6027\u6216\u532F\u5165 frontmatter \u8A18\u9304\u3002",
+        daylineViewGroupLabel: "Dayline \u6AA2\u8996",
         deleteMood: "\u522A\u9664\u5FC3\u60C5\u8A18\u9304",
         deleteMoodConfirm: "\u78BA\u5B9A\u8981\u522A\u9664\u9019\u689D\u5FC3\u60C5\u8A18\u9304\uFF1F\u8A18\u9304\u6703\u4FDD\u7559\u5728\u5FA9\u539F\u6E05\u55AE\u4E2D\u3002",
         detectImports: "\u5075\u6E2C\u532F\u5165",
         detectImportsCommand: "\u5075\u6E2C\u65E5\u8A18\u532F\u5165\u76EE\u9304",
         detectImportsResult: "\u627E\u5230 {files} \u500B\u6A94\u6848\uFF0C\u5176\u4E2D {noDate} \u500B\u6C92\u6709\u65E5\u671F\u3002",
+        diagnosticsCopyFailed: "\u7121\u6CD5\u8907\u88FD Dayline \u8A3A\u65B7\u8CC7\u8A0A",
+        diagnosticsCopied: "\u5DF2\u8907\u88FD Dayline \u884C\u52D5\u7248\u8A3A\u65B7\u8CC7\u8A0A",
         discardChanges: "\u6368\u68C4\u8B8A\u66F4",
         editJournalTitle: "\u7DE8\u8F2F\u65E5\u8A18\u6A19\u984C",
         editMood: "\u7DE8\u8F2F\u5FC3\u60C5\u8A18\u9304",
@@ -3036,6 +3053,8 @@ var init_i18n = __esm({
         moodLabelUses: "\u6B21\u4F7F\u7528",
         moodMetadataPath: "\u5FC3\u60C5\u4E2D\u7E7C\u8CC7\u6599\u8DEF\u5F91",
         moodMetadataPathDesc: "\u5132\u5B58\u5EAB\u5167 JSON \u8DEF\u5F91\uFF0CJSON \u70BA\u5FC3\u60C5\u4E3B\u8CC7\u6599\u4F86\u6E90\u3002",
+        moodMoveToOrphanFailed: "\u7121\u6CD5\u5C07\u5DF2\u522A\u9664\u7684\u5FC3\u60C5\u8A18\u9304\u79FB\u81F3\u5FA9\u539F\u6E05\u55AE\uFF1A{error}",
+        moodMetadataRenameFailed: "\u91CD\u65B0\u547D\u540D\u5FC3\u60C5\u4E2D\u4ECB\u8CC7\u6599\u5931\u6557\uFF1A{error}",
         moodNote: "\u5FC3\u60C5\u5099\u8A3B",
         moodNotePlaceholder: "\u9078\u586B\uFF1A\u5BEB\u4E0B\u6B64\u523B\u7684\u60F3\u6CD5\u2026\u2026",
         moodQuestion: "\u4ECA\u5929\u7684\u611F\u53D7\u5982\u4F55\uFF1F",
@@ -3144,10 +3163,12 @@ var init_i18n = __esm({
         thoughtful: "\u82E5\u6709\u6240\u601D",
         timelineOpenFailed: "\u958B\u555F\u6642\u9593\u8EF8\u689D\u76EE\u5931\u6557\uFF1A{error}",
         timelineTitle: "\u65E5\u8A18\u6642\u9593\u8EF8",
+        timezonePlaceholder: "auto \u6216 Asia/Shanghai",
         tired: "\u75B2\u618A",
         toDate: "\u7D50\u675F\u65E5\u671F",
         today: "\u4ECA\u5929",
         traditionalChinese: "\u7E41\u9AD4\u4E2D\u6587",
+        unknownError: "\u672A\u77E5\u932F\u8AA4",
         unsavedTitle: "\u672A\u5132\u5B58\u7684\u6A19\u984C",
         untitledJournalTitle: "\u6A19\u984C",
         updatedAt: "\u66F4\u65B0\u65BC {time}",
@@ -3164,6 +3185,7 @@ var init_i18n = __esm({
         weatherFieldSunrise: "\u65E5\u51FA",
         weatherFieldSunset: "\u65E5\u843D",
         weatherFieldWind: "\u98A8\u901F",
+        weatherIconAlt: "\u5929\u6C23",
         weatherTimezone: "\u5929\u6C23\u6642\u5340",
         weatherTimezoneDesc: "\u65E5\u8A18\u65E5\u671F\u6BD4\u5C0D\u548C Open-Meteo \u4F7F\u7528\u7684 IANA \u6642\u5340\u3002auto \u4F7F\u7528\u7CFB\u7D71\u6642\u5340\u3002",
         weekStart: "\u6BCF\u9031\u8D77\u59CB\u65E5",
@@ -3187,10 +3209,12 @@ var init_i18n = __esm({
         anxious: "Anxious",
         apply: "Apply",
         back: "Back",
+        backToNote: "Back to note",
         calendarDisplay: "Calendar display",
         calendarEntriesOnDate: "{date}: {entries}",
         calendarEntryCount: "{count} entries",
         calendarEntryCountOne: "{count} entry",
+        calendarLeafCreateFailed: "Dayline: could not create the calendar pane",
         calendarMonthLoadFailed: "Failed to load the calendar month: {error}",
         calendarMoodMarker: "Calendar mood style",
         calendarMoodMarkerBar: "Color bar",
@@ -3207,6 +3231,7 @@ var init_i18n = __esm({
         closeFilters: "Close filters",
         content: "Content",
         continue: "Continue",
+        copyDiagnosticsCommand: "Copy Dayline mobile diagnostics",
         createDailyNote: "Open or create today's note",
         createNoteAction: "Create",
         createNoteFailed: "Failed to create note: {error}",
@@ -3220,11 +3245,14 @@ var init_i18n = __esm({
         dailyReminder: "No note for today",
         dataMaintenance: "Data maintenance",
         dataMaintenanceDesc: "Check data integrity or import frontmatter records.",
+        daylineViewGroupLabel: "Dayline view",
         deleteMood: "Delete mood record",
         deleteMoodConfirm: "Delete this mood record? It will remain in the recovery list.",
         detectImports: "Detect imports",
         detectImportsCommand: "Detect journal import directories",
         detectImportsResult: "Found {files} files; {noDate} have no date.",
+        diagnosticsCopyFailed: "Unable to copy Dayline diagnostics",
+        diagnosticsCopied: "Dayline mobile diagnostics copied",
         discardChanges: "Discard changes",
         editJournalTitle: "Edit journal title",
         editMood: "Edit mood record",
@@ -3307,6 +3335,8 @@ var init_i18n = __esm({
         moodLabelUses: "uses",
         moodMetadataPath: "Mood metadata path",
         moodMetadataPathDesc: "Vault-relative JSON path. JSON is the primary mood store.",
+        moodMoveToOrphanFailed: "Could not move the deleted mood to the recovery list: {error}",
+        moodMetadataRenameFailed: "Could not rename mood metadata: {error}",
         moodNote: "Mood note",
         moodNotePlaceholder: "Optional: add a little context\u2026",
         moodQuestion: "How did today feel?",
@@ -3415,10 +3445,12 @@ var init_i18n = __esm({
         thoughtful: "Thoughtful",
         timelineOpenFailed: "Failed to open timeline entry: {error}",
         timelineTitle: "Journal timeline",
+        timezonePlaceholder: "auto or Asia/Shanghai",
         tired: "Tired",
         toDate: "To date",
         today: "Today",
         traditionalChinese: "Traditional Chinese",
+        unknownError: "unknown error",
         unsavedTitle: "Unsaved title",
         untitledJournalTitle: "Title",
         updatedAt: "Updated {time}",
@@ -3435,6 +3467,7 @@ var init_i18n = __esm({
         weatherFieldSunrise: "Sunrise",
         weatherFieldSunset: "Sunset",
         weatherFieldWind: "Wind speed",
+        weatherIconAlt: "Weather",
         weatherTimezone: "Weather timezone",
         weatherTimezoneDesc: "IANA timezone used for diary dates and Open-Meteo. auto uses the system timezone.",
         weekStart: "Week starts on",
@@ -3458,10 +3491,12 @@ var init_i18n = __esm({
         anxious: "\u4E0D\u5B89",
         apply: "\u9069\u7528",
         back: "\u623B\u308B",
+        backToNote: "\u30CE\u30FC\u30C8\u306B\u623B\u308B",
         calendarDisplay: "\u30AB\u30EC\u30F3\u30C0\u30FC\u8868\u793A",
         calendarEntriesOnDate: "{date}\uFF1A{entries}",
         calendarEntryCount: "{count} \u4EF6\u306E\u65E5\u8A18",
         calendarEntryCountOne: "{count} \u4EF6\u306E\u65E5\u8A18",
+        calendarLeafCreateFailed: "Dayline: \u30AB\u30EC\u30F3\u30C0\u30FC\u30DA\u30A4\u30F3\u3092\u4F5C\u6210\u3067\u304D\u307E\u305B\u3093\u3067\u3057\u305F",
         calendarMonthLoadFailed: "\u30AB\u30EC\u30F3\u30C0\u30FC\u6708\u306E\u8AAD\u307F\u8FBC\u307F\u306B\u5931\u6557\u3057\u307E\u3057\u305F\uFF1A{error}",
         calendarMoodMarker: "\u6C17\u5206\u306E\u8868\u793A\u30B9\u30BF\u30A4\u30EB",
         calendarMoodMarkerBar: "\u30AB\u30E9\u30FC\u306E\u30D0\u30FC",
@@ -3478,6 +3513,7 @@ var init_i18n = __esm({
         closeFilters: "\u30D5\u30A3\u30EB\u30BF\u30FC\u3092\u9589\u3058\u308B",
         content: "\u6E80\u8DB3",
         continue: "\u6B21\u3078",
+        copyDiagnosticsCommand: "Dayline \u30E2\u30D0\u30A4\u30EB\u8A3A\u65AD\u60C5\u5831\u3092\u30B3\u30D4\u30FC",
         createDailyNote: "\u4ECA\u65E5\u306E\u30CE\u30FC\u30C8\u3092\u958B\u304F\u307E\u305F\u306F\u4F5C\u6210",
         createNoteAction: "\u4F5C\u6210",
         createNoteFailed: "\u30CE\u30FC\u30C8\u306E\u4F5C\u6210\u306B\u5931\u6557\u3057\u307E\u3057\u305F\uFF1A{error}",
@@ -3491,11 +3527,14 @@ var init_i18n = __esm({
         dailyReminder: "\u4ECA\u65E5\u306F\u307E\u3060\u65E5\u8A18\u304C\u8A18\u9332\u3055\u308C\u3066\u3044\u307E\u305B\u3093",
         dataMaintenance: "\u30C7\u30FC\u30BF\u30E1\u30F3\u30C6\u30CA\u30F3\u30B9",
         dataMaintenanceDesc: "\u30C7\u30FC\u30BF\u306E\u6574\u5408\u6027\u30C1\u30A7\u30C3\u30AF\u3084frontmatter\u304B\u3089\u306E\u30A4\u30F3\u30DD\u30FC\u30C8\u3092\u884C\u3044\u307E\u3059\u3002",
+        daylineViewGroupLabel: "Dayline \u30D3\u30E5\u30FC",
         deleteMood: "\u6C17\u5206\u306E\u8A18\u9332\u3092\u524A\u9664",
         deleteMoodConfirm: "\u3053\u306E\u6C17\u5206\u306E\u8A18\u9332\u3092\u524A\u9664\u3057\u307E\u3059\u304B\uFF1F\u8A18\u9332\u306F\u5FA9\u5143\u30EA\u30B9\u30C8\u306B\u6B8B\u308A\u307E\u3059\u3002",
         detectImports: "\u30A4\u30F3\u30DD\u30FC\u30C8\u3092\u691C\u51FA",
         detectImportsCommand: "\u65E5\u8A18\u30A4\u30F3\u30DD\u30FC\u30C8\u30D5\u30A9\u30EB\u30C0\u3092\u691C\u51FA",
         detectImportsResult: "{files} \u4EF6\u306E\u30D5\u30A1\u30A4\u30EB\u3092\u691C\u51FA\u3057\u307E\u3057\u305F\uFF08\u3046\u3061\u65E5\u4ED8\u306A\u3057\uFF1A{noDate} \u4EF6\uFF09\u3002",
+        diagnosticsCopyFailed: "Dayline \u306E\u8A3A\u65AD\u60C5\u5831\u3092\u30B3\u30D4\u30FC\u3067\u304D\u307E\u305B\u3093\u3067\u3057\u305F",
+        diagnosticsCopied: "Dayline \u30E2\u30D0\u30A4\u30EB\u8A3A\u65AD\u60C5\u5831\u3092\u30B3\u30D4\u30FC\u3057\u307E\u3057\u305F",
         discardChanges: "\u5909\u66F4\u3092\u7834\u68C4",
         editJournalTitle: "\u65E5\u8A18\u306E\u30BF\u30A4\u30C8\u30EB\u3092\u7DE8\u96C6",
         editMood: "\u6C17\u5206\u306E\u8A18\u9332\u3092\u7DE8\u96C6",
@@ -3578,6 +3617,8 @@ var init_i18n = __esm({
         moodLabelUses: "\u56DE\u4F7F\u7528",
         moodMetadataPath: "\u6C17\u5206\u30E1\u30BF\u30C7\u30FC\u30BF\u306E\u30D1\u30B9",
         moodMetadataPathDesc: "\u4FDD\u7BA1\u5EAB\u5185\u306EJSON\u30D1\u30B9\u3002JSON\u304C\u6C17\u5206\u306E\u30DE\u30B9\u30BF\u30FC\u30C7\u30FC\u30BF\u3068\u306A\u308A\u307E\u3059\u3002",
+        moodMoveToOrphanFailed: "\u524A\u9664\u3057\u305F\u6C17\u5206\u8A18\u9332\u3092\u5FA9\u5143\u30EA\u30B9\u30C8\u3078\u79FB\u52D5\u3067\u304D\u307E\u305B\u3093\u3067\u3057\u305F: {error}",
+        moodMetadataRenameFailed: "\u6C17\u5206\u30E1\u30BF\u30C7\u30FC\u30BF\u306E\u540D\u524D\u3092\u5909\u66F4\u3067\u304D\u307E\u305B\u3093\u3067\u3057\u305F: {error}",
         moodNote: "\u30E1\u30E2",
         moodNotePlaceholder: "\u4ECA\u306E\u6C17\u6301\u3061\u3092\u66F8\u304D\u7559\u3081\u3066\u307F\u307E\u3057\u3087\u3046\uFF08\u4EFB\u610F\uFF09\u2026",
         moodQuestion: "\u4ECA\u65E5\u306E\u6C17\u5206\u306F\u3069\u3046\u3067\u3057\u305F\u304B\uFF1F",
@@ -3686,10 +3727,12 @@ var init_i18n = __esm({
         thoughtful: "\u601D\u7D22\u7684",
         timelineOpenFailed: "\u30BF\u30A4\u30E0\u30E9\u30A4\u30F3\u9805\u76EE\u3092\u958B\u3051\u307E\u305B\u3093\u3067\u3057\u305F\uFF1A{error}",
         timelineTitle: "\u65E5\u8A18\u30BF\u30A4\u30E0\u30E9\u30A4\u30F3",
+        timezonePlaceholder: "auto \u307E\u305F\u306F Asia/Shanghai",
         tired: "\u75B2\u308C\u305F",
         toDate: "\u7D42\u4E86\u65E5",
         today: "\u4ECA\u65E5",
         traditionalChinese: "\u4E2D\u56FD\u8A9E\uFF08\u7E41\u4F53\u5B57\uFF09",
+        unknownError: "\u4E0D\u660E\u306A\u30A8\u30E9\u30FC",
         unsavedTitle: "\u672A\u4FDD\u5B58\u306E\u30BF\u30A4\u30C8\u30EB",
         untitledJournalTitle: "\u30BF\u30A4\u30C8\u30EB",
         updatedAt: "\u66F4\u65B0\uFF1A{time}",
@@ -3706,6 +3749,7 @@ var init_i18n = __esm({
         weatherFieldSunrise: "\u65E5\u306E\u51FA",
         weatherFieldSunset: "\u65E5\u306E\u5165\u308A",
         weatherFieldWind: "\u98A8\u901F",
+        weatherIconAlt: "\u5929\u6C17",
         weatherTimezone: "\u5929\u6C17\u306E\u30BF\u30A4\u30E0\u30BE\u30FC\u30F3",
         weatherTimezoneDesc: "\u65E5\u8A18\u306E\u65E5\u4ED8\u6BD4\u8F03\u3068Open-Meteo\u3067\u4F7F\u7528\u3059\u308BIANA\u30BF\u30A4\u30E0\u30BE\u30FC\u30F3\u3002auto\u306F\u30B7\u30B9\u30C6\u30E0\u8A2D\u5B9A\u3092\u4F7F\u7528\u3057\u307E\u3059\u3002",
         weekStart: "\u9031\u306E\u59CB\u307E\u308A",
@@ -3729,10 +3773,12 @@ var init_i18n = __esm({
         anxious: "\uBD88\uC548\uD568",
         apply: "\uC801\uC6A9",
         back: "\uB4A4\uB85C",
+        backToNote: "\uB178\uD2B8\uB85C \uB3CC\uC544\uAC00\uAE30",
         calendarDisplay: "\uCE98\uB9B0\uB354 \uD45C\uC2DC",
         calendarEntriesOnDate: "{date}: {entries}",
         calendarEntryCount: "{count}\uAC1C\uC758 \uC800\uB110",
         calendarEntryCountOne: "{count}\uAC1C\uC758 \uC800\uB110",
+        calendarLeafCreateFailed: "Dayline: \uCE98\uB9B0\uB354 \uCC3D\uC744 \uB9CC\uB4E4 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4",
         calendarMonthLoadFailed: "\uCE98\uB9B0\uB354 \uC6D4 \uB85C\uB4DC \uC2E4\uD328: {error}",
         calendarMoodMarker: "\uAE30\uBD84 \uD45C\uC2DC \uC2A4\uD0C0\uC77C",
         calendarMoodMarkerBar: "\uC0C9\uC0C1 \uBC14",
@@ -3749,6 +3795,7 @@ var init_i18n = __esm({
         closeFilters: "\uD544\uD130 \uB2EB\uAE30",
         content: "\uB9CC\uC871\uC2A4\uB7EC\uC6C0",
         continue: "\uACC4\uC18D",
+        copyDiagnosticsCommand: "Dayline \uBAA8\uBC14\uC77C \uC9C4\uB2E8 \uC815\uBCF4 \uBCF5\uC0AC",
         createDailyNote: "\uC624\uB298\uC758 \uB178\uD2B8 \uC5F4\uAE30 \uB610\uB294 \uC0DD\uC131",
         createNoteAction: "\uC0DD\uC131",
         createNoteFailed: "\uB178\uD2B8\uB97C \uC0DD\uC131\uD558\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4: {error}",
@@ -3762,11 +3809,14 @@ var init_i18n = __esm({
         dailyReminder: "\uC624\uB298 \uC544\uC9C1 \uC791\uC131\uB41C \uC800\uB110\uC774 \uC5C6\uC2B5\uB2C8\uB2E4",
         dataMaintenance: "\uB370\uC774\uD130 \uC720\uC9C0\uAD00\uB9AC",
         dataMaintenanceDesc: "\uB370\uC774\uD130 \uBB34\uACB0\uC131\uC744 \uD655\uC778\uD558\uAC70\uB098 frontmatter \uAE30\uB85D\uC744 \uAC00\uC838\uC635\uB2C8\uB2E4.",
+        daylineViewGroupLabel: "Dayline \uBCF4\uAE30",
         deleteMood: "\uAE30\uBD84 \uAE30\uB85D \uC0AD\uC81C",
         deleteMoodConfirm: "\uC774 \uAE30\uBD84 \uAE30\uB85D\uC744 \uC0AD\uC81C\uD558\uC2DC\uACA0\uC2B5\uB2C8\uAE4C? \uAE30\uB85D\uC740 \uBCF5\uAD6C \uBAA9\uB85D\uC5D0 \uBCF4\uAD00\uB429\uB2C8\uB2E4.",
         detectImports: "\uAC00\uC838\uC624\uAE30 \uAC10\uC9C0",
         detectImportsCommand: "\uC800\uB110 \uAC00\uC838\uC624\uAE30 \uD3F4\uB354 \uAC10\uC9C0",
         detectImportsResult: "{files}\uAC1C\uC758 \uD30C\uC77C\uC744 \uCC3E\uC558\uC2B5\uB2C8\uB2E4 (\uB0A0\uC9DC \uC5C6\uC74C: {noDate}\uAC1C).",
+        diagnosticsCopyFailed: "Dayline \uC9C4\uB2E8 \uC815\uBCF4\uB97C \uBCF5\uC0AC\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4",
+        diagnosticsCopied: "Dayline \uBAA8\uBC14\uC77C \uC9C4\uB2E8 \uC815\uBCF4\uB97C \uBCF5\uC0AC\uD588\uC2B5\uB2C8\uB2E4",
         discardChanges: "\uBCC0\uACBD\uC0AC\uD56D \uC0AD\uC81C",
         editJournalTitle: "\uC800\uB110 \uC81C\uBAA9 \uD3B8\uC9D1",
         editMood: "\uAE30\uBD84 \uAE30\uB85D \uD3B8\uC9D1",
@@ -3849,6 +3899,8 @@ var init_i18n = __esm({
         moodLabelUses: "\uD68C \uC0AC\uC6A9",
         moodMetadataPath: "\uAE30\uBD84 \uBA54\uD0C0\uB370\uC774\uD130 \uACBD\uB85C",
         moodMetadataPathDesc: "\uBCF4\uAD00\uC18C \uB0B4 JSON \uACBD\uB85C. JSON \uD30C\uC77C\uC774 \uAE30\uBD84\uC758 \uC8FC \uB370\uC774\uD130 \uC6D0\uBCF8\uC785\uB2C8\uB2E4.",
+        moodMoveToOrphanFailed: "\uC0AD\uC81C\uD55C \uAE30\uBD84 \uAE30\uB85D\uC744 \uBCF5\uAD6C \uBAA9\uB85D\uC73C\uB85C \uC62E\uAE30\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4: {error}",
+        moodMetadataRenameFailed: "\uAE30\uBD84 \uBA54\uD0C0\uB370\uC774\uD130 \uC774\uB984\uC744 \uBC14\uAFB8\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4: {error}",
         moodNote: "\uAE30\uBD84 \uBA54\uBAA8",
         moodNotePlaceholder: "\uC120\uD0DD \uC0AC\uD56D: \uC9C0\uAE08 \uB4DC\uB294 \uC0DD\uAC01\uC744 \uC801\uC5B4\uBCF4\uC138\uC694\u2026",
         moodQuestion: "\uC624\uB298 \uD558\uB8E8\uB294 \uC5B4\uB5A0\uC168\uB098\uC694?",
@@ -3957,10 +4009,12 @@ var init_i18n = __esm({
         thoughtful: "\uC0DD\uAC01\uC774 \uB9CE\uC740",
         timelineOpenFailed: "\uD0C0\uC784\uB77C\uC778 \uD56D\uBAA9\uC744 \uC5F4\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4: {error}",
         timelineTitle: "\uC800\uB110 \uD0C0\uC784\uB77C\uC778",
+        timezonePlaceholder: "auto \uB610\uB294 Asia/Shanghai",
         tired: "\uD53C\uACE4\uD568",
         toDate: "\uC885\uB8CC \uB0A0\uC9DC",
         today: "\uC624\uB298",
         traditionalChinese: "\uC911\uAD6D\uC5B4 \uBC88\uCCB4",
+        unknownError: "\uC54C \uC218 \uC5C6\uB294 \uC624\uB958",
         unsavedTitle: "\uC800\uC7A5\uB418\uC9C0 \uC54A\uC740 \uC81C\uBAA9",
         untitledJournalTitle: "\uC81C\uBAA9",
         updatedAt: "{time} \uC218\uC815\uB428",
@@ -3977,6 +4031,7 @@ var init_i18n = __esm({
         weatherFieldSunrise: "\uC77C\uCD9C",
         weatherFieldSunset: "\uC77C\uBAB0",
         weatherFieldWind: "\uD48D\uC18D",
+        weatherIconAlt: "\uB0A0\uC528",
         weatherTimezone: "\uB0A0\uC528 \uC2DC\uAC04\uB300",
         weatherTimezoneDesc: "\uC800\uB110 \uB0A0\uC9DC \uBE44\uAD50 \uBC0F Open-Meteo\uC5D0 \uC0AC\uC6A9\uD560 IANA \uC2DC\uAC04\uB300. auto\uB294 \uC2DC\uC2A4\uD15C \uC2DC\uAC04\uB300\uB97C \uC0AC\uC6A9\uD569\uB2C8\uB2E4.",
         weekStart: "\uD55C \uC8FC\uC758 \uC2DC\uC791",
@@ -4000,10 +4055,12 @@ var init_i18n = __esm({
         anxious: "Anxieux",
         apply: "Appliquer",
         back: "Retour",
+        backToNote: "Retour \xE0 la note",
         calendarDisplay: "Affichage du calendrier",
         calendarEntriesOnDate: "{date} : {entries}",
         calendarEntryCount: "{count} entr\xE9es",
         calendarEntryCountOne: "{count} entr\xE9e",
+        calendarLeafCreateFailed: "Dayline : impossible de cr\xE9er le volet du calendrier",
         calendarMonthLoadFailed: "Impossible de charger le mois du calendrier : {error}",
         calendarMoodMarker: "Style du marqueur d'humeur",
         calendarMoodMarkerBar: "Barre de couleur",
@@ -4020,6 +4077,7 @@ var init_i18n = __esm({
         closeFilters: "Fermer les filtres",
         content: "Content",
         continue: "Continuer",
+        copyDiagnosticsCommand: "Copier les diagnostics mobiles de Dayline",
         createDailyNote: "Ouvrir ou cr\xE9er la note d'aujourd'hui",
         createNoteAction: "Cr\xE9er",
         createNoteFailed: "Impossible de cr\xE9er la note : {error}",
@@ -4033,11 +4091,14 @@ var init_i18n = __esm({
         dailyReminder: "Aucune entr\xE9e de journal enregistr\xE9e aujourd'hui",
         dataMaintenance: "Maintenance des donn\xE9es",
         dataMaintenanceDesc: "V\xE9rifie l'int\xE9grit\xE9 des donn\xE9es ou importe les enregistrements depuis le frontmatter.",
+        daylineViewGroupLabel: "Vue Dayline",
         deleteMood: "Supprimer l'enregistrement d'humeur",
         deleteMoodConfirm: "Supprimer cet enregistrement d'humeur ? Il sera conserv\xE9 dans la corbeille.",
         detectImports: "D\xE9tecter les importations",
         detectImportsCommand: "D\xE9tecter les dossiers d'importation du journal",
         detectImportsResult: "{files} fichiers trouv\xE9s ({noDate} sans date).",
+        diagnosticsCopyFailed: "Impossible de copier les diagnostics Dayline",
+        diagnosticsCopied: "Diagnostics mobiles de Dayline copi\xE9s",
         discardChanges: "Ignorer les modifications",
         editJournalTitle: "Modifier le titre de l'entr\xE9e",
         editMood: "Modifier l'enregistrement d'humeur",
@@ -4120,6 +4181,8 @@ var init_i18n = __esm({
         moodLabelUses: "utilisations",
         moodMetadataPath: "Chemin des m\xE9tadonn\xE9es d'humeur",
         moodMetadataPathDesc: "Chemin JSON dans le coffre. Le fichier JSON constitue la source de donn\xE9es principale.",
+        moodMoveToOrphanFailed: "Impossible de d\xE9placer l'humeur supprim\xE9e vers la liste de r\xE9cup\xE9ration : {error}",
+        moodMetadataRenameFailed: "Impossible de renommer les m\xE9tadonn\xE9es d'humeur : {error}",
         moodNote: "Note d'humeur",
         moodNotePlaceholder: "Facultatif : notez vos pens\xE9es du moment\u2026",
         moodQuestion: "Comment s'est pass\xE9e votre journ\xE9e ?",
@@ -4228,10 +4291,12 @@ var init_i18n = __esm({
         thoughtful: "Pensif",
         timelineOpenFailed: "Impossible d'ouvrir l'entr\xE9e de la chronologie : {error}",
         timelineTitle: "Chronologie du journal",
+        timezonePlaceholder: "auto ou Asia/Shanghai",
         tired: "Fatigu\xE9",
         toDate: "Date de fin",
         today: "Aujourd'hui",
         traditionalChinese: "Chinois traditionnel",
+        unknownError: "erreur inconnue",
         unsavedTitle: "Titre non enregistr\xE9",
         untitledJournalTitle: "Titre",
         updatedAt: "Modifi\xE9 le {time}",
@@ -4248,6 +4313,7 @@ var init_i18n = __esm({
         weatherFieldSunrise: "Lever du soleil",
         weatherFieldSunset: "Coucher du soleil",
         weatherFieldWind: "Vitesse du vent",
+        weatherIconAlt: "M\xE9t\xE9o",
         weatherTimezone: "Fuseau horaire m\xE9t\xE9o",
         weatherTimezoneDesc: "Fuseau IANA pour les dates du journal et Open-Meteo. \xAB auto \xBB utilise le fuseau du syst\xE8me.",
         weekStart: "Premier jour de la semaine",
@@ -4271,10 +4337,12 @@ var init_i18n = __esm({
         anxious: "\xC4ngstlich",
         apply: "Anwenden",
         back: "Zur\xFCck",
+        backToNote: "Zur\xFCck zur Notiz",
         calendarDisplay: "Kalenderanzeige",
         calendarEntriesOnDate: "{date}: {entries}",
         calendarEntryCount: "{count} Journaleintr\xE4ge",
         calendarEntryCountOne: "{count} Journaleintrag",
+        calendarLeafCreateFailed: "Dayline: Kalenderbereich konnte nicht erstellt werden",
         calendarMonthLoadFailed: "Kalendermonat konnte nicht geladen werden: {error}",
         calendarMoodMarker: "Stimmungsmarkierungs-Stil",
         calendarMoodMarkerBar: "Farbbalken",
@@ -4291,6 +4359,7 @@ var init_i18n = __esm({
         closeFilters: "Filter schlie\xDFen",
         content: "Zufrieden",
         continue: "Weiter",
+        copyDiagnosticsCommand: "Dayline-Diagnose f\xFCr Mobilger\xE4te kopieren",
         createDailyNote: "Heutige Notiz \xF6ffnen oder erstellen",
         createNoteAction: "Erstellen",
         createNoteFailed: "Notiz konnte nicht erstellt werden: {error}",
@@ -4304,11 +4373,14 @@ var init_i18n = __esm({
         dailyReminder: "Heute wurde noch kein Journaleintrag erfasst",
         dataMaintenance: "Datenwartung",
         dataMaintenanceDesc: "Datenintegrit\xE4t pr\xFCfen oder Eintr\xE4ge aus Frontmatter importieren.",
+        daylineViewGroupLabel: "Dayline-Ansicht",
         deleteMood: "Stimmungseintrag l\xF6schen",
         deleteMoodConfirm: "Diesen Stimmungseintrag l\xF6schen? Er bleibt im Papierkorb erhalten.",
         detectImports: "Importe erkennen",
         detectImportsCommand: "Journal-Importordner erkennen",
         detectImportsResult: "{files} Dateien gefunden ({noDate} ohne Datum).",
+        diagnosticsCopyFailed: "Dayline-Diagnose konnte nicht kopiert werden",
+        diagnosticsCopied: "Dayline-Diagnose f\xFCr Mobilger\xE4te kopiert",
         discardChanges: "\xC4nderungen verwerfen",
         editJournalTitle: "Journaltitel bearbeiten",
         editMood: "Stimmungseintrag bearbeiten",
@@ -4391,6 +4463,8 @@ var init_i18n = __esm({
         moodLabelUses: "Mal verwendet",
         moodMetadataPath: "Pfad zu den Stimmungs-Metadaten",
         moodMetadataPathDesc: "JSON-Pfad im Tresor. Die JSON-Datei dient als prim\xE4re Datenquelle.",
+        moodMoveToOrphanFailed: "Gel\xF6schte Stimmung konnte nicht in die Wiederherstellungsliste verschoben werden: {error}",
+        moodMetadataRenameFailed: "Stimmungs-Metadaten konnten nicht umbenannt werden: {error}",
         moodNote: "Stimmungsnotiz",
         moodNotePlaceholder: "Optional: Halte deine Gedanken fest\u2026",
         moodQuestion: "Wie war dein Tag?",
@@ -4499,10 +4573,12 @@ var init_i18n = __esm({
         thoughtful: "Nachdenklich",
         timelineOpenFailed: "Zeitleisteneintrag konnte nicht ge\xF6ffnet werden: {error}",
         timelineTitle: "Journal-Zeitleiste",
+        timezonePlaceholder: "auto oder Asia/Shanghai",
         tired: "M\xFCde",
         toDate: "Enddatum",
         today: "Heute",
         traditionalChinese: "Traditionelles Chinesisch",
+        unknownError: "Unbekannter Fehler",
         unsavedTitle: "Ungespeicherter Titel",
         untitledJournalTitle: "Titel",
         updatedAt: "Aktualisiert um {time}",
@@ -4519,6 +4595,7 @@ var init_i18n = __esm({
         weatherFieldSunrise: "Sonnenaufgang",
         weatherFieldSunset: "Sonnenuntergang",
         weatherFieldWind: "Windgeschwindigkeit",
+        weatherIconAlt: "Wetter",
         weatherTimezone: "Wetter-Zeitzone",
         weatherTimezoneDesc: "IANA-Zeitzone f\xFCr Datumsvergleiche und Open-Meteo. 'auto' nutzt die Systemzeitzone.",
         weekStart: "Wochenbeginn",
@@ -4542,10 +4619,12 @@ var init_i18n = __esm({
         anxious: "Ansioso",
         apply: "Aplicar",
         back: "Atr\xE1s",
+        backToNote: "Volver a la nota",
         calendarDisplay: "Visualizaci\xF3n del calendario",
         calendarEntriesOnDate: "{date}: {entries}",
         calendarEntryCount: "{count} entradas",
         calendarEntryCountOne: "{count} entrada",
+        calendarLeafCreateFailed: "Dayline: no se pudo crear el panel del calendario",
         calendarMonthLoadFailed: "Error al cargar el mes del calendario: {error}",
         calendarMoodMarker: "Estilo del indicador de \xE1nimo",
         calendarMoodMarkerBar: "Barra de color",
@@ -4562,6 +4641,7 @@ var init_i18n = __esm({
         closeFilters: "Cerrar filtros",
         content: "Satisfecho",
         continue: "Continuar",
+        copyDiagnosticsCommand: "Copiar el diagn\xF3stico m\xF3vil de Dayline",
         createDailyNote: "Abrir o crear la nota de hoy",
         createNoteAction: "Crear",
         createNoteFailed: "Error al crear la nota: {error}",
@@ -4575,11 +4655,14 @@ var init_i18n = __esm({
         dailyReminder: "A\xFAn no has registrado una entrada hoy",
         dataMaintenance: "Mantenimiento de datos",
         dataMaintenanceDesc: "Comprueba la integridad de datos o importa registros desde frontmatter.",
+        daylineViewGroupLabel: "Vista de Dayline",
         deleteMood: "Eliminar registro de \xE1nimo",
         deleteMoodConfirm: "\xBFEliminar este registro de estado de \xE1nimo? Permanecer\xE1 en la lista de recuperaci\xF3n.",
         detectImports: "Detectar importaciones",
         detectImportsCommand: "Detectar carpetas de importaci\xF3n del diario",
         detectImportsResult: "Se encontraron {files} archivos ({noDate} sin fecha).",
+        diagnosticsCopyFailed: "No se pudo copiar el diagn\xF3stico de Dayline",
+        diagnosticsCopied: "Diagn\xF3stico m\xF3vil de Dayline copiado",
         discardChanges: "Descartar cambios",
         editJournalTitle: "Editar t\xEDtulo del diario",
         editMood: "Editar registro de \xE1nimo",
@@ -4662,6 +4745,8 @@ var init_i18n = __esm({
         moodLabelUses: "usos",
         moodMetadataPath: "Ruta de metadatos de \xE1nimo",
         moodMetadataPathDesc: "Ruta JSON en la b\xF3veda. El archivo JSON act\xFAa como la fuente de datos principal.",
+        moodMoveToOrphanFailed: "No se pudo mover el \xE1nimo eliminado a la lista de recuperaci\xF3n: {error}",
+        moodMetadataRenameFailed: "No se pudieron renombrar los metadatos de \xE1nimo: {error}",
         moodNote: "Nota de estado de \xE1nimo",
         moodNotePlaceholder: "Opcional: escribe tus pensamientos del momento\u2026",
         moodQuestion: "\xBFC\xF3mo te sentiste hoy?",
@@ -4770,10 +4855,12 @@ var init_i18n = __esm({
         thoughtful: "Pensativo",
         timelineOpenFailed: "Error al abrir la entrada de la cronolog\xEDa: {error}",
         timelineTitle: "Cronolog\xEDa del diario",
+        timezonePlaceholder: "auto o Asia/Shanghai",
         tired: "Cansado",
         toDate: "Fecha de fin",
         today: "Hoy",
         traditionalChinese: "Chino tradicional",
+        unknownError: "error desconocido",
         unsavedTitle: "T\xEDtulo sin guardar",
         untitledJournalTitle: "T\xEDtulo",
         updatedAt: "Actualizado a las {time}",
@@ -4790,6 +4877,7 @@ var init_i18n = __esm({
         weatherFieldSunrise: "Amanecer",
         weatherFieldSunset: "Atardecer",
         weatherFieldWind: "Velocidad del viento",
+        weatherIconAlt: "Tiempo",
         weatherTimezone: "Zona horaria meteorol\xF3gica",
         weatherTimezoneDesc: "Zona horaria IANA para fechas del diario y Open-Meteo. 'auto' utiliza la zona horaria del sistema.",
         weekStart: "Inicio de la semana",
@@ -4813,10 +4901,12 @@ var init_i18n = __esm({
         anxious: "\u0422\u0440\u0435\u0432\u043E\u0433\u0430",
         apply: "\u041F\u0440\u0438\u043C\u0435\u043D\u0438\u0442\u044C",
         back: "\u041D\u0430\u0437\u0430\u0434",
+        backToNote: "\u0412\u0435\u0440\u043D\u0443\u0442\u044C\u0441\u044F \u043A \u0437\u0430\u043C\u0435\u0442\u043A\u0435",
         calendarDisplay: "\u041E\u0442\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0435 \u043A\u0430\u043B\u0435\u043D\u0434\u0430\u0440\u044F",
         calendarEntriesOnDate: "{date}: {entries}",
         calendarEntryCount: "{count} \u0437\u0430\u043F\u0438\u0441\u0435\u0439",
         calendarEntryCountOne: "{count} \u0437\u0430\u043F\u0438\u0441\u044C",
+        calendarLeafCreateFailed: "Dayline: \u043D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0441\u043E\u0437\u0434\u0430\u0442\u044C \u043F\u0430\u043D\u0435\u043B\u044C \u043A\u0430\u043B\u0435\u043D\u0434\u0430\u0440\u044F",
         calendarMonthLoadFailed: "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0437\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044C \u043C\u0435\u0441\u044F\u0446 \u043A\u0430\u043B\u0435\u043D\u0434\u0430\u0440\u044F: {error}",
         calendarMoodMarker: "\u0421\u0442\u0438\u043B\u044C \u0438\u043D\u0434\u0438\u043A\u0430\u0442\u043E\u0440\u0430 \u043D\u0430\u0441\u0442\u0440\u043E\u0435\u043D\u0438\u044F",
         calendarMoodMarkerBar: "\u0426\u0432\u0435\u0442\u043D\u0430\u044F \u043F\u043E\u043B\u043E\u0441\u043A\u0430",
@@ -4833,6 +4923,7 @@ var init_i18n = __esm({
         closeFilters: "\u0417\u0430\u043A\u0440\u044B\u0442\u044C \u0444\u0438\u043B\u044C\u0442\u0440\u044B",
         content: "\u0423\u0434\u043E\u0432\u043B\u0435\u0442\u0432\u043E\u0440\u0435\u043D\u0438\u0435",
         continue: "\u041F\u0440\u043E\u0434\u043E\u043B\u0436\u0438\u0442\u044C",
+        copyDiagnosticsCommand: "\u0421\u043A\u043E\u043F\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u0434\u0438\u0430\u0433\u043D\u043E\u0441\u0442\u0438\u043A\u0443 Dayline \u0434\u043B\u044F \u043C\u043E\u0431\u0438\u043B\u044C\u043D\u044B\u0445 \u0443\u0441\u0442\u0440\u043E\u0439\u0441\u0442\u0432",
         createDailyNote: "\u041E\u0442\u043A\u0440\u044B\u0442\u044C \u0438\u043B\u0438 \u0441\u043E\u0437\u0434\u0430\u0442\u044C \u0441\u0435\u0433\u043E\u0434\u043D\u044F\u0448\u043D\u044E\u044E \u0437\u0430\u043C\u0435\u0442\u043A\u0443",
         createNoteAction: "\u0421\u043E\u0437\u0434\u0430\u0442\u044C",
         createNoteFailed: "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0441\u043E\u0437\u0434\u0430\u0442\u044C \u0437\u0430\u043C\u0435\u0442\u043A\u0443: {error}",
@@ -4846,11 +4937,14 @@ var init_i18n = __esm({
         dailyReminder: "\u0421\u0435\u0433\u043E\u0434\u043D\u044F \u0435\u0449\u0451 \u043D\u0435\u0442 \u0437\u0430\u043F\u0438\u0441\u0435\u0439 \u0432 \u0434\u043D\u0435\u0432\u043D\u0438\u043A\u0435",
         dataMaintenance: "\u041E\u0431\u0441\u043B\u0443\u0436\u0438\u0432\u0430\u043D\u0438\u0435 \u0434\u0430\u043D\u043D\u044B\u0445",
         dataMaintenanceDesc: "\u041F\u0440\u043E\u0432\u0435\u0440\u043A\u0430 \u0446\u0435\u043B\u043E\u0441\u0442\u043D\u043E\u0441\u0442\u0438 \u0434\u0430\u043D\u043D\u044B\u0445 \u0438\u043B\u0438 \u0438\u043C\u043F\u043E\u0440\u0442 \u0437\u0430\u043F\u0438\u0441\u0435\u0439 \u0438\u0437 frontmatter.",
+        daylineViewGroupLabel: "\u041F\u0440\u0435\u0434\u0441\u0442\u0430\u0432\u043B\u0435\u043D\u0438\u0435 Dayline",
         deleteMood: "\u0423\u0434\u0430\u043B\u0438\u0442\u044C \u0437\u0430\u043F\u0438\u0441\u044C \u043D\u0430\u0441\u0442\u0440\u043E\u0435\u043D\u0438\u044F",
         deleteMoodConfirm: "\u0423\u0434\u0430\u043B\u0438\u0442\u044C \u044D\u0442\u0443 \u0437\u0430\u043F\u0438\u0441\u044C \u043D\u0430\u0441\u0442\u0440\u043E\u0435\u043D\u0438\u044F? \u041E\u043D\u0430 \u043E\u0441\u0442\u0430\u043D\u0435\u0442\u0441\u044F \u0432 \u0441\u043F\u0438\u0441\u043A\u0435 \u0432\u043E\u0441\u0441\u0442\u0430\u043D\u043E\u0432\u043B\u0435\u043D\u0438\u044F.",
         detectImports: "\u041E\u0431\u043D\u0430\u0440\u0443\u0436\u0438\u0442\u044C \u0438\u043C\u043F\u043E\u0440\u0442",
         detectImportsCommand: "\u041E\u0431\u043D\u0430\u0440\u0443\u0436\u0438\u0442\u044C \u043F\u0430\u043F\u043A\u0438 \u0438\u043C\u043F\u043E\u0440\u0442\u0430 \u0434\u043D\u0435\u0432\u043D\u0438\u043A\u0430",
         detectImportsResult: "\u041D\u0430\u0439\u0434\u0435\u043D\u043E \u0444\u0430\u0439\u043B\u043E\u0432: {files} (\u0431\u0435\u0437 \u0434\u0430\u0442\u044B: {noDate}).",
+        diagnosticsCopyFailed: "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0441\u043A\u043E\u043F\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u0434\u0438\u0430\u0433\u043D\u043E\u0441\u0442\u0438\u043A\u0443 Dayline",
+        diagnosticsCopied: "\u0414\u0438\u0430\u0433\u043D\u043E\u0441\u0442\u0438\u043A\u0430 Dayline \u0434\u043B\u044F \u043C\u043E\u0431\u0438\u043B\u044C\u043D\u044B\u0445 \u0443\u0441\u0442\u0440\u043E\u0439\u0441\u0442\u0432 \u0441\u043A\u043E\u043F\u0438\u0440\u043E\u0432\u0430\u043D\u0430",
         discardChanges: "\u0421\u0431\u0440\u043E\u0441\u0438\u0442\u044C \u0438\u0437\u043C\u0435\u043D\u0435\u043D\u0438\u044F",
         editJournalTitle: "\u0420\u0435\u0434\u0430\u043A\u0442\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u0437\u0430\u0433\u043E\u043B\u043E\u0432\u043E\u043A",
         editMood: "\u0420\u0435\u0434\u0430\u043A\u0442\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u0437\u0430\u043F\u0438\u0441\u044C \u043D\u0430\u0441\u0442\u0440\u043E\u0435\u043D\u0438\u044F",
@@ -4933,6 +5027,8 @@ var init_i18n = __esm({
         moodLabelUses: "\u0440\u0430\u0437(\u0430)",
         moodMetadataPath: "\u041F\u0443\u0442\u044C \u043A \u043C\u0435\u0442\u0430\u0434\u0430\u043D\u043D\u044B\u043C \u043D\u0430\u0441\u0442\u0440\u043E\u0435\u043D\u0438\u044F",
         moodMetadataPathDesc: "\u041F\u0443\u0442\u044C \u043A JSON-\u0444\u0430\u0439\u043B\u0443 \u0432 \u0445\u0440\u0430\u043D\u0438\u043B\u0438\u0449\u0435. JSON \u044F\u0432\u043B\u044F\u0435\u0442\u0441\u044F \u043E\u0441\u043D\u043E\u0432\u043D\u044B\u043C \u0438\u0441\u0442\u043E\u0447\u043D\u0438\u043A\u043E\u043C \u0434\u0430\u043D\u043D\u044B\u0445.",
+        moodMoveToOrphanFailed: "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043F\u0435\u0440\u0435\u043C\u0435\u0441\u0442\u0438\u0442\u044C \u0443\u0434\u0430\u043B\u0451\u043D\u043D\u0443\u044E \u0437\u0430\u043F\u0438\u0441\u044C \u043D\u0430\u0441\u0442\u0440\u043E\u0435\u043D\u0438\u044F \u0432 \u0441\u043F\u0438\u0441\u043E\u043A \u0432\u043E\u0441\u0441\u0442\u0430\u043D\u043E\u0432\u043B\u0435\u043D\u0438\u044F: {error}",
+        moodMetadataRenameFailed: "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043F\u0435\u0440\u0435\u0438\u043C\u0435\u043D\u043E\u0432\u0430\u0442\u044C \u043C\u0435\u0442\u0430\u0434\u0430\u043D\u043D\u044B\u0435 \u043D\u0430\u0441\u0442\u0440\u043E\u0435\u043D\u0438\u044F: {error}",
         moodNote: "\u0417\u0430\u043C\u0435\u0442\u043A\u0430 \u043E \u043D\u0430\u0441\u0442\u0440\u043E\u0435\u043D\u0438\u0438",
         moodNotePlaceholder: "\u041D\u0435\u043E\u0431\u044F\u0437\u0430\u0442\u0435\u043B\u044C\u043D\u043E: \u0437\u0430\u043F\u0438\u0448\u0438\u0442\u0435 \u043C\u044B\u0441\u043B\u0438 \u044D\u0442\u043E\u0433\u043E \u043C\u043E\u043C\u0435\u043D\u0442\u0430\u2026",
         moodQuestion: "\u041A\u0430\u043A \u043F\u0440\u043E\u0448\u0451\u043B \u0432\u0430\u0448 \u0434\u0435\u043D\u044C?",
@@ -5041,10 +5137,12 @@ var init_i18n = __esm({
         thoughtful: "\u0417\u0430\u0434\u0443\u043C\u0447\u0438\u0432\u043E\u0441\u0442\u044C",
         timelineOpenFailed: "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043E\u0442\u043A\u0440\u044B\u0442\u044C \u0437\u0430\u043F\u0438\u0441\u044C \u0445\u0440\u043E\u043D\u043E\u043B\u043E\u0433\u0438\u0438: {error}",
         timelineTitle: "\u0425\u0440\u043E\u043D\u043E\u043B\u043E\u0433\u0438\u044F \u0434\u043D\u0435\u0432\u043D\u0438\u043A\u0430",
+        timezonePlaceholder: "auto \u0438\u043B\u0438 Asia/Shanghai",
         tired: "\u0423\u0441\u0442\u0430\u043B\u043E\u0441\u0442\u044C",
         toDate: "\u0414\u0430\u0442\u0430 \u043E\u043A\u043E\u043D\u0447\u0430\u043D\u0438\u044F",
         today: "\u0421\u0435\u0433\u043E\u0434\u043D\u044F",
         traditionalChinese: "\u0422\u0440\u0430\u0434\u0438\u0446\u0438\u043E\u043D\u043D\u044B\u0439 \u043A\u0438\u0442\u0430\u0439\u0441\u043A\u0438\u0439",
+        unknownError: "\u043D\u0435\u0438\u0437\u0432\u0435\u0441\u0442\u043D\u0430\u044F \u043E\u0448\u0438\u0431\u043A\u0430",
         unsavedTitle: "\u041D\u0435\u0441\u043E\u0445\u0440\u0430\u043D\u0451\u043D\u043D\u044B\u0439 \u0437\u0430\u0433\u043E\u043B\u043E\u0432\u043E\u043A",
         untitledJournalTitle: "\u0417\u0430\u0433\u043E\u043B\u043E\u0432\u043E\u043A",
         updatedAt: "\u041E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u043E \u0432 {time}",
@@ -5061,6 +5159,7 @@ var init_i18n = __esm({
         weatherFieldSunrise: "\u0412\u043E\u0441\u0445\u043E\u0434",
         weatherFieldSunset: "\u0417\u0430\u043A\u0430\u0442",
         weatherFieldWind: "\u0421\u043A\u043E\u0440\u043E\u0441\u0442\u044C \u0432\u0435\u0442\u0440\u0430",
+        weatherIconAlt: "\u041F\u043E\u0433\u043E\u0434\u0430",
         weatherTimezone: "\u0427\u0430\u0441\u043E\u0432\u043E\u0439 \u043F\u043E\u044F\u0441 \u043F\u043E\u0433\u043E\u0434\u044B",
         weatherTimezoneDesc: "\u0427\u0430\u0441\u043E\u0432\u043E\u0439 \u043F\u043E\u044F\u0441 IANA \u0434\u043B\u044F \u0434\u0430\u0442 \u0434\u043D\u0435\u0432\u043D\u0438\u043A\u0430 \u0438 Open-Meteo. 'auto' \u0438\u0441\u043F\u043E\u043B\u044C\u0437\u0443\u0435\u0442 \u0441\u0438\u0441\u0442\u0435\u043C\u043D\u044B\u0439 \u043F\u043E\u044F\u0441.",
         weekStart: "\u041D\u0430\u0447\u0430\u043B\u043E \u043D\u0435\u0434\u0435\u043B\u0438",
@@ -6109,7 +6208,7 @@ function getMobileMarkdownLeaf(workspace) {
 function renderMobileDaylineModeControls(parent, options) {
   const controls = parent?.createDiv?.({
     cls: "dayline-mobile-mode-controls dayline-mobile-native-mode-controls",
-    attr: { role: "group", "aria-label": "Dayline view" }
+    attr: { role: "group", "aria-label": options?.groupLabel || "Dayline view" }
   });
   if (!controls?.createEl) return null;
   const activeMode = normalizeDaylineMobileMode(options?.activeMode);
@@ -6141,7 +6240,8 @@ function renderMobileDaylineModeControls(parent, options) {
     });
   }
   if (options?.onReturn) {
-    const button = controls.createEl("button", { cls: "dayline-mobile-mode-button dayline-mobile-return-button", attr: { type: "button", "aria-label": "Back to note", title: "Back to note" } });
+    const returnLabel = options?.returnLabel || "Back to note";
+    const button = controls.createEl("button", { cls: "dayline-mobile-mode-button dayline-mobile-return-button", attr: { type: "button", "aria-label": returnLabel, title: returnLabel } });
     options?.setIcon?.(button, "arrow-left");
     button.addEventListener("click", () => Promise.resolve(options.onReturn?.()).catch((error) => console.warn("[Dayline] Mobile note return failed:", error)));
   }
@@ -6468,6 +6568,8 @@ var init_journal_timeline_view = __esm({
             calendar: t(this.plugin.settings, "calendarTitle"),
             timeline: t(this.plugin.settings, "timelineTitle")
           },
+          groupLabel: t(this.plugin.settings, "daylineViewGroupLabel"),
+          returnLabel: t(this.plugin.settings, "backToNote"),
           onSelect: (mode) => mode === "calendar" ? this.plugin.activateView() : this.plugin.activateTimeline(),
           setIcon: import_obsidian2.setIcon,
           onReturn: () => this.plugin._returnToMobileMarkdown()
@@ -9631,7 +9733,7 @@ var init_settings_tab = __esm({
               });
             }
           }
-          new import_obsidian5.Setting(containerEl).setName(t(this.plugin.settings, "weatherTimezone")).setDesc(t(this.plugin.settings, "weatherTimezoneDesc")).addText((text) => text.setPlaceholder("auto or Asia/Shanghai").setValue(String(this.plugin.settings.weatherTimezone || "auto")).onChange(async (value) => {
+          new import_obsidian5.Setting(containerEl).setName(t(this.plugin.settings, "weatherTimezone")).setDesc(t(this.plugin.settings, "weatherTimezoneDesc")).addText((text) => text.setPlaceholder(t(this.plugin.settings, "timezonePlaceholder")).setValue(String(this.plugin.settings.weatherTimezone || "auto")).onChange(async (value) => {
             this.plugin.settings.weatherTimezone = value.trim() || "auto";
             if (!await this._saveSettings()) return;
             await this._refreshViews();
@@ -10468,6 +10570,319 @@ var init_weather_service = __esm({
         }
         this.plugin._saveWeatherCache?.();
         return done;
+      }
+    };
+  }
+});
+
+// src/weather-conditions.ts
+var weather_conditions_exports = {};
+__export(weather_conditions_exports, {
+  WEATHER_CONDITION_CODES: () => WEATHER_CONDITION_CODES,
+  weatherConditionLabel: () => weatherConditionLabel
+});
+function weatherConditionLabel(snapshot, settings = {}) {
+  const table = WEATHER_CONDITIONS[getDisplayLanguage(settings)] || WEATHER_CONDITIONS[DEFAULT_DISPLAY_LANGUAGE];
+  const code = Number(snapshot?.weatherCode);
+  if (Number.isFinite(code)) {
+    const index = WEATHER_CONDITION_CODES.indexOf(code);
+    if (index >= 0) return table.conditions[index];
+    return table.unknown.replace("{code}", String(code));
+  }
+  return String(snapshot?.condition || "");
+}
+var WEATHER_CONDITION_CODES, WEATHER_CONDITIONS;
+var init_weather_conditions = __esm({
+  "src/weather-conditions.ts"() {
+    "use strict";
+    init_i18n();
+    WEATHER_CONDITION_CODES = [
+      0,
+      1,
+      2,
+      3,
+      45,
+      48,
+      51,
+      53,
+      55,
+      61,
+      63,
+      65,
+      71,
+      73,
+      75,
+      77,
+      80,
+      81,
+      82,
+      85,
+      86,
+      95,
+      96,
+      99
+    ];
+    WEATHER_CONDITIONS = {
+      en: {
+        conditions: [
+          "Clear sky",
+          "Mainly clear",
+          "Partly cloudy",
+          "Overcast",
+          "Foggy",
+          "Depositing rime fog",
+          "Light drizzle",
+          "Moderate drizzle",
+          "Dense drizzle",
+          "Slight rain",
+          "Moderate rain",
+          "Heavy rain",
+          "Slight snow fall",
+          "Moderate snow fall",
+          "Heavy snow fall",
+          "Snow grains",
+          "Slight rain showers",
+          "Moderate rain showers",
+          "Violent rain showers",
+          "Slight snow showers",
+          "Heavy snow showers",
+          "Thunderstorm",
+          "Thunderstorm w/ hail",
+          "Thunderstorm w/ heavy hail"
+        ],
+        unknown: "Weather code {code}"
+      },
+      zh: {
+        conditions: [
+          "\u6674",
+          "\u5927\u81F4\u6674\u6717",
+          "\u5C40\u90E8\u591A\u4E91",
+          "\u9634",
+          "\u6709\u96FE",
+          "\u96FE\u51C7",
+          "\u5C0F\u6BDB\u6BDB\u96E8",
+          "\u4E2D\u7B49\u6BDB\u6BDB\u96E8",
+          "\u6D53\u5BC6\u6BDB\u6BDB\u96E8",
+          "\u5C0F\u96E8",
+          "\u4E2D\u96E8",
+          "\u5927\u96E8",
+          "\u5C0F\u96EA",
+          "\u4E2D\u96EA",
+          "\u5927\u96EA",
+          "\u7C73\u96EA",
+          "\u5C0F\u9635\u96E8",
+          "\u4E2D\u7B49\u9635\u96E8",
+          "\u5F3A\u9635\u96E8",
+          "\u5C0F\u9635\u96EA",
+          "\u5927\u9635\u96EA",
+          "\u96F7\u66B4",
+          "\u96F7\u66B4\u4F34\u51B0\u96F9",
+          "\u96F7\u66B4\u4F34\u5F3A\u51B0\u96F9"
+        ],
+        unknown: "\u5929\u6C14\u4EE3\u7801 {code}"
+      },
+      "zh-tw": {
+        conditions: [
+          "\u6674",
+          "\u5927\u81F4\u6674\u6717",
+          "\u5C40\u90E8\u591A\u96F2",
+          "\u9670",
+          "\u6709\u9727",
+          "\u9727\u51C7",
+          "\u5C0F\u6BDB\u6BDB\u96E8",
+          "\u4E2D\u7B49\u6BDB\u6BDB\u96E8",
+          "\u6FC3\u5BC6\u6BDB\u6BDB\u96E8",
+          "\u5C0F\u96E8",
+          "\u4E2D\u96E8",
+          "\u5927\u96E8",
+          "\u5C0F\u96EA",
+          "\u4E2D\u96EA",
+          "\u5927\u96EA",
+          "\u7C73\u96EA",
+          "\u5C0F\u9663\u96E8",
+          "\u4E2D\u7B49\u9663\u96E8",
+          "\u5F37\u9663\u96E8",
+          "\u5C0F\u9663\u96EA",
+          "\u5927\u9663\u96EA",
+          "\u96F7\u66B4",
+          "\u96F7\u66B4\u4F34\u51B0\u96F9",
+          "\u96F7\u66B4\u4F34\u5F37\u51B0\u96F9"
+        ],
+        unknown: "\u5929\u6C23\u4EE3\u78BC {code}"
+      },
+      ja: {
+        conditions: [
+          "\u5FEB\u6674",
+          "\u6674\u308C",
+          "\u4E00\u90E8\u66C7\u308A",
+          "\u66C7\u308A",
+          "\u9727",
+          "\u7740\u6C37\u6027\u306E\u9727",
+          "\u5F31\u3044\u9727\u96E8",
+          "\u9727\u96E8",
+          "\u5F37\u3044\u9727\u96E8",
+          "\u5F31\u3044\u96E8",
+          "\u96E8",
+          "\u5F37\u3044\u96E8",
+          "\u5F31\u3044\u96EA",
+          "\u96EA",
+          "\u5F37\u3044\u96EA",
+          "\u96EA\u3042\u3089\u308C",
+          "\u5F31\u3044\u306B\u308F\u304B\u96E8",
+          "\u306B\u308F\u304B\u96E8",
+          "\u6FC0\u3057\u3044\u306B\u308F\u304B\u96E8",
+          "\u5F31\u3044\u306B\u308F\u304B\u96EA",
+          "\u5F37\u3044\u306B\u308F\u304B\u96EA",
+          "\u96F7\u96E8",
+          "\u96F9\u3092\u4F34\u3046\u96F7\u96E8",
+          "\u6FC0\u3057\u3044\u96F9\u3092\u4F34\u3046\u96F7\u96E8"
+        ],
+        unknown: "\u5929\u6C17\u30B3\u30FC\u30C9 {code}"
+      },
+      ko: {
+        conditions: [
+          "\uB9D1\uC74C",
+          "\uB300\uCCB4\uB85C \uB9D1\uC74C",
+          "\uBD80\uBD84\uC801\uC73C\uB85C \uD750\uB9BC",
+          "\uD750\uB9BC",
+          "\uC548\uAC1C",
+          "\uCC29\uBE59\uC131 \uC548\uAC1C",
+          "\uC57D\uD55C \uC774\uC2AC\uBE44",
+          "\uC774\uC2AC\uBE44",
+          "\uAC15\uD55C \uC774\uC2AC\uBE44",
+          "\uC57D\uD55C \uBE44",
+          "\uBE44",
+          "\uAC15\uD55C \uBE44",
+          "\uC57D\uD55C \uB208",
+          "\uB208",
+          "\uAC15\uD55C \uB208",
+          "\uC2F8\uB77D\uB208",
+          "\uC57D\uD55C \uC18C\uB098\uAE30",
+          "\uC18C\uB098\uAE30",
+          "\uAC15\uD55C \uC18C\uB098\uAE30",
+          "\uC57D\uD55C \uB208 \uC18C\uB098\uAE30",
+          "\uAC15\uD55C \uB208 \uC18C\uB098\uAE30",
+          "\uB1CC\uC6B0",
+          "\uC6B0\uBC15\uC744 \uB3D9\uBC18\uD55C \uB1CC\uC6B0",
+          "\uAC15\uD55C \uC6B0\uBC15\uC744 \uB3D9\uBC18\uD55C \uB1CC\uC6B0"
+        ],
+        unknown: "\uB0A0\uC528 \uCF54\uB4DC {code}"
+      },
+      fr: {
+        conditions: [
+          "Ciel d\xE9gag\xE9",
+          "Plut\xF4t d\xE9gag\xE9",
+          "Partiellement nuageux",
+          "Couvert",
+          "Brouillard",
+          "Brouillard givrant",
+          "Bruine l\xE9g\xE8re",
+          "Bruine mod\xE9r\xE9e",
+          "Bruine dense",
+          "Pluie faible",
+          "Pluie mod\xE9r\xE9e",
+          "Pluie forte",
+          "Neige faible",
+          "Neige mod\xE9r\xE9e",
+          "Neige forte",
+          "Grains de neige",
+          "Averses faibles",
+          "Averses mod\xE9r\xE9es",
+          "Averses violentes",
+          "Averses de neige faibles",
+          "Averses de neige fortes",
+          "Orage",
+          "Orage avec gr\xEAle",
+          "Orage avec forte gr\xEAle"
+        ],
+        unknown: "Code m\xE9t\xE9o {code}"
+      },
+      de: {
+        conditions: [
+          "Klarer Himmel",
+          "\xDCberwiegend klar",
+          "Teils bew\xF6lkt",
+          "Bedeckt",
+          "Neblig",
+          "Gefrierender Nebel",
+          "Leichter Nieselregen",
+          "M\xE4\xDFiger Nieselregen",
+          "Dichter Nieselregen",
+          "Leichter Regen",
+          "M\xE4\xDFiger Regen",
+          "Starker Regen",
+          "Leichter Schneefall",
+          "M\xE4\xDFiger Schneefall",
+          "Starker Schneefall",
+          "Schneegriesel",
+          "Leichte Regenschauer",
+          "M\xE4\xDFige Regenschauer",
+          "Heftige Regenschauer",
+          "Leichte Schneeschauer",
+          "Starke Schneeschauer",
+          "Gewitter",
+          "Gewitter mit Hagel",
+          "Gewitter mit starkem Hagel"
+        ],
+        unknown: "Wettercode {code}"
+      },
+      es: {
+        conditions: [
+          "Cielo despejado",
+          "Mayormente despejado",
+          "Parcialmente nublado",
+          "Cubierto",
+          "Niebla",
+          "Niebla helada",
+          "Llovizna ligera",
+          "Llovizna moderada",
+          "Llovizna densa",
+          "Lluvia ligera",
+          "Lluvia moderada",
+          "Lluvia intensa",
+          "Nevada ligera",
+          "Nevada moderada",
+          "Nevada intensa",
+          "Granos de nieve",
+          "Chubascos ligeros",
+          "Chubascos moderados",
+          "Chubascos violentos",
+          "Chubascos de nieve ligeros",
+          "Chubascos de nieve intensos",
+          "Tormenta",
+          "Tormenta con granizo",
+          "Tormenta con granizo fuerte"
+        ],
+        unknown: "C\xF3digo meteorol\xF3gico {code}"
+      },
+      ru: {
+        conditions: [
+          "\u042F\u0441\u043D\u043E",
+          "\u041F\u0440\u0435\u0438\u043C\u0443\u0449\u0435\u0441\u0442\u0432\u0435\u043D\u043D\u043E \u044F\u0441\u043D\u043E",
+          "\u041F\u0435\u0440\u0435\u043C\u0435\u043D\u043D\u0430\u044F \u043E\u0431\u043B\u0430\u0447\u043D\u043E\u0441\u0442\u044C",
+          "\u041F\u0430\u0441\u043C\u0443\u0440\u043D\u043E",
+          "\u0422\u0443\u043C\u0430\u043D",
+          "\u0418\u0437\u043C\u043E\u0440\u043E\u0437\u044C",
+          "\u0421\u043B\u0430\u0431\u0430\u044F \u043C\u043E\u0440\u043E\u0441\u044C",
+          "\u0423\u043C\u0435\u0440\u0435\u043D\u043D\u0430\u044F \u043C\u043E\u0440\u043E\u0441\u044C",
+          "\u0421\u0438\u043B\u044C\u043D\u0430\u044F \u043C\u043E\u0440\u043E\u0441\u044C",
+          "\u041D\u0435\u0431\u043E\u043B\u044C\u0448\u043E\u0439 \u0434\u043E\u0436\u0434\u044C",
+          "\u0423\u043C\u0435\u0440\u0435\u043D\u043D\u044B\u0439 \u0434\u043E\u0436\u0434\u044C",
+          "\u0421\u0438\u043B\u044C\u043D\u044B\u0439 \u0434\u043E\u0436\u0434\u044C",
+          "\u041D\u0435\u0431\u043E\u043B\u044C\u0448\u043E\u0439 \u0441\u043D\u0435\u0433",
+          "\u0423\u043C\u0435\u0440\u0435\u043D\u043D\u044B\u0439 \u0441\u043D\u0435\u0433",
+          "\u0421\u0438\u043B\u044C\u043D\u044B\u0439 \u0441\u043D\u0435\u0433",
+          "\u0421\u043D\u0435\u0436\u043D\u044B\u0435 \u0437\u0451\u0440\u043D\u0430",
+          "\u041D\u0435\u0431\u043E\u043B\u044C\u0448\u0438\u0435 \u043B\u0438\u0432\u043D\u0438",
+          "\u0423\u043C\u0435\u0440\u0435\u043D\u043D\u044B\u0435 \u043B\u0438\u0432\u043D\u0438",
+          "\u0421\u0438\u043B\u044C\u043D\u044B\u0435 \u043B\u0438\u0432\u043D\u0438",
+          "\u041D\u0435\u0431\u043E\u043B\u044C\u0448\u0438\u0435 \u0441\u043D\u0435\u0436\u043D\u044B\u0435 \u043B\u0438\u0432\u043D\u0438",
+          "\u0421\u0438\u043B\u044C\u043D\u044B\u0435 \u0441\u043D\u0435\u0436\u043D\u044B\u0435 \u043B\u0438\u0432\u043D\u0438",
+          "\u0413\u0440\u043E\u0437\u0430",
+          "\u0413\u0440\u043E\u0437\u0430 \u0441 \u0433\u0440\u0430\u0434\u043E\u043C",
+          "\u0413\u0440\u043E\u0437\u0430 \u0441 \u0441\u0438\u043B\u044C\u043D\u044B\u043C \u0433\u0440\u0430\u0434\u043E\u043C"
+        ],
+        unknown: "\u041A\u043E\u0434 \u043F\u043E\u0433\u043E\u0434\u044B {code}"
       }
     };
   }
@@ -27901,6 +28316,7 @@ var badgeRainSvg = require_badge_rain();
 var badgeSnowSvg = require_badge_snow();
 var badgeStormSvg = require_badge_storm();
 var { WeatherService: WeatherService2, lookupWeatherCode: lookupWeatherCode2, validateWeatherCoordinates: validateWeatherCoordinates2, weatherBadgeIcon: weatherBadgeIcon2 } = (init_weather_service(), __toCommonJS(weather_service_exports));
+var { weatherConditionLabel: weatherConditionLabel2 } = (init_weather_conditions(), __toCommonJS(weather_conditions_exports));
 var { buildWeatherCardParts: buildWeatherCardParts2, buildWeatherStatus: buildWeatherStatus2, normalizeWeatherDisplayFields: normalizeWeatherDisplayFields2 } = (init_weather_display(), __toCommonJS(weather_display_exports));
 var { localize: _l } = (init_locale(), __toCommonJS(locale_exports));
 var { formatDateParts: formatDateParts2, getClockPartsInTimeZone: getClockPartsInTimeZone2, getTodayDate: getTodayDate2 } = (init_date_utils(), __toCommonJS(date_utils_exports));
@@ -28122,7 +28538,7 @@ var DaylinePlugin = class extends Plugin {
     });
     this.addCommand({
       id: "copy-mobile-diagnostics",
-      name: "Copy Dayline mobile diagnostics",
+      name: t2(this.settings, "copyDiagnosticsCommand"),
       callback: () => this._copyMobileDiagnostics()
     });
     this.addSettingTab(new DaylineSettingsTab2(this.app, this));
@@ -28259,10 +28675,10 @@ var DaylinePlugin = class extends Plugin {
       } else {
         throw new Error("clipboard is unavailable");
       }
-      new Notice5("Dayline mobile diagnostics copied");
+      new Notice5(t2(this.settings, "diagnosticsCopied"));
     } catch (error) {
       console.warn("[Dayline] Could not copy mobile diagnostics:", error?.message || error);
-      new Notice5("Unable to copy Dayline diagnostics");
+      new Notice5(t2(this.settings, "diagnosticsCopyFailed"));
     }
   }
   _removeCapabilityClasses() {
@@ -28587,7 +29003,11 @@ ${path}`)) return false;
   _handleJournalDelete(file) {
     this._notifyCalendarImageChange(file);
     if (!(file instanceof TFile3) || file.extension !== "md") return;
-    this._queueJournalWrite("move deleted mood to orphan", () => this.moodStore.removeToOrphan(file.path));
+    this._queueJournalWrite(
+      "move deleted mood to orphan",
+      () => this.moodStore.removeToOrphan(file.path),
+      (detail) => t2(this.settings, "moodMoveToOrphanFailed", { error: detail })
+    );
     this.journalIndex.removeFile(file.path);
   }
   async _handleJournalRename(file, oldPath) {
@@ -28600,7 +29020,7 @@ ${path}`)) return false;
       await this._journalWriteQueue.add(() => this.moodStore.rename(oldPath, file.path));
     } catch (error) {
       console.warn("[Dayline] rename mood metadata failed:", error?.message || error);
-      new Notice5(`rename mood metadata: ${error?.message || error}`);
+      new Notice5(t2(this.settings, "moodMetadataRenameFailed", { error: error?.message || error }));
       return;
     }
     this.journalIndex.renameFile(oldPath, file.path);
@@ -28626,10 +29046,11 @@ ${path}`)) return false;
     this.heicCache?.invalidate(path);
     this.mediaService?.invalidate(path);
   }
-  _queueJournalWrite(label, task) {
+  _queueJournalWrite(label, task, formatNotice) {
     return this._journalWriteQueue.add(task).catch((error) => {
       console.warn(`[Dayline] ${label} failed:`, error?.message || error);
-      new Notice5(`${label}: ${error?.message || error}`);
+      const detail = error?.message || error;
+      new Notice5(formatNotice ? formatNotice(detail) : `${label}: ${detail}`);
     });
   }
   /** Remove all overlay elements from markdown view containers. */
@@ -28867,7 +29288,7 @@ ${path}`)) return false;
       leaf = workspace.getLeftLeaf(false);
     }
     if (!leaf) {
-      new Notice5("Dayline: could not create calendar leaf");
+      new Notice5(t2(this.settings, "calendarLeafCreateFailed"));
       return;
     }
     await leaf.setViewState({ type: VIEW_TYPE2, active: true });
@@ -28956,6 +29377,8 @@ var CalendarView = class extends ItemView2 {
         calendar: t2(this.plugin.settings, "calendarTitle"),
         timeline: t2(this.plugin.settings, "timelineTitle")
       },
+      groupLabel: t2(this.plugin.settings, "daylineViewGroupLabel"),
+      returnLabel: t2(this.plugin.settings, "backToNote"),
       onSelect: (mode) => mode === "timeline" ? this.plugin.activateTimeline() : this.plugin.activateView(),
       setIcon: setIcon5,
       onReturn: () => this.plugin._returnToMobileMarkdown()
@@ -29407,8 +29830,9 @@ var CalendarView = class extends ItemView2 {
           const category = BADGE_ICON_CATEGORY[iconFile] ?? "weather-cat-cloud";
           const badge = cell.createSpan({ cls: `cal-weather-badge ${category}` });
           appendBadgeSvg2(badge, BADGE_SVG[iconFile] ?? BADGE_SVG["badge-cloud.svg"]);
-          badge.setAttribute("aria-label", `${snap.condition}, ${snap.temperature}${this._unitSymbol(snap.units)}`);
-          badge.title = `${snap.condition} \xB7 ${snap.temperature}${this._unitSymbol(snap.units)}`;
+          const condition = weatherConditionLabel2(snap, this.plugin.settings);
+          badge.setAttribute("aria-label", `${condition}, ${snap.temperature}${this._unitSymbol(snap.units)}`);
+          badge.title = `${condition} \xB7 ${snap.temperature}${this._unitSymbol(snap.units)}`;
         }
       }
       const dailyPath = `${this.plugin.settings.dailyFolder}/${dateStr}.md`;
@@ -29655,7 +30079,7 @@ var CalendarView = class extends ItemView2 {
     if (loading) iconEl.alt = loading;
     else {
       iconEl.src = _iconUrl("overcast.svg");
-      iconEl.alt = "weather";
+      iconEl.alt = t2(this.plugin.settings, "weatherIconAlt");
     }
     const infoEl = main.createDiv({ cls: "cal-weather-info" });
     const tempEl = infoEl.createDiv({ cls: "cal-weather-temp" });
@@ -29833,8 +30257,9 @@ var CalendarView = class extends ItemView2 {
     const iconEl = card.querySelector(".cal-weather-icon");
     if (iconEl) {
       iconEl.src = _iconUrl(snap.icon) || "";
-      iconEl.alt = snap.condition;
-      iconEl.title = snap.condition;
+      const condition = weatherConditionLabel2(snap, this.plugin.settings);
+      iconEl.alt = condition;
+      iconEl.title = condition;
     }
     const tempEl = card.querySelector(".cal-weather-temp");
     const unitSym = this._unitSymbol(snap.units);
@@ -29928,7 +30353,7 @@ var CalendarView = class extends ItemView2 {
       this._weatherLoading = false;
       this._updateWeatherCardUI();
       const lang = this.plugin.settings.weatherLanguage;
-      new Notice5(_l(lang, "refreshFailed", err.message || "unknown error"));
+      new Notice5(_l(lang, "refreshFailed", err.message || t2(this.plugin.settings, "unknownError")));
     } finally {
       if (wasLoading && btnEl) {
         btnEl.removeAttribute("disabled");
@@ -30424,8 +30849,9 @@ var CalendarView = class extends ItemView2 {
     }
     const iconEl = overlay.createEl("img", { cls: "cal-overlay-icon" });
     iconEl.src = _iconUrl(snap.icon) || "";
-    iconEl.alt = snap.condition || "";
-    iconEl.title = snap.condition;
+    const condition = weatherConditionLabel2(snap, this.plugin.settings);
+    iconEl.alt = condition;
+    iconEl.title = condition;
     const infoEl = overlay.createDiv({ cls: "cal-overlay-info" });
     const tempEl = infoEl.createDiv({ cls: "cal-overlay-temp" });
     const detailEl = infoEl.createDiv({ cls: "cal-overlay-detail" });
@@ -30437,7 +30863,7 @@ var CalendarView = class extends ItemView2 {
     if (snap.feelsLike != null) parts.push(`${_l(lang, "feels")} ${snap.feelsLike}${unitSym}`);
     if (snap.humidity != null) parts.push(`${_l(lang, "humidity")} ${snap.humidity}%`);
     detailEl.setText(parts.join(" \xB7 ") || "");
-    detailEl.title = snap.condition;
+    detailEl.title = condition;
     const refreshLabel = _l(lang, "refresh");
     const refreshBtn = overlay.createEl("button", {
       cls: "cal-overlay-refresh",
@@ -30486,7 +30912,7 @@ var CalendarView = class extends ItemView2 {
       if (tempEl) tempEl.textContent = `${_l(lang, labelKey)} ${snap.temperature ?? "?"}${unitSym}`;
       if (iconEl) {
         iconEl.src = _iconUrl(snap.icon) || "";
-        iconEl.title = snap.condition;
+        iconEl.title = weatherConditionLabel2(snap, this.plugin.settings);
       }
       const parts = [];
       if (snap.feelsLike != null) parts.push(`${_l(lang, "feels")} ${snap.feelsLike}${unitSym}`);
