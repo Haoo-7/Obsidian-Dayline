@@ -1,5 +1,30 @@
 // @ts-nocheck
 import { PLUGIN_ID } from './plugin-identity';
+import { LOCALE_TAGS } from './i18n';
+
+/**
+ * Reverse geocoding language handling.
+ *
+ * Nominatim expects BCP-47 tags (`zh-TW`, `ja-JP`), while the plugin stores one
+ * short code per supported UI language. Normalizing here keeps the geocoder
+ * cache keys stable and language-specific for every supported language.
+ */
+const GEOCODER_LANGUAGES = ['en', 'zh', 'zh-tw', 'ja', 'ko', 'fr', 'de', 'es', 'ru'];
+
+export function normalizeGeocoderLanguage(language) {
+  const raw = String(language || '').trim().toLowerCase().replace(/_/g, '-');
+  // Traditional Chinese scripts must be detected before the generic zh fallback.
+  if (raw === 'zh-tw' || raw === 'zh-hk' || raw === 'zh-mo'
+    || raw.startsWith('zh-hant') || raw.startsWith('zh-tw') || raw.startsWith('zh-hk')) {
+    return 'zh-tw';
+  }
+  const base = raw.split('-')[0];
+  return GEOCODER_LANGUAGES.includes(base) ? base : 'en';
+}
+
+export function geocoderLanguageTag(language) {
+  return LOCALE_TAGS[normalizeGeocoderLanguage(language)] || LOCALE_TAGS.en;
+}
 
 let requestUrl;
 function getRequestUrl() {
@@ -619,7 +644,7 @@ export class ReverseGeocoder {
   }
 
   _normalizeLanguage(language) {
-    return String(language || 'en').toLowerCase().startsWith('zh') ? 'zh' : 'en';
+    return normalizeGeocoderLanguage(language);
   }
 
   _normalizeCoordinates(lat, lon) {
@@ -740,7 +765,7 @@ export class ReverseGeocoder {
         lat: String(lat),
         lon: String(lon),
         zoom: '12',
-        'accept-language': language,
+        'accept-language': geocoderLanguageTag(language),
       });
       const url = `https://nominatim.openstreetmap.org/reverse?${params.toString()}`;
       const resp = await this._request({ url, headers: { 'User-Agent': 'ObsidianDayline/2.0' } });

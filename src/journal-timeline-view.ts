@@ -2,7 +2,7 @@
 import { ItemView, Notice, TFile, setIcon } from 'obsidian';
 import { MOOD_LEVELS, getMoodColor } from './mood';
 import { buildRecentMoodTrend, calculateJournalStats } from './journal-stats';
-import { formatJournalDate, getDisplayLanguage, moodLabel, t } from './i18n';
+import { formatJournalDate, getDisplayLanguage, LOCALE_TAGS, moodLabel, t } from './i18n';
 import { isGenericJournalTitle } from './excerpt';
 import { createMediaAttachment } from './media-links';
 import { shouldShowTimelineMoodTrend, shouldShowTimelineTitles } from './journal-timeline-display';
@@ -23,7 +23,7 @@ const TIMELINE_PAGE_SIZE = 50;
 
 function timelineDateParts(date, settings) {
   const value = new Date(`${date}T12:00:00`);
-  const locale = getDisplayLanguage(settings) === 'en' ? 'en-US' : 'zh-CN';
+  const locale = LOCALE_TAGS[getDisplayLanguage(settings)] || 'en-US';
   const parts = new Intl.DateTimeFormat(locale, { weekday: 'short', day: 'numeric' }).formatToParts(value);
   return {
     weekday: parts.find((part) => part.type === 'weekday')?.value || '',
@@ -36,7 +36,7 @@ function timelineEntryTime(entry, settings) {
   if (!source) return '';
   const value = new Date(source);
   if (!Number.isFinite(value.getTime())) return '';
-  return new Intl.DateTimeFormat(getDisplayLanguage(settings) === 'en' ? 'en-US' : 'zh-CN', {
+  return new Intl.DateTimeFormat(LOCALE_TAGS[getDisplayLanguage(settings)] || 'en-US', {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
@@ -568,7 +568,7 @@ export class JournalTimelineView extends ItemView {
       const key = entry.date.slice(0, 7);
       if (key !== month) {
         month = key;
-        const label = new Intl.DateTimeFormat(getDisplayLanguage(this.plugin.settings) === 'en' ? 'en-US' : 'zh-CN',
+        const label = new Intl.DateTimeFormat(LOCALE_TAGS[getDisplayLanguage(this.plugin.settings)] || 'en-US',
           { year: 'numeric', month: 'long' }).format(new Date(`${key}-01T12:00:00`));
         positionNewNode(list.createEl('h3', { cls: 'journal-timeline-month', text: label }));
       }
@@ -585,7 +585,7 @@ export class JournalTimelineView extends ItemView {
       const remaining = Math.min(TIMELINE_PAGE_SIZE, entries.length - this.visibleEntryLimit);
       const button = list.createEl('button', {
         cls: 'journal-timeline-load-more',
-        text: getDisplayLanguage(this.plugin.settings) === 'en' ? `Show ${remaining} more` : `再显示 ${remaining} 条`,
+        text: t(this.plugin.settings, 'showMoreEntries', { count: remaining }),
         attr: { type: 'button' },
       });
       button.addEventListener('click', () => {

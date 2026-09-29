@@ -75,7 +75,7 @@ When the new plugin folder has no `data.json`, Dayline migrates settings from an
 
 | Setting | What it controls |
 | --- | --- |
-| **Display language** | Controls plugin views, notices, labels, and accessible text. Defaults to Chinese. |
+| **Display language** | Controls plugin views, notices, labels, and accessible text. Choose System, Simplified Chinese, Traditional Chinese, English, Japanese, Korean, French, German, Spanish, or Russian. Defaults to Chinese. |
 | **Week starts on** | Choose the first weekday shown in the calendar. Defaults to System. |
 
 **Calendar and journal**

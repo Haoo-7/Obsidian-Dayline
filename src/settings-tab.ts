@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { Notice, PluginSettingTab, Setting, SuggestModal, TFolder } from 'obsidian';
-import { getDisplayLanguage, t } from './i18n';
+import { DISPLAY_LANGUAGE_LABEL_KEYS, DISPLAY_LANGUAGE_OPTIONS, getDisplayLanguage, t } from './i18n';
 import { localize as _l } from './locale';
 import compactWordmarkSvg from '../assets/dayline-wordmark-compact.svg';
 import { calendarMoodMarker, shouldShowCalendarMoodStyle } from './calendar-display';
@@ -172,19 +172,21 @@ export class DaylineSettingsTab extends PluginSettingTab {
     new Setting(containerEl)
       .setName(t(this.plugin.settings, 'language'))
       .setDesc(t(this.plugin.settings, 'languageDesc'))
-      .addDropdown((dd) => dd
-        .addOption('system', t(this.plugin.settings, 'system'))
-        .addOption('en', t(this.plugin.settings, 'english'))
-        .addOption('zh', t(this.plugin.settings, 'chinese'))
-        .setValue(this.plugin.settings.displayLanguage)
-        .onChange(async (value) => {
-          this.plugin.settings.displayLanguage = value;
-          this.plugin.settings.weatherLanguage = getDisplayLanguage({ displayLanguage: value });
-          if (!(await this._saveSettings())) return;
-          this.display();
-          this._refreshCalendarView();
-          this.plugin.refreshJournalViews();
-        }));
+      .addDropdown((dd) => {
+        for (const option of DISPLAY_LANGUAGE_OPTIONS) {
+          dd.addOption(option, t(this.plugin.settings, DISPLAY_LANGUAGE_LABEL_KEYS[option]));
+        }
+        return dd
+          .setValue(this.plugin.settings.displayLanguage)
+          .onChange(async (value) => {
+            this.plugin.settings.displayLanguage = value;
+            this.plugin.settings.weatherLanguage = getDisplayLanguage({ displayLanguage: value });
+            if (!(await this._saveSettings())) return;
+            this.display();
+            this._refreshCalendarView();
+            this.plugin.refreshJournalViews();
+          });
+      });
 
     new Setting(containerEl)
       .setName(t(this.plugin.settings, 'weekStart'))

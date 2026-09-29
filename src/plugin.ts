@@ -51,7 +51,7 @@ const { cachedMonthsReferencingMedia } = require('./calendar-media-refresh');
 const { MEDIA_EXTENSIONS, IMAGE_EXTENSIONS: MEDIA_IMAGE_EXTENSIONS, classifyMediaLink, createMediaAttachment, normalizeMediaLink } = require('./media-links');
 const { OverlayRegistry } = require('./overlay-registry');
 const { SerialTaskQueue } = require('./task-queue');
-const { formatCalendarMonth, getCalendarGridOffset, getCalendarWeekdays, getDisplayLanguage, moodLabel, t } = require('./i18n');
+const { formatCalendarMonth, getCalendarGridOffset, getCalendarWeekdays, getDisplayLanguage, LOCALE_TAGS, moodLabel, normalizeDisplayLanguageSetting, t } = require('./i18n');
 const { getMoodColor } = require('./mood');
 const { shouldHandleCalendarMonthShortcut } = require('./calendar-keyboard');
 const { calendarEntryAffectsDisplay, calendarMediaAccessibilityLabel, calendarMoodMarker, calendarMoodMarkerClass, isCurrentCalendarMonth, shouldShowCalendarMood, shouldShowCalendarWeatherCard, shouldShowCalendarWeatherBadge, shouldShowCalendarWeatherLocation } = require('./calendar-display');
@@ -96,8 +96,8 @@ const DEFAULT_SETTINGS = {
   weatherAutoFetch: true, // auto-fetch weather when opening a daily note
   weatherTtlHours: 2,     // cache TTL in hours before re-fetch
   weatherTimezone: 'auto', // Open-Meteo timezone mode
-  weatherLanguage: 'zh',  // 'en' | 'zh' — display language for weather labels
-  displayLanguage: 'zh',  // 'system' | 'en' | 'zh'; migrated from weatherLanguage
+  weatherLanguage: 'zh',  // resolved DisplayLanguage ('en' | 'zh' | 'zh-tw' | 'ja' | 'ko' | 'fr' | 'de' | 'es' | 'ru')
+  displayLanguage: 'zh',  // 'system' | DisplayLanguage; canonical setting, migrated from weatherLanguage
   weekStart: 'system', // 'system' | 'monday' | 'sunday'
   showCalendarMood: true,
   calendarMoodMarker: 'dot',
@@ -184,7 +184,8 @@ class DaylinePlugin extends Plugin {
     // Reverse geocoder for EXIF GPS coordinates (Nominatim, free)
     this.geocoder = new ReverseGeocoder({
       cache: this.geocoderCache,
-      getLanguage: () => this.settings.weatherLanguage || getDisplayLanguage(this.settings),
+      // The geocoder turns this language code into an Accept-Language tag.
+      getLanguage: () => getDisplayLanguage(this.settings),
       onChange: () => this._saveGeocoderCache(),
     });
 
@@ -1017,10 +1018,7 @@ class DaylinePlugin extends Plugin {
     const legacyWeatherVisible = data.showCalendarWeather !== false;
     if (data.showCalendarWeatherCard === undefined) this.settings.showCalendarWeatherCard = legacyWeatherVisible;
     if (data.showCalendarWeatherBadge === undefined) this.settings.showCalendarWeatherBadge = legacyWeatherVisible;
-    const rawDisplayLanguage = data.displayLanguage;
-    this.settings.displayLanguage = rawDisplayLanguage === 'system' || rawDisplayLanguage === 'en' || rawDisplayLanguage === 'zh'
-      ? rawDisplayLanguage
-      : (data.weatherLanguage === 'en' ? 'en' : 'zh');
+    this.settings.displayLanguage = normalizeDisplayLanguageSetting(data);
     this.settings.weatherLanguage = getDisplayLanguage({
       displayLanguage: this.settings.displayLanguage,
       weatherLanguage: data.weatherLanguage,
@@ -1875,7 +1873,7 @@ class CalendarView extends ItemView {
     const monthLabel = panel.createEl('label', { cls: 'cal-filter-field' });
     monthLabel.createSpan({ text: t(this.plugin.settings, 'month') });
     const monthSelect = monthLabel.createEl('select', { attr: { 'data-calendar-focus': 'jump-month', 'aria-label': t(this.plugin.settings, 'month') } });
-    const locale = getDisplayLanguage(this.plugin.settings) === 'en' ? 'en-US' : 'zh-CN';
+    const locale = LOCALE_TAGS[getDisplayLanguage(this.plugin.settings)] || 'en-US';
     const monthFormatter = new Intl.DateTimeFormat(locale, { month: 'long', timeZone: 'UTC' });
     for (let index = 0; index < 12; index++) {
       const option = monthSelect.createEl('option', {
