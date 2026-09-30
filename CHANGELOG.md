@@ -1,5 +1,87 @@
 # Changelog
 
+## 2.8.0 (2026-10-01)
+
+The 2026-09-29 review round lands in full, and the calendar's past-year dot marker is removed. The marker was read as "this day has been written" often enough — by users and by the maintainer — that keeping it was worse than dropping it; the reasoning is recorded under **Removed**.
+
+### Added
+- **Use current location** in the weather settings reads the device location once, only when the button is tapped, fills the coordinates rounded to two decimals (about 1 km) and clears a location name that no longer matches the coordinates. It is shown on Obsidian mobile only, because desktop Electron usually has no location service; desktop users enter coordinates by hand. Denied, timed-out, unavailable, and failed reads each report in the display language. The stored coordinates travel to Open-Meteo with the weather request, which all three READMEs now state.
+- **Insert-time EXIF/GPS persistence** (`exifPersistMetadata`, off by default) writes location metadata to the journal note when an image is newly embedded or changed. The previous hover-driven path had no call site and never ran; the resolved place name now goes to a separate `exif_place` field instead of overwriting the shared EXIF data.
+- **Keyboard and screen-reader access for the calendar grid.** Day cells are focusable buttons carrying the localized date instead of the raw ISO string, and focus returns to the same date after a re-render.
+- **CLDR plural forms** for count labels. Languages that need more than an English two-form rule select their own category through `Intl.PluralRules`, with a fallback for older embedded Chromium.
+- Sixteen previously English-only settings, validation and error strings are localized: coordinate parsing and range checks, the mood metadata path errors, the journal-source/daily-folder mismatch, a mood save timeout, and the mobile back-to-note hint.
+
+### Changed
+- **Recent weather reads the forecast endpoint.** Days inside the recent window request `past_days` from the forecast host rather than the archive API, which lags by days and often had nothing for them.
+- **The weather cache no longer deletes its own history.** The sweep used to drop entries by `fetchedAt` at 90 days, which was the only copy of that weather, and it now bounds the cache by entry count instead; recent records keep the short TTL so a failed fetch is still retried.
+- **Coordinate fields save on blur or after about 0.8 s** instead of on every keystroke, and invalid or out-of-range input is reported inline and never saved.
+- **External settings changes are honoured.** `onExternalSettingsChange` re-reads `data.json`, so a value synced from another device is no longer overwritten by the stale in-memory copy on the next save.
+- **Mood metadata is last-writer-wins by `updatedAt`,** scores are validated on `set()`, a single unreadable record or a newer schema no longer rolls the whole file back to `.bak`, and a read-only store surfaces a warning instead of silently showing stale values.
+- **February 29 memories appear in the February 28 view** of a common year, on every On This Day surface.
+- A fresh install defaults the display language to `system`; a stored language is never rewritten.
+
+### Fixed
+- **Mobile.** Opening a journal no longer replaces the calendar in the right drawer, and no longer leaves an extra drawer leaf behind on each open; "Back to note" no longer turns the calendar leaf into an empty markdown view; a leaf the user has closed is not reused; the daily reminder waits for the journal index instead of firing early, and does not repeat; recording a mood no longer creates an empty daily note that bypasses the Daily Notes or Templater template; unload cleanup runs before the asynchronous flushes, so a flush that fails cannot skip the DOM teardown.
+- **Calendar.** The weather card revalidates instead of never refreshing after its first failure and refetching on every redraw; the On This Day modal no longer orphans containers after a reload or leaves a global keydown handler behind; duplicate redraws, grid rebuilds, and EXIF-cache wipes were removed; the mood control appears only where a mood or a journal entry exists, instead of drawing an empty target on every date and stealing the date tap.
+- **Journal index, search and excerpts.** An empty or unparsable date field falls back to the filename again, so those notes stay in the calendar and timeline; summary templates no longer treat `$&` and `$$` in the note body as replacement patterns; search normalizes and debounces instead of re-normalizing the whole index on every keystroke; titles no longer come from a `#` inside a code block; tag scanning no longer reads colours, `#123`, or code-block content as tags; nested journal sources are validated against the daily folder; thumbnails whose filename contains parentheses render.
+- **Media and EXIF.** Each HEIC conversion no longer leaks a libheif WASM context; a GPS rational with a zero denominator no longer decodes as `(0, 0)`; `requestUrl` timeouts are actually applied; a resolved place name no longer mutates the shared EXIF arrays.
+- **Mood.** CSV export neutralizes cells that a spreadsheet would evaluate as a formula; deleting a mood no longer rewrites frontmatter unconditionally; a tombstone no longer hides the frontmatter mood of a note re-created at the same path; the native date input no longer locks mid-edit.
+- **Accessibility and i18n.** Several hints that lived only in a `title` are reachable without hovering, and the strings listed under **Added** are no longer English-only.
+
+### Removed
+- **The calendar past-year dot marker.** It drew a 4px accent dot in the bottom-right corner of every date whose `MM-DD` has an entry in an earlier year. That is the vocabulary calendars use for "this day has an entry", and because the index only covers years before the current one the signal read backwards: a date written this year drew nothing, a date never written this year drew a dot, and today's cell was suppressed on top of it — so "a dot means written, and today is not written yet" was a self-consistent misreading. For someone who writes every day every past cell qualifies, so the marker carried no information either, and a count in its place would only have made the crowding visible. Removed with it: the `onThisDayDot` setting, the render block, its nine translations, the `styles.css` rule, and the two README rows. The merged On This Day strip, the header entry mode with its badge, and the memory modal are unchanged; a stale `onThisDayDot: true` in an existing `data.json` is inert, which a regression test covers.
+
+### Verification
+- `npm run typecheck`, `npm test` (69 files / 774 tests), `npm run build`, `npm run build:tablet`, `npm run package:release`, `npm run verify:release:zip` and `git diff --check` all pass.
+- Obsidian Sandbox: the new build was deployed and reloaded with no `dev:errors`. The calendar rendered 35 day cells for October 2026 with zero dot markers, and a September 2026 view — whose past-year index still contains `09-14`, the date the previous build marked — rendered zero as well.
+
+### Notes
+- The review's M-11 finding, a non-colour cue for the calendar mood level, stays open **by product decision**: two encodings of the level in the marker's geometry were rejected in Sandbox acceptance, and at 6–10px the difference is imperceptible. The level remains carried by colour and the tooltip. If colour-blind legibility ever matters, the answer is a separate non-visual channel, not a marker tweak.
+- The mood picker's cross-date draft queue was deleted by the same kind of decision; changing the date discards that date's unsaved edit, and Save is the only commit point.
+- Not verified here: real phone and iPad leaf topology, native per-segment date input behaviour, device geolocation on iOS and Android, and HEIC `infe`/`iloc` versions other than the synthetic containers the tests build.
+- `exif_place` is written to frontmatter but nothing renders it yet; the EXIF tooltip still reads the media metadata.
+
+---
+
+2026-09-29 那一轮审查的修复全部落地，同时移除了日历上的"往年今日"小圆点。那个标记被当成"这天已写"的次数太多了（用户和作者本人都中招过），留着不如拿掉；理由记在 **移除** 一节。
+
+### 新增
+- 天气设置新增 **使用当前位置**：只在你点击按钮时读取一次设备定位，填入保留两位小数（约 1 km 精度）的坐标，并在坐标变化后清掉不再匹配的地点名。该按钮只在 Obsidian 手机端显示，因为桌面端 Electron 通常没有定位服务，桌面用户手动输入坐标。被拒绝、超时、不可用和读取失败都按当前显示语言就地提示。填入的坐标会随天气请求发送到 Open-Meteo，三份 README 都已写明。
+- **插入时写入 EXIF/GPS**（`exifPersistMetadata`，默认关闭）：图片被新嵌入或发生变化时，把位置元数据写进日记。此前"悬停触发"的那条路径没有任何调用点，从未真正执行；解析出的地名现在写入独立的 `exif_place` 字段，不再覆盖共享的 EXIF 数据。
+- **日历格子支持键盘与读屏操作。** 日期格子是可聚焦的按钮，标签使用本地化日期而不是原始 ISO 字符串；重绘后焦点回到同一天。
+- **计数标签支持 CLDR 复数形式。** 需要超过英语双形式规则的语言通过 `Intl.PluralRules` 选择自己的复数类别，并为较旧的 Chromium 内核保留回退。
+- 补本地化十六处此前只有英文的设置、校验与错误文案：坐标解析与范围校验、心情元数据路径错误、日记来源与日记目录冲突、心情保存超时，以及移动端"返回笔记"提示。
+
+### 变更
+- **近几天的天气改走预报接口。** 最近窗口内的日期改用预报主机的 `past_days`，不再请求滞后数天、往往没有数据的归档接口。
+- **天气缓存不再删除自己的历史。** 旧逻辑按 `fetchedAt` 在 90 天后清理条目，而那是该天气的唯一副本；现在改为按条目上限约束缓存，近期记录仍保留短 TTL，以便失败的请求之后重试。
+- **坐标输入改为失焦或停止输入约 0.8 秒后保存**，不再每按一个键就保存一次；不合法或超出范围的输入就地提示且不会保存。
+- **外部设置变更会被采纳。** `onExternalSettingsChange` 会重新读取 `data.json`，从其他设备同步来的值不再被内存中的旧副本在下次保存时覆盖。
+- **心情元数据按 `updatedAt` 后写者胜**，`set()` 会校验分数，单条无法解析的记录或更新的 schema 不再导致整份文件回退到 `.bak`，只读状态会给出警告而不是静默显示过期数据。
+- **平年的 2 月 28 日会显示 2 月 29 日的回忆**，在所有"往年今日"界面一致。
+- 全新安装的默认显示语言为「跟随系统」；已存储的语言永不被改写。
+
+### 修复
+- **移动端。** 打开日记不再把右抽屉里的日历替换掉，也不会每打开一次就多留一个抽屉 leaf；「返回笔记」不再把日历 leaf 变成一个空的 markdown 视图；用户已关闭的 leaf 不会被复用；每日提醒会等索引就绪再发，且不会重复；记录心情不再创建绕过 Daily Notes / Templater 模板的空日记；卸载清理改到异步 flush 之前，flush 失败不会连带跳过 DOM 清理。
+- **日历。** 天气卡片恢复重校验，不再首次失败后永不刷新、也不再每次重绘都重复请求；「往年今日」弹窗重载后不再残留容器，也不再留下全局 keydown 监听；移除了重复的重绘、网格重建和 EXIF 缓存清空；心情控件只在已有心情或已有日记的日期出现，不再在每个日期上画一个空目标抢走日期点击。
+- **日记索引、搜索与摘要。** 日期字段为空或无法解析时重新回退到文件名，这些笔记会继续出现在日历与时间线；摘要模板不再把正文里的 `$&`、`$$` 当作替换模式；搜索改为归一化 + 防抖，不再每次按键都重新归一化整个索引；标题不再取自代码块里的 `#`；标签扫描不再把颜色值、`#123`、代码块内容当成标签；嵌套日记来源会与日记目录做校验；文件名含括号的缩略图可以显示。
+- **媒体与 EXIF。** 每次 HEIC 转换不再泄漏一个 libheif WASM context；分母为 0 的 GPS 有理数不再被解析成 `(0, 0)`；`requestUrl` 的超时真正生效；解析出的地名不再改写共享的 EXIF 数组。
+- **心情。** CSV 导出会中和可被表格软件当作公式求值的单元格；删除心情不再无条件改写 frontmatter；tombstone 不再永久遮蔽同路径新建笔记的 frontmatter 心情；原生日期输入框不再在输入中途被锁住。
+- **无障碍与 i18n。** 若干只放在 `title` 里的提示在触屏上也能获得，**新增** 一节列出的文案不再只有英文。
+
+### 移除
+- **日历上的「往年今日」小圆点。** 它会在所有"往年同月日有记录"的日期右下角画一个 4px 的 accent 色圆点。这正好是日历产品表达"这天有内容"的通用写法，而它的数据只取今年之前的年份，于是信号是反的：今年写过的日期什么都不显示，今年没写、往年写过的日期反而有点，今天那格又被额外排除——"有点表示已写、今天还没写"因此成了一个自洽的误读。对每天写作的人来说，每个历史格子都符合条件，标记也就没有任何信息量，换成数字只会让拥挤变得可见。一并移除：`onThisDayDot` 设置项、渲染代码、九种语言的文案、`styles.css` 规则和两行 README。合并进天气卡的往年条带、顶栏入口及其角标、回忆弹窗均未改动；旧 `data.json` 里残留的 `onThisDayDot: true` 不会生效，已有回归测试覆盖。
+
+### 验证
+- `npm run typecheck`、`npm test`（69 个文件 / 774 项测试）、`npm run build`、`npm run build:tablet`、`npm run package:release`、`npm run verify:release:zip`、`git diff --check` 全部通过。
+- Obsidian Sandbox：新构建已部署并重载，`dev:errors` 无错误。2026 年 10 月的日历渲染出 35 个日期格子、0 个圆点标记；2026 年 9 月——其往年索引里仍存在 `09-14`，正是旧构建会标记的那一天——同样渲染出 0 个。
+
+### 备注
+- 审查中的 M-11（为日历心情等级提供非颜色线索）**按产品决定保持未实现**：两次把等级编码进标记几何形状的尝试都在 Sandbox 验收被否，而在 6–10px 尺度上这种差异根本看不出来。等级仍由颜色和提示承载。若将来色盲可读性真的重要，答案是另加一条非视觉通道，而不是改标记。
+- 心情选择器的跨日期草稿队列也按同类决定删除：切换日期会丢弃该日期未保存的编辑，Save 是唯一的提交点。
+- 本次未验证：真机上的手机/平板 leaf 拓扑、原生日期输入的分段行为、iOS/Android 的设备定位，以及测试用合成容器之外的 HEIC `infe`/`iloc` 版本。
+- `exif_place` 已写入 frontmatter，但尚无任何界面渲染它；EXIF 悬停仍读取媒体元数据。
+
 ## 2.7.0 (2026-09-29)
 
 ### Added
