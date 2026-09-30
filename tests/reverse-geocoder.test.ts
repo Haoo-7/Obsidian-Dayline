@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('obsidian', () => ({ requestUrl: vi.fn() }));
@@ -5,6 +6,7 @@ vi.mock('obsidian', () => ({ requestUrl: vi.fn() }));
 import {
   GEOCODER_CACHE_MAX_ENTRIES,
   GEOCODER_CACHE_TTL_MS,
+  GEOCODER_USER_AGENT,
   ReverseGeocoder,
   geocoderLanguageTag,
   normalizeGeocoderLanguage,
@@ -24,8 +26,8 @@ describe('persistent reverse geocoder', () => {
     await expect(first.lookup(39.9042001, 116.4074001, 'zh')).resolves.toBe('北京');
     expect(request).toHaveBeenCalledTimes(2);
     expect(Object.keys(store).sort()).toEqual([
-      '39.90420,116.40740|en',
-      '39.90420,116.40740|zh',
+      '39.904,116.407|en',
+      '39.904,116.407|zh',
     ]);
 
     const restoredRequest = vi.fn();
@@ -34,23 +36,87 @@ describe('persistent reverse geocoder', () => {
     expect(restoredRequest).not.toHaveBeenCalled();
   });
 
-  it('does not cache transient failures or empty names', async () => {
+  it('negatively caches failed lookups for a bounded window', async () => {
+    let now = Date.parse('2026-08-06T12:00:00.000Z');
     const request = vi.fn().mockResolvedValue({ status: 503, json: null });
     const store: Record<string, unknown> = {};
+    const geocoder = new ReverseGeocoder({
+      cache: store,
+      request,
+      now: () => now,
+      minRequestIntervalMs: 0,
+      negativeTtlMs: 10 * 60 * 1000,
+    });
+
+    await expect(geocoder.lookup(1, 2, 'en')).resolves.toBeNull();
+    now += 60 * 1000;
+    await expect(geocoder.lookup(1, 2, 'en')).resolves.toBeNull();
+    expect(request).toHaveBeenCalledTimes(1);
+    // A failure is never persisted as a successful place name.
+    expect(store).toEqual({});
+
+    now += 10 * 60 * 1000;
+    await expect(geocoder.lookup(1, 2, 'en')).resolves.toBeNull();
+    expect(request).toHaveBeenCalledTimes(2);
+  });
+
+  it('re-requests immediately when negative caching is disabled', async () => {
+    const request = vi.fn().mockResolvedValue({ status: 503, json: null });
+    const geocoder = new ReverseGeocoder({ request, minRequestIntervalMs: 0, negativeTtlMs: 0 });
+
+    await expect(geocoder.lookup(1, 2, 'en')).resolves.toBeNull();
+    await expect(geocoder.lookup(1, 2, 'en')).resolves.toBeNull();
+    expect(request).toHaveBeenCalledTimes(2);
+  });
+
+  it('sends a versioned User-Agent with the repository URL and 3-decimal coordinates', async () => {
+    const store: Record<string, unknown> = {};
+    const request = vi.fn(({ url }: { url: string }) => Promise.resolve({
+      status: 200,
+      json: { display_name: `place-${new URL(url).searchParams.get('lat')}` },
+    }));
     const geocoder = new ReverseGeocoder({ cache: store, request, minRequestIntervalMs: 0 });
 
-    await expect(geocoder.lookup(1, 2, 'en')).resolves.toBeNull();
-    await expect(geocoder.lookup(1, 2, 'en')).resolves.toBeNull();
+    await expect(geocoder.lookup(39.9042001, 116.4074001, 'en')).resolves.toBe('place-39.904');
 
-    expect(request).toHaveBeenCalledTimes(2);
-    expect(store).toEqual({});
+    const first = request.mock.calls[0][0] as { url: string; headers: Record<string, string> };
+    const url = new URL(first.url);
+    expect(url.searchParams.get('lat')).toBe('39.904');
+    expect(url.searchParams.get('lon')).toBe('116.407');
+    expect(first.headers['User-Agent']).toMatch(/ObsidianDayline\/\d+\.\d+\.\d+/);
+    expect(first.headers['User-Agent']).toContain('https://github.com/Haoo-7/Obsidian-Dayline');
+    expect(first.headers['User-Agent']).toBe(GEOCODER_USER_AGENT);
+    expect(Object.keys(store)).toEqual(['39.904,116.407|en']);
+
+    // A sub-3-decimal change reuses the same rounded location.
+    await expect(geocoder.lookup(39.9044001, 116.4074, 'en')).resolves.toBe('place-39.904');
+    expect(request).toHaveBeenCalledTimes(1);
   });
+
+  it('accepts an explicit user agent and times out a hung request', async () => {
+    const request = vi.fn((_request: { headers: Record<string, string> }) => new Promise(() => undefined));
+    const geocoder = new ReverseGeocoder({
+      request,
+      minRequestIntervalMs: 0,
+      userAgent: 'ObsidianDayline/test (+https://example.test)',
+      requestTimeoutMs: 30,
+    });
+
+    const pending = geocoder.lookup(1, 2, 'en');
+    await vi.waitFor(() => expect(request).toHaveBeenCalledTimes(1));
+    expect(request.mock.calls[0][0].headers['User-Agent']).toBe('ObsidianDayline/test (+https://example.test)');
+
+    await expect(pending).resolves.toBeNull();
+    // A timed-out request must not block the serial queue for later lookups.
+    await expect(geocoder.lookup(3, 4, 'en')).resolves.toBeNull();
+    expect(request).toHaveBeenCalledTimes(2);
+  }, 2000);
 
   it('expires old records and bounds persistent cache size', async () => {
     const now = Date.parse('2026-08-06T12:00:00.000Z');
     const store: Record<string, any> = {
-      '1.00000,2.00000|en': { name: 'Expired', cachedAt: new Date(now - GEOCODER_CACHE_TTL_MS - 1).toISOString() },
-      '3.00000,4.00000|en': { name: 'Keep', cachedAt: new Date(now - 100).toISOString() },
+      '1.000,2.000|en': { name: 'Expired', cachedAt: new Date(now - GEOCODER_CACHE_TTL_MS - 1).toISOString() },
+      '3.000,4.000|en': { name: 'Keep', cachedAt: new Date(now - 100).toISOString() },
     };
     const request = vi.fn(({ url }: { url: string }) => Promise.resolve({
       status: 200,
@@ -65,12 +131,12 @@ describe('persistent reverse geocoder', () => {
       maxEntries: 2,
     });
 
-    expect(store).not.toHaveProperty('1.00000,2.00000|en');
+    expect(store).not.toHaveProperty('1.000,2.000|en');
     await geocoder.lookup(5, 6, 'en');
     await geocoder.lookup(7, 8, 'en');
 
     expect(Object.keys(store).length).toBeLessThanOrEqual(2);
-    expect(Object.keys(store)).not.toContain('3.00000,4.00000|en');
+    expect(Object.keys(store)).not.toContain('3.000,4.000|en');
     expect(GEOCODER_CACHE_MAX_ENTRIES).toBeGreaterThanOrEqual(2);
   });
 
@@ -149,9 +215,9 @@ describe('reverse geocoder language support', () => {
 
     expect(requested).toEqual(['ja-JP', 'zh-TW', 'en-US']);
     expect(Object.keys(store).sort()).toEqual([
-      '1.00000,2.00000|en',
-      '1.00000,2.00000|ja',
-      '1.00000,2.00000|zh-tw',
+      '1.000,2.000|en',
+      '1.000,2.000|ja',
+      '1.000,2.000|zh-tw',
     ]);
   });
 

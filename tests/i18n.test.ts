@@ -11,6 +11,7 @@ import {
   LOCALE_TAGS,
   moodLabel,
   normalizeDisplayLanguageSetting,
+  STRINGS,
   SUPPORTED_DISPLAY_LANGUAGES,
   t,
 } from '../src/i18n';
@@ -118,15 +119,37 @@ describe('nine-language display support', () => {
   it('provides the strings the notices, commands, and accessible labels ask for', () => {
     const keys = [
       'backToNote',
+      'backToNoteHint',
       'calendarLeafCreateFailed',
+      'calendarViewRequired',
+      'coordinateMustBeNumeric',
       'copyDiagnosticsCommand',
       'daylineViewGroupLabel',
       'diagnosticsCopied',
       'diagnosticsCopyFailed',
+      'latitudeOutOfRange',
+      'locateButton',
+      'locateDenied',
+      'locateError',
+      'locateTimedOut',
+      'locateUnavailable',
+      'locating',
+      'locationUpdated',
+      'locationUpdatedNameCleared',
+      'longitudeOutOfRange',
+      'moodMetadataPathFailed',
+      'moodMetadataPathMustBeJson',
+      'moodMetadataReadOnly',
       'moodMetadataRenameFailed',
       'moodMoveToOrphanFailed',
+      'moodSaveTimeout',
+      's_exifPersist',
+      's_exifPersistDesc',
+      'sourceDailyMismatch',
       'timezonePlaceholder',
       'unknownError',
+      'useCurrentLocation',
+      'useCurrentLocationDesc',
       'weatherIconAlt',
     ];
     for (const key of keys) {
@@ -145,5 +168,75 @@ describe('nine-language display support', () => {
       .toBe('重命名心情元数据失败：磁盘只读');
     expect(t({ displayLanguage: 'fr' }, 'moodMoveToOrphanFailed', { error: 'EACCES' }))
       .toBe("Impossible de déplacer l'humeur supprimée vers la liste de récupération : EACCES");
+  });
+});
+
+describe('nine-language key parity and count plurals', () => {
+  /** Placeholder names in a string, order-insensitive: languages may reorder them. */
+  function placeholders(text: string): string[] {
+    return Array.from(text.matchAll(/\{(\w+)\}/g), (match) => match[1]).sort();
+  }
+
+  it('keeps one identical key set and English-compatible placeholders in every language', () => {
+    const englishKeys = Object.keys(STRINGS.en).sort();
+    expect(englishKeys).toHaveLength(304);
+
+    for (const language of SUPPORTED_DISPLAY_LANGUAGES) {
+      expect(Object.keys(STRINGS[language]).sort(), language).toEqual(englishKeys);
+      for (const key of englishKeys) {
+        const value = STRINGS[language][key];
+        expect(value.length, `${language}/${key}`).toBeGreaterThan(0);
+        expect(placeholders(value), `${language}/${key}`).toEqual(placeholders(STRINGS.en[key]));
+      }
+    }
+  });
+
+  it('keeps the coordinate example numeric and the locate label short', () => {
+    for (const language of SUPPORTED_DISPLAY_LANGUAGES) {
+      // `39.9042` is a literal example with a decimal point, not a localized
+      // number: a comma separator would contradict the -90/-180 range hints.
+      expect(STRINGS[language].coordinateMustBeNumeric, language).toContain('39.9042');
+      // The label is rendered inside a settings button, so it stays one word.
+      const label = STRINGS[language].locateButton;
+      expect(label.trim(), language).toBe(label);
+      expect(label, language).not.toContain(' ');
+      expect(label.length, language).toBeLessThanOrEqual(12);
+    }
+  });
+
+  it('replaces every occurrence of a placeholder, not only the first', () => {
+    // No shipped string repeats a placeholder, so the probe injects the repeat
+    // through the values: `{date}` expands to `{entries}`, which then occurs
+    // twice in the template. `String.replace` left the second one behind.
+    expect(t({ displayLanguage: 'en' }, 'calendarEntriesOnDate', { date: '{entries}', entries: '3 entries' }))
+      .toBe('3 entries: 3 entries');
+  });
+
+  it('picks the CLDR plural form of the calendar entry count', () => {
+    expect(t({ displayLanguage: 'en' }, 'calendarEntryCount', { count: 1 })).toBe('1 entry');
+    expect(t({ displayLanguage: 'en' }, 'calendarEntryCount', { count: 3 })).toBe('3 entries');
+    expect(t({ displayLanguage: 'zh' }, 'calendarEntryCount', { count: 2 })).toBe('2 条日记');
+    expect(t({ displayLanguage: 'de' }, 'calendarEntryCount', { count: 1 })).toBe('1 Journaleintrag');
+    expect(t({ displayLanguage: 'de' }, 'calendarEntryCount', { count: 4 })).toBe('4 Journaleinträge');
+    // Russian is the language the one-vs-other split got wrong: "2 записей".
+    expect(t({ displayLanguage: 'ru' }, 'calendarEntryCount', { count: 1 })).toBe('1 запись');
+    expect(t({ displayLanguage: 'ru' }, 'calendarEntryCount', { count: 2 })).toBe('2 записи');
+    expect(t({ displayLanguage: 'ru' }, 'calendarEntryCount', { count: 5 })).toBe('5 записей');
+    expect(t({ displayLanguage: 'ru' }, 'calendarEntryCount', { count: 21 })).toBe('21 запись');
+    expect(t({ displayLanguage: 'ru' }, 'calendarEntryCount', { count: 100 })).toBe('100 записей');
+    // The existing call site still passes the explicit singular key for one entry.
+    expect(t({ displayLanguage: 'ru' }, 'calendarEntryCountOne', { count: 1 })).toBe('1 запись');
+  });
+
+  it('builds years 0-99 without the Date.UTC 1900 offset', () => {
+    expect(formatCalendarMonth(5, 8, { displayLanguage: 'en' })).toBe('August 5');
+    expect(formatCalendarMonth(5, 8, { displayLanguage: 'zh' })).toBe('5年8月');
+    // 0005-01-01 was a Saturday; Date.UTC(5, 0, 1) silently built 1905-01-01,
+    // a Sunday, so the header and the grid disagreed.
+    expect(getCalendarGridOffset(5, 0, { weekStart: 'sunday' })).toBe(6);
+    expect(getCalendarGridOffset(5, 0, { weekStart: 'monday' })).toBe(5);
+    // 0099-12-01 was a Tuesday; the buggy construction produced Wednesday.
+    expect(getCalendarGridOffset(99, 11, { weekStart: 'sunday' })).toBe(2);
+    expect(getCalendarGridOffset(99, 11, { weekStart: 'monday' })).toBe(1);
   });
 });

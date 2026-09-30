@@ -34,7 +34,14 @@ vi.mock('obsidian', () => ({
   },
 }));
 
-import { MoodPickerModal, MoodRecoveryModal } from '../src/mood-picker-modal';
+import {
+  MOOD_DATE_CHANGE_DEBOUNCE_MS,
+  MOOD_SAVE_TIMEOUT_MS,
+  MoodPickerModal,
+  MoodRecoveryModal,
+  isValidMoodDateValue,
+} from '../src/mood-picker-modal';
+import { t } from '../src/i18n';
 
 function installObsidianDomHelpers(): void {
   const prototype = HTMLElement.prototype as HTMLElement & Record<string, unknown>;
@@ -126,6 +133,9 @@ describe('MoodPickerModal fluid flow', () => {
       removeEventListener: vi.fn(),
     })) as unknown as typeof window.matchMedia;
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(canvasContextStub());
+    // The mood recovery modal still asks before overwriting an existing mood.
+    // The mood picker itself must never prompt (see the close tests below).
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
   });
 
   afterEach(() => {
@@ -420,7 +430,7 @@ describe('MoodPickerModal fluid flow', () => {
     expect(added.querySelector('[data-icon="check"]')).not.toBeNull();
   });
 
-  it.each(['  Saved B  ', '   '])('closes after saving %j even when another date has an unsaved draft', async (savedNote) => {
+  it.each(['  Saved B  ', '   '])('saves %j and closes on the first request without prompting', async (savedNote) => {
     const onSave = vi.fn().mockResolvedValue(undefined);
     const modal = new MoodPickerModal({}, {
       filePath: 'Daily/2026-09-01.md', allowDateSelection: true, onSave,
@@ -442,10 +452,13 @@ describe('MoodPickerModal fluid flow', () => {
     expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
       filePath: 'Daily/2026-09-02.md', note: savedNote.trim() || null,
     }));
+    // The unsaved first-date draft is discarded in silence: no prompt, and the
+    // modal is already gone after the save.
+    expect(window.confirm).not.toHaveBeenCalled();
     expect(modal.modalEl.isConnected).toBe(false);
   });
 
-  it('restores each file draft including unfinished custom input after date round trips', async () => {
+  it('drops unsaved edits when the date changes and reloads the stored mood', async () => {
     const onDateChange = vi.fn(async (date) => ({
       filePath: `Daily/${date}.md`,
       initial: { score: -2, labels: ['sad'], note: 'Stored note' },
@@ -475,15 +488,21 @@ describe('MoodPickerModal fluid flow', () => {
     const secondNote = modal.contentEl.querySelector<HTMLTextAreaElement>('textarea')!;
     secondNote.value = 'Draft B';
     secondNote.dispatchEvent(new Event('input', { bubbles: true }));
+
+    // There is no cross-date draft queue any more: coming back to the first
+    // date shows what is stored, not the edits that were never saved.
     await change('2026-09-01');
-    expect(modal.score).toBe(2);
-    expect(modal.note).toBe('Draft A');
-    expect(Array.from(modal.labels)).toContain('walked');
-    expect(modal.customLabels).toContain('walked');
+    expect(modal.score).toBe(-2);
+    expect(modal.note).toBe('Stored note');
+    expect(Array.from(modal.labels)).toEqual(['sad']);
+    expect(modal.customLabels).not.toContain('walked');
     modal.contentEl.querySelector<HTMLButtonElement>('.journal-mood-continue')!.click();
-    expect(modal.contentEl.querySelector<HTMLInputElement>('input[type="text"]')!.value).toBe('unfinished');
+    expect(modal.contentEl.querySelector<HTMLInputElement>('input[type="text"]')!.value).toBe('');
+
+    // The second date behaves the same way.
     await change('2026-09-02');
-    expect(modal.note).toBe('Draft B');
+    expect(modal.note).toBe('Stored note');
+    expect(onDateChange).toHaveBeenCalledTimes(3);
   });
 
   it('locks switching and saving while a date request is pending and restores failures in place', async () => {
@@ -500,7 +519,10 @@ describe('MoodPickerModal fluid flow', () => {
     const slider = modal.contentEl.querySelector<HTMLElement>('[role="slider"]')!;
     input.value = '2026-09-02';
     const changing = modal.changeDate(input.value, input);
-    const locked = Array.from(modal.contentEl.querySelectorAll('button, input, textarea')).every((control) => control.disabled);
+    const locked = Array.from(modal.contentEl.querySelectorAll('button, textarea')).every((control) => control.disabled);
+    // The date input stays usable while a switch is pending so the native
+    // picker and per-segment typing are not interrupted.
+    expect(input.disabled).toBe(false);
     slider.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
     const scoreWhilePending = modal.score;
     await modal.changeDate('2026-09-03', input);
@@ -581,12 +603,11 @@ describe('MoodPickerModal fluid flow', () => {
     expect(document.activeElement).toBe(launcher);
   });
 
-  it('closes immediately with unsaved drafts and restores launcher focus', async () => {
-    const launcher = document.body.appendChild(document.createElement('button'));
-    launcher.focus();
+  it('closes on the first Escape with unsaved drafts instead of asking', async () => {
+    const confirmSpy = vi.mocked(window.confirm);
     const modal = new MoodPickerModal({}, {
       filePath: 'Daily/2026-09-01.md', allowDateSelection: true,
-      onDateChange: async () => ({ filePath: 'Daily/2026-09-02.md', initial: null }),
+      onDateChange: async (date) => ({ filePath: `Daily/${date}.md`, initial: null }),
     });
     modal.onOpen();
     openLabelStep(modal);
@@ -594,21 +615,117 @@ describe('MoodPickerModal fluid flow', () => {
     note.value = 'Draft on first date';
     note.dispatchEvent(new Event('input', { bubbles: true }));
     await modal.changeDate('2026-09-02', modal.contentEl.querySelector('input[type="date"]'));
+
     const escape = modal.scope.register.mock.calls[0][2];
     expect(escape(new KeyboardEvent('keydown', { key: 'Escape', cancelable: true }))).toBe(false);
+    expect(confirmSpy).not.toHaveBeenCalled();
     expect(modal.modalEl.isConnected).toBe(false);
-    expect(modal.contentEl.querySelector('.journal-mood-discard-confirm')).toBeNull();
-    expect(document.activeElement).toBe(launcher);
+    // There is no draft queue to inspect or release: the modal holds one live
+    // editor state and nothing survives the close.
+    expect(modal.drafts).toBeUndefined();
+  });
 
-    const dirty = new MoodPickerModal({}, { filePath: 'Daily/2026-09-01.md' });
-    dirty.onOpen();
-    dirty.contentEl.querySelector<HTMLButtonElement>('.journal-mood-continue')!.click();
-    const input = dirty.contentEl.querySelector<HTMLInputElement>('input[type="text"]')!;
+  it('closes with unsaved drafts on one call and restores launcher focus', () => {
+    const launcher = document.body.appendChild(document.createElement('button'));
+    launcher.focus();
+    const modal = new MoodPickerModal({}, { filePath: 'Daily/2026-09-01.md' });
+    modal.onOpen();
+    modal.contentEl.querySelector<HTMLButtonElement>('.journal-mood-continue')!.click();
+    const input = modal.contentEl.querySelector<HTMLInputElement>('input[type="text"]')!;
     input.value = 'not yet added';
     input.dispatchEvent(new Event('input', { bubbles: true }));
-    dirty.close();
-    expect(dirty.modalEl.isConnected).toBe(false);
-    expect(dirty.contentEl.querySelector('.journal-mood-discard-confirm')).toBeNull();
+
+    modal.close();
+
+    expect(window.confirm).not.toHaveBeenCalled();
+    expect(modal.modalEl.isConnected).toBe(false);
+    expect(document.activeElement).toBe(launcher);
+  });
+
+  it('closes without prompting even when a draft changed', () => {
+    const modal = new MoodPickerModal({}, { filePath: 'Daily/2026-09-01.md' });
+    modal.onOpen();
+    modal.contentEl.querySelector<HTMLButtonElement>('.journal-mood-continue')!.click();
+    modal.close();
+    expect(window.confirm).not.toHaveBeenCalled();
+    expect(modal.modalEl.isConnected).toBe(false);
+  });
+
+  it.each([
+    ['2026-08-29', true],
+    ['2024-02-29', true],
+    ['2023-02-29', false],
+    ['2026-02-30', false],
+    ['2026-13-01', false],
+    ['1899-12-31', false],
+    ['0100-01-01', false],
+    ['2026-8-9', false],
+    ['', false],
+    ['2026-08-29T00:00:00Z', false],
+  ])('treats %j as valid date input: %s', (value, valid) => {
+    expect(isValidMoodDateValue(value)).toBe(valid);
+  });
+
+  it('defers the date switch until the native input holds a complete valid date', async () => {
+    expect(MOOD_DATE_CHANGE_DEBOUNCE_MS).toBeGreaterThan(0);
+    const onDateChange = vi.fn(async (date) => ({ filePath: `Daily/${date}.md`, initial: null }));
+    const modal = new MoodPickerModal({}, {
+      filePath: 'Daily/2026-08-30.md', allowDateSelection: true, onDateChange,
+    });
+    modal.onOpen();
+    const date = modal.contentEl.querySelector<HTMLInputElement>('input[type="date"]')!;
+
+    // Chromium reports an empty value while the segments are still incomplete;
+    // that must not roll the field back or interrupt the edit.
+    date.value = '';
+    date.dispatchEvent(new Event('change', { bubbles: true }));
+    await new Promise((resolve) => window.setTimeout(resolve, MOOD_DATE_CHANGE_DEBOUNCE_MS + 50));
+    expect(onDateChange).not.toHaveBeenCalled();
+    expect(date.value).toBe('');
+    expect(modal.date).toBe('2026-08-30');
+
+    date.value = '0100-01-01';
+    date.dispatchEvent(new Event('change', { bubbles: true }));
+    await new Promise((resolve) => window.setTimeout(resolve, MOOD_DATE_CHANGE_DEBOUNCE_MS + 50));
+    expect(onDateChange).not.toHaveBeenCalled();
+    expect(modal.date).toBe('2026-08-30');
+
+    date.value = '2026-08-29';
+    date.dispatchEvent(new Event('change', { bubbles: true }));
+    expect(onDateChange).not.toHaveBeenCalled();
+    await vi.waitFor(() => expect(onDateChange).toHaveBeenCalledTimes(1));
+    expect(onDateChange).toHaveBeenCalledWith('2026-08-29');
+  });
+
+  it('restores the close affordance and offers a retry when a save times out', async () => {
+    expect(MOOD_SAVE_TIMEOUT_MS).toBe(15000);
+    const pending = deferred();
+    const onSave = vi.fn().mockReturnValueOnce(pending.promise).mockResolvedValue(undefined);
+    const modal = new MoodPickerModal({}, {
+      filePath: 'Daily/2026-09-01.md', settings: { displayLanguage: 'en' }, onSave, saveTimeoutMs: 20,
+    });
+    modal.onOpen();
+    openLabelStep(modal);
+    const save = modal.contentEl.querySelector<HTMLButtonElement>('.journal-mood-actions .mod-cta')!;
+    const saving = modal.save(save);
+    expect(modal.pendingOperation).toBe('saving');
+
+    await vi.waitFor(() => expect(modal.pendingOperation).toBeNull());
+    expect(modal.saveFailed).toBe(true);
+    expect(save.textContent).toBe('Retry');
+    expect(save.disabled).toBe(false);
+    // Asserted through `t` so the expectation holds both while the new key is
+    // unregistered (raw-key fallback) and once i18n.ts adds the English text.
+    expect(modal.contentEl.querySelector('.journal-mood-error')?.textContent)
+      .toBe(t({ displayLanguage: 'en' }, 'moodSaveTimeout'));
+
+    const escape = modal.scope.register.mock.calls[0][2];
+    escape(new KeyboardEvent('keydown', { key: 'Escape', cancelable: true }));
+    expect(modal.modalEl.isConnected).toBe(false);
+
+    // A late resolution must not throw or act on the already-abandoned attempt.
+    pending.resolve();
+    await saving;
   });
 });
 

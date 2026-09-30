@@ -152,10 +152,16 @@ export function drawFluidMood(
   const context = canvas.getContext('2d');
   if (!context) return false;
 
-  const rect = canvas.getBoundingClientRect();
-  const width = Math.max(1, Math.round(dimensions?.width ?? rect.width ?? canvas.clientWidth));
-  const height = Math.max(1, Math.round(dimensions?.height ?? rect.height ?? canvas.clientHeight));
-  const pixelRatio = Math.max(1, Math.min(2, dimensions?.pixelRatio ?? window.devicePixelRatio ?? 1));
+  // Callers that already know the box (a cached ResizeObserver measurement)
+  // must not force a layout read on every animation frame.
+  const needsMeasure = dimensions?.width === undefined || dimensions?.height === undefined;
+  const rect = needsMeasure ? canvas.getBoundingClientRect() : null;
+  const width = Math.max(1, Math.round(dimensions?.width ?? rect?.width ?? canvas.clientWidth));
+  const height = Math.max(1, Math.round(dimensions?.height ?? rect?.height ?? canvas.clientHeight));
+  const pixelRatio = Math.max(1, Math.min(
+    2,
+    dimensions?.pixelRatio ?? canvas.ownerDocument?.defaultView?.devicePixelRatio ?? window.devicePixelRatio ?? 1,
+  ));
   const targetWidth = Math.round(width * pixelRatio);
   const targetHeight = Math.round(height * pixelRatio);
   if (canvas.width !== targetWidth || canvas.height !== targetHeight) {
@@ -215,8 +221,12 @@ export class FluidMoodControl {
   private readonly track: HTMLElement;
   private readonly options: FluidMoodControlOptions;
   private readonly mediaQuery: MediaQueryList | null;
+  private readonly ownerDocument: Document;
+  private readonly ownerWindow: Window;
   private resizeObserver: ResizeObserver | null = null;
   private animationFrame: number | null = null;
+  private frameRunning = false;
+  private canvasSize: { width: number; height: number; pixelRatio: number } | null = null;
   private gestureDoc: Document | null = null;
   private activePointerId: number | null = null;
   private pendingTouch: { pointerId: number; x: number; y: number; onTrack: boolean } | null = null;
@@ -233,6 +243,10 @@ export class FluidMoodControl {
   constructor(root: HTMLElement, options: FluidMoodControlOptions) {
     this.root = root;
     this.options = options;
+    // Popout windows have their own document; listeners and measurements must
+    // follow it instead of the main window globals.
+    this.ownerDocument = root.ownerDocument || document;
+    this.ownerWindow = this.ownerDocument.defaultView || window;
     this.selectedScore = options.initialScore;
     this.displayValue = options.initialScore ?? 0;
     this.targetValue = this.displayValue;
@@ -285,15 +299,17 @@ export class FluidMoodControl {
 
     root.addEventListener('pointerdown', this.handlePointerDown);
     root.addEventListener('keydown', this.handleKeydown);
-    document.addEventListener('visibilitychange', this.handleVisibilityChange);
+    this.ownerDocument.addEventListener('visibilitychange', this.handleVisibilityChange);
     this.mediaQuery?.addEventListener?.('change', this.handleMotionChange);
     if (typeof ResizeObserver !== 'undefined') {
-      this.resizeObserver = new ResizeObserver(() => this.renderFrame());
+      this.resizeObserver = new ResizeObserver((entries) => {
+        this.cacheCanvasSize(entries?.[0]?.contentRect);
+        this.renderFrame();
+      });
       this.resizeObserver.observe(this.canvas);
     }
-
+    this.measureCanvas();
     this.updatePresentation(false);
-    this.startAnimation();
   }
 
   focus(): void {
@@ -313,7 +329,7 @@ export class FluidMoodControl {
     this.resizeObserver?.disconnect();
     this.root.removeEventListener('pointerdown', this.handlePointerDown);
     this.root.removeEventListener('keydown', this.handleKeydown);
-    document.removeEventListener('visibilitychange', this.handleVisibilityChange);
+    this.ownerDocument.removeEventListener('visibilitychange', this.handleVisibilityChange);
     this.mediaQuery?.removeEventListener?.('change', this.handleMotionChange);
   }
 
@@ -466,7 +482,7 @@ export class FluidMoodControl {
   };
 
   private readonly handleVisibilityChange = (): void => {
-    if (document.hidden) this.stopAnimation();
+    if (this.ownerDocument.hidden) this.stopAnimation();
     else this.startAnimation();
   };
 
@@ -524,29 +540,42 @@ export class FluidMoodControl {
     this.handle.setAttribute('data-label', label);
     if (announce) this.liveRegion.textContent = label;
     if (render) this.renderFrame();
+    this.startAnimation();
   }
 
   private prefersReducedMotion(): boolean {
     return this.mediaQuery?.matches === true;
   }
 
+  /** True once the eased value has reached its target and no gesture is active. */
+  private hasConverged(): boolean {
+    return this.activePointerId === null && this.displayValue === this.targetValue;
+  }
+
   private startAnimation(): void {
-    if (this.destroyed || this.prefersReducedMotion() || document.hidden || this.animationFrame !== null) return;
-    this.lastFrame = performance.now();
-    this.animationFrame = window.requestAnimationFrame(this.animate);
+    if (
+      this.destroyed
+      || this.frameRunning
+      || this.animationFrame !== null
+      || this.prefersReducedMotion()
+      || this.ownerDocument.hidden
+      || !this.root.isConnected
+      || this.hasConverged()
+    ) return;
+    this.lastFrame = this.ownerWindow.performance?.now?.() ?? Date.now();
+    this.animationFrame = this.ownerWindow.requestAnimationFrame(this.animate);
   }
 
   private stopAnimation(): void {
     if (this.animationFrame === null) return;
-    cancelAnimationFrame(this.animationFrame);
+    this.ownerWindow.cancelAnimationFrame(this.animationFrame);
     this.animationFrame = null;
   }
 
   private readonly animate = (time: number): void => {
-    if (this.destroyed || document.hidden || this.prefersReducedMotion() || !this.root.isConnected) {
-      this.animationFrame = null;
-      return;
-    }
+    this.animationFrame = null;
+    if (this.destroyed || this.ownerDocument.hidden || this.prefersReducedMotion() || !this.root.isConnected) return;
+    this.frameRunning = true;
     const elapsed = Math.min(48, Math.max(0, time - this.lastFrame));
     this.lastFrame = time;
     const distance = this.targetValue - this.displayValue;
@@ -557,10 +586,28 @@ export class FluidMoodControl {
     this.updatePresentation(false, false);
     this.phase += elapsed * 0.00042;
     this.renderFrame();
-    this.animationFrame = window.requestAnimationFrame(this.animate);
+    const converged = this.hasConverged();
+    this.frameRunning = false;
+    // Settle instead of redrawing at 60fps forever: the loop restarts from
+    // updatePresentation as soon as a new value or gesture arrives.
+    if (!converged) this.animationFrame = this.ownerWindow.requestAnimationFrame(this.animate);
   };
 
+  /** Cache the canvas box so drawing never measures per frame. */
+  private measureCanvas(): void {
+    this.cacheCanvasSize(this.canvas.getBoundingClientRect());
+  }
+
+  private cacheCanvasSize(box: { width?: number; height?: number } | null | undefined): void {
+    const width = Math.round(box?.width ?? 0);
+    const height = Math.round(box?.height ?? 0);
+    if (width <= 0 || height <= 0) return;
+    const ratio = this.ownerWindow.devicePixelRatio || 1;
+    this.canvasSize = { width, height, pixelRatio: Math.max(1, Math.min(2, ratio)) };
+  }
+
   private renderFrame(): void {
-    drawFluidMood(this.canvas, this.displayValue, this.phase);
+    if (!this.canvasSize) this.measureCanvas();
+    drawFluidMood(this.canvas, this.displayValue, this.phase, this.canvasSize ?? undefined);
   }
 }

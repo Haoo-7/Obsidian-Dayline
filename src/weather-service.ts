@@ -1,9 +1,15 @@
 // @ts-nocheck
 import { getTodayDate, joinVaultPath } from './date-utils';
+import { withTimeout } from './media-service';
 import {
   weatherConfigKey,
   migrateCompatibleSnapshot,
   isSnapshotStale,
+  isHistoricalWeatherDate,
+  weatherDateAgeDays,
+  pruneWeatherCache,
+  WEATHER_RECENT_DAYS,
+  WEATHER_CACHE_MAX_ENTRIES,
   cloneStaleSnapshot,
   toCanonicalWeatherSnapshot,
 } from './weather-cache';
@@ -17,6 +23,12 @@ function getObsidianWeatherDeps() {
 export const WEATHER_MAX_ATTEMPTS = 3;
 export const WEATHER_RETRY_BASE_DELAY_MS = 250;
 export const WEATHER_RETRY_MAX_DELAY_MS = 2000;
+/**
+ * Obsidian's `requestUrl` ignores an unknown `timeout` field, so a hung socket
+ * would leave the weather card on "loading" forever. Each attempt gets a real
+ * deadline through `withTimeout` instead.
+ */
+export const WEATHER_REQUEST_TIMEOUT_MS = 10000;
 
 function daylineDate(settings, date = new Date()) {
   return getTodayDate(settings?.weatherTimezone || 'auto', date);
@@ -247,6 +259,10 @@ export class WeatherService {
     return new Date(this._now()).toISOString();
   }
 
+  _today() {
+    return daylineDate(this.plugin.settings, new Date(this._now()));
+  }
+
   _requestContext() {
     const source = this.plugin.settings;
     const settings = {
@@ -284,12 +300,17 @@ export class WeatherService {
     return this._runDeduplicated(dateStr, context.configKey, () => this._fetchOrUseCached(dateStr, false, context));
   }
 
-  /** Check whether a frontmatter snapshot or memory cache record needs refresh. */
-  _shouldFetch(record, ttlHours) {
+  /**
+   * Check whether a frontmatter snapshot or memory cache record needs refresh.
+   * `dateStr` is optional so existing callers keep working; when it is omitted
+   * the snapshot's own `date` field supplies the freshness context.
+   */
+  _shouldFetch(record, ttlHours, dateStr = undefined) {
+    const options = { date: dateStr, today: this._today() };
     if (record && typeof record === 'object' && 'cachedAt' in record) {
-      return isSnapshotStale({ ...(record.snapshot || {}), cachedAt: record.cachedAt }, ttlHours, this._now());
+      return isSnapshotStale({ ...(record.snapshot || {}), cachedAt: record.cachedAt }, ttlHours, this._now(), options);
     }
-    return isSnapshotStale(record, ttlHours, this._now());
+    return isSnapshotStale(record, ttlHours, this._now(), options);
   }
 
   _configKey() {
@@ -353,7 +374,7 @@ export class WeatherService {
   _selectCached(dateStr, sourcePath, ttlHours, settings = this.plugin.settings, configKey = weatherConfigKey(settings)) {
     const candidates = this._cachedCandidates(dateStr, sourcePath, settings, configKey);
     if (candidates.length === 0) return null;
-    const fresh = candidates.find((candidate) => !this._shouldFetch(candidate.record || candidate.snapshot, ttlHours));
+    const fresh = candidates.find((candidate) => !this._shouldFetch(candidate.record || candidate.snapshot, ttlHours, dateStr));
     return fresh || candidates[0];
   }
 
@@ -381,11 +402,11 @@ export class WeatherService {
     // Preserve the existing short-lived negative cache for dates with no
     // usable snapshot, while force refresh always gets a new attempt.
     if (!forceRefresh && memoryRecord?.configKey === context.configKey
-      && memoryRecord.snapshot === null && !cached && !this._shouldFetch(memoryRecord, ttlHours)) {
+      && memoryRecord.snapshot === null && !cached && !this._shouldFetch(memoryRecord, ttlHours, dateStr)) {
       return null;
     }
 
-    if (!forceRefresh && cached && !this._shouldFetch(cached.record || cached.snapshot, ttlHours)) {
+    if (!forceRefresh && cached && !this._shouldFetch(cached.record || cached.snapshot, ttlHours, dateStr)) {
       this._migrateFrontmatterCache(dateStr, cached);
       return cached.snapshot;
     }
@@ -424,11 +445,26 @@ export class WeatherService {
     return fields.join(',');
   }
 
+  /**
+   * ERA5/archive data lags several days, so recent past days must come from the
+   * forecast API's `past_days` window; only settled history uses the archive.
+   */
+  _isArchiveDate(dateStr, today) {
+    return dateStr < today && isHistoricalWeatherDate(dateStr, today, WEATHER_RECENT_DAYS);
+  }
+
+  _weatherBaseUrl(dateStr, today) {
+    return this._isArchiveDate(dateStr, today)
+      ? 'https://archive-api.open-meteo.com/v1/archive'
+      : 'https://api.open-meteo.com/v1/forecast';
+  }
+
   _buildWeatherUrl(lat, lng, dateStr, units, context = this._requestContext()) {
     const timezone = context.settings.weatherTimezone || 'auto';
     const today = context.today;
     const isToday = dateStr === today;
-    const isArchive = dateStr < today;
+    const isArchive = this._isArchiveDate(dateStr, today);
+    const isRecentPast = dateStr < today && !isArchive;
     const params = new URLSearchParams({
       latitude: String(lat),
       longitude: String(lng),
@@ -440,6 +476,10 @@ export class WeatherService {
     if (isToday) {
       params.set('current', 'temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m');
     }
+    if (isRecentPast) {
+      const ageDays = weatherDateAgeDays(dateStr, today);
+      params.set('past_days', String(Math.min(WEATHER_RECENT_DAYS, Math.max(1, Math.round(ageDays ?? 1)))));
+    }
     if (units === 'imperial') {
       params.set('temperature_unit', 'fahrenheit');
       params.set('wind_speed_unit', 'mph');
@@ -447,15 +487,16 @@ export class WeatherService {
       params.set('temperature_unit', 'celsius');
       params.set('wind_speed_unit', 'kmh');
     }
-    const baseUrl = isArchive
-      ? 'https://archive-api.open-meteo.com/v1/archive'
-      : 'https://api.open-meteo.com/v1/forecast';
-    return `${baseUrl}?${params.toString()}`;
+    return `${this._weatherBaseUrl(dateStr, today)}?${params.toString()}`;
   }
 
   async _requestWeather(url) {
     return requestWeatherWithRetry(
-      () => this._request({ url, timeout: 10000 }),
+      () => withTimeout(
+        Promise.resolve(this._request({ url })),
+        WEATHER_REQUEST_TIMEOUT_MS,
+        'weather request',
+      ),
       { ...this._retryOptions, sleep: this._sleep },
     );
   }
@@ -576,9 +617,7 @@ export class WeatherService {
   /** Compatibility helper for callers that still need a daily-only request. */
   async _dailyOnlyFetch(lat, lng, dateStr, params) {
     const today = daylineDate(this.plugin.settings, new Date(this._now()));
-    const baseUrl = dateStr < today
-      ? 'https://archive-api.open-meteo.com/v1/archive'
-      : 'https://api.open-meteo.com/v1/forecast';
+    const baseUrl = this._weatherBaseUrl(dateStr, today);
     try {
       return await this._requestWeather(`${baseUrl}?${params.toString()}`);
     } catch (err) {
@@ -594,6 +633,9 @@ export class WeatherService {
     if (canonical.configKey && canonical.configKey !== this._configKey()) return;
     if (!this.plugin.weatherCache) this.plugin.weatherCache = {};
     this.plugin.weatherCache[dateStr] = { ...canonical, configKey: this._configKey() };
+    // Bound the cache by entry count, never by wall-clock fetch age: a
+    // backfilled history entry is the only remaining copy of that day.
+    pruneWeatherCache(this.plugin.weatherCache, { maxEntries: WEATHER_CACHE_MAX_ENTRIES });
     this.plugin._saveWeatherCache?.();
   }
 
@@ -618,7 +660,7 @@ export class WeatherService {
     const total = dateStrs.length;
     for (const dateStr of dateStrs) {
       const entry = this.plugin.weatherCache?.[dateStr];
-      if (entry && this.isSnapshotCompatible(entry) && entry.fetchedAt && !this._shouldFetch(entry, this.plugin.settings.weatherTtlHours || 2)) {
+      if (entry && this.isSnapshotCompatible(entry) && entry.fetchedAt && !this._shouldFetch(entry, this.plugin.settings.weatherTtlHours || 2, dateStr)) {
         done++;
         onProgress?.(done, total, dateStr, true);
         continue;

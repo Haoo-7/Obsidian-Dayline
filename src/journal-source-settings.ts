@@ -5,11 +5,15 @@ import { t } from './i18n';
 
 const clone = (value) => JSON.parse(JSON.stringify(value));
 
-export function validateJournalSources(value) {
+export function validateJournalSources(value, dailyFolder) {
   if (!Array.isArray(value)) throw new Error('sourceInvalidArray');
   const ids = new Set();
   const paths = new Set();
   let daily = false;
+  // The daily source decides what indexing reads while note creation, mood
+  // writes, and the reminder all use the daily folder. Require them to agree so
+  // newly created journals cannot fall outside the indexed timeline.
+  const normalizedDailyFolder = typeof dailyFolder === 'string' ? normalizeVaultPath(dailyFolder) : null;
   return value.map((source, index) => {
     const fail = (key) => { throw Object.assign(new Error(key), { row: index + 1 }); };
     if (!source || typeof source !== 'object' || Array.isArray(source)) fail('sourceInvalidRow');
@@ -31,6 +35,9 @@ export function validateJournalSources(value) {
     if (source.enabled !== false) {
       if (paths.has(path)) fail('sourceDuplicatePath');
       if (type === 'daily' && daily) fail('sourceMultipleDaily');
+      if (type === 'daily' && normalizedDailyFolder !== null && path !== normalizedDailyFolder) {
+        fail('sourceDailyMismatch');
+      }
       paths.add(path);
       daily ||= type === 'daily';
     }
@@ -204,7 +211,7 @@ export class JournalSourceSettingsEditor {
         list.hidden = true;
       } else {
         try {
-          this.sources = validateJournalSources(JSON.parse(this.raw));
+          this.sources = validateJournalSources(JSON.parse(this.raw), this.dailyFolder);
           this.jsonOpen = false;
           this.error = null;
           this.renderFields();
@@ -246,13 +253,13 @@ export class JournalSourceSettingsEditor {
     let sources;
     let dailyFolder;
     try {
-      sources = validateJournalSources(this.jsonOpen ? JSON.parse(this.raw) : this.sources);
-      // "/" is the vault root: normalize it for path building, but store it back
-      // as "/" because an empty setting keeps meaning "unset".
+      // Validate the daily folder first so the source check can compare against
+      // the value that will actually be saved.
       const dailyRaw = this.dailyFolder.trim();
       const normalizedDaily = normalizeVaultPath(dailyRaw);
       if (!dailyRaw || normalizedDaily.split('/').some(part => part === '.' || part === '..')) throw new Error('sourceDailyRequired');
       dailyFolder = normalizedDaily || '/';
+      sources = validateJournalSources(this.jsonOpen ? JSON.parse(this.raw) : this.sources, dailyFolder);
     } catch (error) {
       this.showError(error);
       return;

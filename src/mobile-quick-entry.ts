@@ -1,10 +1,15 @@
+import { usesPhoneLayout } from './platform-capabilities';
+
 export const MOBILE_QUICK_ENTRY_ICON = 'calendar-range';
 export const MOBILE_QUICK_ENTRY_TITLE = 'Dayline';
 export const MOBILE_QUICK_ENTRY_VIEW_TYPE = 'markdown';
 
 export type MobileQuickEntryCapabilities = {
+  isMobile?: boolean;
   isMobileApp?: boolean;
   isPhone?: boolean;
+  isPhoneLayout?: boolean;
+  isTablet?: boolean;
 };
 
 export type MobileQuickEntryPlugin = {
@@ -26,7 +31,12 @@ type TrackedAction = {
 };
 
 function isPhoneMobileApp(capabilities: MobileQuickEntryCapabilities | null | undefined): boolean {
-  return Boolean(capabilities?.isMobileApp && capabilities?.isPhone);
+  // U-11: Obsidian's phone layout is derived from the live viewport, while
+  // `Platform.isPhone` is a static flag. On an iPad in a narrow split the two
+  // disagree, so the quick entry must follow the same predicate the routing
+  // uses. It still requires the mobile app: desktop mobile emulation has no
+  // mobile view header to attach to.
+  return Boolean(capabilities?.isMobileApp) && usesPhoneLayout(capabilities);
 }
 
 function leafViewType(leaf: unknown): string | null {

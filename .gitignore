@@ -1,5 +1,6 @@
 .DS_Store
 .omo/
+.commandcode/
 node_modules/
 dist/
 output/

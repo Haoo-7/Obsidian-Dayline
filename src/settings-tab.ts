@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { Notice, PluginSettingTab, Setting, SuggestModal, TFolder } from 'obsidian';
 import { DISPLAY_LANGUAGE_LABEL_KEYS, DISPLAY_LANGUAGE_OPTIONS, getDisplayLanguage, t } from './i18n';
+import { applyDeviceLocation, geolocationFailureKey, requestCurrentCoordinates } from './geolocation';
 import { localize as _l } from './locale';
 import compactWordmarkSvg from '../assets/dayline-wordmark-compact.svg';
 import daylineLogoSvg from '../assets/dayline-logo.svg';
@@ -11,6 +12,80 @@ import { JournalSourceSettingsEditor } from './journal-source-settings';
 import { normalizeOnThisDayEntryMode } from './on-this-day-entry';
 
 const VIEW_TYPE = 'calendar-sidebar-view';
+
+/** Delay before a settings text field commits while the user is still typing. */
+export const SETTINGS_TEXT_COMMIT_DELAY_MS = 800;
+
+export const DEFAULT_MOOD_METADATA_PATH = 'Calendar/journal-metadata.json';
+
+export type SettingsFieldValidation =
+  | { ok: true; value: string }
+  | { ok: false; messageKey: string };
+
+export type CoordinateFieldKind = 'latitude' | 'longitude';
+
+const COORDINATE_LIMITS: Record<CoordinateFieldKind, number> = { latitude: 90, longitude: 180 };
+const COORDINATE_RANGE_MESSAGE_KEYS: Record<CoordinateFieldKind, string> = {
+  latitude: 'latitudeOutOfRange',
+  longitude: 'longitudeOutOfRange',
+};
+// `parseFloat` accepts '39abc' as 39; only a plain decimal number is a coordinate.
+const DECIMAL_NUMBER_PATTERN = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/;
+
+/**
+ * Strict coordinate parsing for the settings fields. An empty value stays
+ * allowed (it leaves weather without coordinates until the user configures
+ * them), but anything that is not a plain decimal number, or that falls outside
+ * the valid range, is reported for an inline message instead of being stored.
+ */
+export function parseCoordinateSettingValue(kind: CoordinateFieldKind, raw: unknown): SettingsFieldValidation {
+  const value = String(raw ?? '').trim();
+  if (value === '') return { ok: true, value: '' };
+  if (!DECIMAL_NUMBER_PATTERN.test(value)) return { ok: false, messageKey: 'coordinateMustBeNumeric' };
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return { ok: false, messageKey: 'coordinateMustBeNumeric' };
+  if (Math.abs(parsed) > COORDINATE_LIMITS[kind]) {
+    return { ok: false, messageKey: COORDINATE_RANGE_MESSAGE_KEYS[kind] };
+  }
+  return { ok: true, value };
+}
+
+/**
+ * Mood metadata must be a JSON file. Applying a half-typed path such as
+ * `...metadata.js` used to save it and then reject the following load; empty
+ * input falls back to the default path.
+ */
+export function normalizeMoodMetadataPath(raw: unknown): SettingsFieldValidation {
+  const value = String(raw ?? '').trim();
+  if (value === '') return { ok: true, value: DEFAULT_MOOD_METADATA_PATH };
+  if (!/\.json$/i.test(value)) return { ok: false, messageKey: 'moodMetadataPathMustBeJson' };
+  return { ok: true, value };
+}
+
+/**
+ * The one-tap locate control needs a platform location service. Obsidian mobile
+ * (iOS/Android) provides one; desktop Electron builds usually have no provider
+ * key, where the request only produced POSITION_UNAVAILABLE errors and an
+ * English notice. Those users can still type the coordinates. Widening this
+ * needs real-device verification on desktop.
+ */
+export function shouldShowUseCurrentLocationButton(
+  capabilities?: { isMobileApp?: boolean; isIos?: boolean; isAndroid?: boolean } | null,
+): boolean {
+  if (!capabilities) return false;
+  return Boolean(capabilities.isMobileApp || capabilities.isIos || capabilities.isAndroid);
+}
+
+/**
+ * Resolve the locale for the settings descriptions at call time. Reading the
+ * table frozen from `weatherLanguage` at load/save time mixed languages when the
+ * display language followed the system and the system language changed.
+ */
+export function createSettingsLocalizer(
+  settings: { displayLanguage?: string; weatherLanguage?: string },
+): (key: string, ...args: unknown[]) => string {
+  return (key, ...args) => _l(getDisplayLanguage(settings), key, ...args);
+}
 
 export async function commitJournalSourceSettings(plugin, save = () => plugin.saveSettings()) {
   const saved = await save();
@@ -68,6 +143,24 @@ export function shouldShowExifGeocoding(settings) {
   return settings.showExif === true;
 }
 
+/**
+ * Insert-time EXIF/GPS persistence is an opt-in write to the user's journal
+ * frontmatter. The row resolves its strings through `t` (i18n) rather than the
+ * frozen `_s` locale table so it works before the nine translations are
+ * registered; `t` falls back to English and then to the raw key.
+ */
+export function addExifPersistMetadataSetting(containerEl, plugin, saveSettings = () => plugin.saveSettings()) {
+  new Setting(containerEl)
+    .setName(t(plugin.settings, 's_exifPersist'))
+    .setDesc(t(plugin.settings, 's_exifPersistDesc'))
+    .addToggle((toggle) => toggle
+      .setValue(plugin.settings.exifPersistMetadata === true)
+      .onChange(async (value) => {
+        plugin.settings.exifPersistMetadata = value === true;
+        await saveSettings();
+      }));
+}
+
 export { shouldShowCalendarMoodStyle };
 
 /* ============================================================
@@ -77,6 +170,7 @@ export class DaylineSettingsTab extends PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
     this.plugin = plugin;
+    this._pendingFieldFlushes = new Set();
   }
 
   async _saveSettings() {
@@ -128,6 +222,115 @@ export class DaylineSettingsTab extends PluginSettingTab {
     }
   }
 
+  /**
+   * Flush a debounced text field immediately, e.g. when the settings pane is
+   * closed before the typing pause elapsed.
+   */
+  _flushPendingFieldCommits() {
+    const pending = [...this._pendingFieldFlushes];
+    this._pendingFieldFlushes.clear();
+    for (const flush of pending) flush();
+  }
+
+  hide() {
+    this._flushPendingFieldCommits();
+    super.hide();
+  }
+
+  /**
+   * Text settings fields commit on blur or after a short pause in typing, never
+   * on every keystroke: intermediate values used to be saved and each one could
+   * trigger several weather requests. Invalid text stays in the field with an
+   * inline message and never reaches the settings object.
+   */
+  _bindValidatedTextField(text, { field, parse, showError, clearError, apply }) {
+    let timer = null;
+    const clearTimer = () => {
+      if (timer === null) return;
+      window.clearTimeout(timer);
+      timer = null;
+    };
+    const commit = async () => {
+      clearTimer();
+      const result = parse(text.getValue());
+      if (!result.ok) {
+        showError(result.messageKey);
+        return;
+      }
+      clearError();
+      if (this.plugin.settings[field] === result.value) return;
+      this.plugin.settings[field] = result.value;
+      if (!(await this._saveSettings())) return;
+      await apply();
+    };
+    const flush = () => { if (timer !== null) void commit(); };
+    const schedule = () => {
+      clearTimer();
+      timer = window.setTimeout(() => {
+        timer = null;
+        void commit();
+      }, SETTINGS_TEXT_COMMIT_DELAY_MS);
+    };
+    text.inputEl.addEventListener('input', schedule);
+    text.inputEl.addEventListener('blur', () => { void commit(); });
+    this._pendingFieldFlushes.add(flush);
+  }
+
+  _addValidatedTextField(containerEl, { name, description, placeholder, field, initialValue, parse, localizeError, apply }) {
+    const setting = new Setting(containerEl).setName(name).setDesc(description);
+    setting.addText((text) => {
+      text.setPlaceholder(placeholder);
+      text.setValue(String(initialValue));
+      this._bindValidatedTextField(text, {
+        field,
+        parse,
+        showError: (key) => setting.setDesc(localizeError(key)),
+        clearError: () => setting.setDesc(description),
+        apply,
+      });
+      return text;
+    });
+    return setting;
+  }
+
+  async _reloadMoodMetadataStore() {
+    try {
+      this.plugin.moodStore.configure(this.plugin.settings);
+      await this.plugin.moodStore.load();
+      await this.plugin.journalIndex.refresh(this.plugin.settings);
+      this.plugin.refreshJournalViews();
+    } catch (error) {
+      const message = error?.message || String(error);
+      console.warn('[Dayline] Mood metadata path change failed:', message);
+      new Notice(t(this.plugin.settings, 'moodMetadataPathFailed'));
+    }
+  }
+
+  async _fillWeatherCoordinatesFromDevice(button) {
+    // Commit text still pending in the coordinate fields first, so a stale
+    // keystroke cannot overwrite the reading once it arrives.
+    this._flushPendingFieldCommits();
+    const settings = this.plugin.settings;
+    button?.setDisabled?.(true);
+    button?.setButtonText?.(t(settings, 'locating'));
+    try {
+      const coords = await requestCurrentCoordinates();
+      const { clearedLocationName } = applyDeviceLocation(settings, coords);
+      if (!(await this._saveSettings())) return;
+      new Notice(t(settings, clearedLocationName ? 'locationUpdatedNameCleared' : 'locationUpdated'));
+      this.display();
+      await this._refreshViews();
+    } catch (error) {
+      // The provider message is English and platform-specific: log it for
+      // debugging, show the localized code-based notice.
+      console.debug('[Dayline] Geolocation failed:', error?.message || error);
+      new Notice(t(settings, geolocationFailureKey(error)));
+    } finally {
+      button?.setDisabled?.(false);
+      button?.setButtonText?.(t(this.plugin.settings, 'locateButton'));
+    }
+  }
+
   _addSection(containerEl, id) {
     const setting = new Setting(containerEl)
       .setName(t(this.plugin.settings, SETTINGS_SECTION_LABEL_KEYS[id]))
@@ -142,10 +345,11 @@ export class DaylineSettingsTab extends PluginSettingTab {
   }
 
   display() {
+    this._flushPendingFieldCommits();
     const { containerEl } = this;
     containerEl.empty();
     containerEl.addClass('dayline-settings-container');
-    const _s = (key, ...args) => _l(this.plugin.settings.weatherLanguage, key, ...args);
+    const _s = createSettingsLocalizer(this.plugin.settings);
 
     renderSettingsBrand(containerEl, { markSvg: daylineLogoSvg, wordmarkSvg: compactWordmarkSvg });
 
@@ -369,33 +573,38 @@ export class DaylineSettingsTab extends PluginSettingTab {
 
     if (shouldShowWeatherSettings(this.plugin.settings)) {
 
-    new Setting(containerEl)
-      .setName(_s('s_latitude'))
-      .setDesc(_s('s_latitudeDesc'))
-      .addText((text) =>
-        text
-          .setPlaceholder('39.9042')
-          .setValue(String(this.plugin.settings.weatherLatitude))
-          .onChange(async (value) => {
-            this.plugin.settings.weatherLatitude = value.trim();
-            if (!(await this._saveSettings())) return;
-            await this._refreshViews();
-          })
-      );
+    this._addValidatedTextField(containerEl, {
+      name: _s('s_latitude'),
+      description: _s('s_latitudeDesc'),
+      placeholder: '39.9042',
+      field: 'weatherLatitude',
+      initialValue: this.plugin.settings.weatherLatitude,
+      parse: (raw) => parseCoordinateSettingValue('latitude', raw),
+      localizeError: (key) => t(this.plugin.settings, key),
+      apply: () => this._refreshViews(),
+    });
 
-    new Setting(containerEl)
-      .setName(_s('s_longitude'))
-      .setDesc(_s('s_longitudeDesc'))
-      .addText((text) =>
-        text
-          .setPlaceholder('116.4074')
-          .setValue(String(this.plugin.settings.weatherLongitude))
-          .onChange(async (value) => {
-            this.plugin.settings.weatherLongitude = value.trim();
-            if (!(await this._saveSettings())) return;
-            await this._refreshViews();
-          })
-      );
+    this._addValidatedTextField(containerEl, {
+      name: _s('s_longitude'),
+      description: _s('s_longitudeDesc'),
+      placeholder: '116.4074',
+      field: 'weatherLongitude',
+      initialValue: this.plugin.settings.weatherLongitude,
+      parse: (raw) => parseCoordinateSettingValue('longitude', raw),
+      localizeError: (key) => t(this.plugin.settings, key),
+      apply: () => this._refreshViews(),
+    });
+
+    if (shouldShowUseCurrentLocationButton(this.plugin.capabilities)) {
+      new Setting(containerEl)
+        .setName(t(this.plugin.settings, 'useCurrentLocation'))
+        .setDesc(t(this.plugin.settings, 'useCurrentLocationDesc'))
+        .addButton((button) => button
+          .setButtonText(t(this.plugin.settings, 'locateButton'))
+          .onClick(async () => {
+            await this._fillWeatherCoordinatesFromDevice(button);
+          }));
+    }
 
     new Setting(containerEl)
       .setName(_s('s_locationName'))
@@ -513,6 +722,8 @@ export class DaylineSettingsTab extends PluginSettingTab {
           this.display();
         }));
 
+    addExifPersistMetadataSetting(containerEl, this.plugin, () => this._saveSettings());
+
     if (shouldShowExifGeocoding(this.plugin.settings)) {
       new Setting(containerEl)
         .setName(_s('s_exifGeocode'))
@@ -545,19 +756,6 @@ export class DaylineSettingsTab extends PluginSettingTab {
             this.display();
             const leaf = this.app.workspace.getLeavesOfType(VIEW_TYPE)[0];
             if (leaf?.view) leaf.view.render();
-          })
-      );
-
-    new Setting(containerEl)
-      .setName(_s('s_otdDot'))
-      .setDesc(_s('s_otdDotDesc'))
-      .addToggle((toggle) =>
-        toggle
-          .setValue(this.plugin.settings.onThisDayDot)
-          .onChange(async (value) => {
-            this.plugin.settings.onThisDayDot = value;
-            if (!(await this._saveSettings())) return;
-            this._refreshCalendarView();
           })
       );
 
@@ -610,21 +808,16 @@ export class DaylineSettingsTab extends PluginSettingTab {
 
     this._addSection(containerEl, 'data-maintenance');
 
-    new Setting(containerEl)
-      .setName(t(this.plugin.settings, 'moodMetadataPath'))
-      .setDesc(t(this.plugin.settings, 'moodMetadataPathDesc'))
-      .addText((text) => text
-        .setValue(this.plugin.settings.moodMetadataPath)
-        .setPlaceholder('Calendar/journal-metadata.json')
-        .onChange(async (value) => {
-          const next = value.trim() || 'Calendar/journal-metadata.json';
-          this.plugin.settings.moodMetadataPath = next;
-          if (!(await this._saveSettings())) return;
-          this.plugin.moodStore.configure(this.plugin.settings);
-          await this.plugin.moodStore.load();
-          await this.plugin.journalIndex.refresh(this.plugin.settings);
-          this.plugin.refreshJournalViews();
-        }));
+    this._addValidatedTextField(containerEl, {
+      name: t(this.plugin.settings, 'moodMetadataPath'),
+      description: t(this.plugin.settings, 'moodMetadataPathDesc'),
+      placeholder: DEFAULT_MOOD_METADATA_PATH,
+      field: 'moodMetadataPath',
+      initialValue: this.plugin.settings.moodMetadataPath,
+      parse: (raw) => normalizeMoodMetadataPath(raw),
+      localizeError: (key) => t(this.plugin.settings, key),
+      apply: () => this._reloadMoodMetadataStore(),
+    });
 
     this._addActionRow(new Setting(containerEl)
       .setName(t(this.plugin.settings, 'moodExport'))

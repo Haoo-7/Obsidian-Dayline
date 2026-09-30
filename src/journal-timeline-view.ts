@@ -14,12 +14,14 @@ import {
 } from './journal-timeline-filters';
 import { isInteractiveTimelineTarget, shouldOpenTimelineEntryFromKey, shouldOpenTimelineEntryFromPointer } from './journal-timeline-interaction';
 import { startJournalIndexLoad } from './journal-index';
-import { getJournalOpenLeaf, renderMobileDaylineModeControls } from './dayline-mobile';
+import { getJournalOpenLeaf, getPreferredDaylineLeaf, renderMobileDaylineModeControls } from './dayline-mobile';
 import { bindOpenOnPointer } from './touch-targets';
 import { usesPhoneLayout } from './platform-capabilities';
 
 export const JOURNAL_TIMELINE_VIEW = 'journal-timeline-view';
 const TIMELINE_PAGE_SIZE = 50;
+/** Keystrokes within this window replace the pending search render. */
+const SEARCH_DEBOUNCE_MS = 150;
 
 function timelineDateParts(date, settings) {
   const value = new Date(`${date}T12:00:00`);
@@ -62,6 +64,7 @@ export class JournalTimelineView extends ItemView {
     this.thumbnailLoaders = new Map();
     this.thumbnailScrollTimer = null;
     this.mediaRefreshTimer = null;
+    this.searchDebounceTimer = null;
     this.visibleEntryLimit = TIMELINE_PAGE_SIZE;
     this.renderScheduled = false;
     this.renderScheduleTimer = null;
@@ -88,6 +91,7 @@ export class JournalTimelineView extends ItemView {
       },
       groupLabel: t(this.plugin.settings, 'daylineViewGroupLabel'),
       returnLabel: t(this.plugin.settings, 'backToNote'),
+      returnHint: t(this.plugin.settings, 'backToNoteHint'),
       onSelect: (mode) => mode === 'calendar'
         ? this.plugin.activateView()
         : this.plugin.activateTimeline(),
@@ -159,6 +163,7 @@ export class JournalTimelineView extends ItemView {
     this.thumbnailScrollTimer = null;
     if (this.mediaRefreshTimer) window.clearTimeout(this.mediaRefreshTimer);
     this.mediaRefreshTimer = null;
+    this.cancelSearchUpdate();
     if (this.renderScheduleTimer) window.clearTimeout(this.renderScheduleTimer);
     this.renderScheduleTimer = null;
     this.renderScheduled = false;
@@ -244,7 +249,10 @@ export class JournalTimelineView extends ItemView {
   }
 
   renderStats(root, before = null) {
-    const stats = calculateJournalStats(this.index.getEntries());
+    const entries = this.index.getEntries();
+    // `today` and the week start come from the configured timezone/settings so the
+    // streak and month figures match the dates the rest of the plugin shows.
+    const stats = calculateJournalStats(entries, new Date(), this.plugin.settings);
     const details = root.createEl('details', { cls: 'journal-timeline-stats-details' });
     if (before) root.insertBefore(details, before);
     const summary = details.createEl('summary');
@@ -265,7 +273,7 @@ export class JournalTimelineView extends ItemView {
     const trend = section.createDiv({ cls: 'journal-stat-trend' });
     trend.createDiv({ cls: 'journal-stat-label', text: t(this.plugin.settings, 'moodTrend') });
     const grid = trend.createDiv({ cls: 'journal-stat-trend-grid' });
-    for (const item of buildRecentMoodTrend(this.index.getEntries())) {
+    for (const item of buildRecentMoodTrend(entries, new Date(), 7, this.plugin.settings?.weatherTimezone)) {
       const cell = grid.createDiv({ cls: 'journal-stat-trend-cell' });
       cell.style.backgroundColor = getMoodColor(item.score);
       cell.setAttribute('aria-label', `${item.date}: ${item.score === undefined ? t(this.plugin.settings, 'noMood') : moodLabel(this.plugin.settings, item.score)}`);
@@ -282,6 +290,22 @@ export class JournalTimelineView extends ItemView {
     }, 100);
   }
 
+  /** Run the search once typing pauses instead of re-filtering on every keystroke. */
+  scheduleSearchUpdate() {
+    this.cancelSearchUpdate();
+    this.searchDebounceTimer = window.setTimeout(() => {
+      this.searchDebounceTimer = null;
+      if (this.closed) return;
+      this.filter.query = this.filterControls?.query?.value || undefined;
+      this.updateResults();
+    }, SEARCH_DEBOUNCE_MS);
+  }
+
+  cancelSearchUpdate() {
+    if (this.searchDebounceTimer) window.clearTimeout(this.searchDebounceTimer);
+    this.searchDebounceTimer = null;
+  }
+
   renderFilters(root) {
     const filters = root.createDiv({ cls: 'journal-timeline-filter-area' });
     const row = filters.createDiv({ cls: 'journal-timeline-filter-row' });
@@ -290,8 +314,7 @@ export class JournalTimelineView extends ItemView {
     });
     query.value = this.filter.query ?? '';
     query.addEventListener('input', () => {
-      this.filter.query = query.value || undefined;
-      this.updateResults();
+      this.scheduleSearchUpdate();
     });
     const filterButton = row.createEl('button', {
       attr: {
@@ -421,6 +444,7 @@ export class JournalTimelineView extends ItemView {
   }
 
   clearFilters() {
+    this.cancelSearchUpdate();
     this.filter = {};
     this.syncFilterControls();
     this.updateResults();
@@ -840,7 +864,9 @@ export class JournalTimelineView extends ItemView {
       if (this.plugin.openJournalFile) {
         await this.plugin.openJournalFile(file);
       } else {
-        const leaf = getJournalOpenLeaf(this.app.workspace, usesPhoneLayout(this.plugin.capabilities));
+        const phoneMode = usesPhoneLayout(this.plugin.capabilities);
+        const daylineLeaf = phoneMode ? getPreferredDaylineLeaf(this.app.workspace) : null;
+        const leaf = getJournalOpenLeaf(this.app.workspace, phoneMode, daylineLeaf);
         if (!leaf) throw new Error('No markdown leaf is available');
         await leaf.openFile(file);
       }

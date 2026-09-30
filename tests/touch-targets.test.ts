@@ -94,3 +94,72 @@ describe('bindOpenOnPointer', () => {
     expect(onOpen).toHaveBeenCalledOnce();
   });
 });
+
+describe('bindOpenOnPointer keyboard activation', () => {
+  function keydown(key: string): Event {
+    return new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true });
+  }
+
+  it('activates a role="button" host on Enter and Space', () => {
+    const element = document.createElement('div');
+    element.tabIndex = 0;
+    element.setAttribute('role', 'button');
+    const onOpen = vi.fn();
+    bindOpenOnPointer(element, { keyboard: true, onOpen });
+
+    element.dispatchEvent(keydown('Enter'));
+    element.dispatchEvent(keydown(' '));
+    element.dispatchEvent(keydown('Spacebar'));
+
+    expect(onOpen).toHaveBeenCalledTimes(3);
+  });
+
+  it('ignores every other key and still opens only once per activation', () => {
+    const element = document.createElement('div');
+    const onOpen = vi.fn();
+    bindOpenOnPointer(element, { keyboard: true, onOpen });
+
+    for (const key of ['ArrowLeft', 'ArrowRight', 'Tab', 'Escape', 'a']) {
+      element.dispatchEvent(keydown(key));
+    }
+    expect(onOpen).not.toHaveBeenCalled();
+
+    element.dispatchEvent(keydown('Enter'));
+    expect(onOpen).toHaveBeenCalledOnce();
+  });
+
+  it('respects shouldOpen for keyboard events', () => {
+    const element = document.createElement('div');
+    const ignored = document.createElement('button');
+    element.append(ignored);
+    const onOpen = vi.fn();
+    bindOpenOnPointer(element, { keyboard: true, shouldOpen: (target) => target !== ignored, onOpen });
+
+    ignored.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+    expect(onOpen).not.toHaveBeenCalled();
+
+    element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+    expect(onOpen).toHaveBeenCalledOnce();
+  });
+
+  it('leaves hosts without the keyboard opt-in untouched', () => {
+    const element = document.createElement('div');
+    const onOpen = vi.fn();
+    bindOpenOnPointer(element, { onOpen });
+
+    element.dispatchEvent(keydown('Enter'));
+
+    expect(onOpen).not.toHaveBeenCalled();
+  });
+
+  it('does not double-fire when a pointer press is followed by a click', () => {
+    const element = document.createElement('div');
+    const onOpen = vi.fn();
+    bindOpenOnPointer(element, { keyboard: true, onOpen });
+
+    element.dispatchEvent(pointerEvent('pointerdown'));
+    element.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+    expect(onOpen).toHaveBeenCalledOnce();
+  });
+});

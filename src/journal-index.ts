@@ -19,6 +19,7 @@ import {
 } from './media-links';
 import { buildJournalSearchText, parseJournalTags } from './journal-search';
 import { filterJournalEntries } from './journal-timeline-filters';
+import { parseMoodScore } from './mood';
 
 export const DEFAULT_JOURNAL_SOURCES: JournalSource[] = [
   { id: 'daily', path: 'Calendar/Daily', type: 'daily', label: 'Daily notes' },
@@ -91,6 +92,15 @@ function firstString(value: unknown): string | undefined {
   return undefined;
 }
 
+/** Unwrap an Obsidian wiki link before delegating to the shared date parser. */
+function parseDateValue(value: unknown): string | null {
+  if (typeof value === 'string') {
+    const wiki = /^\[\[([^\]]+)\]\]$/.exec(value.trim());
+    if (wiki) return parseDateString(wiki[1].split('|')[0].trim());
+  }
+  return parseDateString(value);
+}
+
 function parseConfiguredDate(value: unknown): string | null {
   if (Array.isArray(value)) {
     for (const item of value) {
@@ -99,7 +109,7 @@ function parseConfiguredDate(value: unknown): string | null {
     }
     return null;
   }
-  return parseDateString(value);
+  return parseDateValue(value);
 }
 
 export function resolveJournalDate(
@@ -117,19 +127,29 @@ export function resolveJournalDate(
     }
   }
 
+  // Generic date fields are hints, not requirements: an empty YAML value
+  // (`date:`), an unexpanded template, or an unrecognized format must not hide
+  // the entry when the file name still carries a date. The first field that
+  // parses wins, and one failure is remembered so a single diagnostic is still
+  // recorded when nothing resolves.
+  let invalidField = false;
   for (const field of ['date', 'creationDate']) {
     const value = readField(frontmatter, field);
+    if (value === undefined) continue;
     const date = parseConfiguredDate(value);
     if (date) return { date };
-    if (value !== undefined) return { date: null, reason: 'invalid-date' };
+    invalidField = true;
   }
 
   const filenameDate = parseDateFromFilename(fileName);
-  return filenameDate
-    ? { date: filenameDate }
-    : { date: null, reason: /^(\d{4})-(\d{2})-(\d{2})(?=$|[ _-])/i.test(fileName.replace(/\.md$/i, ''))
+  if (filenameDate) return { date: filenameDate };
+  if (invalidField) return { date: null, reason: 'invalid-date' };
+  return {
+    date: null,
+    reason: /^(\d{4})-(\d{2})-(\d{2})(?=$|[ _-])/i.test(fileName.replace(/\.md$/i, ''))
       ? 'invalid-date'
-      : 'missing-date' };
+      : 'missing-date',
+  };
 }
 
 function asBoolean(value: unknown): boolean {
@@ -175,20 +195,58 @@ export function normalizeLocation(frontmatter: Record<string, unknown>): Journal
   return { name, latitude, longitude };
 }
 
-function titleFromContent(fileName: string, content: string, frontmatter: Record<string, unknown>): string {
+const TITLE_FRONTMATTER = /^---\r?\n[\s\S]*?\r?\n---(?:\r?\n|$)/;
+const TITLE_FENCED_BLOCK = /^\s*(```|~~~)[\s\S]*?^\s*\1\s*$/gm;
+
+interface CachedHeading {
+  heading?: unknown;
+  level?: unknown;
+}
+
+function titleFromContent(
+  fileName: string,
+  content: string,
+  frontmatter: Record<string, unknown>,
+  headings?: CachedHeading[],
+): string {
   const explicit = firstString(readField(frontmatter, 'title'));
   if (explicit) return explicit;
-  const heading = /^#\s+(.+)$/m.exec(content)?.[1]?.trim();
+  // Obsidian's metadata cache only reports real headings, so a level-1 entry
+  // here is authoritative and never comes from a fenced code block.
+  if (Array.isArray(headings)) {
+    const cached = firstString(headings.find((item) => Number(item?.level) === 1)?.heading);
+    if (cached) return cached;
+  }
+  // Without a cache, strip frontmatter and fenced code blocks first so a
+  // `# install deps` shell comment is not taken for the note title.
+  const body = content
+    .replace(TITLE_FRONTMATTER, '')
+    .replace(TITLE_FENCED_BLOCK, ' ');
+  const heading = /^#\s+(.+)$/m.exec(body)?.[1]?.trim();
   return heading || fileName.replace(/\.md$/i, '');
 }
 
 function sourceForPath(path: string, sources: JournalSource[]): JournalSource | undefined {
-  return sources.find((source) => source.enabled !== false && isPathInFolder(path, source.path));
+  const normalizedPath = normalizeVaultPath(path);
+  let match: JournalSource | undefined;
+  let matchLength = -1;
+  for (const source of sources) {
+    if (source.enabled === false) continue;
+    if (!isPathInFolder(normalizedPath, source.path)) continue;
+    // A nested source must win over an ancestor source listing it, so the
+    // longest matching folder decides. Sources listed first win ties.
+    const length = normalizeVaultPath(source.path).length;
+    if (length > matchLength) {
+      match = source;
+      matchLength = length;
+    }
+  }
+  return match;
 }
 
 function moodFromFrontmatter(frontmatter: Record<string, unknown>): MoodRecord | undefined {
-  const score = parseNumber(readField(frontmatter, 'mood'));
-  if (score !== -2 && score !== -1 && score !== 0 && score !== 1 && score !== 2) return undefined;
+  const score = parseMoodScore(readField(frontmatter, 'mood'));
+  if (score === undefined) return undefined;
   const rawLabels = readField(frontmatter, 'mood_labels');
   const labels = Array.isArray(rawLabels)
     ? rawLabels.map(String).map((value) => value.trim()).filter(Boolean)
@@ -474,7 +532,12 @@ export class JournalIndex {
     const storedMood = this.getMood(path);
     const mood = storedMood === undefined ? moodFromFrontmatter(frontmatter) : storedMood ?? undefined;
     const tags = parseJournalTags(frontmatter, content, Array.isArray(cache?.tags) ? cache.tags : []);
-    const title = titleFromContent(file.name, content, frontmatter);
+    const title = titleFromContent(
+      file.name,
+      content,
+      frontmatter,
+      Array.isArray(cache?.headings) ? cache.headings : undefined,
+    );
     const excerpt = extractExcerpt(content) ?? '';
     const searchText = buildJournalSearchText({
       path,

@@ -33,6 +33,7 @@ const CalendarView = runInNewContext(ts.transpileModule(`${declaration.getText()
   compilerOptions: { target: ts.ScriptTarget.ES2022 },
 }).outputText, {
   ItemView: class {}, TFile, console, setTimeout, clearTimeout, window, document,
+  MutationObserver: globalThis.MutationObserver,
   // Obsidian exposes these as globals. The source under test calls them, and a
   // vm sandbox starts with no globals of its own, so forward them explicitly.
   createEl: globalThis.createEl,
@@ -89,9 +90,10 @@ function fixture() {
       app: { workspace: { getLeavesOfType: () => [] } },
       contentEl: element(),
       containerEl: element(),
-      _exifNoteImages: new WeakSet(),
       _exifNoteMediaControls: new WeakSet(),
-      _exifNoteDisposers: new Set(),
+      // `_exifNoteDisposers` is deliberately absent: the view creates its own
+      // element → disposers Map, and a Map built by the test realm would fail
+      // the sandbox's own `instanceof Map` check.
       _overlayContainers: new Set(),
       _hostPositionMarkers: new Set(),
       _calendarKeydownHandler: null,
@@ -169,5 +171,42 @@ describe('note media instrumentation lifecycle', () => {
     expect(embedListeners.count('mouseenter')).toBe(1);
     expect(img.getAttribute('aria-label')).toBe('mediaMetadata');
     expect(embed.getAttribute('aria-label')).toBe('mediaMetadata');
+  });
+
+  it('releases listeners and the info control when the node leaves the DOM', async () => {
+    const container = element();
+    document.body.append(container);
+    const img = element('img', { attr: { src: 'photo.jpg' } });
+    container.append(img);
+    const imgListeners = probeListeners(img);
+
+    const view = Object.create(CalendarView.prototype);
+    Object.assign(view, {
+      closed: false,
+      plugin: {
+        settings: { showExif: true },
+        capabilities: { coarsePointer: true, isMobile: false },
+        _endExifHover() {},
+      },
+      contentEl: element(),
+      containerEl: element(),
+      _exifNoteMediaControls: new WeakSet(),
+    });
+    const leaf = { view: { containerEl: container }, containerEl: container };
+
+    view._observeNoteImages(leaf);
+    expect(imgListeners.count('mouseenter')).toBe(1);
+    expect(img.tabIndex).toBe(0);
+    expect(container.querySelectorAll('.dayline-note-media-info')).toHaveLength(1);
+
+    // Live Preview rebuilds its widgets by detaching the old node.
+    img.remove();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(imgListeners.count('mouseenter')).toBe(0);
+    expect(imgListeners.count('mouseleave')).toBe(0);
+    expect(imgListeners.count('focusin')).toBe(0);
+    expect(img.hasAttribute('tabindex')).toBe(false);
+    expect(container.querySelectorAll('.dayline-note-media-info')).toHaveLength(0);
   });
 });

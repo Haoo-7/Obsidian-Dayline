@@ -36,6 +36,8 @@ const CalendarView = runInNewContext(ts.transpileModule(`${declaration.getText()
   OVERLAY_ATTR: 'data-cal-weather-overlay',
   validateWeatherCoordinates: () => true,
   _l: (_language: string, key: string) => key,
+  // U-08: the overlay resolves its locale from the live display language.
+  getDisplayLanguage: (settings: any) => settings?.displayLanguage || settings?.weatherLanguage || 'en',
   _iconUrl: () => '', setIcon: () => {}, requestAnimationFrame: (callback: () => void) => callback(),
   usesPhoneLayout,
   weatherConditionLabel,
@@ -187,5 +189,19 @@ describe('weather overlay request lifecycle', () => {
     view.plugin.settings.weatherEnabled = false;
     await settle();
     expect(getSnapshot).not.toHaveBeenCalled();
+  });
+
+  /* W-04: the overlay knows its date, so archive history must not be refetched
+     on the short TTL just because `fetchedAt` is old. */
+  it('passes the overlay date into the staleness check', async () => {
+    const stale = { date: '2020-01-01', fetchedAt: '2020-01-01T00:00:00.000Z', temperature: 3, units: 'metric' };
+    const { view } = fixture(async () => null);
+    view.weather.getCachedSnapshot = () => stale;
+    view.weather._shouldFetch = vi.fn(() => true);
+
+    view._syncNoteOverlays();
+    await settle();
+
+    expect(view.weather._shouldFetch).toHaveBeenCalledWith(stale, 2, '2026-09-01');
   });
 });

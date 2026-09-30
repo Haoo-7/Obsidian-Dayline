@@ -10,7 +10,12 @@ function makeApp(files: any[]) {
       cachedRead: async (file: any) => file.content,
     },
     metadataCache: {
-      getFileCache: (file: any) => ({ frontmatter: file.frontmatter, embeds: file.embeds ?? [], tags: file.tags ?? [] }),
+      getFileCache: (file: any) => ({
+        frontmatter: file.frontmatter,
+        embeds: file.embeds ?? [],
+        tags: file.tags ?? [],
+        headings: file.headings ?? [],
+      }),
     },
   };
 }
@@ -81,6 +86,29 @@ describe('journal index', () => {
     expect(resolveJournalDate('random.md', { importedAt: '2026-07-18T08:00:00+08:00', date: '2020-01-01' }, 'importedAt').date).toBe('2026-07-18');
     expect(resolveJournalDate('2026-07-18 note.md', {}).date).toBe('2026-07-18');
     expect(resolveJournalDate('2026-02-30.md', {}).reason).toBe('invalid-date');
+  });
+
+  it('falls back to the file name when a generic date field is empty or unparseable', () => {
+    for (const value of [null, '', '<% tp.date.now() %>', '[[2024-03-05]]', '2024/03/05']) {
+      expect(resolveJournalDate('2024-03-05.md', { date: value })).toEqual({ date: '2024-03-05' });
+    }
+    expect(resolveJournalDate('2024-03-05.md', { date: null, creationDate: '2024-03-05' }).date).toBe('2024-03-05');
+    expect(resolveJournalDate('note.md', { date: '[[2024-03-05]]' }).date).toBe('2024-03-05');
+    // A user-configured date field stays strict instead of silently falling back.
+    expect(resolveJournalDate('2024-03-05.md', { importedAt: '' }, 'importedAt')).toEqual({ date: null, reason: 'invalid-date' });
+  });
+
+  it('keeps entries dated by file name instead of dropping them from the calendar', async () => {
+    const files = [
+      { path: 'Calendar/Daily/2024-03-05.md', name: '2024-03-05.md', frontmatter: { date: null }, content: '# Empty date' },
+      { path: 'Calendar/Daily/2024-03-06.md', name: '2024-03-06.md', frontmatter: { date: '2024/03/06' }, content: '# Slashes' },
+      { path: 'Calendar/Daily/2024-03-07.md', name: '2024-03-07.md', frontmatter: { date: '<% tp.date.now() %>' }, content: '# Template' },
+    ];
+    const index = new JournalIndex(makeApp(files), () => undefined);
+    await index.refresh({ dailyFolder: 'Calendar/Daily' });
+
+    expect(index.getEntries().map((entry) => entry.date)).toEqual(['2024-03-07', '2024-03-06', '2024-03-05']);
+    expect(index.getDiagnostics()).toEqual([]);
   });
 
   it('prefers a non-empty frontmatter title, then H1, then the filename', async () => {
@@ -534,5 +562,76 @@ describe('journal index', () => {
     await index.refreshFile(newFile.path, { dailyFolder: 'Calendar/Daily' });
 
     expect(index.getEntries()[0]).toMatchObject({ path: newFile.path, mood: { score: 2 } });
+  });
+
+  it('does not take a heading inside a fenced code block for the title', async () => {
+    const files = [
+      {
+        path: 'Calendar/Daily/2026-07-20.md',
+        name: '2026-07-20.md',
+        frontmatter: {},
+        content: '```sh\n# install deps\n```\nBody only',
+      },
+      {
+        path: 'Calendar/Daily/2026-07-21.md',
+        name: '2026-07-21.md',
+        frontmatter: {},
+        content: '```sh\n# install deps\n```\n# Real title\nBody',
+      },
+    ];
+    const index = new JournalIndex(makeApp(files), () => undefined);
+    await index.refresh({ dailyFolder: 'Calendar/Daily' });
+
+    const titles = new Map(index.getEntries().map((entry) => [entry.path, entry.title]));
+    expect(titles.get('Calendar/Daily/2026-07-20.md')).toBe('2026-07-20');
+    expect(titles.get('Calendar/Daily/2026-07-21.md')).toBe('Real title');
+  });
+
+  it('prefers the cached level-1 heading when Obsidian already found one', async () => {
+    const files = [
+      {
+        path: 'Calendar/Daily/2026-07-22.md',
+        name: '2026-07-22.md',
+        frontmatter: {},
+        content: '```sh\n# install deps\n```\n# Real title',
+        headings: [{ heading: 'Cached title', level: 1 }],
+      },
+    ];
+    const index = new JournalIndex(makeApp(files), () => undefined);
+    await index.refresh({ dailyFolder: 'Calendar/Daily' });
+
+    expect(index.getEntries()[0]?.title).toBe('Cached title');
+  });
+
+  it('ignores a mood value that is not exactly a supported score', async () => {
+    const files = [
+      { path: 'Calendar/Daily/2026-07-18.md', name: '2026-07-18.md', frontmatter: { mood: '1 good' }, content: '# x' },
+      { path: 'Calendar/Daily/2026-07-19.md', name: '2026-07-19.md', frontmatter: { mood: '1' }, content: '# y' },
+    ];
+    const index = new JournalIndex(makeApp(files), () => undefined);
+    await index.refresh({ dailyFolder: 'Calendar/Daily' });
+
+    const moods = new Map(index.getEntries().map((entry) => [entry.path, entry.mood]));
+    expect(moods.get('Calendar/Daily/2026-07-18.md')).toBeUndefined();
+    expect(moods.get('Calendar/Daily/2026-07-19.md')).toMatchObject({ score: 1 });
+  });
+
+  it('matches the longest source prefix so a nested source wins over its ancestor', async () => {
+    const files = [
+      { path: 'Journal/2026-07-18.md', name: '2026-07-18.md', frontmatter: {}, content: '# outer' },
+      { path: 'Journal/Archive/2026-07-19.md', name: '2026-07-19.md', frontmatter: {}, content: '# inner' },
+    ];
+    const index = new JournalIndex(makeApp(files), () => undefined);
+    await index.refresh({
+      dailyFolder: 'Journal',
+      journalSources: [
+        { id: 'daily', path: 'Journal', type: 'daily' },
+        { id: 'archive', path: 'Journal/Archive', type: 'external' },
+      ],
+    });
+
+    const sources = new Map(index.getEntries().map((entry) => [entry.path, entry.sourceId]));
+    expect(sources.get('Journal/2026-07-18.md')).toBe('daily');
+    expect(sources.get('Journal/Archive/2026-07-19.md')).toBe('archive');
   });
 });

@@ -75,9 +75,41 @@ export function moodExportRows(metadata: MoodMetadata): MoodExportRow[] {
   return rowsForMetadata(metadata);
 }
 
-export function escapeMoodCsvCell(value: unknown): string {
-  const text = value === null || value === undefined ? '' : String(value);
+/** Columns whose cells are free-form strings and must be guarded against spreadsheet formulas. */
+export const MOOD_EXPORT_FORMULA_GUARDED_COLUMNS: readonly MoodExportColumn[] = ['sourcePath', 'labels', 'note'];
+
+/** UTF-8 BOM so Excel decodes non-ASCII labels and notes instead of mojibaking them. */
+export const MOOD_EXPORT_BOM = '\uFEFF';
+
+/**
+ * Spreadsheet apps treat a leading `=`, `+`, `-`, `@`, TAB, or CR as a formula,
+ * even inside a quoted CSV field. A leading apostrophe is the conventional
+ * neutralizer. `-2` in the numeric score column is legitimate, so the guard is
+ * opt-in per cell and is never enabled for `score`.
+ */
+const FORMULA_LEAD = /^[=+\-@\t\r]/u;
+
+export interface MoodCsvCellOptions {
+  /** Prefix `'` when the text could be evaluated as a spreadsheet formula. */
+  guardFormula?: boolean;
+}
+
+export function escapeMoodCsvCell(value: unknown, options: MoodCsvCellOptions = {}): string {
+  let text = value === null || value === undefined ? '' : String(value);
+  if (options.guardFormula && FORMULA_LEAD.test(text)) text = `'${text}`;
   return /[",\r\n]/u.test(text) ? `"${text.replace(/"/gu, '""')}"` : text;
+}
+
+/**
+ * Labels share one CSV column joined by `; `, so a label that itself contains
+ * the separator would be indistinguishable from two labels. Percent-encoding
+ * the semicolon (and `%` itself) keeps the column unambiguous without dropping
+ * label text.
+ */
+export function escapeMoodLabelsCell(labels: string[]): string {
+  return labels
+    .map((label) => String(label).replace(/%/gu, '%25').replace(/;/gu, '%3B'))
+    .join('; ');
 }
 
 function valueForColumn(row: MoodExportRow, column: MoodExportColumn): string | number {
@@ -85,7 +117,7 @@ function valueForColumn(row: MoodExportRow, column: MoodExportColumn): string | 
     case 'sourcePath': return row.sourcePath;
     case 'recordStatus': return row.recordStatus;
     case 'score': return row.score;
-    case 'labels': return row.labels.join('; ');
+    case 'labels': return escapeMoodLabelsCell(row.labels);
     case 'note': return row.note ?? '';
     case 'recordedAt': return row.recordedAt;
     case 'updatedAt': return row.updatedAt;
@@ -94,13 +126,19 @@ function valueForColumn(row: MoodExportRow, column: MoodExportColumn): string | 
   }
 }
 
-/** Deterministic CSV with CRLF rows and semicolon-separated label values. */
+function escapeColumnCell(row: MoodExportRow, column: MoodExportColumn): string {
+  return escapeMoodCsvCell(valueForColumn(row, column), {
+    guardFormula: MOOD_EXPORT_FORMULA_GUARDED_COLUMNS.includes(column),
+  });
+}
+
+/** Deterministic UTF-8 BOM-prefixed CSV with CRLF rows and semicolon-separated label values. */
 export function serializeMoodCsv(metadata: MoodMetadata): string {
-  const rows = [MOOD_EXPORT_COLUMNS.map(escapeMoodCsvCell).join(',')];
+  const rows = [MOOD_EXPORT_COLUMNS.map((column) => escapeMoodCsvCell(column)).join(',')];
   for (const row of rowsForMetadata(metadata)) {
-    rows.push(MOOD_EXPORT_COLUMNS.map((column) => escapeMoodCsvCell(valueForColumn(row, column))).join(','));
+    rows.push(MOOD_EXPORT_COLUMNS.map((column) => escapeColumnCell(row, column)).join(','));
   }
-  return `${rows.join('\r\n')}\r\n`;
+  return `${MOOD_EXPORT_BOM}${rows.join('\r\n')}\r\n`;
 }
 
 export interface MoodJsonExport {

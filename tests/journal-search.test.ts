@@ -6,12 +6,33 @@ describe('journal search and tags', () => {
     expect(normalizeJournalText('  ＡＢＣ\n  Café  ')).toBe('abc café');
   });
 
-  it('parses frontmatter arrays, # tags, metadata-cache tags, and body tags without headings', () => {
+  it('parses frontmatter arrays, cached tags, and body tags without headings', () => {
     expect(parseJournalTags(
       { tags: ['#Travel', 'food, #travel'], Tag: ['Coffee'] },
       '# Heading\nA #Day/One and #coffee note',
       [{ tag: '#Metadata' }],
-    )).toEqual(['travel', 'food', 'coffee', 'metadata', 'day/one']);
+    )).toEqual(['travel', 'food', 'coffee', 'metadata']);
+  });
+
+  it('scans a cleaned body only when the metadata cache has no tags', () => {
+    expect(parseJournalTags({}, 'A #Day/One and #coffee note', [])).toEqual(['day/one', 'coffee']);
+  });
+
+  it('ignores colors, quoted hex values, code blocks, and numeric tags in the fallback', () => {
+    const body = [
+      '---',
+      'color: "#ff0000"',
+      '---',
+      'Set color: "#ff0000" here.',
+      'Issue #123',
+      '```sh',
+      '#fff',
+      '# install deps',
+      '```',
+      'Real #travel note.',
+    ].join('\n');
+
+    expect(parseJournalTags({}, body, [])).toEqual(['travel']);
   });
 
   it('builds a normalized searchable record once from all useful fields', () => {

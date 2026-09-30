@@ -53,4 +53,26 @@ describe('journal stats', () => {
       { date: '2026-08-11', score: undefined },
     ]);
   });
+
+  it('rates the month against the days elapsed so far, not the whole month', () => {
+    const stats = calculateJournalStats([
+      entry('2026-05-01'), entry('2026-05-02'), entry('2026-05-03'),
+    ], new Date(2026, 4, 3, 12));
+    expect(stats.monthCompletionRate).toBe(100);
+  });
+
+  it('derives today from the configured weather timezone', () => {
+    const entries = [entry('2026-05-01'), entry('2026-05-02'), entry('2026-05-03')];
+    // 2026-05-03T12:00Z is 2026-05-04 in UTC+14 and still 2026-05-03 in UTC-11.
+    const now = new Date('2026-05-03T12:00:00Z');
+    expect(calculateJournalStats(entries, now, { weatherTimezone: 'Pacific/Kiritimati' }).monthCompletionRate).toBe(75);
+    expect(calculateJournalStats(entries, now, { weatherTimezone: 'Pacific/Midway' }).monthCompletionRate).toBe(100);
+  });
+
+  it('anchors the recent mood trend to the configured weather timezone', () => {
+    const now = new Date('2026-05-03T12:00:00Z');
+    const lastDate = (timezone: string) => buildRecentMoodTrend([], now, 7, timezone).at(-1)?.date;
+    expect(lastDate('Pacific/Kiritimati')).toBe('2026-05-04');
+    expect(lastDate('Pacific/Midway')).toBe('2026-05-03');
+  });
 });

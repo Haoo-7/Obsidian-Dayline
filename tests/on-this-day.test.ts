@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { OnThisDayProvider, splitTitleFromBody } from '../src/on-this-day';
 
 function createProvider(entries: any[], settings: Record<string, unknown> = {}) {
@@ -58,6 +58,45 @@ describe('OnThisDayProvider', () => {
     provider.invalidate();
 
     expect(provider.dateIndexSnapshot).toBeNull();
+  });
+});
+
+describe('OnThisDayProvider February 29 in a common year', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('merges February 29 memories into the February 28 view of a common year', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2025-06-01T12:00:00Z'));
+
+    const provider = createProvider([
+      { date: '2024-02-29', path: 'leap.md', attachments: [] },
+      { date: '2023-02-28', path: 'common.md', attachments: [] },
+    ]);
+
+    const entries = await provider.getEntries(2, 28);
+
+    // Year order is preserved across the merged keys.
+    expect(entries.map((entry) => entry.dateStr)).toEqual(['2024-02-29', '2023-02-28']);
+    expect(await provider.hasEntries(2, 28)).toBe(true);
+    // The calendar dot marker reads the date index directly.
+    expect(provider.dateIndexSnapshot?.has('02-28')).toBe(true);
+    // The explicit February 29 view still resolves.
+    expect((await provider.getEntries(2, 29)).map((entry) => entry.dateStr)).toEqual(['2024-02-29']);
+  });
+
+  it('keeps February 28 and February 29 separate in a leap year', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2024-06-01T12:00:00Z'));
+
+    const provider = createProvider([
+      { date: '2023-02-29', path: 'leap.md', attachments: [] },
+      { date: '2023-02-28', path: 'common.md', attachments: [] },
+    ]);
+
+    expect((await provider.getEntries(2, 28)).map((entry) => entry.dateStr)).toEqual(['2023-02-28']);
+    expect((await provider.getEntries(2, 29)).map((entry) => entry.dateStr)).toEqual(['2023-02-29']);
   });
 });
 

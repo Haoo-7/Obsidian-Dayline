@@ -1,5 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
-import { AUDIO_ARTWORK_MAX_BYTES, MediaService, formatMediaMetadataForDisplay, scaleVideoCoverDimensions } from '../src/media-service';
+import {
+  AUDIO_ARTWORK_MAX_BYTES,
+  MEDIA_CACHE_LIMIT,
+  MediaService,
+  formatMediaMetadataForDisplay,
+  scaleVideoCoverDimensions,
+} from '../src/media-service';
 import { createMediaAttachment } from '../src/media-links';
 
 // media-service now schedules its timeout through `window` for popout
@@ -291,7 +297,7 @@ describe('media service', () => {
     }
   });
 
-  it('revokes cached blob covers on invalidation, disposal, and cache eviction', async () => {
+  it('revokes cached blob covers on invalidation and teardown, and parks evicted ones', async () => {
     let objectUrlIndex = 0;
     const createObjectURL = vi.spyOn(URL, 'createObjectURL').mockImplementation(() => `blob:cached-${++objectUrlIndex}`);
     const revokeObjectURL = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
@@ -335,9 +341,50 @@ describe('media service', () => {
         const attachment = createMediaAttachment(`eviction-${index}.mp3`, 'Notes/2026-08-06.md')!;
         await evictionService.loadCover(attachment);
       }
-      expect(revokeObjectURL).toHaveBeenCalledWith('blob:cached-3');
+      // The evicted blob URL may still be displayed, so it is parked, not revoked.
+      expect(revokeObjectURL).not.toHaveBeenCalledWith('blob:cached-3');
       evictionService.dispose();
+      expect(revokeObjectURL).toHaveBeenCalledWith('blob:cached-3');
       expect(createObjectURL).toHaveBeenCalledTimes(51);
+    } finally {
+      service.dispose();
+      vi.restoreAllMocks();
+    }
+  });
+
+  it('does not revoke an evicted blob cover while a mounted view may still display it', async () => {
+    let objectUrlIndex = 0;
+    const createObjectURL = vi.spyOn(URL, 'createObjectURL').mockImplementation(() => `blob:parked-${++objectUrlIndex}`);
+    const revokeObjectURL = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
+    const track = {
+      getDurationFromMetadata: async () => 1,
+      getCodec: async () => 'mp3',
+      getBitrate: async () => 1,
+      getSampleRate: async () => 1,
+      getNumberOfChannels: async () => 1,
+    };
+    const app = {
+      metadataCache: { getFirstLinkpathDest: (link: string) => ({ path: `Media/${link}`, extension: 'mp3' }) },
+      vault: { getResourcePath: (file: any) => `resource://${file.path}` },
+    };
+    const service = new MediaService(app, undefined, {
+      inputFactory: () => ({
+        getMetadataTags: async () => ({ images: [{ kind: 'coverFront', mimeType: 'image/png', data: new Uint8Array([9]) }] }),
+        getPrimaryAudioTrack: async () => track,
+        dispose: () => undefined,
+      }),
+    });
+    try {
+      for (let index = 0; index < MEDIA_CACHE_LIMIT + 1; index += 1) {
+        await service.loadCover(createMediaAttachment(`parked-${index}.mp3`, 'Notes/2026-08-06.md')!);
+      }
+
+      expect(revokeObjectURL).not.toHaveBeenCalledWith('blob:parked-1');
+      expect(createObjectURL).toHaveBeenCalledTimes(MEDIA_CACHE_LIMIT + 1);
+
+      // Teardown is where the parked cover is finally released.
+      service.dispose();
+      expect(revokeObjectURL).toHaveBeenCalledWith('blob:parked-1');
     } finally {
       service.dispose();
       vi.restoreAllMocks();

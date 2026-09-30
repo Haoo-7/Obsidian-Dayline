@@ -220,6 +220,46 @@ describe('timeline rendered behavior', () => {
     expect(view.render).toHaveBeenCalledTimes(1);
   });
 
+  it('debounces search input instead of re-filtering on every keystroke', async () => {
+    const { view } = makeView([
+      { ...makeEntry(1), title: 'Alpha entry' },
+      { ...makeEntry(2), title: 'Second entry' },
+    ]);
+    view.render();
+    const count = () => view.contentEl.querySelector('.journal-timeline-count').textContent;
+    const search = view.filterControls.query;
+
+    search.value = 'second';
+    search.dispatchEvent(new window.Event('input', { bubbles: true }));
+
+    // The keystroke alone must not rewrite the filter or rebuild the list.
+    expect(view.filter.query).toBeUndefined();
+    expect(count()).toBe('2');
+
+    await vi.waitFor(() => expect(count()).toBe('1'));
+    expect(view.filter.query).toBe('second');
+  });
+
+  it('renders month stats from the configured weather timezone', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-05-03T12:00:00Z'));
+    try {
+      const entries = [
+        { ...makeEntry(1), date: '2026-05-01' },
+        { ...makeEntry(2), date: '2026-05-02' },
+        { ...makeEntry(3), date: '2026-05-03' },
+      ];
+      const { view } = makeView(entries);
+      view.plugin.settings.weatherTimezone = 'Pacific/Kiritimati';
+      view.render();
+
+      // 2026-05-04 in UTC+14, so the three elapsed days are a full month to date.
+      expect(view.contentEl.querySelector('.journal-timeline-stats-summary').textContent).toContain('75%');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('keeps the filter trigger and search node focused across toggles and index refreshes', () => {
     const { view } = makeView([makeEntry(1)]);
     view.render();
@@ -305,7 +345,7 @@ describe('timeline rendered behavior', () => {
   });
 
   it('refreshes matching results during edits and failed saves while preserving the draft card', async () => {
-    const entries = [makeEntry(1), makeEntry(2)];
+    const entries = [{ ...makeEntry(1), title: 'Alpha entry' }, { ...makeEntry(2), title: 'Second entry' }];
     const { view } = makeView(entries);
     view.plugin.saveJournalTitle = vi.fn().mockRejectedValue(new Error('disk full'));
     view.render();
@@ -321,9 +361,9 @@ describe('timeline rendered behavior', () => {
     expect([input.selectionStart, input.selectionEnd, input.selectionDirection]).toEqual([2, 6, 'backward']);
     expect(view.contentEl.querySelector('article')).toBe(card);
     const search = view.filterControls.query;
-    search.value = 'Entry 2';
+    search.value = 'second';
     search.dispatchEvent(new window.Event('input', { bubbles: true }));
-    expect(view.contentEl.querySelector('.journal-timeline-count').textContent).toBe('1');
+    await vi.waitFor(() => expect(view.contentEl.querySelector('.journal-timeline-count').textContent).toBe('1'));
     expect([...view.contentEl.querySelectorAll('.journal-timeline-list article')].map(el => el.dataset.path)).toEqual([entries[1].path]);
     expect(view.contentEl.querySelector('.journal-timeline-pending-edit article')).toBe(card);
     expect(view.contentEl.querySelector('.journal-timeline-pending-edit [role=status]')).not.toBeNull();
@@ -332,7 +372,7 @@ describe('timeline rendered behavior', () => {
     expect(view.plugin.saveJournalTitle).not.toHaveBeenCalled();
     search.value = 'Entry';
     search.dispatchEvent(new window.Event('input', { bubbles: true }));
-    expect(view.contentEl.querySelector('.journal-timeline-pending-edit')).toBeNull();
+    await vi.waitFor(() => expect(view.contentEl.querySelector('.journal-timeline-pending-edit')).toBeNull());
     expect([...view.contentEl.querySelectorAll('.journal-timeline-list article')].map(el => el.dataset.path))
       .toEqual(entries.map(entry => entry.path));
     expect(view.contentEl.querySelector('.journal-timeline-list article')).toBe(card);
@@ -343,7 +383,7 @@ describe('timeline rendered behavior', () => {
     search.focus();
     search.value = 'no match';
     search.dispatchEvent(new window.Event('input', { bubbles: true }));
-    expect(view.contentEl.querySelector('.journal-timeline-count').textContent).toBe('0');
+    await vi.waitFor(() => expect(view.contentEl.querySelector('.journal-timeline-count').textContent).toBe('0'));
     expect(view.contentEl.querySelectorAll('.journal-timeline-list article')).toHaveLength(0);
     expect(view.contentEl.querySelector('.journal-timeline-empty')).not.toBeNull();
     expect(view.contentEl.querySelector('.journal-timeline-pending-edit article')).toBe(card);
@@ -356,7 +396,7 @@ describe('timeline rendered behavior', () => {
   });
 
   it.each(['resolve', 'reject'])('does not steal search focus when a title save %ss', async (outcome) => {
-    const { view } = makeView([makeEntry(1), makeEntry(2)]);
+    const { view } = makeView([{ ...makeEntry(1), title: 'Alpha entry' }, { ...makeEntry(2), title: 'Second entry' }]);
     let resolve, reject;
     view.plugin.saveJournalTitle = () => new Promise((yes, no) => { resolve = yes; reject = no; });
     view.render();
@@ -366,15 +406,14 @@ describe('timeline rendered behavior', () => {
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
     const search = view.filterControls.query;
     search.focus();
-    search.value = 'Entry 2';
+    search.value = 'second';
     search.setSelectionRange(1, 4);
     search.dispatchEvent(new window.Event('input', { bubbles: true }));
     if (outcome === 'resolve') resolve();
     else reject(new Error('disk full'));
-    await Promise.resolve();
+    await vi.waitFor(() => expect(view.contentEl.querySelectorAll('.journal-timeline-list article')).toHaveLength(1));
     expect(document.activeElement).toBe(search);
     expect([search.selectionStart, search.selectionEnd]).toEqual([1, 4]);
-    expect(view.contentEl.querySelectorAll('.journal-timeline-list article')).toHaveLength(1);
     if (outcome === 'resolve') expect(view.contentEl.querySelector('.journal-timeline-pending-edit')).toBeNull();
     else expect(view.contentEl.querySelector('.journal-timeline-pending-edit input')).toBe(input);
   });

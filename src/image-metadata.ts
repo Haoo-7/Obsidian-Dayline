@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { PLUGIN_ID } from './plugin-identity';
 import { LOCALE_TAGS } from './i18n';
+import pluginManifest from '../manifest.json';
 
 /**
  * Reverse geocoding language handling.
@@ -10,6 +11,30 @@ import { LOCALE_TAGS } from './i18n';
  * cache keys stable and language-specific for every supported language.
  */
 const GEOCODER_LANGUAGES = ['en', 'zh', 'zh-tw', 'ja', 'ko', 'fr', 'de', 'es', 'ru'];
+
+/**
+ * Nominatim requires a User-Agent that names the application and offers a way
+ * to contact its author (`https://operations.osmfoundation.org/policies/nominatim/`).
+ * The version comes from the shipped plugin manifest so it cannot drift from a
+ * release; an explicit override wins when a caller can supply one.
+ */
+export const GEOCODER_REPOSITORY_URL = 'https://github.com/Haoo-7/Obsidian-Dayline';
+export const GEOCODER_FALLBACK_VERSION = '0.0.0';
+export const GEOCODER_NEGATIVE_TTL_MS = 10 * 60 * 1000;
+export const GEOCODER_REQUEST_TIMEOUT_MS = 10 * 1000;
+
+function _normalizeGeocoderVersion(version) {
+  const raw = typeof version === 'string' ? version.trim() : '';
+  return /^\d+\.\d+(\.\d+)?([-+][0-9A-Za-z.-]+)?$/.test(raw) ? raw : GEOCODER_FALLBACK_VERSION;
+}
+
+/** Build the Nominatim User-Agent from a version, resolved defensively. */
+export function resolveGeocoderUserAgent(version?: unknown): string {
+  const resolved = version ?? pluginManifest?.version;
+  return `ObsidianDayline/${_normalizeGeocoderVersion(resolved)} (+${GEOCODER_REPOSITORY_URL})`;
+}
+
+export const GEOCODER_USER_AGENT = resolveGeocoderUserAgent();
 
 export function normalizeGeocoderLanguage(language) {
   const raw = String(language || '').trim().toLowerCase().replace(/_/g, '-');
@@ -129,15 +154,26 @@ function _parseExifData(exifBytes) {
       if (tag === 3) result.gpsLonRef = val;
       if (tag === 4) result.gpsLon = val;
     }
-    if (Array.isArray(result.gpsLat) && result.gpsLat.length >= 3 && result.gpsLat.every(Number.isFinite)) {
-      const lat = result.gpsLat[0] + result.gpsLat[1] / 60 + result.gpsLat[2] / 3600;
-      if (Number.isFinite(lat)) result.gpsLatDecimal = result.gpsLatRef === 'S' ? -lat : lat;
-    }
-    if (Array.isArray(result.gpsLon) && result.gpsLon.length >= 3 && result.gpsLon.every(Number.isFinite)) {
-      const lon = result.gpsLon[0] + result.gpsLon[1] / 60 + result.gpsLon[2] / 3600;
-      if (Number.isFinite(lon)) result.gpsLonDecimal = result.gpsLonRef === 'W' ? -lon : lon;
+    const lat = _gpsDecimal(result.gpsLat, result.gpsLatRef);
+    const lon = _gpsDecimal(result.gpsLon, result.gpsLonRef);
+    // A camera without a fix writes `0/0` components and no Ref; storing that as
+    // (0, 0) claimed a real location off the coast of Africa.
+    if (lat !== undefined && lon !== undefined && !(lat === 0 && lon === 0)) {
+      result.gpsLatDecimal = lat;
+      result.gpsLonDecimal = lon;
     }
     return result;
+  }
+
+  /** Degrees from a DMS rational triple, or undefined when the fix is unusable. */
+  function _gpsDecimal(parts, ref) {
+    if (ref !== 'N' && ref !== 'S' && ref !== 'E' && ref !== 'W') return undefined;
+    if (!Array.isArray(parts) || parts.length < 3) return undefined;
+    // `_readTag` yields NaN for a zero denominator, which fails this check.
+    if (!parts.every((part) => typeof part === 'number' && Number.isFinite(part))) return undefined;
+    const degrees = parts[0] + parts[1] / 60 + parts[2] / 3600;
+    if (!Number.isFinite(degrees)) return undefined;
+    return ref === 'S' || ref === 'W' ? -degrees : degrees;
   }
 
   function _readTag(entryOffset, type, count, tiffBase) {
@@ -173,7 +209,9 @@ function _parseExifData(exifBytes) {
           const numerator = readInteger(valueOffset + i * 8);
           const denominator = readInteger(valueOffset + i * 8 + 4);
           if (numerator === undefined || denominator === undefined) return undefined;
-          values.push(denominator === 0 ? numerator : numerator / denominator);
+          // 0/0 is how a camera writes "no value"; returning the numerator
+          // turned it into the real coordinate (0, 0).
+          values.push(denominator === 0 ? Number.NaN : numerator / denominator);
         }
         return count === 1 ? values[0] : values;
       }
@@ -257,18 +295,213 @@ function parseWebpExif(arrayBuffer) {
   return null;
 }
 
-/** Extract EXIF from HEIC/HEIF (ISOBMFF container — scan for TIFF header). */
+/** Read a 4-character ISOBMFF box type at `offset`. */
+function _readBoxType(dv, offset) {
+  return String.fromCharCode(
+    dv.getUint8(offset), dv.getUint8(offset + 1), dv.getUint8(offset + 2), dv.getUint8(offset + 3),
+  );
+}
+
+/** Enumerate ISOBMFF boxes inside `[start, end)` without reading past `end`. */
+function _readIsoBoxes(dv, start, end) {
+  const boxes = [];
+  let offset = start;
+  while (offset >= start && offset + 8 <= end) {
+    let size = dv.getUint32(offset);
+    const type = _readBoxType(dv, offset + 4);
+    let headerSize = 8;
+    if (size === 1) {
+      // 64-bit `largesize` follows the type.
+      if (offset + 16 > end) break;
+      size = dv.getUint32(offset + 8) * 0x100000000 + dv.getUint32(offset + 12);
+      headerSize = 16;
+    } else if (size === 0) {
+      // Extends to the end of the enclosing container.
+      size = end - offset;
+    }
+    if (!Number.isSafeInteger(size) || size < headerSize || offset + size > end) break;
+    boxes.push({ type, start: offset + headerSize, end: offset + size });
+    offset += size;
+  }
+  return boxes;
+}
+
+/** Item id whose `infe` entry declares `itemType`, or null. */
+function _readHeicItemId(dv, iinf, itemType) {
+  if (iinf.end - iinf.start < 4) return null;
+  const version = dv.getUint8(iinf.start);
+  let offset = iinf.start + 4; // version + flags
+  let count;
+  if (version === 0) {
+    if (offset + 2 > iinf.end) return null;
+    count = dv.getUint16(offset);
+    offset += 2;
+  } else {
+    if (offset + 4 > iinf.end) return null;
+    count = dv.getUint32(offset);
+    offset += 4;
+  }
+  for (let i = 0; i < count && offset + 8 <= iinf.end; i++) {
+    const size = dv.getUint32(offset);
+    const type = _readBoxType(dv, offset + 4);
+    if (size < 8 || offset + size > iinf.end) break;
+    if (type === 'infe') {
+      const entry = { start: offset + 8, end: offset + size };
+      if (entry.end - entry.start < 8) { offset += size; continue; }
+      const entryVersion = dv.getUint8(entry.start);
+      const typeOffset = entryVersion >= 3 ? entry.start + 10 : entry.start + 8;
+      let entryType = null;
+      if (entryVersion >= 2) {
+        if (typeOffset + 4 <= entry.end) entryType = _readBoxType(dv, typeOffset);
+      } else {
+        // v0/v1 store a NUL-terminated item_name where the 4CC lives for v2+.
+        let at = entry.start + 8;
+        let name = '';
+        while (at < entry.end && dv.getUint8(at) !== 0) { name += String.fromCharCode(dv.getUint8(at)); at++; }
+        entryType = name || null;
+      }
+      if (entryType === itemType) {
+        return entryVersion >= 3 && entry.start + 8 <= entry.end
+          ? dv.getUint32(entry.start + 4)
+          : dv.getUint16(entry.start + 4);
+      }
+    }
+    offset += size;
+  }
+  return null;
+}
+
+/**
+ * Extents declared by `iloc` for one item. Only construction method 0 (a plain
+ * file offset) is returned; `idat`-relative extents are skipped.
+ */
+function _readHeicItemExtents(dv, iloc, itemId) {
+  if (itemId === null || iloc.end - iloc.start < 8) return [];
+  const version = dv.getUint8(iloc.start);
+  let offset = iloc.start + 4; // version + flags
+  const fieldSizes = dv.getUint8(offset);
+  offset += 1;
+  const offsetSize = (fieldSizes >> 4) & 0x0f;
+  const lengthSize = fieldSizes & 0x0f;
+  const baseFieldSizes = dv.getUint8(offset);
+  offset += 1;
+  const baseOffsetSize = (baseFieldSizes >> 4) & 0x0f;
+  const indexSize = version === 1 || version === 2 ? (baseFieldSizes & 0x0f) : 0;
+  if (offsetSize === 0 || offsetSize > 8 || lengthSize === 0 || lengthSize > 8
+    || baseOffsetSize > 8 || indexSize > 8) {
+    return [];
+  }
+  let count;
+  if (version < 2) {
+    if (offset + 2 > iloc.end) return [];
+    count = dv.getUint16(offset);
+    offset += 2;
+  } else {
+    if (offset + 4 > iloc.end) return [];
+    count = dv.getUint32(offset);
+    offset += 4;
+  }
+
+  const readField = (at, size) => {
+    let value = 0;
+    for (let i = 0; i < size; i++) value = value * 256 + dv.getUint8(at + i);
+    return value;
+  };
+
+  const extents = [];
+  for (let i = 0; i < count; i++) {
+    const idSize = version < 2 ? 2 : 4;
+    if (offset + idSize + 2 > iloc.end) break;
+    const id = idSize === 2 ? dv.getUint16(offset) : dv.getUint32(offset);
+    offset += idSize;
+    let constructionMethod = 0;
+    if (version === 1 || version === 2) {
+      if (offset + 2 > iloc.end) break;
+      constructionMethod = dv.getUint16(offset) & 0x0f;
+      offset += 2;
+    }
+    if (offset + 2 + baseOffsetSize + 2 > iloc.end) break;
+    offset += 2; // data_reference_index
+    const baseOffset = readField(offset, baseOffsetSize);
+    offset += baseOffsetSize;
+    const extentCount = dv.getUint16(offset);
+    offset += 2;
+    for (let e = 0; e < extentCount; e++) {
+      if (offset + indexSize + offsetSize + lengthSize > iloc.end) return extents;
+      offset += indexSize; // extent_index is irrelevant for file offsets
+      const extentOffset = readField(offset, offsetSize);
+      offset += offsetSize;
+      const extentLength = readField(offset, lengthSize);
+      offset += lengthSize;
+      if (id === itemId && constructionMethod === 0) {
+        extents.push({ offset: baseOffset + extentOffset, length: extentLength });
+      }
+    }
+  }
+  return extents;
+}
+
+function _hasTiffHeader(dv, offset) {
+  if (!Number.isSafeInteger(offset) || offset < 0 || offset + 8 > dv.byteLength) return false;
+  const byteOrder = dv.getUint16(offset);
+  if (byteOrder !== 0x4949 && byteOrder !== 0x4D4D) return false;
+  return dv.getUint16(offset + 2, byteOrder === 0x4949) === 42;
+}
+
+/**
+ * Locate the TIFF header of the `Exif` item through the ISOBMFF `iinf`/`iloc`
+ * boxes. The item payload starts with a 4-byte `exif_tiff_header_offset`, so the
+ * TIFF block normally begins at `itemStart + 4` (some writers count the field
+ * itself, so the declared offset is probed too).
+ */
+function _locateHeicExifBuffer(arrayBuffer, dv) {
+  const meta = _readIsoBoxes(dv, 0, dv.byteLength).find((box) => box.type === 'meta');
+  if (!meta || meta.start + 4 > meta.end) return null;
+  // `meta` is a FullBox: its children start after version + flags.
+  const children = _readIsoBoxes(dv, meta.start + 4, meta.end);
+  const iinf = children.find((box) => box.type === 'iinf');
+  const iloc = children.find((box) => box.type === 'iloc');
+  if (!iinf || !iloc) return null;
+  const itemId = _readHeicItemId(dv, iinf, 'Exif');
+  const extent = _readHeicItemExtents(dv, iloc, itemId)[0];
+  if (!extent || !Number.isSafeInteger(extent.offset) || extent.length <= 0) return null;
+  const start = extent.offset;
+  const end = Math.min(dv.byteLength, start + extent.length);
+  if (start < 0 || start + 4 > end) return null;
+
+  const declared = dv.getUint32(start);
+  const probes = [start + 4, start];
+  if (declared > 0) probes.unshift(start + declared, start + 4 + declared);
+  for (const probe of probes) {
+    if (probe + 8 <= end && _hasTiffHeader(dv, probe)) {
+      return arrayBuffer.slice(probe, Math.min(end, probe + MAX_EXIF_BLOCK_BYTES));
+    }
+  }
+  // Last resort: a bounded scan inside the located item, never the whole file.
+  const scanEnd = Math.min(end - 8, start + 4096);
+  for (let probe = start; probe < scanEnd; probe++) {
+    if (_hasTiffHeader(dv, probe)) {
+      return arrayBuffer.slice(probe, Math.min(end, probe + MAX_EXIF_BLOCK_BYTES));
+    }
+  }
+  return null;
+}
+
+/** Extract EXIF from HEIC/HEIF (ISOBMFF container, Exif item via iinf/iloc). */
 function parseHeicExif(arrayBuffer) {
-  // HEIC files store EXIF as raw TIFF data inside the meta/mdat boxes.
-  // We scan for the TIFF byte-order marker (II=0x4949 or MM=0x4D4D)
-  // followed by magic 42 (0x002A).
   const dv = new DataView(arrayBuffer);
+  // Preferred path: the Exif item the writer declared in `meta`. Searching the
+  // first 16MB for a TIFF header can hit arbitrary bytes inside `mdat`.
+  const located = _locateHeicExifBuffer(arrayBuffer, dv);
+  if (located) return _parseExifData(located);
+
+  // Fallback for containers whose item tables cannot be read: keep the previous
+  // bounded scan so an unusual writer does not lose its metadata entirely.
+  if (_readIsoBoxes(dv, 0, dv.byteLength).some((box) => box.type === 'meta')) return null;
   const scanEnd = Math.min(dv.byteLength, MAX_HEIC_TIFF_SCAN_BYTES);
   const max = Math.max(0, scanEnd - 8);
   for (let i = 0; i < max; i++) {
-    const bo = dv.getUint16(i);
-    if ((bo === 0x4949 || bo === 0x4D4D) && dv.getUint16(i + 2, bo === 0x4949) === 42) {
-      // Found TIFF header — extract from here
+    if (_hasTiffHeader(dv, i)) {
       const exifSlice = arrayBuffer.slice(i, Math.min(arrayBuffer.byteLength, i + MAX_EXIF_BLOCK_BYTES));
       return _parseExifData(exifSlice);
     }
@@ -278,13 +511,15 @@ function parseHeicExif(arrayBuffer) {
 
 /** Unified entry point — auto-detects format and extracts EXIF. */
 export function parseImageExif(arrayBuffer) {
-  if (!arrayBuffer || arrayBuffer.byteLength < 4) return null;
+  // The format probes below read up to `getUint32(8)`, so anything shorter than
+  // 12 bytes must be rejected before the first read.
+  if (!arrayBuffer || arrayBuffer.byteLength < 12) return null;
   const dv = new DataView(arrayBuffer);
   const magic = dv.getUint16(0);
   const magic4 = dv.getUint32(0);
   // Check for HEIC ftyp box at offset 4: size(4) + "ftyp" + brand
   const brand4 = dv.getUint32(8);
-  const isHeic = (arrayBuffer.byteLength > 12 && dv.getUint32(4) === 0x66747970 && // "ftyp"
+  const isHeic = (dv.getUint32(4) === 0x66747970 && // "ftyp"
     (brand4 === 0x68656963 || brand4 === 0x68656978 || brand4 === 0x68657663 || // heic/heix/hevc
      brand4 === 0x6865696D || brand4 === 0x68656973 || brand4 === 0x6865766D || // heim/heis/hevm
      brand4 === 0x68657673 || brand4 === 0x6D696631 || brand4 === 0x6D736631));  // hevs/mif1/msf1
@@ -341,16 +576,27 @@ export function formatExifForDisplay(raw) {
   if (raw.exposureTime !== undefined && raw.exposureTime !== null) {
     let shutter;
     if (typeof raw.exposureTime === 'number') {
-      if (raw.exposureTime >= 1) {
-        shutter = raw.exposureTime + 's';
-      } else {
-        const denom = Math.round(1 / raw.exposureTime);
-        shutter = '1/' + denom + 's';
+      const seconds = raw.exposureTime;
+      if (Number.isFinite(seconds) && seconds > 0) {
+        if (seconds >= 1) {
+          shutter = seconds + 's';
+        } else {
+          // Rounding 1/t produced "1/1s" for 0.8 and "1/2s" for 0.6, and
+          // "1/Infinitys" for 0. A fraction is only meaningful when 1/t is
+          // essentially an integer and t is below the range where the rounded
+          // denominator misleads.
+          const denominator = 1 / seconds;
+          const rounded = Math.round(denominator);
+          const nearInteger = rounded >= 1 && Math.abs(denominator - rounded) <= Math.max(0.01, rounded * 0.005);
+          shutter = seconds >= 0.3 || !nearInteger
+            ? Number(seconds.toPrecision(4)) + 's'
+            : '1/' + rounded + 's';
+        }
       }
     } else {
       shutter = String(raw.exposureTime);
     }
-    fields.push({ key: 'exif_shutter', value: shutter });
+    if (shutter !== undefined) fields.push({ key: 'exif_shutter', value: shutter });
   }
 
   // ISO
@@ -469,6 +715,10 @@ export class HeicCache {
     /** @type {Map<string, Promise>} */
     this._pending = new Map();
     this._libheifReady = null;
+    // One decoder for the whole cache: libheif's `decode()` only frees the
+    // previous context when the same instance decodes again, and conversions are
+    // already serialized through `_conversionQueue`.
+    this._decoder = null;
     this._conversionQueue = Promise.resolve();
   }
 
@@ -480,9 +730,35 @@ export class HeicCache {
         return Promise.reject(new Error('libheif not loaded'));
       }
       // factory() may return a Promise or the libheif object directly
-      this._libheifReady = Promise.resolve(factory());
+      this._libheifReady = Promise.resolve(factory()).catch((error) => {
+        // A single failed WASM instantiation must not disable HEIC for the rest
+        // of the session.
+        this._libheifReady = null;
+        throw error;
+      });
     }
     return this._libheifReady;
+  }
+
+  /** Reuse the cache's decoder, creating it on first use. */
+  _getDecoder(libheif) {
+    if (!this._decoder) this._decoder = new libheif.HeifDecoder();
+    return this._decoder;
+  }
+
+  /**
+   * Release the WASM context that `decode()` allocated. `image.free()` only
+   * releases the image handle, so without this each conversion would retain one
+   * file's worth of heap until the next decode on the same instance.
+   */
+  _freeDecoderContext(libheif, decoder) {
+    if (!decoder?.decoder || typeof libheif?.heif_context_free !== 'function') return;
+    try {
+      libheif.heif_context_free(decoder.decoder);
+    } catch {
+      // Native cleanup must never mask the conversion result.
+    }
+    decoder.decoder = null;
   }
 
   /**
@@ -524,6 +800,8 @@ export class HeicCache {
 
   async _convert(file) {
     let images = [];
+    let libheif = null;
+    let decoder = null;
     try {
       const fileSize = Number(file.stat?.size);
       if (Number.isFinite(fileSize) && fileSize > MAX_HEIC_BYTES) {
@@ -538,8 +816,8 @@ export class HeicCache {
         console.warn('[Dayline] HEIC conversion skipped: file exceeds 100 MiB limit');
         return null;
       }
-      const libheif = await this._getLibheif();
-      const decoder = new libheif.HeifDecoder();
+      libheif = await this._getLibheif();
+      decoder = this._getDecoder(libheif);
       images = decoder.decode(new Uint8Array(buf)) || [];
       if (!images || !images.length) return null;
       const img = images[0];
@@ -598,6 +876,8 @@ export class HeicCache {
           // A failed native cleanup must not prevent the remaining handles from being released.
         }
       }
+      // Release the WASM context only after its image handles are gone.
+      this._freeDecoderContext(libheif, decoder);
     }
   }
 
@@ -614,6 +894,8 @@ export class HeicCache {
       this._cache.clear();
       this._pending.clear();
       this._libheifReady = null;
+      // The cached decoder belongs to the libheif instance being dropped.
+      this._decoder = null;
     }
   }
 }
@@ -624,19 +906,28 @@ export class HeicCache {
 
 export const GEOCODER_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 export const GEOCODER_CACHE_MAX_ENTRIES = 256;
+/** Coordinates are only needed to name a place, so 3 decimals (~110m) suffice. */
+export const GEOCODER_COORDINATE_DECIMALS = 3;
 
 export class ReverseGeocoder {
   constructor(options = {}) {
     this._cache = new Map();      // "lat,lon|language" -> { name, cachedAt }
     this._pending = new Map();    // "lat,lon|language" -> Promise (in-flight dedup)
+    this._failed = new Map();     // "lat,lon|language" -> timestamp (negative cache)
     this._persistentCache = options.cache && typeof options.cache === 'object' ? options.cache : null;
     this._onChange = options.onChange;
     this._now = options.now || (() => Date.now());
     this._ttlMs = Math.max(1, Number(options.ttlMs ?? GEOCODER_CACHE_TTL_MS));
     this._maxEntries = Math.max(1, Math.floor(Number(options.maxEntries ?? GEOCODER_CACHE_MAX_ENTRIES)));
     this._minRequestIntervalMs = Math.max(0, Number(options.minRequestIntervalMs ?? 1000));
+    this._negativeTtlMs = Math.max(0, Number(options.negativeTtlMs ?? GEOCODER_NEGATIVE_TTL_MS));
+    this._requestTimeoutMs = Math.max(1, Number(options.requestTimeoutMs ?? GEOCODER_REQUEST_TIMEOUT_MS));
     this._sleep = options.sleep || ((ms) => new Promise((resolve) => window.setTimeout(resolve, ms)));
     this._request = options.request || ((request) => getRequestUrl()(request));
+    // The User-Agent identifies the plugin, as Nominatim's usage policy requires.
+    this._userAgent = typeof options.userAgent === 'string' && options.userAgent.trim()
+      ? options.userAgent.trim()
+      : resolveGeocoderUserAgent(options.pluginVersion ?? options.app?.plugins?.manifests?.[PLUGIN_ID]?.version);
     this._getLanguage = options.getLanguage || (() => 'en');
     this._lastRequest = 0;        // rate limit: 1 req/s
     this._requestQueue = Promise.resolve();
@@ -652,11 +943,17 @@ export class ReverseGeocoder {
     const longitude = Number(lon);
     if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
     if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) return null;
-    return { latitude, longitude };
+    // Truncating to 3 decimals here keeps the Nominatim request, the cache key
+    // and the memory key on the same rounded location.
+    const factor = 10 ** GEOCODER_COORDINATE_DECIMALS;
+    return {
+      latitude: Math.round(latitude * factor) / factor,
+      longitude: Math.round(longitude * factor) / factor,
+    };
   }
 
   _key(lat, lon, language) {
-    return `${lat.toFixed(5)},${lon.toFixed(5)}|${this._normalizeLanguage(language)}`;
+    return `${lat.toFixed(GEOCODER_COORDINATE_DECIMALS)},${lon.toFixed(GEOCODER_COORDINATE_DECIMALS)}|${this._normalizeLanguage(language)}`;
   }
 
   _record(raw, fallbackNow = this._now()) {
@@ -704,6 +1001,9 @@ export class ReverseGeocoder {
         changed = true;
       }
     }
+    for (const [key, failedAt] of this._failed.entries()) {
+      if (now - failedAt > this._negativeTtlMs) this._failed.delete(key);
+    }
     const ordered = [...this._cache.entries()]
       .sort((a, b) => Date.parse(b[1].cachedAt) - Date.parse(a[1].cachedAt));
     for (const [key] of ordered.slice(this._maxEntries)) {
@@ -711,8 +1011,22 @@ export class ReverseGeocoder {
       if (this._persistentCache) delete this._persistentCache[key];
       changed = true;
     }
+    while (this._failed.size > this._maxEntries) {
+      this._failed.delete(this._failed.keys().next().value);
+    }
     if (changed && notify) this._onChange?.();
     return changed;
+  }
+
+  _isNegativelyCached(key, now) {
+    if (this._negativeTtlMs <= 0) return false;
+    const failedAt = this._failed.get(key);
+    if (failedAt === undefined) return false;
+    if (now - failedAt > this._negativeTtlMs) {
+      this._failed.delete(key);
+      return false;
+    }
+    return true;
   }
 
   /**
@@ -724,9 +1038,13 @@ export class ReverseGeocoder {
     if (!coordinates) return null;
     const effectiveLanguage = this._normalizeLanguage(language);
     const key = this._key(coordinates.latitude, coordinates.longitude, effectiveLanguage);
-    this._prune();
+    const now = this._now();
+    this._prune(now);
     const cached = this._cache.get(key);
     if (cached) return cached.name;
+    // A recent failure is not retried; that would put the whole serial queue
+    // behind a service that is already refusing requests.
+    if (this._isNegativelyCached(key, now)) return null;
     if (this._pending.has(key)) return this._pending.get(key);
 
     this._requestQueue = this._requestQueue
@@ -740,14 +1058,34 @@ export class ReverseGeocoder {
       if (result) {
         const record = { name: result, cachedAt: new Date(this._now()).toISOString() };
         this._cache.set(key, record);
+        this._failed.delete(key);
         if (this._persistentCache) this._persistentCache[key] = record;
         this._prune(this._now());
         this._onChange?.();
+      } else {
+        this._failed.set(key, this._now());
+        this._prune(this._now(), false);
       }
       return result;
     } finally {
       this._pending.delete(key);
     }
+  }
+
+  /** Reject a request that never settles so it cannot block the queue forever. */
+  _withTimeout(promise) {
+    let timer;
+    return Promise.race([
+      promise,
+      new Promise((_resolve, reject) => {
+        timer = window.setTimeout(
+          () => reject(new Error(`geocoder request timed out after ${this._requestTimeoutMs}ms`)),
+          this._requestTimeoutMs,
+        );
+      }),
+    ]).finally(() => {
+      if (timer !== undefined) window.clearTimeout(timer);
+    });
   }
 
   async _doLookup(lat, lon, language) {
@@ -768,7 +1106,10 @@ export class ReverseGeocoder {
         'accept-language': geocoderLanguageTag(language),
       });
       const url = `https://nominatim.openstreetmap.org/reverse?${params.toString()}`;
-      const resp = await this._request({ url, headers: { 'User-Agent': 'ObsidianDayline/2.0' } });
+      const resp = await this._withTimeout(this._request({
+        url,
+        headers: { 'User-Agent': this._userAgent },
+      }));
       if (resp.status === 200 && resp.json) {
         const data = resp.json;
         // Prefer concise address sub-fields over the full display name.
@@ -789,6 +1130,7 @@ export class ReverseGeocoder {
   invalidate() {
     this._cache.clear();
     this._pending.clear();
+    this._failed.clear();
     if (this._persistentCache) {
       for (const key of Object.keys(this._persistentCache)) delete this._persistentCache[key];
       this._onChange?.();

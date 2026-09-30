@@ -189,32 +189,41 @@ function freewriteSection(content) {
 function cleanMarkdown(content) {
   let text = stripFrontmatter(content).replace(FENCED_BLOCK, " ");
   text = freewriteSection(text);
-  text = text.replace(/<div[^>]*class=["'][^"']*(?:dataview|metadata|callout)[^"']*["'][^>]*>[\s\S]*?<\/div>/gi, " ").replace(/^\s*(?:dataviewjs?|dv\.|INPUT\[|VIEW\[|BUTTON\[).*$/gim, " ").replace(/^\s*[-*+]\s+\[[ xX]\].*$/gm, " ").replace(/^\s*(?:[-*_]\s*){3,}$/gm, " ").replace(/^\s*#{0,6}\s*[<❮].*\d{4}-\d{2}-\d{2}.*[>❯].*$/gm, " ").replace(/^\s*#{1,6}\s*.*\b\d{4}\s*\/\s*Q[1-4]\b.*$/gim, " ").replace(/^\s*#{1,6}\s*(?:dataview|meta\s*bind|tasks?|habits?|tips?|relevant\s+project)\b.*$/gim, " ").replace(/^\s*(?:#[-\w\\]+\s*){2,}$/gm, " ").replace(/^\s*#{1,6}\s*(?:daily note|journal entry|freewrite)\s*$/gim, " ").replace(/!\[\[[^\]]*\]\]/g, " ").replace(/!\[[^\]]*\]\([^)]*\)/g, " ").replace(/\[([^\]]+)\]\([^)]*\)/g, "$1").replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (_match, target, label) => label || target).replace(/`[^`]*`/g, " ").replace(/^\s*#{1,6}\s+/gm, "").replace(/^\s*[-*+]\s+/gm, "").replace(/^\s*>\s?/gm, "").replace(/<[^>]+>/g, " ").replace(/[*_~]+/g, "").replace(/^\s*https?:\/\/\S+\s*$/gm, " ");
+  text = text.replace(/<!--[\s\S]*?-->/g, " ").replace(/%%[\s\S]*?%%/g, " ").replace(/<div[^>]*class=["'][^"']*(?:dataview|metadata|callout)[^"']*["'][^>]*>[\s\S]*?<\/div>/gi, " ").replace(/^\s*(?:dataviewjs?|dv\.|INPUT\[|VIEW\[|BUTTON\[).*$/gim, " ").replace(/^\s*[-*+]\s+\[[ xX]\].*$/gm, " ").replace(/^\s*(?:[-*_]\s*){3,}$/gm, " ").replace(/^\s*#{0,6}\s*[<❮].*\d{4}-\d{2}-\d{2}.*[>❯].*$/gm, " ").replace(/^\s*#{1,6}\s*.*\b\d{4}\s*\/\s*Q[1-4]\b.*$/gim, " ").replace(/^\s*#{1,6}\s*(?:dataview|meta\s*bind|tasks?|habits?|tips?|relevant\s+project)\b.*$/gim, " ").replace(/^\s*(?:#[-\w\\]+\s*){2,}$/gm, " ").replace(/^\s*#{1,6}\s*(?:daily note|journal entry|freewrite)\s*$/gim, " ").replace(/!\[\[[^\]]*\]\]/g, " ").replace(/!\[[^\]]*\]\([^)]*\)/g, " ").replace(/\[([^\]]+)\]\([^)]*\)/g, "$1").replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (_match, target, label) => label || target).replace(/`[^`]*`/g, " ").replace(/^\s*#{1,6}\s+/gm, "").replace(/^\s*[-*+]\s+/gm, "").replace(/^\s*>\s?/gm, "").replace(/^\s*\[![^\]]+\][-+]?\s*/gim, " ").replace(/<[^>]+>/g, " ").replace(/[*_~]+/g, "").replace(/^\s*https?:\/\/\S+\s*$/gm, " ");
   return text.split(/\n\s*\n/).map((paragraph) => paragraph.replace(/\s+/g, " ").trim()).filter((paragraph) => paragraph && !/^\d{4}-\d{2}-\d{2}$/.test(paragraph)).join(" ").trim();
 }
 function extractExcerpt(content, maxLength = 160) {
   const text = cleanMarkdown(content);
   if (!text) return null;
-  return text.length > maxLength ? `${text.substring(0, maxLength).trimEnd()}...` : text;
+  const characters = Array.from(text);
+  if (characters.length <= maxLength) return text;
+  return `${characters.slice(0, maxLength).join("").trimEnd()}...`;
 }
 function isGenericJournalTitle(title, date) {
   const normalized = title.trim().replace(/\s+/g, " ").toLowerCase();
   return GENERIC_TITLES.has(normalized) || Boolean(date && normalized === date.toLowerCase());
 }
 function renderExcerptTemplate(template, date, year, frontmatter, body) {
-  let result = template.replace(/\{body\}/g, body || "").replace(/\{year\}/g, String(year)).replace(/\{date\}/g, date);
+  const values = /* @__PURE__ */ new Map([
+    ["year", String(year)],
+    ["date", date],
+    ["body", body || ""]
+  ]);
   for (const [key, value] of Object.entries(frontmatter)) {
     if (typeof value !== "string" && typeof value !== "number") continue;
-    const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    result = result.replace(new RegExp(`\\{${escapedKey}\\}`, "g"), String(value));
+    values.set(key, String(value));
   }
+  const result = template.replace(/\{([^{}]*)\}/g, (match, key) => {
+    const value = values.get(key);
+    return value === void 0 ? match : value;
+  });
   return result.trim() || null;
 }
 var FRONTMATTER, FENCED_BLOCK, GENERIC_TITLES;
 var init_excerpt = __esm({
   "src/excerpt.ts"() {
     "use strict";
-    FRONTMATTER = /^\s*---[\s\S]*?---\s*/;
+    FRONTMATTER = /^---\r?\n[\s\S]*?\r?\n---(?:\r?\n|$)/;
     FENCED_BLOCK = /^\s*(```|~~~)[\s\S]*?^\s*\1\s*$/gm;
     GENERIC_TITLES = /* @__PURE__ */ new Set(["daily note", "daily", "journal entry", "entry", "untitled", "freewrite"]);
   }
@@ -378,6 +387,9 @@ function normalizeTag(value) {
   let tag = normalizeJournalText(value).replace(/^#+/u, "").trim();
   return tag;
 }
+function tagScanText(body) {
+  return body.replace(FRONTMATTER2, " ").replace(FENCED_BLOCK2, " ");
+}
 function addTag(result, seen, value) {
   const values = typeof value === "string" ? value.split(/[,;\n]/u) : [value];
   for (const item of values) {
@@ -394,12 +406,19 @@ function parseJournalTags(frontmatter = {}, body = "", metadataTags = []) {
     if (!/^tags?$/iu.test(key)) continue;
     for (const item of valuesFromTag(value)) addTag(result, seen, item);
   }
-  for (const item of metadataTags) {
-    if (typeof item === "string") addTag(result, seen, item);
-    else addTag(result, seen, item?.tag);
+  const cachedTags = Array.isArray(metadataTags) ? metadataTags : [];
+  if (cachedTags.length > 0) {
+    for (const item of cachedTags) {
+      if (typeof item === "string") addTag(result, seen, item);
+      else addTag(result, seen, item?.tag);
+    }
+    return result;
   }
-  const tagPattern = /(^|[\s([{"'])#([^\s#.,!?;:)\]}]+)/gu;
-  for (const match of body.matchAll(tagPattern)) addTag(result, seen, match[2]);
+  const tagPattern = /(^|[\s([{])#([^\s#.,!?;:)\]}"']+)/gu;
+  for (const match of tagScanText(body).matchAll(tagPattern)) {
+    if (!/[^\d]/u.test(match[2])) continue;
+    addTag(result, seen, match[2]);
+  }
   return result;
 }
 function primitiveSearchValues(value, result, depth = 0) {
@@ -444,9 +463,12 @@ function buildJournalSearchText(fields) {
 function normalizeJournalTag(value) {
   return normalizeTag(value);
 }
+var FRONTMATTER2, FENCED_BLOCK2;
 var init_journal_search = __esm({
   "src/journal-search.ts"() {
     "use strict";
+    FRONTMATTER2 = /^---\r?\n[\s\S]*?\r?\n---(?:\r?\n|$)/;
+    FENCED_BLOCK2 = /^\s*(```|~~~)[\s\S]*?^\s*\1\s*$/gm;
   }
 });
 
@@ -515,7 +537,8 @@ function journalEntryMatchesMediaFilter(entry, filter = "all") {
   return media.some((item) => item.kind === filter);
 }
 function fallbackSearchText(entry) {
-  return normalizeJournalText(entry.normalizedSearchText || entry.searchText || buildJournalSearchText({
+  if (entry.normalizedSearchText) return entry.normalizedSearchText;
+  return normalizeJournalText(entry.searchText || buildJournalSearchText({
     path: entry.path,
     title: entry.title,
     excerpt: entry.excerpt,
@@ -540,8 +563,11 @@ function journalEntryMatchesFilter(entry, filter = {}) {
   if (filter.media && !journalEntryMatchesMediaFilter(entry, filter.media)) return false;
   if (filter.location && locationFilterKey(entry.location) !== filter.location) return false;
   if (filter.tag && !(entry.tags || []).some((tag) => normalizeJournalTag(tag) === normalizeJournalTag(filter.tag))) return false;
-  const query = normalizeJournalText(filter.query);
-  if (query && !fallbackSearchText(entry).includes(query)) return false;
+  const queryTerms = normalizeJournalText(filter.query).split(" ").filter(Boolean);
+  if (queryTerms.length > 0) {
+    const text = fallbackSearchText(entry);
+    if (!queryTerms.every((term) => text.includes(term))) return false;
+  }
   return true;
 }
 function filterJournalEntries(entries, filter = {}) {
@@ -554,6 +580,80 @@ var init_journal_timeline_filters = __esm({
     init_media_links();
     init_journal_search();
     MISSING_LOCATION_FILTER = "__missing__";
+  }
+});
+
+// src/mood.ts
+var mood_exports = {};
+__export(mood_exports, {
+  MOOD_LABELS: () => MOOD_LABELS,
+  MOOD_LABEL_GROUPS: () => MOOD_LABEL_GROUPS,
+  MOOD_LEVELS: () => MOOD_LEVELS,
+  filterMoodLabelsForScore: () => filterMoodLabelsForScore,
+  getMoodColor: () => getMoodColor,
+  moodLabelsForScore: () => moodLabelsForScore,
+  moveMoodScore: () => moveMoodScore,
+  parseMoodScore: () => parseMoodScore
+});
+function parseMoodScore(value) {
+  if (value === -2 || value === -1 || value === 0 || value === 1 || value === 2) return value;
+  if (typeof value !== "string") return void 0;
+  const normalized = value.trim();
+  if (!["-2", "-1", "0", "1", "2"].includes(normalized)) return void 0;
+  return Number(normalized);
+}
+function moodLabelsForScore(score) {
+  const ids = score === null ? MOOD_LABELS.map((label) => label.id) : MOOD_LABEL_GROUPS[score];
+  return ids.map((id) => MOOD_LABELS.find((label) => label.id === id)).filter((label) => Boolean(label));
+}
+function filterMoodLabelsForScore(score, labels) {
+  const available = new Set(moodLabelsForScore(score).map((label) => label.id));
+  return Array.from(new Set(labels)).filter((label) => available.has(label));
+}
+function moveMoodScore(score, direction) {
+  const current = score === null ? 2 : score;
+  const index = MOOD_LEVELS.findIndex((level) => level.score === current);
+  return MOOD_LEVELS[Math.max(0, Math.min(MOOD_LEVELS.length - 1, index + direction))].score;
+}
+function getMoodColor(score) {
+  return MOOD_LEVELS.find((level) => level.score === score)?.color ?? "var(--background-modifier-border)";
+}
+var MOOD_LEVELS, MOOD_LABELS, MOOD_LABEL_GROUPS;
+var init_mood = __esm({
+  "src/mood.ts"() {
+    "use strict";
+    MOOD_LEVELS = [
+      { score: -2, labelKey: "veryLow", color: "#7652c7" },
+      { score: -1, labelKey: "low", color: "#4d6fb8" },
+      { score: 0, labelKey: "neutral", color: "#55b6c9" },
+      { score: 1, labelKey: "good", color: "#f0b34f" },
+      { score: 2, labelKey: "veryGood", color: "#ee6a54" }
+    ];
+    MOOD_LABELS = [
+      { id: "calm", label: "Calm" },
+      { id: "grateful", label: "Grateful" },
+      { id: "anxious", label: "Anxious" },
+      { id: "tired", label: "Tired" },
+      { id: "energized", label: "Energized" },
+      { id: "hopeful", label: "Hopeful" },
+      { id: "sad", label: "Sad" },
+      { id: "focused", label: "Focused" },
+      { id: "overwhelmed", label: "Overwhelmed" },
+      { id: "lonely", label: "Lonely" },
+      { id: "frustrated", label: "Frustrated" },
+      { id: "thoughtful", label: "Thoughtful" },
+      { id: "content", label: "Content" },
+      { id: "joyful", label: "Joyful" },
+      { id: "proud", label: "Proud" },
+      { id: "inspired", label: "Inspired" }
+    ];
+    MOOD_LABEL_GROUPS = {
+      [-2]: ["sad", "anxious", "overwhelmed", "lonely"],
+      [-1]: ["tired", "frustrated", "anxious", "sad"],
+      [0]: ["calm", "thoughtful", "content", "focused"],
+      [1]: ["grateful", "hopeful", "energized", "focused"],
+      [2]: ["joyful", "proud", "inspired", "grateful", "energized"]
+    };
   }
 });
 
@@ -601,6 +701,13 @@ function firstString(value) {
   if (typeof value === "number" && Number.isFinite(value)) return String(value);
   return void 0;
 }
+function parseDateValue(value) {
+  if (typeof value === "string") {
+    const wiki = /^\[\[([^\]]+)\]\]$/.exec(value.trim());
+    if (wiki) return parseDateString(wiki[1].split("|")[0].trim());
+  }
+  return parseDateString(value);
+}
 function parseConfiguredDate(value) {
   if (Array.isArray(value)) {
     for (const item of value) {
@@ -609,7 +716,7 @@ function parseConfiguredDate(value) {
     }
     return null;
   }
-  return parseDateString(value);
+  return parseDateValue(value);
 }
 function resolveJournalDate(fileName, frontmatter, configuredDateField) {
   if (configuredDateField) {
@@ -619,14 +726,21 @@ function resolveJournalDate(fileName, frontmatter, configuredDateField) {
       return configuredDate ? { date: configuredDate } : { date: null, reason: "invalid-date" };
     }
   }
+  let invalidField = false;
   for (const field of ["date", "creationDate"]) {
     const value = readField(frontmatter, field);
+    if (value === void 0) continue;
     const date = parseConfiguredDate(value);
     if (date) return { date };
-    if (value !== void 0) return { date: null, reason: "invalid-date" };
+    invalidField = true;
   }
   const filenameDate = parseDateFromFilename(fileName);
-  return filenameDate ? { date: filenameDate } : { date: null, reason: /^(\d{4})-(\d{2})-(\d{2})(?=$|[ _-])/i.test(fileName.replace(/\.md$/i, "")) ? "invalid-date" : "missing-date" };
+  if (filenameDate) return { date: filenameDate };
+  if (invalidField) return { date: null, reason: "invalid-date" };
+  return {
+    date: null,
+    reason: /^(\d{4})-(\d{2})-(\d{2})(?=$|[ _-])/i.test(fileName.replace(/\.md$/i, "")) ? "invalid-date" : "missing-date"
+  };
 }
 function asBoolean(value) {
   if (value === true || value === 1) return true;
@@ -663,18 +777,35 @@ function normalizeLocation(frontmatter) {
   if (!name && latitude === void 0 && longitude === void 0) return void 0;
   return { name, latitude, longitude };
 }
-function titleFromContent(fileName, content, frontmatter) {
+function titleFromContent(fileName, content, frontmatter, headings) {
   const explicit = firstString(readField(frontmatter, "title"));
   if (explicit) return explicit;
-  const heading = /^#\s+(.+)$/m.exec(content)?.[1]?.trim();
+  if (Array.isArray(headings)) {
+    const cached = firstString(headings.find((item) => Number(item?.level) === 1)?.heading);
+    if (cached) return cached;
+  }
+  const body = content.replace(TITLE_FRONTMATTER, "").replace(TITLE_FENCED_BLOCK, " ");
+  const heading = /^#\s+(.+)$/m.exec(body)?.[1]?.trim();
   return heading || fileName.replace(/\.md$/i, "");
 }
 function sourceForPath(path, sources) {
-  return sources.find((source) => source.enabled !== false && isPathInFolder(path, source.path));
+  const normalizedPath2 = normalizeVaultPath(path);
+  let match;
+  let matchLength = -1;
+  for (const source of sources) {
+    if (source.enabled === false) continue;
+    if (!isPathInFolder(normalizedPath2, source.path)) continue;
+    const length = normalizeVaultPath(source.path).length;
+    if (length > matchLength) {
+      match = source;
+      matchLength = length;
+    }
+  }
+  return match;
 }
 function moodFromFrontmatter(frontmatter) {
-  const score = parseNumber(readField(frontmatter, "mood"));
-  if (score !== -2 && score !== -1 && score !== 0 && score !== 1 && score !== 2) return void 0;
+  const score = parseMoodScore(readField(frontmatter, "mood"));
+  if (score === void 0) return void 0;
   const rawLabels = readField(frontmatter, "mood_labels");
   const labels = Array.isArray(rawLabels) ? rawLabels.map(String).map((value) => value.trim()).filter(Boolean) : typeof rawLabels === "string" ? rawLabels.split(",").map((value) => value.trim()).filter(Boolean) : [];
   const rawNote = readField(frontmatter, "mood_note") ?? readField(frontmatter, "mood_comment");
@@ -687,7 +818,7 @@ function moodFromFrontmatter(frontmatter) {
     updatedAt: now
   };
 }
-var DEFAULT_JOURNAL_SOURCES, JournalIndex;
+var DEFAULT_JOURNAL_SOURCES, TITLE_FRONTMATTER, TITLE_FENCED_BLOCK, JournalIndex;
 var init_journal_index = __esm({
   "src/journal-index.ts"() {
     "use strict";
@@ -696,9 +827,12 @@ var init_journal_index = __esm({
     init_media_links();
     init_journal_search();
     init_journal_timeline_filters();
+    init_mood();
     DEFAULT_JOURNAL_SOURCES = [
       { id: "daily", path: "Calendar/Daily", type: "daily", label: "Daily notes" }
     ];
+    TITLE_FRONTMATTER = /^---\r?\n[\s\S]*?\r?\n---(?:\r?\n|$)/;
+    TITLE_FENCED_BLOCK = /^\s*(```|~~~)[\s\S]*?^\s*\1\s*$/gm;
     JournalIndex = class {
       constructor(app, getMood = () => void 0) {
         __publicField(this, "app");
@@ -920,7 +1054,12 @@ var init_journal_index = __esm({
         const storedMood = this.getMood(path);
         const mood = storedMood === void 0 ? moodFromFrontmatter(frontmatter) : storedMood ?? void 0;
         const tags = parseJournalTags(frontmatter, content, Array.isArray(cache?.tags) ? cache.tags : []);
-        const title = titleFromContent(file.name, content, frontmatter);
+        const title = titleFromContent(
+          file.name,
+          content,
+          frontmatter,
+          Array.isArray(cache?.headings) ? cache.headings : void 0
+        );
         const excerpt = extractExcerpt(content) ?? "";
         const searchText = buildJournalSearchText({
           path,
@@ -1002,80 +1141,6 @@ var init_journal_metadata_refresh = __esm({
   }
 });
 
-// src/mood.ts
-var mood_exports = {};
-__export(mood_exports, {
-  MOOD_LABELS: () => MOOD_LABELS,
-  MOOD_LABEL_GROUPS: () => MOOD_LABEL_GROUPS,
-  MOOD_LEVELS: () => MOOD_LEVELS,
-  filterMoodLabelsForScore: () => filterMoodLabelsForScore,
-  getMoodColor: () => getMoodColor,
-  moodLabelsForScore: () => moodLabelsForScore,
-  moveMoodScore: () => moveMoodScore,
-  parseMoodScore: () => parseMoodScore
-});
-function parseMoodScore(value) {
-  if (value === -2 || value === -1 || value === 0 || value === 1 || value === 2) return value;
-  if (typeof value !== "string") return void 0;
-  const normalized = value.trim();
-  if (!["-2", "-1", "0", "1", "2"].includes(normalized)) return void 0;
-  return Number(normalized);
-}
-function moodLabelsForScore(score) {
-  const ids = score === null ? MOOD_LABELS.map((label) => label.id) : MOOD_LABEL_GROUPS[score];
-  return ids.map((id) => MOOD_LABELS.find((label) => label.id === id)).filter((label) => Boolean(label));
-}
-function filterMoodLabelsForScore(score, labels) {
-  const available = new Set(moodLabelsForScore(score).map((label) => label.id));
-  return Array.from(new Set(labels)).filter((label) => available.has(label));
-}
-function moveMoodScore(score, direction) {
-  const current = score === null ? 2 : score;
-  const index = MOOD_LEVELS.findIndex((level) => level.score === current);
-  return MOOD_LEVELS[Math.max(0, Math.min(MOOD_LEVELS.length - 1, index + direction))].score;
-}
-function getMoodColor(score) {
-  return MOOD_LEVELS.find((level) => level.score === score)?.color ?? "var(--background-modifier-border)";
-}
-var MOOD_LEVELS, MOOD_LABELS, MOOD_LABEL_GROUPS;
-var init_mood = __esm({
-  "src/mood.ts"() {
-    "use strict";
-    MOOD_LEVELS = [
-      { score: -2, labelKey: "veryLow", color: "#7652c7" },
-      { score: -1, labelKey: "low", color: "#4d6fb8" },
-      { score: 0, labelKey: "neutral", color: "#55b6c9" },
-      { score: 1, labelKey: "good", color: "#f0b34f" },
-      { score: 2, labelKey: "veryGood", color: "#ee6a54" }
-    ];
-    MOOD_LABELS = [
-      { id: "calm", label: "Calm" },
-      { id: "grateful", label: "Grateful" },
-      { id: "anxious", label: "Anxious" },
-      { id: "tired", label: "Tired" },
-      { id: "energized", label: "Energized" },
-      { id: "hopeful", label: "Hopeful" },
-      { id: "sad", label: "Sad" },
-      { id: "focused", label: "Focused" },
-      { id: "overwhelmed", label: "Overwhelmed" },
-      { id: "lonely", label: "Lonely" },
-      { id: "frustrated", label: "Frustrated" },
-      { id: "thoughtful", label: "Thoughtful" },
-      { id: "content", label: "Content" },
-      { id: "joyful", label: "Joyful" },
-      { id: "proud", label: "Proud" },
-      { id: "inspired", label: "Inspired" }
-    ];
-    MOOD_LABEL_GROUPS = {
-      [-2]: ["sad", "anxious", "overwhelmed", "lonely"],
-      [-1]: ["tired", "frustrated", "anxious", "sad"],
-      [0]: ["calm", "thoughtful", "content", "focused"],
-      [1]: ["grateful", "hopeful", "energized", "focused"],
-      [2]: ["joyful", "proud", "inspired", "grateful", "energized"]
-    };
-  }
-});
-
 // src/journal-export.ts
 function sanitizeFileName(name, extension) {
   const base = Array.from(name.replace(/\.[a-z0-9]+$/iu, "")).map((char) => UNSAFE_FILENAME_CHAR.test(char) || char.codePointAt(0) <= 31 ? "-" : char).join("").trim() || "journal-export";
@@ -1118,9 +1183,12 @@ var init_journal_export = __esm({
 // src/mood-export.ts
 var mood_export_exports = {};
 __export(mood_export_exports, {
+  MOOD_EXPORT_BOM: () => MOOD_EXPORT_BOM,
   MOOD_EXPORT_COLUMNS: () => MOOD_EXPORT_COLUMNS,
+  MOOD_EXPORT_FORMULA_GUARDED_COLUMNS: () => MOOD_EXPORT_FORMULA_GUARDED_COLUMNS,
   MOOD_EXPORT_SCHEMA_VERSION: () => MOOD_EXPORT_SCHEMA_VERSION,
   escapeMoodCsvCell: () => escapeMoodCsvCell,
+  escapeMoodLabelsCell: () => escapeMoodLabelsCell,
   moodExportObject: () => moodExportObject,
   moodExportRows: () => moodExportRows,
   saveMoodExport: () => saveMoodExport,
@@ -1167,9 +1235,13 @@ function rowsForMetadata(metadata) {
 function moodExportRows(metadata) {
   return rowsForMetadata(metadata);
 }
-function escapeMoodCsvCell(value) {
-  const text = value === null || value === void 0 ? "" : String(value);
+function escapeMoodCsvCell(value, options = {}) {
+  let text = value === null || value === void 0 ? "" : String(value);
+  if (options.guardFormula && FORMULA_LEAD.test(text)) text = `'${text}`;
   return /[",\r\n]/u.test(text) ? `"${text.replace(/"/gu, '""')}"` : text;
+}
+function escapeMoodLabelsCell(labels) {
+  return labels.map((label) => String(label).replace(/%/gu, "%25").replace(/;/gu, "%3B")).join("; ");
 }
 function valueForColumn(row, column) {
   switch (column) {
@@ -1180,7 +1252,7 @@ function valueForColumn(row, column) {
     case "score":
       return row.score;
     case "labels":
-      return row.labels.join("; ");
+      return escapeMoodLabelsCell(row.labels);
     case "note":
       return row.note ?? "";
     case "recordedAt":
@@ -1193,12 +1265,17 @@ function valueForColumn(row, column) {
       return row.storeSchemaVersion;
   }
 }
+function escapeColumnCell(row, column) {
+  return escapeMoodCsvCell(valueForColumn(row, column), {
+    guardFormula: MOOD_EXPORT_FORMULA_GUARDED_COLUMNS.includes(column)
+  });
+}
 function serializeMoodCsv(metadata) {
-  const rows = [MOOD_EXPORT_COLUMNS.map(escapeMoodCsvCell).join(",")];
+  const rows = [MOOD_EXPORT_COLUMNS.map((column) => escapeMoodCsvCell(column)).join(",")];
   for (const row of rowsForMetadata(metadata)) {
-    rows.push(MOOD_EXPORT_COLUMNS.map((column) => escapeMoodCsvCell(valueForColumn(row, column))).join(","));
+    rows.push(MOOD_EXPORT_COLUMNS.map((column) => escapeColumnCell(row, column)).join(","));
   }
-  return `${rows.join("\r\n")}\r
+  return `${MOOD_EXPORT_BOM}${rows.join("\r\n")}\r
 `;
 }
 function moodExportObject(metadata) {
@@ -1217,7 +1294,7 @@ function serializeMoodJson(metadata) {
 async function saveMoodExport(app, content, fileName) {
   return saveDaylineExport(app, content, fileName);
 }
-var MOOD_EXPORT_SCHEMA_VERSION, MOOD_EXPORT_COLUMNS;
+var MOOD_EXPORT_SCHEMA_VERSION, MOOD_EXPORT_COLUMNS, MOOD_EXPORT_FORMULA_GUARDED_COLUMNS, MOOD_EXPORT_BOM, FORMULA_LEAD;
 var init_mood_export = __esm({
   "src/mood-export.ts"() {
     "use strict";
@@ -1235,6 +1312,9 @@ var init_mood_export = __esm({
       "orphanedAt",
       "storeSchemaVersion"
     ];
+    MOOD_EXPORT_FORMULA_GUARDED_COLUMNS = ["sourcePath", "labels", "note"];
+    MOOD_EXPORT_BOM = "\uFEFF";
+    FORMULA_LEAD = /^[=+\-@\t\r]/u;
   }
 });
 
@@ -1243,6 +1323,8 @@ var mood_store_exports = {};
 __export(mood_store_exports, {
   LEGACY_MOOD_SCHEMA_VERSION: () => LEGACY_MOOD_SCHEMA_VERSION,
   MOOD_SCHEMA_VERSION: () => MOOD_SCHEMA_VERSION,
+  MOOD_TOMBSTONE_TTL_MS: () => MOOD_TOMBSTONE_TTL_MS,
+  MoodMetadataReadOnlyError: () => MoodMetadataReadOnlyError,
   MoodStore: () => MoodStore,
   migrateMoodMetadata: () => migrateMoodMetadata,
   normalizeCustomLabels: () => normalizeCustomLabels,
@@ -1259,6 +1341,34 @@ function emptyMetadata() {
 }
 function isScore(value) {
   return value === -2 || value === -1 || value === 0 || value === 1 || value === 2;
+}
+function requireMoodScore(value, context) {
+  const score = parseMoodScore(value);
+  if (score === void 0) {
+    throw new Error(`Invalid mood score for ${context}: ${typeof value === "string" ? JSON.stringify(value) : String(value)}`);
+  }
+  return score;
+}
+function isTombstoneStale(tombstone, fileCtime, now = Date.now(), maxAgeMs = MOOD_TOMBSTONE_TTL_MS) {
+  const deletedAt = Date.parse(String(tombstone?.deletedAt ?? ""));
+  if (!Number.isFinite(deletedAt)) return true;
+  if (fileCtime !== void 0 && Number.isFinite(fileCtime) && deletedAt < fileCtime) return true;
+  return now - deletedAt > maxAgeMs;
+}
+function fileCtimeOf(file) {
+  const ctime = Number(file?.stat?.ctime);
+  return Number.isFinite(ctime) ? ctime : void 0;
+}
+function pruneStaleTombstones(metadata, now, maxAgeMs = MOOD_TOMBSTONE_TTL_MS) {
+  const tombstones = metadata.tombstones;
+  if (!tombstones) return metadata;
+  for (const [path, tombstone] of Object.entries(tombstones)) {
+    if (isTombstoneStale(tombstone, void 0, now, maxAgeMs)) delete tombstones[path];
+  }
+  return metadata;
+}
+function isConflictError(error) {
+  return error instanceof Error && /conflict/iu.test(error.message);
 }
 function normalizeMoodLabels(value) {
   return Array.from(new Set(
@@ -1366,49 +1476,63 @@ function validateMoodMetadata(value) {
   const invalidRecords = [];
   const invalidOrphans = [];
   const invalidMetadata = [];
+  const warnings = [];
+  const finish = (readable, futureSchema2) => ({
+    valid: readable && invalidRecords.length === 0 && invalidOrphans.length === 0 && invalidMetadata.length === 0,
+    readable,
+    futureSchema: futureSchema2,
+    invalidRecords,
+    invalidOrphans,
+    invalidMetadata,
+    missingFiles: [],
+    backupAvailable: false,
+    warnings
+  });
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     invalidMetadata.push("metadata");
-    return { valid: false, invalidRecords, invalidOrphans, invalidMetadata, missingFiles: [], backupAvailable: false };
+    return finish(false, false);
   }
   const raw = value;
-  if (raw.schemaVersion !== void 0 && raw.schemaVersion !== 1 && raw.schemaVersion !== MOOD_SCHEMA_VERSION) invalidMetadata.push("schemaVersion");
+  const schemaVersion = raw.schemaVersion === void 0 ? MOOD_SCHEMA_VERSION : Number(raw.schemaVersion);
+  if (!Number.isFinite(schemaVersion)) invalidMetadata.push("schemaVersion");
+  const futureSchema = Number.isFinite(schemaVersion) && schemaVersion > MOOD_SCHEMA_VERSION;
+  if (futureSchema) {
+    warnings.push(`Mood metadata schema ${schemaVersion} is newer than supported schema ${MOOD_SCHEMA_VERSION}; writes are disabled until the plugin is upgraded`);
+  } else if (Number.isFinite(schemaVersion) && schemaVersion !== LEGACY_MOOD_SCHEMA_VERSION && schemaVersion !== MOOD_SCHEMA_VERSION) {
+    warnings.push(`Unknown mood metadata schema ${schemaVersion}; normalized as schema ${MOOD_SCHEMA_VERSION}`);
+  }
   if (!raw.entries || typeof raw.entries !== "object" || Array.isArray(raw.entries)) {
     invalidMetadata.push("entries");
   } else {
     const normalizedPaths = /* @__PURE__ */ new Set();
     for (const [path, record] of Object.entries(raw.entries)) {
       const normalizedPath2 = normalizeVaultPath(path);
-      if (!normalizedPath2 || normalizedPaths.has(normalizedPath2)) invalidMetadata.push(`entry-path:${path}`);
-      normalizedPaths.add(normalizedPath2);
-      if (!validMoodRecord(record)) invalidRecords.push(path);
+      const duplicate = normalizedPath2 ? normalizedPaths.has(normalizedPath2) : false;
+      if (normalizedPath2) normalizedPaths.add(normalizedPath2);
+      if (!normalizedPath2 || duplicate || !validMoodRecord(record)) invalidRecords.push(path);
     }
   }
   if (raw.orphans !== void 0 && (!raw.orphans || typeof raw.orphans !== "object" || Array.isArray(raw.orphans))) {
     invalidMetadata.push("orphans");
   } else if (raw.orphans && typeof raw.orphans === "object") {
-    for (const [path, value2] of Object.entries(raw.orphans)) {
-      const orphan = value2 && typeof value2 === "object" ? value2 : {};
+    for (const [path, orphanValue] of Object.entries(raw.orphans)) {
+      const orphan = orphanValue && typeof orphanValue === "object" ? orphanValue : {};
       if (!normalizeVaultPath(path) || !validMoodRecord(orphan.record) || typeof orphan.orphanedAt !== "string") invalidOrphans.push(path);
     }
   }
   if (raw.tombstones !== void 0 && (!raw.tombstones || typeof raw.tombstones !== "object" || Array.isArray(raw.tombstones))) {
     invalidMetadata.push("tombstones");
   } else if (raw.tombstones && typeof raw.tombstones === "object") {
-    for (const [path, value2] of Object.entries(raw.tombstones)) {
-      const tombstone = value2 && typeof value2 === "object" && !Array.isArray(value2) ? value2 : {};
+    for (const [path, tombstoneValue] of Object.entries(raw.tombstones)) {
+      const tombstone = tombstoneValue && typeof tombstoneValue === "object" && !Array.isArray(tombstoneValue) ? tombstoneValue : {};
       if (!normalizeVaultPath(path) || typeof tombstone.deletedAt !== "string" || !tombstone.deletedAt.trim()) {
         invalidMetadata.push(`tombstone:${path}`);
       }
     }
   }
-  return {
-    valid: invalidRecords.length === 0 && invalidOrphans.length === 0 && invalidMetadata.length === 0,
-    invalidRecords,
-    invalidOrphans,
-    invalidMetadata,
-    missingFiles: [],
-    backupAvailable: false
-  };
+  for (const path of invalidRecords) warnings.push(`Skipped invalid mood record: ${path}`);
+  for (const path of invalidOrphans) warnings.push(`Skipped invalid mood orphan: ${path}`);
+  return finish(invalidMetadata.length === 0 || futureSchema, futureSchema);
 }
 function normalizeMetadata(value) {
   return migrateMoodMetadata(value).metadata;
@@ -1426,13 +1550,40 @@ function sameValue(a, b) {
   const keys = Object.keys(left);
   return keys.length === Object.keys(right).length && keys.every((key) => Object.hasOwn(right, key) && sameValue(left[key], right[key]));
 }
-function mergeMetadata(base, local, remote) {
+function recordUpdatedAt(value) {
+  if (!value || typeof value !== "object") return void 0;
+  const updatedAt = value.updatedAt;
+  if (typeof updatedAt !== "string") return void 0;
+  const parsed = Date.parse(updatedAt);
+  return Number.isFinite(parsed) ? parsed : void 0;
+}
+function isRemoteRecordNewer(local, remote) {
+  const localAt = recordUpdatedAt(local);
+  const remoteAt = recordUpdatedAt(remote);
+  if (localAt === void 0 || remoteAt === void 0) return false;
+  return remoteAt > localAt;
+}
+function mergeMetadata(base, local, remote, options = {}) {
+  for (const [path, record] of Object.entries(local.entries)) {
+    if (!isScore(record?.score)) throw new Error(`Invalid mood score for ${path}: ${String(record?.score)}`);
+  }
+  for (const [path, orphan] of Object.entries(local.orphans ?? {})) {
+    if (!isScore(orphan?.record?.score)) throw new Error(`Invalid mood score for ${path}: ${String(orphan?.record?.score)}`);
+  }
   const result = cloneUnknown(remote);
+  const overwritePath = options.overwritePath;
   const mergeMap = (before, after, disk, label) => {
     const merged = cloneUnknown(disk);
-    for (const key of /* @__PURE__ */ new Set([...Object.keys(before), ...Object.keys(after)])) {
-      if (sameValue(before[key], after[key])) continue;
-      if (!sameValue(before[key], disk[key])) throw new Error(`Mood metadata conflict: ${label}${key}`);
+    const keys = /* @__PURE__ */ new Set([...Object.keys(before), ...Object.keys(after)]);
+    if (overwritePath !== void 0) keys.add(overwritePath);
+    for (const key of keys) {
+      const isOverwriteKey = key === overwritePath;
+      if (!isOverwriteKey && sameValue(before[key], after[key])) continue;
+      if (isOverwriteKey) {
+        if (isRemoteRecordNewer(after[key], disk[key])) continue;
+      } else if (!sameValue(before[key], disk[key])) {
+        throw new Error(`Mood metadata conflict: ${label}${key}`);
+      }
       if (Object.hasOwn(after, key)) Object.defineProperty(merged, key, { value: cloneUnknown(after[key]), enumerable: true, configurable: true, writable: true });
       else delete merged[key];
     }
@@ -1457,7 +1608,7 @@ function formatValidation(result) {
   ].filter(Boolean);
   return parts.join("; ") || "unknown validation error";
 }
-var MOOD_SCHEMA_VERSION, LEGACY_MOOD_SCHEMA_VERSION, DEFAULT_PATH, BUILT_IN_LABEL_IDS, MOOD_FRONTMATTER_KEYS, MoodStore;
+var MOOD_SCHEMA_VERSION, LEGACY_MOOD_SCHEMA_VERSION, MOOD_TOMBSTONE_TTL_MS, MoodMetadataReadOnlyError, DEFAULT_PATH, BUILT_IN_LABEL_IDS, MOOD_FRONTMATTER_KEYS, MoodStore;
 var init_mood_store = __esm({
   "src/mood-store.ts"() {
     "use strict";
@@ -1466,6 +1617,17 @@ var init_mood_store = __esm({
     init_mood_export();
     MOOD_SCHEMA_VERSION = 2;
     LEGACY_MOOD_SCHEMA_VERSION = 1;
+    MOOD_TOMBSTONE_TTL_MS = 180 * 24 * 60 * 60 * 1e3;
+    MoodMetadataReadOnlyError = class extends Error {
+      constructor(path, schemaVersion) {
+        super(`Mood metadata ${path} uses schema ${schemaVersion ?? "unknown"}, which is newer than schema ${MOOD_SCHEMA_VERSION}; writing is disabled until Dayline is updated`);
+        __publicField(this, "path");
+        __publicField(this, "schemaVersion");
+        this.name = "MoodMetadataReadOnlyError";
+        this.path = path;
+        this.schemaVersion = schemaVersion;
+      }
+    };
     DEFAULT_PATH = "Calendar/journal-metadata.json";
     BUILT_IN_LABEL_IDS = new Set(MOOD_LABELS.map((item) => item.id));
     MOOD_FRONTMATTER_KEYS = /* @__PURE__ */ new Set(["mood", "mood_labels", "mood_note", "mood_comment"]);
@@ -1480,6 +1642,10 @@ var init_mood_store = __esm({
         __publicField(this, "loaded", false);
         __publicField(this, "loadError");
         __publicField(this, "recoveredFromBackup", false);
+        __publicField(this, "readOnlyMode", false);
+        __publicField(this, "readOnlySchemaVersion");
+        __publicField(this, "warnings", []);
+        __publicField(this, "mirrorMoodToFrontmatter", false);
         __publicField(this, "primaryRaw", null);
         __publicField(this, "generation", 0);
         __publicField(this, "writeQueue", Promise.resolve());
@@ -1495,12 +1661,24 @@ var init_mood_store = __esm({
           this.loaded = false;
           this.loadError = void 0;
           this.recoveredFromBackup = false;
+          this.readOnlyMode = false;
+          this.readOnlySchemaVersion = void 0;
+          this.warnings = [];
           this.mirrorFailures.clear();
         }
+        if (settings.mirrorMoodToFrontmatter !== void 0) this.mirrorMoodToFrontmatter = settings.mirrorMoodToFrontmatter;
         this.path = nextPath;
       }
       get metadataPath() {
         return this.path;
+      }
+      /** True while the metadata file uses a newer schema; every write is refused until the plugin is upgraded. */
+      get readOnly() {
+        return this.readOnlyMode;
+      }
+      /** Problems collected by the last read, such as invalid records that were skipped. */
+      getWarnings() {
+        return [...this.warnings];
       }
       async load() {
         return this.enqueue((context) => this.loadState(context));
@@ -1510,6 +1688,9 @@ var init_mood_store = __esm({
         this.loaded = false;
         this.loadError = void 0;
         this.recoveredFromBackup = false;
+        this.readOnlyMode = false;
+        this.readOnlySchemaVersion = void 0;
+        this.warnings = [];
         let raw = null;
         try {
           raw = await this.readPrimary(context.path);
@@ -1520,9 +1701,19 @@ var init_mood_store = __esm({
           }
           const parsed = raw === null ? emptyMetadata() : JSON.parse(raw);
           const validation = validateMoodMetadata(parsed);
-          if (!validation.valid) throw new Error(`Invalid mood metadata: ${formatValidation(validation)}`);
+          if (!validation.readable) throw new Error(`Invalid mood metadata: ${formatValidation(validation)}`);
           const migration = migrateMoodMetadata(parsed);
-          const serialized = JSON.stringify(migration.metadata, null, 2);
+          this.warnings = Array.from(/* @__PURE__ */ new Set([...validation.warnings, ...migration.warnings]));
+          const metadata = validation.futureSchema ? migration.metadata : pruneStaleTombstones(migration.metadata, Date.now());
+          if (validation.futureSchema) {
+            this.readOnlyMode = true;
+            this.readOnlySchemaVersion = migration.fromVersion;
+            this.data = metadata;
+            this.primaryRaw = raw;
+            this.loaded = true;
+            return;
+          }
+          const serialized = JSON.stringify(metadata, null, 2);
           if (raw !== null && (migration.migrated || serialized !== JSON.stringify(parsed, null, 2))) {
             try {
               await this.writeJsonAtomically(context.path, serialized, () => this.verifyPrimary(context, raw));
@@ -1533,7 +1724,7 @@ var init_mood_store = __esm({
             }
           }
           this.assertContext(context);
-          this.data = migration.metadata;
+          this.data = metadata;
           this.primaryRaw = raw;
           this.loaded = true;
         } catch (error) {
@@ -1545,6 +1736,8 @@ var init_mood_store = __esm({
             this.loaded = true;
             this.recoveredFromBackup = true;
             this.primaryRaw = raw;
+            if (raw !== null) await this.saveCorruptCopy(context, raw);
+            this.assertContext(context);
             try {
               const content = JSON.stringify(restored, null, 2);
               await this.verifyPrimary(context, raw);
@@ -1564,6 +1757,15 @@ var init_mood_store = __esm({
           this.loaded = true;
           this.loadError = error instanceof Error ? error : new Error(String(error));
         }
+      }
+      /** Re-read the metadata file after an external change, refresh state, and notify listeners. */
+      async reloadFromDisk() {
+        return this.enqueue(async (context) => {
+          const previous = this.data;
+          await this.loadState(context);
+          this.assertContext(context);
+          this.emitChanged(previous, this.data);
+        });
       }
       get(path) {
         return this.data.entries[normalizeVaultPath(path)];
@@ -1613,13 +1815,14 @@ var init_mood_store = __esm({
           note = settingsOrNote.note;
         }
         const normalizedPath2 = normalizeVaultPath(path);
+        const parsedScore = requireMoodScore(score, normalizedPath2);
         let record;
         await this.mutate((data) => {
           const previous = data.entries[normalizedPath2];
           const now = (/* @__PURE__ */ new Date()).toISOString();
           record = normalizeRecord({
             ...previous ? cloneUnknown(previous) : {},
-            score,
+            score: parsedScore,
             labels: normalizeMoodLabels(labels),
             ...note === void 0 ? previous?.note === void 0 ? {} : { note: previous.note } : { note: note === null ? null : String(note) },
             recordedAt: previous?.recordedAt ?? now,
@@ -1629,10 +1832,11 @@ var init_mood_store = __esm({
           data.customLabels = normalizeCustomLabels([...data.customLabels ?? [], ...record.labels]);
           if (data.orphans) delete data.orphans[normalizedPath2];
           delete data.tombstones?.[normalizedPath2];
-        });
-        this.emit(normalizedPath2, record);
-        if (settings.mirrorMoodToFrontmatter) await this.attemptMirror(normalizedPath2, "write", record);
-        return record;
+        }, { overwritePath: normalizedPath2 });
+        const effective = this.data.entries[normalizedPath2] ?? record;
+        this.emit(normalizedPath2, effective);
+        if (settings.mirrorMoodToFrontmatter || this.mirrorMoodToFrontmatter) await this.attemptMirror(normalizedPath2, "write", effective);
+        return effective;
       }
       async rename(oldPath, newPath) {
         const oldKey = normalizeVaultPath(oldPath);
@@ -1673,8 +1877,18 @@ var init_mood_store = __esm({
       async deleteRecord(path, preserveRecovery = true, fallbackRecord) {
         const key = normalizeVaultPath(path);
         let record;
+        let fromFrontmatter = false;
         await this.mutate((data) => {
-          record = data.entries[key] || (fallbackRecord && validMoodRecord(fallbackRecord) ? normalizeRecord(cloneUnknown(fallbackRecord)) : void 0);
+          const stored = data.entries[key];
+          if (stored) {
+            record = stored;
+          } else if (fallbackRecord) {
+            const candidate = normalizeRecord({ ...cloneUnknown(fallbackRecord), score: requireMoodScore(fallbackRecord.score, key) });
+            if (validMoodRecord(candidate)) {
+              record = candidate;
+              fromFrontmatter = true;
+            }
+          }
           if (preserveRecovery) {
             if (record) {
               data.orphans ?? (data.orphans = {});
@@ -1688,7 +1902,7 @@ var init_mood_store = __esm({
           data.tombstones[key] = { deletedAt: (/* @__PURE__ */ new Date()).toISOString() };
         });
         this.emit(key, void 0);
-        await this.attemptMirror(key, "delete");
+        if (this.mirrorMoodToFrontmatter || fromFrontmatter) await this.attemptMirror(key, "delete", record);
         return record;
       }
       async remove(path, options = {}) {
@@ -1711,21 +1925,58 @@ var init_mood_store = __esm({
           if (data.entries[destination] && !options.replace) {
             throw new Error(`Mood restore target already has a record: ${destination}`);
           }
-          record = source.record;
-          data.entries[destination] = source.record;
+          const restored = normalizeRecord({ ...cloneUnknown(source.record), score: requireMoodScore(source.record?.score, sourceKey) });
+          record = restored;
+          data.entries[destination] = restored;
           delete data.orphans?.[sourceKey];
           delete data.tombstones?.[destination];
         });
         if (record) this.emit(destination, record);
         return record;
       }
+      /**
+       * Drop the delete tombstone for `path` when it is stale, so a note recreated at
+       * the same path can expose its frontmatter mood again. `fileCtime` is the
+       * Obsidian `TFile.stat.ctime` in milliseconds; when omitted it is read from the
+       * vault. Returns true when a tombstone was removed.
+       */
+      async clearStaleTombstone(path, fileCtime) {
+        const key = normalizeVaultPath(path);
+        const tombstone = this.data.tombstones?.[key];
+        if (!tombstone) return false;
+        const ctime = fileCtime ?? this.vaultFileCtime(key);
+        if (!isTombstoneStale(tombstone, ctime)) return false;
+        await this.mutate((data) => {
+          delete data.tombstones?.[key];
+        });
+        this.emit(key, this.data.entries[key]);
+        return true;
+      }
+      /** Remove delete tombstones older than `maxAgeMs`; returns how many were dropped. */
+      async pruneTombstones(maxAgeMs = MOOD_TOMBSTONE_TTL_MS) {
+        let removed = 0;
+        await this.mutate((data) => {
+          const tombstones = data.tombstones;
+          if (!tombstones) return;
+          for (const [path, tombstone] of Object.entries(tombstones)) {
+            if (isTombstoneStale(tombstone, void 0, Date.now(), maxAgeMs)) {
+              delete tombstones[path];
+              removed++;
+            }
+          }
+        });
+        return removed;
+      }
       async importFrontmatter(filePaths, metadataCache) {
         let imported = 0;
         await this.mutate((data) => {
+          const tombstones = data.tombstones ?? {};
           for (const rawPath of filePaths) {
             const path = normalizeVaultPath(rawPath);
-            if (data.entries[path] || Object.hasOwn(data.tombstones ?? {}, path)) continue;
+            if (!path || data.entries[path]) continue;
             const file = this.app.vault.getAbstractFileByPath(path);
+            const tombstone = tombstones[path];
+            if (tombstone && !isTombstoneStale(tombstone, fileCtimeOf(file))) continue;
             const frontmatter = metadataCache.getFileCache(file)?.frontmatter ?? {};
             const score = parseMoodScore(frontmatter.mood);
             if (score === void 0) continue;
@@ -1740,6 +1991,7 @@ var init_mood_store = __esm({
               updatedAt: now
             });
             data.customLabels = normalizeCustomLabels([...data.customLabels ?? [], ...labels]);
+            if (tombstone) delete tombstones[path];
             imported++;
           }
         });
@@ -1803,8 +2055,10 @@ var init_mood_store = __esm({
         const invalidOrphans = [];
         const invalidMetadata = [];
         const missingFiles = [];
+        const warnings = [];
         let backupAvailable = false;
         let primaryExists = false;
+        let futureSchema = false;
         const pathsToCheck = new Set(Object.keys(this.data.entries));
         try {
           primaryExists = await this.adapter().exists(this.path);
@@ -1814,6 +2068,8 @@ var init_mood_store = __esm({
             invalidRecords.push(...result.invalidRecords);
             invalidOrphans.push(...result.invalidOrphans);
             invalidMetadata.push(...result.invalidMetadata);
+            warnings.push(...result.warnings);
+            futureSchema = result.futureSchema;
             if (raw?.entries && typeof raw.entries === "object" && !Array.isArray(raw.entries)) {
               for (const [path, record] of Object.entries(raw.entries)) {
                 if (validMoodRecord(record)) pathsToCheck.add(normalizeVaultPath(path));
@@ -1846,27 +2102,31 @@ var init_mood_store = __esm({
         }
         return {
           valid: invalidRecords.length === 0 && invalidOrphans.length === 0 && invalidMetadata.length === 0 && missingFiles.length === 0,
+          readable: invalidMetadata.length === 0 || futureSchema,
+          futureSchema,
           invalidRecords,
           invalidOrphans,
           invalidMetadata,
           missingFiles,
-          backupAvailable
+          backupAvailable,
+          warnings
         };
       }
       async flush() {
         await this.writeQueue;
       }
-      async mutate(mutator) {
+      async mutate(mutator, options = {}) {
         return this.enqueue(async (context) => {
           if (!this.loaded) await this.loadState(context);
           this.assertContext(context);
           if (this.loadError) throw this.loadError;
+          if (this.readOnlyMode) throw this.readOnlyError();
           if (this.recoveredFromBackup) {
             await this.verifyPrimary(context, this.primaryRaw);
-            const content2 = JSON.stringify(this.data, null, 2);
-            await this.writeJson(context.path, content2);
+            const content = JSON.stringify(this.data, null, 2);
+            await this.writeJson(context.path, content);
             this.assertContext(context);
-            this.primaryRaw = content2;
+            this.primaryRaw = content;
             this.recoveredFromBackup = false;
           }
           const base = this.data;
@@ -1874,19 +2134,84 @@ var init_mood_store = __esm({
           const result = mutator(cloned);
           const local = result && typeof result === "object" && "entries" in result ? result : cloned;
           if (sameValue(base, local)) return;
+          try {
+            const raw = await this.readPrimary(context.path);
+            this.assertContext(context);
+            if (raw === null && this.primaryRaw !== null) throw new Error("Mood metadata conflict: primary file was removed");
+            const parsed = raw === null ? emptyMetadata() : JSON.parse(raw);
+            const validation = validateMoodMetadata(parsed);
+            if (!validation.readable) throw new Error(`Invalid mood metadata: ${formatValidation(validation)}`);
+            if (validation.futureSchema) {
+              this.readOnlyMode = true;
+              this.readOnlySchemaVersion = void 0;
+              this.warnings = validation.warnings;
+              throw this.readOnlyError();
+            }
+            const remote = normalizeMetadata(parsed);
+            const next = mergeMetadata(base, local, remote, options);
+            if (!sameValue(next, remote)) {
+              const content = JSON.stringify(next, null, 2);
+              await this.writeJsonAtomically(context.path, content, () => this.verifyPrimary(context, raw));
+              this.assertContext(context);
+              this.primaryRaw = content;
+            }
+            this.data = next;
+          } catch (error) {
+            if (isConflictError(error) || error instanceof MoodMetadataReadOnlyError) await this.refreshFromDisk(context);
+            throw error;
+          }
+        });
+      }
+      /** Re-read the disk snapshot without throwing, so conflict recovery cannot mask the original error. */
+      async refreshFromDisk(context) {
+        try {
+          this.assertContext(context);
           const raw = await this.readPrimary(context.path);
           this.assertContext(context);
-          if (raw === null && this.primaryRaw !== null) throw new Error("Mood metadata conflict: primary file was removed");
-          const parsed = raw === null ? emptyMetadata() : JSON.parse(raw);
+          if (raw === null) return;
+          const parsed = JSON.parse(raw);
           const validation = validateMoodMetadata(parsed);
-          if (!validation.valid) throw new Error(`Invalid mood metadata: ${formatValidation(validation)}`);
-          const next = mergeMetadata(base, local, normalizeMetadata(parsed));
-          const content = JSON.stringify(next, null, 2);
-          await this.writeJsonAtomically(context.path, content, () => this.verifyPrimary(context, raw));
-          this.assertContext(context);
+          if (!validation.readable) return;
+          const migration = migrateMoodMetadata(parsed);
+          const next = validation.futureSchema ? migration.metadata : pruneStaleTombstones(migration.metadata, Date.now());
+          const previous = this.data;
+          this.readOnlyMode = validation.futureSchema;
+          this.readOnlySchemaVersion = validation.futureSchema ? migration.fromVersion : void 0;
+          this.warnings = Array.from(/* @__PURE__ */ new Set([...validation.warnings, ...migration.warnings]));
           this.data = next;
-          this.primaryRaw = content;
-        });
+          this.primaryRaw = raw;
+          this.loaded = true;
+          this.loadError = void 0;
+          this.emitChanged(previous, next);
+        } catch (error) {
+          console.warn("[Dayline] Mood metadata conflict recovery could not refresh from disk:", error);
+        }
+      }
+      readOnlyError() {
+        return new MoodMetadataReadOnlyError(this.path, this.readOnlySchemaVersion);
+      }
+      emitChanged(previous, next) {
+        const keys = /* @__PURE__ */ new Set([
+          ...Object.keys(previous.entries ?? {}),
+          ...Object.keys(next.entries ?? {}),
+          ...Object.keys(previous.tombstones ?? {}),
+          ...Object.keys(next.tombstones ?? {})
+        ]);
+        for (const key of keys) {
+          if (!sameValue(previous.entries?.[key], next.entries?.[key])) this.emit(key, next.entries?.[key]);
+        }
+      }
+      async saveCorruptCopy(context, raw) {
+        const stamp = (/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/gu, "-");
+        const corruptPath = `${context.path}.corrupt-${stamp}`;
+        try {
+          await this.writeJson(corruptPath, raw);
+        } catch (error) {
+          console.warn(`[Dayline] Damaged mood metadata could not be preserved at ${corruptPath}:`, error);
+        }
+      }
+      vaultFileCtime(path) {
+        return fileCtimeOf(this.app.vault.getAbstractFileByPath(path));
       }
       enqueue(operation) {
         const context = { path: this.path, generation: this.generation };
@@ -1919,10 +2244,20 @@ var init_mood_store = __esm({
           else frontmatter.mood_note = record.note;
         });
       }
-      async removeMoodFromFrontmatter(path) {
+      /**
+       * Remove mood keys from a note. When the store owns the field (`force`) every
+       * mood key is dropped; otherwise only a frontmatter mood matching the deleted
+       * record is removed, which leaves user-authored values untouched.
+       */
+      async removeMoodFromFrontmatter(path, record, force = false) {
         const file = this.app.vault.getAbstractFileByPath(path);
         if (!file || !this.app.fileManager?.processFrontMatter) return;
         await this.app.fileManager.processFrontMatter(file, (frontmatter) => {
+          if (!force) {
+            const declared = parseMoodScore(frontmatter.mood);
+            if (declared === void 0) return;
+            if (record && declared !== parseMoodScore(record.score)) return;
+          }
           for (const key of Object.keys(frontmatter)) {
             if (MOOD_FRONTMATTER_KEYS.has(key.toLowerCase())) delete frontmatter[key];
           }
@@ -1931,7 +2266,7 @@ var init_mood_store = __esm({
       async attemptMirror(path, operation, record) {
         try {
           if (operation === "write" && record) await this.mirrorToFrontmatter(path, record);
-          else if (operation === "delete") await this.removeMoodFromFrontmatter(path);
+          else if (operation === "delete") await this.removeMoodFromFrontmatter(path, record, this.mirrorMoodToFrontmatter);
           if (this.mirrorFailures.delete(path)) this.emitMirrorFailure(void 0);
           return true;
         } catch (error) {
@@ -1994,6 +2329,7 @@ var init_mood_store = __esm({
         }
       }
       async replaceMetadata(next, context) {
+        if (this.readOnlyMode) throw this.readOnlyError();
         const raw = await this.readPrimary(context.path);
         await this.verifyPrimary(context, raw);
         const content = JSON.stringify(next, null, 2);
@@ -2140,10 +2476,14 @@ function traceFluidPath(context, centerX, centerY, radius, value, phase, layer) 
 function drawFluidMood(canvas, value, phase = 0, dimensions) {
   const context = canvas.getContext("2d");
   if (!context) return false;
-  const rect = canvas.getBoundingClientRect();
-  const width = Math.max(1, Math.round(dimensions?.width ?? rect.width ?? canvas.clientWidth));
-  const height = Math.max(1, Math.round(dimensions?.height ?? rect.height ?? canvas.clientHeight));
-  const pixelRatio = Math.max(1, Math.min(2, dimensions?.pixelRatio ?? window.devicePixelRatio ?? 1));
+  const needsMeasure = dimensions?.width === void 0 || dimensions?.height === void 0;
+  const rect = needsMeasure ? canvas.getBoundingClientRect() : null;
+  const width = Math.max(1, Math.round(dimensions?.width ?? rect?.width ?? canvas.clientWidth));
+  const height = Math.max(1, Math.round(dimensions?.height ?? rect?.height ?? canvas.clientHeight));
+  const pixelRatio = Math.max(1, Math.min(
+    2,
+    dimensions?.pixelRatio ?? canvas.ownerDocument?.defaultView?.devicePixelRatio ?? window.devicePixelRatio ?? 1
+  ));
   const targetWidth = Math.round(width * pixelRatio);
   const targetHeight = Math.round(height * pixelRatio);
   if (canvas.width !== targetWidth || canvas.height !== targetHeight) {
@@ -2205,8 +2545,12 @@ var init_fluid_mood_control = __esm({
         __publicField(this, "track");
         __publicField(this, "options");
         __publicField(this, "mediaQuery");
+        __publicField(this, "ownerDocument");
+        __publicField(this, "ownerWindow");
         __publicField(this, "resizeObserver", null);
         __publicField(this, "animationFrame", null);
+        __publicField(this, "frameRunning", false);
+        __publicField(this, "canvasSize", null);
         __publicField(this, "gestureDoc", null);
         __publicField(this, "activePointerId", null);
         __publicField(this, "pendingTouch", null);
@@ -2290,7 +2634,7 @@ var init_fluid_mood_control = __esm({
           this.commitScore(next);
         });
         __publicField(this, "handleVisibilityChange", () => {
-          if (document.hidden) this.stopAnimation();
+          if (this.ownerDocument.hidden) this.stopAnimation();
           else this.startAnimation();
         });
         __publicField(this, "handleMotionChange", () => {
@@ -2303,10 +2647,9 @@ var init_fluid_mood_control = __esm({
           }
         });
         __publicField(this, "animate", (time) => {
-          if (this.destroyed || document.hidden || this.prefersReducedMotion() || !this.root.isConnected) {
-            this.animationFrame = null;
-            return;
-          }
+          this.animationFrame = null;
+          if (this.destroyed || this.ownerDocument.hidden || this.prefersReducedMotion() || !this.root.isConnected) return;
+          this.frameRunning = true;
           const elapsed = Math.min(48, Math.max(0, time - this.lastFrame));
           this.lastFrame = time;
           const distance = this.targetValue - this.displayValue;
@@ -2315,10 +2658,14 @@ var init_fluid_mood_control = __esm({
           this.updatePresentation(false, false);
           this.phase += elapsed * 42e-5;
           this.renderFrame();
-          this.animationFrame = window.requestAnimationFrame(this.animate);
+          const converged = this.hasConverged();
+          this.frameRunning = false;
+          if (!converged) this.animationFrame = this.ownerWindow.requestAnimationFrame(this.animate);
         });
         this.root = root;
         this.options = options;
+        this.ownerDocument = root.ownerDocument || document;
+        this.ownerWindow = this.ownerDocument.defaultView || window;
         this.selectedScore = options.initialScore;
         this.displayValue = options.initialScore ?? 0;
         this.targetValue = this.displayValue;
@@ -2362,14 +2709,17 @@ var init_fluid_mood_control = __esm({
         root.append(visual, readout, this.track, endpoints, this.liveRegion);
         root.addEventListener("pointerdown", this.handlePointerDown);
         root.addEventListener("keydown", this.handleKeydown);
-        document.addEventListener("visibilitychange", this.handleVisibilityChange);
+        this.ownerDocument.addEventListener("visibilitychange", this.handleVisibilityChange);
         this.mediaQuery?.addEventListener?.("change", this.handleMotionChange);
         if (typeof ResizeObserver !== "undefined") {
-          this.resizeObserver = new ResizeObserver(() => this.renderFrame());
+          this.resizeObserver = new ResizeObserver((entries) => {
+            this.cacheCanvasSize(entries?.[0]?.contentRect);
+            this.renderFrame();
+          });
           this.resizeObserver.observe(this.canvas);
         }
+        this.measureCanvas();
         this.updatePresentation(false);
-        this.startAnimation();
       }
       focus() {
         this.root.focus();
@@ -2387,7 +2737,7 @@ var init_fluid_mood_control = __esm({
         this.resizeObserver?.disconnect();
         this.root.removeEventListener("pointerdown", this.handlePointerDown);
         this.root.removeEventListener("keydown", this.handleKeydown);
-        document.removeEventListener("visibilitychange", this.handleVisibilityChange);
+        this.ownerDocument.removeEventListener("visibilitychange", this.handleVisibilityChange);
         this.mediaQuery?.removeEventListener?.("change", this.handleMotionChange);
       }
       beginPointerDrag(event) {
@@ -2483,22 +2833,39 @@ var init_fluid_mood_control = __esm({
         this.handle.setAttribute("data-label", label);
         if (announce) this.liveRegion.textContent = label;
         if (render) this.renderFrame();
+        this.startAnimation();
       }
       prefersReducedMotion() {
         return this.mediaQuery?.matches === true;
       }
+      /** True once the eased value has reached its target and no gesture is active. */
+      hasConverged() {
+        return this.activePointerId === null && this.displayValue === this.targetValue;
+      }
       startAnimation() {
-        if (this.destroyed || this.prefersReducedMotion() || document.hidden || this.animationFrame !== null) return;
-        this.lastFrame = performance.now();
-        this.animationFrame = window.requestAnimationFrame(this.animate);
+        if (this.destroyed || this.frameRunning || this.animationFrame !== null || this.prefersReducedMotion() || this.ownerDocument.hidden || !this.root.isConnected || this.hasConverged()) return;
+        this.lastFrame = this.ownerWindow.performance?.now?.() ?? Date.now();
+        this.animationFrame = this.ownerWindow.requestAnimationFrame(this.animate);
       }
       stopAnimation() {
         if (this.animationFrame === null) return;
-        cancelAnimationFrame(this.animationFrame);
+        this.ownerWindow.cancelAnimationFrame(this.animationFrame);
         this.animationFrame = null;
       }
+      /** Cache the canvas box so drawing never measures per frame. */
+      measureCanvas() {
+        this.cacheCanvasSize(this.canvas.getBoundingClientRect());
+      }
+      cacheCanvasSize(box) {
+        const width = Math.round(box?.width ?? 0);
+        const height = Math.round(box?.height ?? 0);
+        if (width <= 0 || height <= 0) return;
+        const ratio = this.ownerWindow.devicePixelRatio || 1;
+        this.canvasSize = { width, height, pixelRatio: Math.max(1, Math.min(2, ratio)) };
+      }
       renderFrame() {
-        drawFluidMood(this.canvas, this.displayValue, this.phase);
+        if (!this.canvasSize) this.measureCanvas();
+        drawFluidMood(this.canvas, this.displayValue, this.phase, this.canvasSize ?? void 0);
       }
     };
   }
@@ -2511,6 +2878,7 @@ __export(i18n_exports, {
   DISPLAY_LANGUAGE_LABEL_KEYS: () => DISPLAY_LANGUAGE_LABEL_KEYS,
   DISPLAY_LANGUAGE_OPTIONS: () => DISPLAY_LANGUAGE_OPTIONS,
   LOCALE_TAGS: () => LOCALE_TAGS,
+  STRINGS: () => STRINGS,
   SUPPORTED_DISPLAY_LANGUAGES: () => SUPPORTED_DISPLAY_LANGUAGES,
   feelingLabel: () => feelingLabel,
   formatCalendarMonth: () => formatCalendarMonth,
@@ -2566,10 +2934,26 @@ function getDisplayLanguage(settings = {}) {
   }
   return language === "en" ? "en" : "zh";
 }
+function pluralCategory(lang, count) {
+  try {
+    return new Intl.PluralRules(LOCALE_TAGS[lang] || LOCALE_TAGS.en).select(count);
+  } catch {
+    return count === 1 ? "one" : "other";
+  }
+}
+function selectString(lang, key, values) {
+  const count = values.count;
+  if (typeof count === "number" && Number.isFinite(count)) {
+    const suffixed = `${key}${PLURAL_KEY_SUFFIX[pluralCategory(lang, count)]}`;
+    const plural = STRINGS[lang]?.[suffixed] ?? STRINGS.en[suffixed];
+    if (plural !== void 0) return plural;
+  }
+  return STRINGS[lang]?.[key] ?? STRINGS.en[key] ?? key;
+}
 function t(settings, key, values = {}) {
   const lang = getDisplayLanguage(settings);
-  let value = STRINGS[lang]?.[key] ?? STRINGS.en[key] ?? key;
-  for (const [name, replacement] of Object.entries(values)) value = value.replace(`{${name}}`, String(replacement));
+  let value = selectString(lang, key, values);
+  for (const [name, replacement] of Object.entries(values)) value = value.replaceAll(`{${name}}`, String(replacement));
   return value;
 }
 function moodLabelKey(score) {
@@ -2601,6 +2985,11 @@ function formatJournalDate(date, settings) {
   const localeTag = LOCALE_TAGS[lang] || LOCALE_TAGS.en;
   return new Intl.DateTimeFormat(localeTag, { month: "short", day: "numeric", weekday: "short" }).format(value);
 }
+function utcDateOf(year, monthIndex, day) {
+  const date = new Date(Date.UTC(2e3, monthIndex, day));
+  date.setUTCFullYear(year);
+  return date;
+}
 function formatCalendarMonth(year, month, settings) {
   const lang = getDisplayLanguage(settings);
   const locale = LOCALE_TAGS[lang] || LOCALE_TAGS.en;
@@ -2608,7 +2997,7 @@ function formatCalendarMonth(year, month, settings) {
     year: "numeric",
     month: "long",
     timeZone: "UTC"
-  }).format(new Date(Date.UTC(year, month - 1, 1)));
+  }).format(utcDateOf(year, month - 1, 1));
 }
 function resolveWeekStart(settings = {}) {
   if (settings.weekStart === "sunday") return 0;
@@ -2626,7 +3015,7 @@ function resolveWeekStart(settings = {}) {
   return region && ["US", "CA", "AU", "NZ", "JP", "PH", "TW", "HK", "IL", "MX"].includes(region) ? 0 : 1;
 }
 function getCalendarGridOffset(year, monthIndex, settings = {}) {
-  const rawSundayIndex = new Date(Date.UTC(year, monthIndex, 1)).getUTCDay();
+  const rawSundayIndex = utcDateOf(year, monthIndex, 1).getUTCDay();
   return (rawSundayIndex - resolveWeekStart(settings) + 7) % 7;
 }
 function getCalendarWeekdays(settings = {}) {
@@ -2640,7 +3029,7 @@ function getCalendarWeekdays(settings = {}) {
   const start = resolveWeekStart(settings);
   return sundayFirst.slice(start).concat(sundayFirst.slice(0, start));
 }
-var SUPPORTED_DISPLAY_LANGUAGES, DEFAULT_DISPLAY_LANGUAGE, STRINGS, DISPLAY_LANGUAGE_OPTIONS, DISPLAY_LANGUAGE_LABEL_KEYS, LOCALE_TAGS;
+var SUPPORTED_DISPLAY_LANGUAGES, DEFAULT_DISPLAY_LANGUAGE, STRINGS, DISPLAY_LANGUAGE_OPTIONS, DISPLAY_LANGUAGE_LABEL_KEYS, LOCALE_TAGS, PLURAL_KEY_SUFFIX;
 var init_i18n = __esm({
   "src/i18n.ts"() {
     "use strict";
@@ -2670,10 +3059,13 @@ var init_i18n = __esm({
         apply: "\u5E94\u7528",
         back: "\u8FD4\u56DE",
         backToNote: "\u8FD4\u56DE\u7B14\u8BB0",
+        backToNoteHint: "\u4ECE\u53F3\u4FA7\u6ED1\u51FA\u9762\u677F\u540E\uFF0C\u53EF\u8F7B\u70B9\u8FD9\u91CC\u56DE\u5230\u521A\u624D\u67E5\u770B\u7684\u7B14\u8BB0",
         calendarDisplay: "\u65E5\u5386\u663E\u793A",
         calendarEntriesOnDate: "{date}\uFF1A{entries}",
         calendarEntryCount: "{count} \u6761\u65E5\u8BB0",
         calendarEntryCountOne: "{count} \u6761\u65E5\u8BB0",
+        calendarEntryCountFew: "{count} \u6761\u65E5\u8BB0",
+        calendarEntryCountMany: "{count} \u6761\u65E5\u8BB0",
         calendarLeafCreateFailed: "Dayline\uFF1A\u65E0\u6CD5\u521B\u5EFA\u65E5\u5386\u9762\u677F",
         calendarMonthLoadFailed: "\u52A0\u8F7D\u65E5\u5386\u6708\u4EFD\u5931\u8D25\uFF1A{error}",
         calendarMoodMarker: "\u65E5\u5386\u5FC3\u60C5\u6837\u5F0F",
@@ -2681,6 +3073,7 @@ var init_i18n = __esm({
         calendarMoodMarkerDesc: "\u8272\u70B9\u653E\u5728\u683C\u5B50\u89D2\u843D\uFF1B\u8272\u6761\u8D34\u5728\u5E95\u90E8\uFF0C\u65E5\u671F\u4FDD\u6301\u5C45\u4E2D\u3002",
         calendarMoodMarkerDot: "\u8272\u70B9",
         calendarTitle: "\u65E5\u5386",
+        calendarViewRequired: "\u8BF7\u5148\u6253\u5F00 Dayline \u65E5\u5386\u3002",
         calendarWeatherAvailable: "\u6709\u5929\u6C14\u8BB0\u5F55",
         calm: "\u5E73\u9759",
         cancel: "\u53D6\u6D88",
@@ -2691,6 +3084,7 @@ var init_i18n = __esm({
         closeFilters: "\u5173\u95ED\u7B5B\u9009",
         content: "\u6EE1\u8DB3",
         continue: "\u7EE7\u7EED",
+        coordinateMustBeNumeric: "\u8BF7\u8F93\u5165\u6570\u5B57\uFF0C\u4F8B\u5982 39.9042",
         copyDiagnosticsCommand: "\u590D\u5236 Dayline \u79FB\u52A8\u7AEF\u8BCA\u65AD\u4FE1\u606F",
         createDailyNote: "\u6253\u5F00\u6216\u521B\u5EFA\u4ECA\u65E5\u7B14\u8BB0",
         createNoteAction: "\u521B\u5EFA",
@@ -2795,6 +3189,9 @@ var init_i18n = __esm({
         moodLabelUses: "\u6B21\u4F7F\u7528",
         moodMetadataPath: "\u5FC3\u60C5\u5143\u6570\u636E\u8DEF\u5F84",
         moodMetadataPathDesc: "vault \u5185 JSON \u8DEF\u5F84\uFF0CJSON \u662F\u5FC3\u60C5\u4E3B\u6570\u636E\u6E90\u3002",
+        moodMetadataPathFailed: "\u65E0\u6CD5\u4ECE\u65B0\u8DEF\u5F84\u52A0\u8F7D\u5FC3\u60C5\u5143\u6570\u636E\uFF0C\u8BF7\u68C0\u67E5\u6587\u4EF6\u540E\u91CD\u8BD5",
+        moodMetadataPathMustBeJson: "\u5FC3\u60C5\u5143\u6570\u636E\u8DEF\u5F84\u5FC5\u987B\u4EE5 .json \u7ED3\u5C3E",
+        moodMetadataReadOnly: "\u5FC3\u60C5\u5143\u6570\u636E\u7531\u66F4\u65B0\u7248\u672C\u7684 Dayline \u5199\u5165\u3002\u8BF7\u66F4\u65B0 Dayline \u540E\u518D\u7F16\u8F91\uFF1B\u672C\u6B21\u672A\u505A\u4EFB\u4F55\u66F4\u6539\u3002",
         moodMoveToOrphanFailed: "\u65E0\u6CD5\u628A\u5DF2\u5220\u9664\u7684\u5FC3\u60C5\u8BB0\u5F55\u79FB\u5165\u6062\u590D\u5217\u8868\uFF1A{error}",
         moodMetadataRenameFailed: "\u91CD\u547D\u540D\u5FC3\u60C5\u5143\u6570\u636E\u5931\u8D25\uFF1A{error}",
         moodNote: "\u5FC3\u60C5\u5907\u6CE8",
@@ -2807,6 +3204,7 @@ var init_i18n = __esm({
         moodRestoreConflict: "\u76EE\u6807\u6587\u4EF6\u5DF2\u6709\u5FC3\u60C5\u8BB0\u5F55\u3002\u66FF\u6362\u5B83\u5417\uFF1F",
         moodRestoreDestination: "\u6062\u590D\u76EE\u6807\u6587\u4EF6",
         moodSaveFailed: "\u5FC3\u60C5\u4FDD\u5B58\u5931\u8D25\uFF1A{error}",
+        moodSaveTimeout: "\u4FDD\u5B58\u65F6\u95F4\u8FC7\u957F\uFF0C\u8BF7\u91CD\u8BD5\u6216\u5173\u95ED\u6B64\u5BF9\u8BDD\u6846\u3002",
         moodSaved: "\u5FC3\u60C5\u5DF2\u4FDD\u5B58",
         moodTitle: "\u8BB0\u5F55\u5FC3\u60C5",
         moodTrend: "\u8FD1\u4E03\u5929\u5FC3\u60C5",
@@ -2841,6 +3239,8 @@ var init_i18n = __esm({
         restoreMood: "\u6062\u590D",
         retry: "\u91CD\u8BD5",
         russian: "\u0420\u0443\u0441\u0441\u043A\u0438\u0439",
+        s_exifPersist: "\u4FDD\u5B58\u7167\u7247\u4F4D\u7F6E\u5230\u7B14\u8BB0",
+        s_exifPersistDesc: "\u4FDD\u5B58\u65B0\u589E\u7167\u7247\u7684 EXIF GPS \u5230\u65E5\u8BB0\u5C5E\u6027\uFF0C\u5E76\u5199\u5165\u7EAC\u5EA6/\u7ECF\u5EA6",
         sad: "\u96BE\u8FC7",
         save: "\u4FDD\u5B58",
         saving: "\u4FDD\u5B58\u4E2D\u2026",
@@ -2876,6 +3276,7 @@ var init_i18n = __esm({
         sourceBrowse: "\u9009\u62E9\u76EE\u5F55",
         sourceDaily: "\u6BCF\u65E5\u7B14\u8BB0",
         sourceDailyFolder: "\u9ED8\u8BA4\u65E5\u8BB0\u76EE\u5F55",
+        sourceDailyMismatch: "\u6BCF\u65E5\u7B14\u8BB0\u6765\u6E90\u76EE\u5F55\u5FC5\u987B\u4E0E\u9ED8\u8BA4\u65E5\u8BB0\u76EE\u5F55\u4E00\u81F4\u3002",
         sourceDailyRequired: "\u8BF7\u586B\u5199\u7B14\u8BB0\u5E93\u5185\u7684\u9ED8\u8BA4\u65E5\u8BB0\u76EE\u5F55\u3002",
         sourceDateField: "\u65E5\u671F\u5B57\u6BB5\uFF08\u53EF\u9009\uFF09",
         sourceDuplicateId: "\u6765\u6E90 ID \u91CD\u590D\uFF0C\u8BF7\u4F7F\u7528\u4E0D\u540C\u7684 ID\u3002",
@@ -2914,6 +3315,18 @@ var init_i18n = __esm({
         unsavedTitle: "\u672A\u4FDD\u5B58\u7684\u6807\u9898",
         untitledJournalTitle: "\u6807\u9898",
         updatedAt: "\u66F4\u65B0\u4E8E {time}",
+        useCurrentLocation: "\u4F7F\u7528\u5F53\u524D\u4F4D\u7F6E",
+        useCurrentLocationDesc: "\u70B9\u4E00\u4E0B\u8BFB\u53D6\u4E00\u6B21\u8BBE\u5907\u5B9A\u4F4D\u5E76\u586B\u5165\u7ECF\u7EAC\u5EA6\uFF1B\u4EC5\u5728\u4F60\u70B9\u51FB\u65F6\u8BFB\u53D6\uFF0C\u4E0D\u4F1A\u81EA\u52A8\u8DDF\u8E2A",
+        locating: "\u6B63\u5728\u5B9A\u4F4D\u2026\u2026",
+        locationUpdated: "\u5DF2\u586B\u5165\u5F53\u524D\u4F4D\u7F6E",
+        locationUpdatedNameCleared: "\u5DF2\u586B\u5165\u5F53\u524D\u4F4D\u7F6E\uFF0C\u5E76\u5DF2\u6E05\u9664\u539F\u5730\u70B9\u540D",
+        latitudeOutOfRange: "\u7EAC\u5EA6\u5FC5\u987B\u5728 -90 \u5230 90 \u4E4B\u95F4",
+        longitudeOutOfRange: "\u7ECF\u5EA6\u5FC5\u987B\u5728 -180 \u5230 180 \u4E4B\u95F4",
+        locateButton: "\u5B9A\u4F4D",
+        locateError: "\u5B9A\u4F4D\u5931\u8D25\uFF0C\u8BF7\u624B\u52A8\u8F93\u5165\u7ECF\u7EAC\u5EA6",
+        locateUnavailable: "\u5F53\u524D\u8BBE\u5907\u4E0D\u652F\u6301\u5B9A\u4F4D\uFF0C\u8BF7\u624B\u52A8\u8F93\u5165\u7ECF\u7EAC\u5EA6",
+        locateTimedOut: "\u5B9A\u4F4D\u8D85\u65F6\uFF0C\u8BF7\u91CD\u8BD5\u6216\u624B\u52A8\u8F93\u5165\u7ECF\u7EAC\u5EA6",
+        locateDenied: "\u5B9A\u4F4D\u88AB\u62D2\u7EDD\uFF0C\u8BF7\u5728\u7CFB\u7EDF\u8BBE\u7F6E\u4E2D\u5141\u8BB8\u540E\u91CD\u8BD5\uFF0C\u6216\u624B\u52A8\u8F93\u5165\u7ECF\u7EAC\u5EA6",
         veryGood: "\u5F88\u597D",
         veryLow: "\u5F88\u4F4E",
         viewRefreshFailed: "\u5237\u65B0\u89C6\u56FE\u5931\u8D25\uFF1A{error}",
@@ -2952,10 +3365,13 @@ var init_i18n = __esm({
         apply: "\u5957\u7528",
         back: "\u8FD4\u56DE",
         backToNote: "\u8FD4\u56DE\u7B46\u8A18",
+        backToNoteHint: "\u5F9E\u53F3\u5074\u6ED1\u51FA\u9762\u677F\u5F8C\uFF0C\u53EF\u4EE5\u8F15\u89F8\u9019\u88E1\u56DE\u5230\u525B\u624D\u6AA2\u8996\u7684\u7B46\u8A18",
         calendarDisplay: "\u65E5\u66C6\u986F\u793A",
         calendarEntriesOnDate: "{date}\uFF1A{entries}",
         calendarEntryCount: "{count} \u5247\u65E5\u8A18",
         calendarEntryCountOne: "{count} \u5247\u65E5\u8A18",
+        calendarEntryCountFew: "{count} \u5247\u65E5\u8A18",
+        calendarEntryCountMany: "{count} \u5247\u65E5\u8A18",
         calendarLeafCreateFailed: "Dayline\uFF1A\u7121\u6CD5\u5EFA\u7ACB\u884C\u4E8B\u66C6\u9762\u677F",
         calendarMonthLoadFailed: "\u8F09\u5165\u65E5\u66C6\u6708\u4EFD\u5931\u6557\uFF1A{error}",
         calendarMoodMarker: "\u65E5\u66C6\u5FC3\u60C5\u6A23\u5F0F",
@@ -2963,6 +3379,7 @@ var init_i18n = __esm({
         calendarMoodMarkerDesc: "\u8272\u9EDE\u7F6E\u65BC\u683C\u5B50\u89D2\u843D\uFF1B\u8272\u689D\u8CBC\u5728\u5E95\u90E8\uFF0C\u65E5\u671F\u4FDD\u6301\u7F6E\u4E2D\u3002",
         calendarMoodMarkerDot: "\u8272\u9EDE",
         calendarTitle: "\u65E5\u66C6",
+        calendarViewRequired: "\u8ACB\u5148\u958B\u555F Dayline \u65E5\u66C6\u3002",
         calendarWeatherAvailable: "\u6709\u5929\u6C23\u8A18\u9304",
         calm: "\u5E73\u975C",
         cancel: "\u53D6\u6D88",
@@ -2973,6 +3390,7 @@ var init_i18n = __esm({
         closeFilters: "\u95DC\u9589\u7BE9\u9078",
         content: "\u6EFF\u8DB3",
         continue: "\u7E7C\u7E8C",
+        coordinateMustBeNumeric: "\u8ACB\u8F38\u5165\u6578\u5B57\uFF0C\u4F8B\u5982 39.9042",
         copyDiagnosticsCommand: "\u8907\u88FD Dayline \u884C\u52D5\u7248\u8A3A\u65B7\u8CC7\u8A0A",
         createDailyNote: "\u958B\u555F\u6216\u5EFA\u7ACB\u4ECA\u65E5\u7B46\u8A18",
         createNoteAction: "\u5EFA\u7ACB",
@@ -3077,6 +3495,9 @@ var init_i18n = __esm({
         moodLabelUses: "\u6B21\u4F7F\u7528",
         moodMetadataPath: "\u5FC3\u60C5\u4E2D\u7E7C\u8CC7\u6599\u8DEF\u5F91",
         moodMetadataPathDesc: "\u5132\u5B58\u5EAB\u5167 JSON \u8DEF\u5F91\uFF0CJSON \u70BA\u5FC3\u60C5\u4E3B\u8CC7\u6599\u4F86\u6E90\u3002",
+        moodMetadataPathFailed: "\u7121\u6CD5\u5F9E\u65B0\u8DEF\u5F91\u8F09\u5165\u5FC3\u60C5\u4E2D\u7E7C\u8CC7\u6599\uFF0C\u8ACB\u6AA2\u67E5\u6A94\u6848\u5F8C\u91CD\u8A66",
+        moodMetadataPathMustBeJson: "\u5FC3\u60C5\u4E2D\u7E7C\u8CC7\u6599\u8DEF\u5F91\u5FC5\u9808\u4EE5 .json \u7D50\u5C3E",
+        moodMetadataReadOnly: "\u5FC3\u60C5\u4E2D\u7E7C\u8CC7\u6599\u7531\u8F03\u65B0\u7248\u672C\u7684 Dayline \u5BEB\u5165\u3002\u8ACB\u66F4\u65B0 Dayline \u5F8C\u518D\u7DE8\u8F2F\uFF1B\u672C\u6B21\u672A\u505A\u4EFB\u4F55\u8B8A\u66F4\u3002",
         moodMoveToOrphanFailed: "\u7121\u6CD5\u5C07\u5DF2\u522A\u9664\u7684\u5FC3\u60C5\u8A18\u9304\u79FB\u81F3\u5FA9\u539F\u6E05\u55AE\uFF1A{error}",
         moodMetadataRenameFailed: "\u91CD\u65B0\u547D\u540D\u5FC3\u60C5\u4E2D\u4ECB\u8CC7\u6599\u5931\u6557\uFF1A{error}",
         moodNote: "\u5FC3\u60C5\u5099\u8A3B",
@@ -3089,6 +3510,7 @@ var init_i18n = __esm({
         moodRestoreConflict: "\u76EE\u6A19\u6A94\u6848\u5DF2\u6709\u5FC3\u60C5\u8A18\u9304\u3002\u8981\u53D6\u4EE3\u5B83\u55CE\uFF1F",
         moodRestoreDestination: "\u5FA9\u539F\u76EE\u6A19\u6A94\u6848",
         moodSaveFailed: "\u5FC3\u60C5\u5132\u5B58\u5931\u6557\uFF1A{error}",
+        moodSaveTimeout: "\u5132\u5B58\u6642\u9593\u904E\u9577\uFF0C\u8ACB\u91CD\u8A66\u6216\u95DC\u9589\u6B64\u5C0D\u8A71\u6846\u3002",
         moodSaved: "\u5FC3\u60C5\u5DF2\u5132\u5B58",
         moodTitle: "\u8A18\u9304\u5FC3\u60C5",
         moodTrend: "\u8FD1\u4E03\u5929\u5FC3\u60C5",
@@ -3123,6 +3545,8 @@ var init_i18n = __esm({
         restoreMood: "\u5FA9\u539F",
         retry: "\u91CD\u8A66",
         russian: "\u0420\u0443\u0441\u0441\u043A\u0438\u0439",
+        s_exifPersist: "\u5132\u5B58\u7167\u7247\u4F4D\u7F6E\u5230\u7B46\u8A18",
+        s_exifPersistDesc: "\u5132\u5B58\u65B0\u589E\u7167\u7247\u7684 EXIF GPS \u5230\u65E5\u8A18\u5C6C\u6027\uFF0C\u4E26\u5BEB\u5165\u7DEF\u5EA6/\u7D93\u5EA6",
         sad: "\u96E3\u904E",
         save: "\u5132\u5B58",
         saving: "\u5132\u5B58\u4E2D\u2026",
@@ -3158,6 +3582,7 @@ var init_i18n = __esm({
         sourceBrowse: "\u9078\u64C7\u76EE\u9304",
         sourceDaily: "\u6BCF\u65E5\u7B46\u8A18",
         sourceDailyFolder: "\u9810\u8A2D\u65E5\u8A18\u76EE\u9304",
+        sourceDailyMismatch: "\u6BCF\u65E5\u7B46\u8A18\u4F86\u6E90\u76EE\u9304\u5FC5\u9808\u8207\u9810\u8A2D\u65E5\u8A18\u76EE\u9304\u4E00\u81F4\u3002",
         sourceDailyRequired: "\u8ACB\u586B\u5BEB\u7B46\u8A18\u5132\u5B58\u5EAB\u5167\u7684\u9810\u8A2D\u65E5\u8A18\u76EE\u9304\u3002",
         sourceDateField: "\u65E5\u671F\u6B04\u4F4D\uFF08\u9078\u586B\uFF09",
         sourceDuplicateId: "\u4F86\u6E90 ID \u91CD\u8907\uFF0C\u8ACB\u4F7F\u7528\u4E0D\u540C\u7684 ID\u3002",
@@ -3196,6 +3621,18 @@ var init_i18n = __esm({
         unsavedTitle: "\u672A\u5132\u5B58\u7684\u6A19\u984C",
         untitledJournalTitle: "\u6A19\u984C",
         updatedAt: "\u66F4\u65B0\u65BC {time}",
+        useCurrentLocation: "\u4F7F\u7528\u76EE\u524D\u4F4D\u7F6E",
+        useCurrentLocationDesc: "\u9EDE\u4E00\u4E0B\u8B80\u53D6\u4E00\u6B21\u88DD\u7F6E\u5B9A\u4F4D\u4E26\u586B\u5165\u7D93\u7DEF\u5EA6\uFF1B\u53EA\u5728\u4F60\u9EDE\u64CA\u6642\u8B80\u53D6\uFF0C\u4E0D\u6703\u81EA\u52D5\u8FFD\u8E64",
+        locating: "\u6B63\u5728\u5B9A\u4F4D\u2026\u2026",
+        locationUpdated: "\u5DF2\u586B\u5165\u76EE\u524D\u4F4D\u7F6E",
+        locationUpdatedNameCleared: "\u5DF2\u586B\u5165\u76EE\u524D\u4F4D\u7F6E\uFF0C\u4E26\u5DF2\u6E05\u9664\u539F\u5730\u9EDE\u540D\u7A31",
+        latitudeOutOfRange: "\u7DEF\u5EA6\u5FC5\u9808\u4ECB\u65BC -90 \u5230 90 \u4E4B\u9593",
+        longitudeOutOfRange: "\u7D93\u5EA6\u5FC5\u9808\u4ECB\u65BC -180 \u5230 180 \u4E4B\u9593",
+        locateButton: "\u5B9A\u4F4D",
+        locateError: "\u5B9A\u4F4D\u5931\u6557\uFF0C\u8ACB\u624B\u52D5\u8F38\u5165\u7D93\u7DEF\u5EA6",
+        locateUnavailable: "\u76EE\u524D\u88DD\u7F6E\u4E0D\u652F\u63F4\u5B9A\u4F4D\uFF0C\u8ACB\u624B\u52D5\u8F38\u5165\u7D93\u7DEF\u5EA6",
+        locateTimedOut: "\u5B9A\u4F4D\u903E\u6642\uFF0C\u8ACB\u91CD\u8A66\u6216\u624B\u52D5\u8F38\u5165\u7D93\u7DEF\u5EA6",
+        locateDenied: "\u5B9A\u4F4D\u88AB\u62D2\u7D55\uFF0C\u8ACB\u5728\u7CFB\u7D71\u8A2D\u5B9A\u4E2D\u5141\u8A31\u5F8C\u91CD\u8A66\uFF0C\u6216\u624B\u52D5\u8F38\u5165\u7D93\u7DEF\u5EA6",
         veryGood: "\u5F88\u597D",
         veryLow: "\u5F88\u4F4E",
         viewRefreshFailed: "\u91CD\u65B0\u6574\u7406\u6AA2\u8996\u5931\u6557\uFF1A{error}",
@@ -3234,10 +3671,13 @@ var init_i18n = __esm({
         apply: "Apply",
         back: "Back",
         backToNote: "Back to note",
+        backToNoteHint: "After swiping the panel in from the right, tap here to return to the note you were reading",
         calendarDisplay: "Calendar display",
         calendarEntriesOnDate: "{date}: {entries}",
         calendarEntryCount: "{count} entries",
         calendarEntryCountOne: "{count} entry",
+        calendarEntryCountFew: "{count} entries",
+        calendarEntryCountMany: "{count} entries",
         calendarLeafCreateFailed: "Dayline: could not create the calendar pane",
         calendarMonthLoadFailed: "Failed to load the calendar month: {error}",
         calendarMoodMarker: "Calendar mood style",
@@ -3245,6 +3685,7 @@ var init_i18n = __esm({
         calendarMoodMarkerDesc: "Dots sit in the cell corner. Bars sit at the bottom and keep the date centered.",
         calendarMoodMarkerDot: "Color dot",
         calendarTitle: "Calendar",
+        calendarViewRequired: "Open the Dayline calendar first.",
         calendarWeatherAvailable: "Weather available",
         calm: "Calm",
         cancel: "Cancel",
@@ -3255,6 +3696,7 @@ var init_i18n = __esm({
         closeFilters: "Close filters",
         content: "Content",
         continue: "Continue",
+        coordinateMustBeNumeric: "Enter a number, for example 39.9042",
         copyDiagnosticsCommand: "Copy Dayline mobile diagnostics",
         createDailyNote: "Open or create today's note",
         createNoteAction: "Create",
@@ -3359,6 +3801,9 @@ var init_i18n = __esm({
         moodLabelUses: "uses",
         moodMetadataPath: "Mood metadata path",
         moodMetadataPathDesc: "Vault-relative JSON path. JSON is the primary mood store.",
+        moodMetadataPathFailed: "Could not load mood metadata from the new path; check the file and try again",
+        moodMetadataPathMustBeJson: "The mood metadata path must end in .json",
+        moodMetadataReadOnly: "Dayline's mood metadata was written by a newer version. Update Dayline to edit moods; nothing was changed.",
         moodMoveToOrphanFailed: "Could not move the deleted mood to the recovery list: {error}",
         moodMetadataRenameFailed: "Could not rename mood metadata: {error}",
         moodNote: "Mood note",
@@ -3371,6 +3816,7 @@ var init_i18n = __esm({
         moodRestoreConflict: "The target already has a mood record. Replace it?",
         moodRestoreDestination: "Restore target file",
         moodSaveFailed: "Could not save mood: {error}",
+        moodSaveTimeout: "Saving is taking too long. Retry or close this dialog.",
         moodSaved: "Mood saved",
         moodTitle: "Record mood",
         moodTrend: "Mood, last 7 days",
@@ -3405,6 +3851,8 @@ var init_i18n = __esm({
         restoreMood: "Restore",
         retry: "Retry",
         russian: "Russian",
+        s_exifPersist: "Save photo location to note",
+        s_exifPersistDesc: "Save EXIF GPS from newly added images into the journal note's frontmatter and set latitude/longitude",
         sad: "Sad",
         save: "Save",
         saving: "Saving\u2026",
@@ -3440,6 +3888,7 @@ var init_i18n = __esm({
         sourceBrowse: "Choose folder",
         sourceDaily: "Daily notes",
         sourceDailyFolder: "Default daily-note folder",
+        sourceDailyMismatch: "The daily source folder must match the default daily-note folder.",
         sourceDailyRequired: "Enter a default daily-note folder within the vault.",
         sourceDateField: "Date field (optional)",
         sourceDuplicateId: "Source IDs must be unique.",
@@ -3478,6 +3927,18 @@ var init_i18n = __esm({
         unsavedTitle: "Unsaved title",
         untitledJournalTitle: "Title",
         updatedAt: "Updated {time}",
+        useCurrentLocation: "Use current location",
+        useCurrentLocationDesc: "Read the device location once and fill in the coordinates. It only runs when you tap it and never tracks you",
+        locating: "Locating\u2026",
+        locationUpdated: "Current location filled in",
+        locationUpdatedNameCleared: "Current location filled in; the previous location name was cleared",
+        latitudeOutOfRange: "Latitude must be between -90 and 90",
+        longitudeOutOfRange: "Longitude must be between -180 and 180",
+        locateButton: "Locate",
+        locateError: "Location failed; enter the coordinates manually",
+        locateUnavailable: "Location is unavailable on this device; enter the coordinates manually",
+        locateTimedOut: "Location timed out; try again or enter the coordinates manually",
+        locateDenied: "Location was denied; allow it in system settings and retry, or enter the coordinates manually",
         veryGood: "Very good",
         veryLow: "Very low",
         viewRefreshFailed: "Failed to refresh the view: {error}",
@@ -3516,10 +3977,13 @@ var init_i18n = __esm({
         apply: "\u9069\u7528",
         back: "\u623B\u308B",
         backToNote: "\u30CE\u30FC\u30C8\u306B\u623B\u308B",
+        backToNoteHint: "\u53F3\u304B\u3089\u30D1\u30CD\u30EB\u3092\u30B9\u30EF\u30A4\u30D7\u3057\u305F\u5F8C\u3001\u3053\u3053\u3092\u30BF\u30C3\u30D7\u3057\u3066\u8AAD\u3093\u3067\u3044\u305F\u30CE\u30FC\u30C8\u306B\u623B\u308C\u307E\u3059",
         calendarDisplay: "\u30AB\u30EC\u30F3\u30C0\u30FC\u8868\u793A",
         calendarEntriesOnDate: "{date}\uFF1A{entries}",
         calendarEntryCount: "{count} \u4EF6\u306E\u65E5\u8A18",
         calendarEntryCountOne: "{count} \u4EF6\u306E\u65E5\u8A18",
+        calendarEntryCountFew: "{count} \u4EF6\u306E\u65E5\u8A18",
+        calendarEntryCountMany: "{count} \u4EF6\u306E\u65E5\u8A18",
         calendarLeafCreateFailed: "Dayline: \u30AB\u30EC\u30F3\u30C0\u30FC\u30DA\u30A4\u30F3\u3092\u4F5C\u6210\u3067\u304D\u307E\u305B\u3093\u3067\u3057\u305F",
         calendarMonthLoadFailed: "\u30AB\u30EC\u30F3\u30C0\u30FC\u6708\u306E\u8AAD\u307F\u8FBC\u307F\u306B\u5931\u6557\u3057\u307E\u3057\u305F\uFF1A{error}",
         calendarMoodMarker: "\u6C17\u5206\u306E\u8868\u793A\u30B9\u30BF\u30A4\u30EB",
@@ -3527,6 +3991,7 @@ var init_i18n = __esm({
         calendarMoodMarkerDesc: "\u30C9\u30C3\u30C8\u306F\u30BB\u30EB\u306E\u9685\u306B\u914D\u7F6E\u3055\u308C\u3001\u30D0\u30FC\u306F\u4E0B\u90E8\u306B\u914D\u7F6E\u3055\u308C\u3066\u65E5\u4ED8\u3092\u4E2D\u592E\u306B\u4FDD\u3061\u307E\u3059\u3002",
         calendarMoodMarkerDot: "\u30AB\u30E9\u30FC\u306E\u30C9\u30C3\u30C8",
         calendarTitle: "\u30AB\u30EC\u30F3\u30C0\u30FC",
+        calendarViewRequired: "\u5148\u306B Dayline \u306E\u30AB\u30EC\u30F3\u30C0\u30FC\u3092\u958B\u3044\u3066\u304F\u3060\u3055\u3044\u3002",
         calendarWeatherAvailable: "\u5929\u6C17\u306E\u8A18\u9332\u3042\u308A",
         calm: "\u7A4F\u3084\u304B",
         cancel: "\u30AD\u30E3\u30F3\u30BB\u30EB",
@@ -3537,6 +4002,7 @@ var init_i18n = __esm({
         closeFilters: "\u30D5\u30A3\u30EB\u30BF\u30FC\u3092\u9589\u3058\u308B",
         content: "\u6E80\u8DB3",
         continue: "\u6B21\u3078",
+        coordinateMustBeNumeric: "\u6570\u5024\u3092\u5165\u529B\u3057\u3066\u304F\u3060\u3055\u3044\uFF08\u4F8B: 39.9042\uFF09",
         copyDiagnosticsCommand: "Dayline \u30E2\u30D0\u30A4\u30EB\u8A3A\u65AD\u60C5\u5831\u3092\u30B3\u30D4\u30FC",
         createDailyNote: "\u4ECA\u65E5\u306E\u30CE\u30FC\u30C8\u3092\u958B\u304F\u307E\u305F\u306F\u4F5C\u6210",
         createNoteAction: "\u4F5C\u6210",
@@ -3641,6 +4107,9 @@ var init_i18n = __esm({
         moodLabelUses: "\u56DE\u4F7F\u7528",
         moodMetadataPath: "\u6C17\u5206\u30E1\u30BF\u30C7\u30FC\u30BF\u306E\u30D1\u30B9",
         moodMetadataPathDesc: "\u4FDD\u7BA1\u5EAB\u5185\u306EJSON\u30D1\u30B9\u3002JSON\u304C\u6C17\u5206\u306E\u30DE\u30B9\u30BF\u30FC\u30C7\u30FC\u30BF\u3068\u306A\u308A\u307E\u3059\u3002",
+        moodMetadataPathFailed: "\u65B0\u3057\u3044\u30D1\u30B9\u304B\u3089\u6C17\u5206\u30E1\u30BF\u30C7\u30FC\u30BF\u3092\u8AAD\u307F\u8FBC\u3081\u307E\u305B\u3093\u3067\u3057\u305F\u3002\u30D5\u30A1\u30A4\u30EB\u3092\u78BA\u8A8D\u3057\u3066\u518D\u8A66\u884C\u3057\u3066\u304F\u3060\u3055\u3044",
+        moodMetadataPathMustBeJson: "\u6C17\u5206\u30E1\u30BF\u30C7\u30FC\u30BF\u306E\u30D1\u30B9\u306F .json \u3067\u7D42\u308F\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059",
+        moodMetadataReadOnly: "\u6C17\u5206\u30E1\u30BF\u30C7\u30FC\u30BF\u306F\u65B0\u3057\u3044\u30D0\u30FC\u30B8\u30E7\u30F3\u306E Dayline \u304C\u66F8\u304D\u8FBC\u3093\u3060\u3082\u306E\u3067\u3059\u3002\u7DE8\u96C6\u3059\u308B\u306B\u306F Dayline \u3092\u66F4\u65B0\u3057\u3066\u304F\u3060\u3055\u3044\u3002\u4ECA\u56DE\u306F\u4F55\u3082\u5909\u66F4\u3057\u3066\u3044\u307E\u305B\u3093\u3002",
         moodMoveToOrphanFailed: "\u524A\u9664\u3057\u305F\u6C17\u5206\u8A18\u9332\u3092\u5FA9\u5143\u30EA\u30B9\u30C8\u3078\u79FB\u52D5\u3067\u304D\u307E\u305B\u3093\u3067\u3057\u305F: {error}",
         moodMetadataRenameFailed: "\u6C17\u5206\u30E1\u30BF\u30C7\u30FC\u30BF\u306E\u540D\u524D\u3092\u5909\u66F4\u3067\u304D\u307E\u305B\u3093\u3067\u3057\u305F: {error}",
         moodNote: "\u30E1\u30E2",
@@ -3653,6 +4122,7 @@ var init_i18n = __esm({
         moodRestoreConflict: "\u5FA9\u5143\u5148\u30D5\u30A1\u30A4\u30EB\u306B\u306F\u65E2\u306B\u6C17\u5206\u306E\u8A18\u9332\u304C\u3042\u308A\u307E\u3059\u3002\u4E0A\u66F8\u304D\u3057\u307E\u3059\u304B\uFF1F",
         moodRestoreDestination: "\u5FA9\u5143\u5148\u30D5\u30A1\u30A4\u30EB",
         moodSaveFailed: "\u6C17\u5206\u306E\u4FDD\u5B58\u306B\u5931\u6557\u3057\u307E\u3057\u305F\uFF1A{error}",
+        moodSaveTimeout: "\u4FDD\u5B58\u306B\u6642\u9593\u304C\u304B\u304B\u308A\u3059\u304E\u3066\u3044\u307E\u3059\u3002\u518D\u8A66\u884C\u3059\u308B\u304B\u3001\u3053\u306E\u30C0\u30A4\u30A2\u30ED\u30B0\u3092\u9589\u3058\u3066\u304F\u3060\u3055\u3044\u3002",
         moodSaved: "\u6C17\u5206\u3092\u4FDD\u5B58\u3057\u307E\u3057\u305F",
         moodTitle: "\u6C17\u5206\u3092\u8A18\u9332",
         moodTrend: "\u904E\u53BB7\u65E5\u9593\u306E\u6C17\u5206",
@@ -3687,6 +4157,8 @@ var init_i18n = __esm({
         restoreMood: "\u5FA9\u5143",
         retry: "\u518D\u8A66\u884C",
         russian: "\u0420\u0443\u0441\u0441\u043A\u0438\u0439",
+        s_exifPersist: "\u5199\u771F\u306E\u4F4D\u7F6E\u60C5\u5831\u3092\u30CE\u30FC\u30C8\u306B\u4FDD\u5B58",
+        s_exifPersistDesc: "\u8FFD\u52A0\u3057\u305F\u753B\u50CF\u306EEXIF GPS\u3092\u65E5\u8A18\u306E\u30D7\u30ED\u30D1\u30C6\u30A3\u306B\u4FDD\u5B58\u3057\u3001\u7DEF\u5EA6\u30FB\u7D4C\u5EA6\u3092\u66F8\u304D\u8FBC\u307F\u307E\u3059",
         sad: "\u60B2\u3057\u3044",
         save: "\u4FDD\u5B58",
         saving: "\u4FDD\u5B58\u4E2D\u2026",
@@ -3722,6 +4194,7 @@ var init_i18n = __esm({
         sourceBrowse: "\u30D5\u30A9\u30EB\u30C0\u3092\u9078\u629E",
         sourceDaily: "\u30C7\u30A4\u30EA\u30FC\u30CE\u30FC\u30C8",
         sourceDailyFolder: "\u30C7\u30D5\u30A9\u30EB\u30C8\u306E\u30C7\u30A4\u30EA\u30FC\u30CE\u30FC\u30C8\u30D5\u30A9\u30EB\u30C0",
+        sourceDailyMismatch: "\u30C7\u30A4\u30EA\u30FC\u30CE\u30FC\u30C8\u30BD\u30FC\u30B9\u306E\u30D5\u30A9\u30EB\u30C0\u306F\u3001\u30C7\u30D5\u30A9\u30EB\u30C8\u306E\u30C7\u30A4\u30EA\u30FC\u30CE\u30FC\u30C8\u30D5\u30A9\u30EB\u30C0\u3068\u4E00\u81F4\u3059\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059\u3002",
         sourceDailyRequired: "\u4FDD\u7BA1\u5EAB\u5185\u306E\u30C7\u30D5\u30A9\u30EB\u30C8\u30C7\u30A4\u30EA\u30FC\u30CE\u30FC\u30C8\u30D5\u30A9\u30EB\u30C0\u3092\u5165\u529B\u3057\u3066\u304F\u3060\u3055\u3044\u3002",
         sourceDateField: "\u65E5\u4ED8\u30D7\u30ED\u30D1\u30C6\u30A3\uFF08\u4EFB\u610F\uFF09",
         sourceDuplicateId: "\u30BD\u30FC\u30B9ID\u304C\u91CD\u8907\u3057\u3066\u3044\u307E\u3059\u3002\u5225\u306EID\u3092\u4F7F\u7528\u3057\u3066\u304F\u3060\u3055\u3044\u3002",
@@ -3760,6 +4233,18 @@ var init_i18n = __esm({
         unsavedTitle: "\u672A\u4FDD\u5B58\u306E\u30BF\u30A4\u30C8\u30EB",
         untitledJournalTitle: "\u30BF\u30A4\u30C8\u30EB",
         updatedAt: "\u66F4\u65B0\uFF1A{time}",
+        useCurrentLocation: "\u73FE\u5728\u5730\u3092\u4F7F\u7528",
+        useCurrentLocationDesc: "\u30BF\u30C3\u30D7\u6642\u306B\u4E00\u5EA6\u3060\u3051\u7AEF\u672B\u306E\u4F4D\u7F6E\u60C5\u5831\u3092\u53D6\u5F97\u3057\u3001\u7DEF\u5EA6\u30FB\u7D4C\u5EA6\u306B\u5165\u529B\u3057\u307E\u3059\u3002\u81EA\u52D5\u3067\u8FFD\u8DE1\u3057\u307E\u305B\u3093",
+        locating: "\u6E2C\u4F4D\u4E2D\u2026",
+        locationUpdated: "\u73FE\u5728\u5730\u3092\u5165\u529B\u3057\u307E\u3057\u305F",
+        locationUpdatedNameCleared: "\u73FE\u5728\u5730\u3092\u5165\u529B\u3057\u3001\u4EE5\u524D\u306E\u5730\u540D\u3092\u6D88\u53BB\u3057\u307E\u3057\u305F",
+        latitudeOutOfRange: "\u7DEF\u5EA6\u306F -90 \u304B\u3089 90 \u306E\u7BC4\u56F2\u3067\u5165\u529B\u3057\u3066\u304F\u3060\u3055\u3044",
+        longitudeOutOfRange: "\u7D4C\u5EA6\u306F -180 \u304B\u3089 180 \u306E\u7BC4\u56F2\u3067\u5165\u529B\u3057\u3066\u304F\u3060\u3055\u3044",
+        locateButton: "\u4F4D\u7F6E\u60C5\u5831",
+        locateError: "\u6E2C\u4F4D\u306B\u5931\u6557\u3057\u307E\u3057\u305F\u3002\u7DEF\u5EA6\u30FB\u7D4C\u5EA6\u3092\u624B\u5165\u529B\u3057\u3066\u304F\u3060\u3055\u3044",
+        locateUnavailable: "\u3053\u306E\u7AEF\u672B\u3067\u306F\u4F4D\u7F6E\u60C5\u5831\u3092\u5229\u7528\u3067\u304D\u307E\u305B\u3093\u3002\u7DEF\u5EA6\u30FB\u7D4C\u5EA6\u3092\u624B\u5165\u529B\u3057\u3066\u304F\u3060\u3055\u3044",
+        locateTimedOut: "\u6E2C\u4F4D\u304C\u30BF\u30A4\u30E0\u30A2\u30A6\u30C8\u3057\u307E\u3057\u305F\u3002\u518D\u8A66\u884C\u3059\u308B\u304B\u624B\u5165\u529B\u3057\u3066\u304F\u3060\u3055\u3044",
+        locateDenied: "\u4F4D\u7F6E\u60C5\u5831\u304C\u62D2\u5426\u3055\u308C\u307E\u3057\u305F\u3002\u30B7\u30B9\u30C6\u30E0\u8A2D\u5B9A\u3067\u8A31\u53EF\u3057\u3066\u518D\u8A66\u884C\u3059\u308B\u304B\u3001\u624B\u5165\u529B\u3057\u3066\u304F\u3060\u3055\u3044",
         veryGood: "\u3068\u3066\u3082\u826F\u3044",
         veryLow: "\u3068\u3066\u3082\u4F4E\u3044",
         viewRefreshFailed: "\u30D3\u30E5\u30FC\u306E\u66F4\u65B0\u306B\u5931\u6557\u3057\u307E\u3057\u305F\uFF1A{error}",
@@ -3798,10 +4283,13 @@ var init_i18n = __esm({
         apply: "\uC801\uC6A9",
         back: "\uB4A4\uB85C",
         backToNote: "\uB178\uD2B8\uB85C \uB3CC\uC544\uAC00\uAE30",
+        backToNoteHint: "\uC624\uB978\uCABD\uC5D0\uC11C \uD328\uB110\uC744 \uBC00\uC5B4\uB0B8 \uB4A4 \uC5EC\uAE30\uB97C \uB20C\uB7EC \uBCF4\uB358 \uB178\uD2B8\uB85C \uB3CC\uC544\uAC00\uC138\uC694",
         calendarDisplay: "\uCE98\uB9B0\uB354 \uD45C\uC2DC",
         calendarEntriesOnDate: "{date}: {entries}",
         calendarEntryCount: "{count}\uAC1C\uC758 \uC800\uB110",
         calendarEntryCountOne: "{count}\uAC1C\uC758 \uC800\uB110",
+        calendarEntryCountFew: "{count}\uAC1C\uC758 \uC800\uB110",
+        calendarEntryCountMany: "{count}\uAC1C\uC758 \uC800\uB110",
         calendarLeafCreateFailed: "Dayline: \uCE98\uB9B0\uB354 \uCC3D\uC744 \uB9CC\uB4E4 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4",
         calendarMonthLoadFailed: "\uCE98\uB9B0\uB354 \uC6D4 \uB85C\uB4DC \uC2E4\uD328: {error}",
         calendarMoodMarker: "\uAE30\uBD84 \uD45C\uC2DC \uC2A4\uD0C0\uC77C",
@@ -3809,6 +4297,7 @@ var init_i18n = __esm({
         calendarMoodMarkerDesc: "\uC810\uC740 \uB0A0\uC9DC \uCE78 \uBAA8\uC11C\uB9AC\uC5D0, \uBC14\uB294 \uD558\uB2E8\uC5D0 \uC704\uCE58\uD558\uC5EC \uB0A0\uC9DC \uC911\uC559 \uC815\uB82C\uC744 \uC720\uC9C0\uD569\uB2C8\uB2E4.",
         calendarMoodMarkerDot: "\uC0C9\uC0C1 \uC810",
         calendarTitle: "\uCE98\uB9B0\uB354",
+        calendarViewRequired: "\uBA3C\uC800 Dayline \uCE98\uB9B0\uB354\uB97C \uC5EC\uC138\uC694.",
         calendarWeatherAvailable: "\uB0A0\uC528 \uAE30\uB85D \uC788\uC74C",
         calm: "\uCC28\uBD84\uD568",
         cancel: "\uCDE8\uC18C",
@@ -3819,6 +4308,7 @@ var init_i18n = __esm({
         closeFilters: "\uD544\uD130 \uB2EB\uAE30",
         content: "\uB9CC\uC871\uC2A4\uB7EC\uC6C0",
         continue: "\uACC4\uC18D",
+        coordinateMustBeNumeric: "\uC22B\uC790\uB97C \uC785\uB825\uD558\uC138\uC694. \uC608: 39.9042",
         copyDiagnosticsCommand: "Dayline \uBAA8\uBC14\uC77C \uC9C4\uB2E8 \uC815\uBCF4 \uBCF5\uC0AC",
         createDailyNote: "\uC624\uB298\uC758 \uB178\uD2B8 \uC5F4\uAE30 \uB610\uB294 \uC0DD\uC131",
         createNoteAction: "\uC0DD\uC131",
@@ -3923,6 +4413,9 @@ var init_i18n = __esm({
         moodLabelUses: "\uD68C \uC0AC\uC6A9",
         moodMetadataPath: "\uAE30\uBD84 \uBA54\uD0C0\uB370\uC774\uD130 \uACBD\uB85C",
         moodMetadataPathDesc: "\uBCF4\uAD00\uC18C \uB0B4 JSON \uACBD\uB85C. JSON \uD30C\uC77C\uC774 \uAE30\uBD84\uC758 \uC8FC \uB370\uC774\uD130 \uC6D0\uBCF8\uC785\uB2C8\uB2E4.",
+        moodMetadataPathFailed: "\uC0C8 \uACBD\uB85C\uC5D0\uC11C \uAE30\uBD84 \uBA54\uD0C0\uB370\uC774\uD130\uB97C \uBD88\uB7EC\uC624\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4. \uD30C\uC77C\uC744 \uD655\uC778\uD55C \uB4A4 \uB2E4\uC2DC \uC2DC\uB3C4\uD558\uC138\uC694",
+        moodMetadataPathMustBeJson: "\uAE30\uBD84 \uBA54\uD0C0\uB370\uC774\uD130 \uACBD\uB85C\uB294 .json\uC73C\uB85C \uB05D\uB098\uC57C \uD569\uB2C8\uB2E4",
+        moodMetadataReadOnly: "\uAE30\uBD84 \uBA54\uD0C0\uB370\uC774\uD130\uB294 \uCD5C\uC2E0 \uBC84\uC804\uC758 Dayline\uC774 \uAE30\uB85D\uD55C \uAC83\uC785\uB2C8\uB2E4. \uAE30\uBD84\uC744 \uD3B8\uC9D1\uD558\uB824\uBA74 Dayline\uC744 \uC5C5\uB370\uC774\uD2B8\uD558\uC138\uC694. \uC774\uBC88\uC5D0\uB294 \uC544\uBB34\uAC83\uB3C4 \uBCC0\uACBD\uB418\uC9C0 \uC54A\uC558\uC2B5\uB2C8\uB2E4.",
         moodMoveToOrphanFailed: "\uC0AD\uC81C\uD55C \uAE30\uBD84 \uAE30\uB85D\uC744 \uBCF5\uAD6C \uBAA9\uB85D\uC73C\uB85C \uC62E\uAE30\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4: {error}",
         moodMetadataRenameFailed: "\uAE30\uBD84 \uBA54\uD0C0\uB370\uC774\uD130 \uC774\uB984\uC744 \uBC14\uAFB8\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4: {error}",
         moodNote: "\uAE30\uBD84 \uBA54\uBAA8",
@@ -3935,6 +4428,7 @@ var init_i18n = __esm({
         moodRestoreConflict: "\uB300\uC0C1 \uD30C\uC77C\uC5D0 \uC774\uBBF8 \uAE30\uBD84 \uAE30\uB85D\uC774 \uC788\uC2B5\uB2C8\uB2E4. \uB36E\uC5B4\uC4F0\uC2DC\uACA0\uC2B5\uB2C8\uAE4C?",
         moodRestoreDestination: "\uBCF5\uAD6C \uB300\uC0C1 \uD30C\uC77C",
         moodSaveFailed: "\uAE30\uBD84 \uC800\uC7A5 \uC2E4\uD328: {error}",
+        moodSaveTimeout: "\uC800\uC7A5 \uC2DC\uAC04\uC774 \uB108\uBB34 \uC624\uB798 \uAC78\uB9BD\uB2C8\uB2E4. \uB2E4\uC2DC \uC2DC\uB3C4\uD558\uAC70\uB098 \uC774 \uB300\uD654 \uC0C1\uC790\uB97C \uB2EB\uC73C\uC138\uC694.",
         moodSaved: "\uAE30\uBD84\uC774 \uC800\uC7A5\uB418\uC5C8\uC2B5\uB2C8\uB2E4",
         moodTitle: "\uAE30\uBD84 \uAE30\uB85D",
         moodTrend: "\uCD5C\uADFC 7\uC77C \uAE30\uBD84",
@@ -3969,6 +4463,8 @@ var init_i18n = __esm({
         restoreMood: "\uBCF5\uAD6C",
         retry: "\uB2E4\uC2DC \uC2DC\uB3C4",
         russian: "\u0420\u0443\u0441\u0441\u043A\u0438\u0439",
+        s_exifPersist: "\uC0AC\uC9C4 \uC704\uCE58\uB97C \uB178\uD2B8\uC5D0 \uC800\uC7A5",
+        s_exifPersistDesc: "\uC0C8\uB85C \uCD94\uAC00\uD55C \uC774\uBBF8\uC9C0\uC758 EXIF GPS\uB97C \uC77C\uAE30 \uC18D\uC131\uC5D0 \uC800\uC7A5\uD558\uACE0 \uC704\uB3C4/\uACBD\uB3C4\uB97C \uAE30\uB85D\uD569\uB2C8\uB2E4",
         sad: "\uC2AC\uD514",
         save: "\uC800\uC7A5",
         saving: "\uC800\uC7A5 \uC911\u2026",
@@ -4004,6 +4500,7 @@ var init_i18n = __esm({
         sourceBrowse: "\uD3F4\uB354 \uC120\uD0DD",
         sourceDaily: "\uB370\uC77C\uB9AC \uB178\uD2B8",
         sourceDailyFolder: "\uAE30\uBCF8 \uB370\uC77C\uB9AC \uB178\uD2B8 \uD3F4\uB354",
+        sourceDailyMismatch: "\uB370\uC77C\uB9AC \uB178\uD2B8 \uC18C\uC2A4 \uD3F4\uB354\uB294 \uAE30\uBCF8 \uB370\uC77C\uB9AC \uB178\uD2B8 \uD3F4\uB354\uC640 \uC77C\uCE58\uD574\uC57C \uD569\uB2C8\uB2E4.",
         sourceDailyRequired: "\uBCF4\uAD00\uC18C \uB0B4 \uAE30\uBCF8 \uB370\uC77C\uB9AC \uB178\uD2B8 \uD3F4\uB354\uB97C \uC785\uB825\uD558\uC138\uC694.",
         sourceDateField: "\uB0A0\uC9DC \uC18D\uC131 (\uC120\uD0DD \uC0AC\uD56D)",
         sourceDuplicateId: "\uC18C\uC2A4 ID\uAC00 \uC911\uBCF5\uB418\uC5C8\uC2B5\uB2C8\uB2E4. \uB2E4\uB978 ID\uB97C \uC0AC\uC6A9\uD558\uC138\uC694.",
@@ -4042,6 +4539,18 @@ var init_i18n = __esm({
         unsavedTitle: "\uC800\uC7A5\uB418\uC9C0 \uC54A\uC740 \uC81C\uBAA9",
         untitledJournalTitle: "\uC81C\uBAA9",
         updatedAt: "{time} \uC218\uC815\uB428",
+        useCurrentLocation: "\uD604\uC7AC \uC704\uCE58 \uC0AC\uC6A9",
+        useCurrentLocationDesc: "\uB204\uB97C \uB54C \uD55C \uBC88\uB9CC \uAE30\uAE30 \uC704\uCE58\uB97C \uC77D\uC5B4 \uC704\uB3C4\uC640 \uACBD\uB3C4\uB97C \uC785\uB825\uD569\uB2C8\uB2E4. \uC790\uB3D9\uC73C\uB85C \uCD94\uC801\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4",
+        locating: "\uC704\uCE58 \uD655\uC778 \uC911\u2026",
+        locationUpdated: "\uD604\uC7AC \uC704\uCE58\uB97C \uC785\uB825\uD588\uC2B5\uB2C8\uB2E4",
+        locationUpdatedNameCleared: "\uD604\uC7AC \uC704\uCE58\uB97C \uC785\uB825\uD558\uACE0 \uC774\uC804 \uC9C0\uBA85\uC744 \uC9C0\uC6E0\uC2B5\uB2C8\uB2E4",
+        latitudeOutOfRange: "\uC704\uB3C4\uB294 -90\uC5D0\uC11C 90 \uC0AC\uC774\uC5EC\uC57C \uD569\uB2C8\uB2E4",
+        longitudeOutOfRange: "\uACBD\uB3C4\uB294 -180\uC5D0\uC11C 180 \uC0AC\uC774\uC5EC\uC57C \uD569\uB2C8\uB2E4",
+        locateButton: "\uC704\uCE58",
+        locateError: "\uC704\uCE58 \uD655\uC778\uC5D0 \uC2E4\uD328\uD588\uC2B5\uB2C8\uB2E4. \uC88C\uD45C\uB97C \uC9C1\uC811 \uC785\uB825\uD558\uC138\uC694",
+        locateUnavailable: "\uC774 \uAE30\uAE30\uC5D0\uC11C\uB294 \uC704\uCE58\uB97C \uC0AC\uC6A9\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4. \uC88C\uD45C\uB97C \uC9C1\uC811 \uC785\uB825\uD558\uC138\uC694",
+        locateTimedOut: "\uC704\uCE58 \uD655\uC778 \uC2DC\uAC04\uC774 \uCD08\uACFC\uB418\uC5C8\uC2B5\uB2C8\uB2E4. \uB2E4\uC2DC \uC2DC\uB3C4\uD558\uAC70\uB098 \uC9C1\uC811 \uC785\uB825\uD558\uC138\uC694",
+        locateDenied: "\uC704\uCE58\uAC00 \uAC70\uBD80\uB418\uC5C8\uC2B5\uB2C8\uB2E4. \uC2DC\uC2A4\uD15C \uC124\uC815\uC5D0\uC11C \uD5C8\uC6A9\uD55C \uB4A4 \uB2E4\uC2DC \uC2DC\uB3C4\uD558\uAC70\uB098 \uC9C1\uC811 \uC785\uB825\uD558\uC138\uC694",
         veryGood: "\uB9E4\uC6B0 \uC88B\uC74C",
         veryLow: "\uB9E4\uC6B0 \uB098\uC068",
         viewRefreshFailed: "\uBDF0 \uC0C8\uB85C\uACE0\uCE68 \uC2E4\uD328: {error}",
@@ -4080,10 +4589,13 @@ var init_i18n = __esm({
         apply: "Appliquer",
         back: "Retour",
         backToNote: "Retour \xE0 la note",
+        backToNoteHint: "Apr\xE8s avoir fait glisser le panneau depuis la droite, touchez ici pour revenir \xE0 la note lue",
         calendarDisplay: "Affichage du calendrier",
         calendarEntriesOnDate: "{date} : {entries}",
         calendarEntryCount: "{count} entr\xE9es",
         calendarEntryCountOne: "{count} entr\xE9e",
+        calendarEntryCountFew: "{count} entr\xE9es",
+        calendarEntryCountMany: "{count} entr\xE9es",
         calendarLeafCreateFailed: "Dayline : impossible de cr\xE9er le volet du calendrier",
         calendarMonthLoadFailed: "Impossible de charger le mois du calendrier : {error}",
         calendarMoodMarker: "Style du marqueur d'humeur",
@@ -4091,6 +4603,7 @@ var init_i18n = __esm({
         calendarMoodMarkerDesc: "Les points se placent dans le coin de la cellule. Les barres se placent en bas en gardant la date centr\xE9e.",
         calendarMoodMarkerDot: "Point de couleur",
         calendarTitle: "Calendrier",
+        calendarViewRequired: "Ouvrez d'abord le calendrier Dayline.",
         calendarWeatherAvailable: "Donn\xE9es m\xE9t\xE9o disponibles",
         calm: "Calme",
         cancel: "Annuler",
@@ -4101,6 +4614,7 @@ var init_i18n = __esm({
         closeFilters: "Fermer les filtres",
         content: "Content",
         continue: "Continuer",
+        coordinateMustBeNumeric: "Saisissez un nombre, par exemple 39.9042",
         copyDiagnosticsCommand: "Copier les diagnostics mobiles de Dayline",
         createDailyNote: "Ouvrir ou cr\xE9er la note d'aujourd'hui",
         createNoteAction: "Cr\xE9er",
@@ -4205,6 +4719,9 @@ var init_i18n = __esm({
         moodLabelUses: "utilisations",
         moodMetadataPath: "Chemin des m\xE9tadonn\xE9es d'humeur",
         moodMetadataPathDesc: "Chemin JSON dans le coffre. Le fichier JSON constitue la source de donn\xE9es principale.",
+        moodMetadataPathFailed: "Impossible de charger les m\xE9tadonn\xE9es d'humeur depuis le nouveau chemin ; v\xE9rifiez le fichier et r\xE9essayez",
+        moodMetadataPathMustBeJson: "Le chemin des m\xE9tadonn\xE9es d'humeur doit se terminer par .json",
+        moodMetadataReadOnly: "Les m\xE9tadonn\xE9es d'humeur ont \xE9t\xE9 \xE9crites par une version plus r\xE9cente de Dayline. Mettez Dayline \xE0 jour pour modifier les humeurs ; rien n'a \xE9t\xE9 modifi\xE9.",
         moodMoveToOrphanFailed: "Impossible de d\xE9placer l'humeur supprim\xE9e vers la liste de r\xE9cup\xE9ration : {error}",
         moodMetadataRenameFailed: "Impossible de renommer les m\xE9tadonn\xE9es d'humeur : {error}",
         moodNote: "Note d'humeur",
@@ -4217,6 +4734,7 @@ var init_i18n = __esm({
         moodRestoreConflict: "Le fichier de destination contient d\xE9j\xE0 une humeur. La remplacer ?",
         moodRestoreDestination: "Fichier de destination",
         moodSaveFailed: "Impossible d'enregistrer l'humeur : {error}",
+        moodSaveTimeout: "L'enregistrement prend trop de temps. R\xE9essayez ou fermez cette bo\xEEte de dialogue.",
         moodSaved: "Humeur enregistr\xE9e",
         moodTitle: "Enregistrer l'humeur",
         moodTrend: "Humeur des 7 derniers jours",
@@ -4251,6 +4769,8 @@ var init_i18n = __esm({
         restoreMood: "Restaurer",
         retry: "R\xE9essayer",
         russian: "\u0420\u0443\u0441\u0441\u043A\u0438\u0439",
+        s_exifPersist: "Enregistrer la position des photos dans la note",
+        s_exifPersistDesc: "Enregistrer le GPS EXIF des nouvelles images dans les propri\xE9t\xE9s de la note du journal et renseigner la latitude/longitude",
         sad: "Triste",
         save: "Enregistrer",
         saving: "Enregistrement\u2026",
@@ -4286,6 +4806,7 @@ var init_i18n = __esm({
         sourceBrowse: "Parcourir les dossiers",
         sourceDaily: "Notes quotidiennes",
         sourceDailyFolder: "Dossier des notes quotidiennes par d\xE9faut",
+        sourceDailyMismatch: "Le dossier source des notes quotidiennes doit correspondre au dossier par d\xE9faut des notes quotidiennes.",
         sourceDailyRequired: "Veuillez sp\xE9cifier le dossier par d\xE9faut des notes quotidiennes.",
         sourceDateField: "Propri\xE9t\xE9 de date (facultatif)",
         sourceDuplicateId: "ID de source en double, veuillez utiliser un identifiant unique.",
@@ -4324,6 +4845,18 @@ var init_i18n = __esm({
         unsavedTitle: "Titre non enregistr\xE9",
         untitledJournalTitle: "Titre",
         updatedAt: "Modifi\xE9 le {time}",
+        useCurrentLocation: "Utiliser la position actuelle",
+        useCurrentLocationDesc: "Lit la position une seule fois pour remplir les coordonn\xE9es. Ne s'ex\xE9cute que sur pression et ne suit jamais la position",
+        locating: "Localisation\u2026",
+        locationUpdated: "Position actuelle renseign\xE9e",
+        locationUpdatedNameCleared: "Position actuelle renseign\xE9e ; l'ancien nom de lieu a \xE9t\xE9 effac\xE9",
+        latitudeOutOfRange: "La latitude doit \xEAtre comprise entre -90 et 90",
+        longitudeOutOfRange: "La longitude doit \xEAtre comprise entre -180 et 180",
+        locateButton: "Localiser",
+        locateError: "\xC9chec de la localisation ; saisissez les coordonn\xE9es manuellement",
+        locateUnavailable: "Localisation indisponible sur cet appareil ; saisissez les coordonn\xE9es manuellement",
+        locateTimedOut: "Localisation expir\xE9e ; r\xE9essayez ou saisissez les coordonn\xE9es manuellement",
+        locateDenied: "Localisation refus\xE9e ; autorisez-la dans les r\xE9glages syst\xE8me puis r\xE9essayez, ou saisissez les coordonn\xE9es manuellement",
         veryGood: "Tr\xE8s bien",
         veryLow: "Tr\xE8s bas",
         viewRefreshFailed: "Impossible d'actualiser la vue : {error}",
@@ -4362,10 +4895,13 @@ var init_i18n = __esm({
         apply: "Anwenden",
         back: "Zur\xFCck",
         backToNote: "Zur\xFCck zur Notiz",
+        backToNoteHint: "Nach dem Hereinwischen des Bereichs von rechts hier tippen, um zur gelesenen Notiz zur\xFCckzukehren",
         calendarDisplay: "Kalenderanzeige",
         calendarEntriesOnDate: "{date}: {entries}",
         calendarEntryCount: "{count} Journaleintr\xE4ge",
         calendarEntryCountOne: "{count} Journaleintrag",
+        calendarEntryCountFew: "{count} Journaleintr\xE4ge",
+        calendarEntryCountMany: "{count} Journaleintr\xE4ge",
         calendarLeafCreateFailed: "Dayline: Kalenderbereich konnte nicht erstellt werden",
         calendarMonthLoadFailed: "Kalendermonat konnte nicht geladen werden: {error}",
         calendarMoodMarker: "Stimmungsmarkierungs-Stil",
@@ -4373,6 +4909,7 @@ var init_i18n = __esm({
         calendarMoodMarkerDesc: "Punkte sitzen in der Zellenecke; Balken liegen am unteren Rand, sodass das Datum zentriert bleibt.",
         calendarMoodMarkerDot: "Farbpunkt",
         calendarTitle: "Kalender",
+        calendarViewRequired: "Bitte zuerst den Dayline-Kalender \xF6ffnen.",
         calendarWeatherAvailable: "Wetterdaten verf\xFCgbar",
         calm: "Ruhig",
         cancel: "Abbrechen",
@@ -4383,6 +4920,7 @@ var init_i18n = __esm({
         closeFilters: "Filter schlie\xDFen",
         content: "Zufrieden",
         continue: "Weiter",
+        coordinateMustBeNumeric: "Bitte eine Zahl eingeben, zum Beispiel 39.9042",
         copyDiagnosticsCommand: "Dayline-Diagnose f\xFCr Mobilger\xE4te kopieren",
         createDailyNote: "Heutige Notiz \xF6ffnen oder erstellen",
         createNoteAction: "Erstellen",
@@ -4487,6 +5025,9 @@ var init_i18n = __esm({
         moodLabelUses: "Mal verwendet",
         moodMetadataPath: "Pfad zu den Stimmungs-Metadaten",
         moodMetadataPathDesc: "JSON-Pfad im Tresor. Die JSON-Datei dient als prim\xE4re Datenquelle.",
+        moodMetadataPathFailed: "Stimmungs-Metadaten konnten nicht vom neuen Pfad geladen werden; Datei pr\xFCfen und erneut versuchen",
+        moodMetadataPathMustBeJson: "Der Pfad zu den Stimmungs-Metadaten muss auf .json enden",
+        moodMetadataReadOnly: "Die Stimmungs-Metadaten wurden von einer neueren Version von Dayline geschrieben. Bitte Dayline aktualisieren, um Stimmungen zu bearbeiten; es wurde nichts ge\xE4ndert.",
         moodMoveToOrphanFailed: "Gel\xF6schte Stimmung konnte nicht in die Wiederherstellungsliste verschoben werden: {error}",
         moodMetadataRenameFailed: "Stimmungs-Metadaten konnten nicht umbenannt werden: {error}",
         moodNote: "Stimmungsnotiz",
@@ -4499,6 +5040,7 @@ var init_i18n = __esm({
         moodRestoreConflict: "Die Zieldatei enth\xE4lt bereits einen Stimmungseintrag. \xDCberschreiben?",
         moodRestoreDestination: "Zieldatei",
         moodSaveFailed: "Stimmung konnte nicht gespeichert werden: {error}",
+        moodSaveTimeout: "Das Speichern dauert zu lange. Erneut versuchen oder diesen Dialog schlie\xDFen.",
         moodSaved: "Stimmung gespeichert",
         moodTitle: "Stimmung erfassen",
         moodTrend: "Stimmungsverlauf (7 Tage)",
@@ -4533,6 +5075,8 @@ var init_i18n = __esm({
         restoreMood: "Wiederherstellen",
         retry: "Wiederholen",
         russian: "\u0420\u0443\u0441\u0441\u043A\u0438\u0439",
+        s_exifPersist: "Foto-Standort in der Notiz speichern",
+        s_exifPersistDesc: "EXIF-GPS neu hinzugef\xFCgter Bilder in den Eigenschaften der Journal-Notiz speichern und Breiten-/L\xE4ngengrad setzen",
         sad: "Traurig",
         save: "Speichern",
         saving: "Wird gespeichert\u2026",
@@ -4568,6 +5112,7 @@ var init_i18n = __esm({
         sourceBrowse: "Ordner ausw\xE4hlen",
         sourceDaily: "Tagesnotizen",
         sourceDailyFolder: "Standardordner f\xFCr Tagesnotizen",
+        sourceDailyMismatch: "Der Ordner der Tagesnotizen-Quelle muss mit dem Standardordner f\xFCr Tagesnotizen \xFCbereinstimmen.",
         sourceDailyRequired: "Bitte den Standardordner f\xFCr Tagesnotizen im Tresor angeben.",
         sourceDateField: "Datumseigenschaft (optional)",
         sourceDuplicateId: "Doppelte Quell-ID. Bitte eindeutige IDs verwenden.",
@@ -4606,6 +5151,18 @@ var init_i18n = __esm({
         unsavedTitle: "Ungespeicherter Titel",
         untitledJournalTitle: "Titel",
         updatedAt: "Aktualisiert um {time}",
+        useCurrentLocation: "Aktuellen Standort verwenden",
+        useCurrentLocationDesc: "Liest den Ger\xE4testandort einmalig und f\xFCllt die Koordinaten aus. L\xE4uft nur bei Antippen und verfolgt nie",
+        locating: "Standort wird ermittelt\u2026",
+        locationUpdated: "Aktueller Standort eingetragen",
+        locationUpdatedNameCleared: "Aktueller Standort eingetragen; der vorherige Ortsname wurde gel\xF6scht",
+        latitudeOutOfRange: "Der Breitengrad muss zwischen -90 und 90 liegen",
+        longitudeOutOfRange: "Der L\xE4ngengrad muss zwischen -180 und 180 liegen",
+        locateButton: "Standort",
+        locateError: "Standortermittlung fehlgeschlagen; Koordinaten bitte manuell eingeben",
+        locateUnavailable: "Standort ist auf diesem Ger\xE4t nicht verf\xFCgbar; Koordinaten bitte manuell eingeben",
+        locateTimedOut: "Standortermittlung abgelaufen; erneut versuchen oder manuell eingeben",
+        locateDenied: "Standort wurde verweigert; in den Systemeinstellungen erlauben und erneut versuchen oder manuell eingeben",
         veryGood: "Sehr gut",
         veryLow: "Sehr niedrig",
         viewRefreshFailed: "Ansicht konnte nicht aktualisiert werden: {error}",
@@ -4644,10 +5201,13 @@ var init_i18n = __esm({
         apply: "Aplicar",
         back: "Atr\xE1s",
         backToNote: "Volver a la nota",
+        backToNoteHint: "Tras deslizar el panel desde la derecha, toca aqu\xED para volver a la nota que le\xEDas",
         calendarDisplay: "Visualizaci\xF3n del calendario",
         calendarEntriesOnDate: "{date}: {entries}",
         calendarEntryCount: "{count} entradas",
         calendarEntryCountOne: "{count} entrada",
+        calendarEntryCountFew: "{count} entradas",
+        calendarEntryCountMany: "{count} entradas",
         calendarLeafCreateFailed: "Dayline: no se pudo crear el panel del calendario",
         calendarMonthLoadFailed: "Error al cargar el mes del calendario: {error}",
         calendarMoodMarker: "Estilo del indicador de \xE1nimo",
@@ -4655,6 +5215,7 @@ var init_i18n = __esm({
         calendarMoodMarkerDesc: "Los puntos se colocan en la esquina de la celda; las barras se colocan en la base manteniendo la fecha centrada.",
         calendarMoodMarkerDot: "Punto de color",
         calendarTitle: "Calendario",
+        calendarViewRequired: "Abre primero el calendario de Dayline.",
         calendarWeatherAvailable: "Datos meteorol\xF3gicos disponibles",
         calm: "Calmado",
         cancel: "Cancelar",
@@ -4665,6 +5226,7 @@ var init_i18n = __esm({
         closeFilters: "Cerrar filtros",
         content: "Satisfecho",
         continue: "Continuar",
+        coordinateMustBeNumeric: "Introduce un n\xFAmero, por ejemplo 39.9042",
         copyDiagnosticsCommand: "Copiar el diagn\xF3stico m\xF3vil de Dayline",
         createDailyNote: "Abrir o crear la nota de hoy",
         createNoteAction: "Crear",
@@ -4769,6 +5331,9 @@ var init_i18n = __esm({
         moodLabelUses: "usos",
         moodMetadataPath: "Ruta de metadatos de \xE1nimo",
         moodMetadataPathDesc: "Ruta JSON en la b\xF3veda. El archivo JSON act\xFAa como la fuente de datos principal.",
+        moodMetadataPathFailed: "No se pudieron cargar los metadatos de \xE1nimo desde la nueva ruta; comprueba el archivo e int\xE9ntalo de nuevo",
+        moodMetadataPathMustBeJson: "La ruta de los metadatos de \xE1nimo debe terminar en .json",
+        moodMetadataReadOnly: "Los metadatos de \xE1nimo los escribi\xF3 una versi\xF3n m\xE1s reciente de Dayline. Actualiza Dayline para editar el \xE1nimo; no se ha cambiado nada.",
         moodMoveToOrphanFailed: "No se pudo mover el \xE1nimo eliminado a la lista de recuperaci\xF3n: {error}",
         moodMetadataRenameFailed: "No se pudieron renombrar los metadatos de \xE1nimo: {error}",
         moodNote: "Nota de estado de \xE1nimo",
@@ -4781,6 +5346,7 @@ var init_i18n = __esm({
         moodRestoreConflict: "El archivo de destino ya contiene un registro. \xBFDeseas sobrescribirlo?",
         moodRestoreDestination: "Archivo de destino",
         moodSaveFailed: "Error al guardar el estado de \xE1nimo: {error}",
+        moodSaveTimeout: "Guardar est\xE1 tardando demasiado. Reintenta o cierra este cuadro de di\xE1logo.",
         moodSaved: "Estado de \xE1nimo guardado",
         moodTitle: "Registrar estado de \xE1nimo",
         moodTrend: "\xC1nimo en los \xFAltimos 7 d\xEDas",
@@ -4815,6 +5381,8 @@ var init_i18n = __esm({
         restoreMood: "Restaurar",
         retry: "Reintentar",
         russian: "\u0420\u0443\u0441\u0441\u043A\u0438\u0439",
+        s_exifPersist: "Guardar la ubicaci\xF3n de las fotos en la nota",
+        s_exifPersistDesc: "Guardar el GPS EXIF de las im\xE1genes nuevas en las propiedades de la nota del diario y establecer latitud/longitud",
         sad: "Triste",
         save: "Guardar",
         saving: "Guardando\u2026",
@@ -4850,6 +5418,7 @@ var init_i18n = __esm({
         sourceBrowse: "Examinar carpeta",
         sourceDaily: "Notas diarias",
         sourceDailyFolder: "Carpeta predeterminada de notas diarias",
+        sourceDailyMismatch: "La carpeta de origen de notas diarias debe coincidir con la carpeta predeterminada de notas diarias.",
         sourceDailyRequired: "Introduce la carpeta predeterminada de notas diarias dentro de la b\xF3veda.",
         sourceDateField: "Propiedad de fecha (opcional)",
         sourceDuplicateId: "ID de fuente duplicado; utiliza identificadores \xFAnicos.",
@@ -4888,6 +5457,18 @@ var init_i18n = __esm({
         unsavedTitle: "T\xEDtulo sin guardar",
         untitledJournalTitle: "T\xEDtulo",
         updatedAt: "Actualizado a las {time}",
+        useCurrentLocation: "Usar ubicaci\xF3n actual",
+        useCurrentLocationDesc: "Lee la ubicaci\xF3n del dispositivo una vez y rellena las coordenadas. Solo se ejecuta al pulsar y nunca rastrea",
+        locating: "Localizando\u2026",
+        locationUpdated: "Ubicaci\xF3n actual rellenada",
+        locationUpdatedNameCleared: "Ubicaci\xF3n actual rellenada; se ha borrado el nombre de lugar anterior",
+        latitudeOutOfRange: "La latitud debe estar entre -90 y 90",
+        longitudeOutOfRange: "La longitud debe estar entre -180 y 180",
+        locateButton: "Ubicar",
+        locateError: "Error de ubicaci\xF3n; introduce las coordenadas manualmente",
+        locateUnavailable: "La ubicaci\xF3n no est\xE1 disponible en este dispositivo; introduce las coordenadas manualmente",
+        locateTimedOut: "La ubicaci\xF3n ha caducado; reintenta o introduce las coordenadas manualmente",
+        locateDenied: "Ubicaci\xF3n denegada; perm\xEDtela en los ajustes del sistema y reintenta, o introduce las coordenadas manualmente",
         veryGood: "Muy bien",
         veryLow: "Muy bajo",
         viewRefreshFailed: "Error al actualizar la vista: {error}",
@@ -4926,10 +5507,13 @@ var init_i18n = __esm({
         apply: "\u041F\u0440\u0438\u043C\u0435\u043D\u0438\u0442\u044C",
         back: "\u041D\u0430\u0437\u0430\u0434",
         backToNote: "\u0412\u0435\u0440\u043D\u0443\u0442\u044C\u0441\u044F \u043A \u0437\u0430\u043C\u0435\u0442\u043A\u0435",
+        backToNoteHint: "\u041F\u0440\u043E\u0432\u0435\u0434\u0438\u0442\u0435 \u043F\u0430\u043D\u0435\u043B\u044C \u0441\u043F\u0440\u0430\u0432\u0430 \u0438 \u043D\u0430\u0436\u043C\u0438\u0442\u0435 \u0437\u0434\u0435\u0441\u044C, \u0447\u0442\u043E\u0431\u044B \u0432\u0435\u0440\u043D\u0443\u0442\u044C\u0441\u044F \u043A \u0447\u0438\u0442\u0430\u0435\u043C\u043E\u0439 \u0437\u0430\u043C\u0435\u0442\u043A\u0435",
         calendarDisplay: "\u041E\u0442\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0435 \u043A\u0430\u043B\u0435\u043D\u0434\u0430\u0440\u044F",
         calendarEntriesOnDate: "{date}: {entries}",
         calendarEntryCount: "{count} \u0437\u0430\u043F\u0438\u0441\u0435\u0439",
         calendarEntryCountOne: "{count} \u0437\u0430\u043F\u0438\u0441\u044C",
+        calendarEntryCountFew: "{count} \u0437\u0430\u043F\u0438\u0441\u0438",
+        calendarEntryCountMany: "{count} \u0437\u0430\u043F\u0438\u0441\u0435\u0439",
         calendarLeafCreateFailed: "Dayline: \u043D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0441\u043E\u0437\u0434\u0430\u0442\u044C \u043F\u0430\u043D\u0435\u043B\u044C \u043A\u0430\u043B\u0435\u043D\u0434\u0430\u0440\u044F",
         calendarMonthLoadFailed: "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0437\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044C \u043C\u0435\u0441\u044F\u0446 \u043A\u0430\u043B\u0435\u043D\u0434\u0430\u0440\u044F: {error}",
         calendarMoodMarker: "\u0421\u0442\u0438\u043B\u044C \u0438\u043D\u0434\u0438\u043A\u0430\u0442\u043E\u0440\u0430 \u043D\u0430\u0441\u0442\u0440\u043E\u0435\u043D\u0438\u044F",
@@ -4937,6 +5521,7 @@ var init_i18n = __esm({
         calendarMoodMarkerDesc: "\u0422\u043E\u0447\u043A\u0430 \u0440\u0430\u0441\u043F\u043E\u043B\u0430\u0433\u0430\u0435\u0442\u0441\u044F \u0432 \u0443\u0433\u043B\u0443 \u044F\u0447\u0435\u0439\u043A\u0438; \u043F\u043E\u043B\u043E\u0441\u043A\u0430 \u2014 \u0432\u043D\u0438\u0437\u0443, \u0441\u043E\u0445\u0440\u0430\u043D\u044F\u044F \u0434\u0430\u0442\u0443 \u043F\u043E \u0446\u0435\u043D\u0442\u0440\u0443.",
         calendarMoodMarkerDot: "\u0426\u0432\u0435\u0442\u043D\u0430\u044F \u0442\u043E\u0447\u043A\u0430",
         calendarTitle: "\u041A\u0430\u043B\u0435\u043D\u0434\u0430\u0440\u044C",
+        calendarViewRequired: "\u0421\u043D\u0430\u0447\u0430\u043B\u0430 \u043E\u0442\u043A\u0440\u043E\u0439\u0442\u0435 \u043A\u0430\u043B\u0435\u043D\u0434\u0430\u0440\u044C Dayline.",
         calendarWeatherAvailable: "\u0415\u0441\u0442\u044C \u043F\u043E\u0433\u043E\u0434\u043D\u044B\u0435 \u0434\u0430\u043D\u043D\u044B\u0435",
         calm: "\u0421\u043F\u043E\u043A\u043E\u0439\u0441\u0442\u0432\u0438\u0435",
         cancel: "\u041E\u0442\u043C\u0435\u043D\u0430",
@@ -4947,6 +5532,7 @@ var init_i18n = __esm({
         closeFilters: "\u0417\u0430\u043A\u0440\u044B\u0442\u044C \u0444\u0438\u043B\u044C\u0442\u0440\u044B",
         content: "\u0423\u0434\u043E\u0432\u043B\u0435\u0442\u0432\u043E\u0440\u0435\u043D\u0438\u0435",
         continue: "\u041F\u0440\u043E\u0434\u043E\u043B\u0436\u0438\u0442\u044C",
+        coordinateMustBeNumeric: "\u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u0447\u0438\u0441\u043B\u043E, \u043D\u0430\u043F\u0440\u0438\u043C\u0435\u0440 39.9042",
         copyDiagnosticsCommand: "\u0421\u043A\u043E\u043F\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u0434\u0438\u0430\u0433\u043D\u043E\u0441\u0442\u0438\u043A\u0443 Dayline \u0434\u043B\u044F \u043C\u043E\u0431\u0438\u043B\u044C\u043D\u044B\u0445 \u0443\u0441\u0442\u0440\u043E\u0439\u0441\u0442\u0432",
         createDailyNote: "\u041E\u0442\u043A\u0440\u044B\u0442\u044C \u0438\u043B\u0438 \u0441\u043E\u0437\u0434\u0430\u0442\u044C \u0441\u0435\u0433\u043E\u0434\u043D\u044F\u0448\u043D\u044E\u044E \u0437\u0430\u043C\u0435\u0442\u043A\u0443",
         createNoteAction: "\u0421\u043E\u0437\u0434\u0430\u0442\u044C",
@@ -5051,6 +5637,9 @@ var init_i18n = __esm({
         moodLabelUses: "\u0440\u0430\u0437(\u0430)",
         moodMetadataPath: "\u041F\u0443\u0442\u044C \u043A \u043C\u0435\u0442\u0430\u0434\u0430\u043D\u043D\u044B\u043C \u043D\u0430\u0441\u0442\u0440\u043E\u0435\u043D\u0438\u044F",
         moodMetadataPathDesc: "\u041F\u0443\u0442\u044C \u043A JSON-\u0444\u0430\u0439\u043B\u0443 \u0432 \u0445\u0440\u0430\u043D\u0438\u043B\u0438\u0449\u0435. JSON \u044F\u0432\u043B\u044F\u0435\u0442\u0441\u044F \u043E\u0441\u043D\u043E\u0432\u043D\u044B\u043C \u0438\u0441\u0442\u043E\u0447\u043D\u0438\u043A\u043E\u043C \u0434\u0430\u043D\u043D\u044B\u0445.",
+        moodMetadataPathFailed: "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0437\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044C \u043C\u0435\u0442\u0430\u0434\u0430\u043D\u043D\u044B\u0435 \u043D\u0430\u0441\u0442\u0440\u043E\u0435\u043D\u0438\u044F \u043F\u043E \u043D\u043E\u0432\u043E\u043C\u0443 \u043F\u0443\u0442\u0438; \u043F\u0440\u043E\u0432\u0435\u0440\u044C\u0442\u0435 \u0444\u0430\u0439\u043B \u0438 \u043F\u043E\u0432\u0442\u043E\u0440\u0438\u0442\u0435 \u043F\u043E\u043F\u044B\u0442\u043A\u0443",
+        moodMetadataPathMustBeJson: "\u041F\u0443\u0442\u044C \u043A \u043C\u0435\u0442\u0430\u0434\u0430\u043D\u043D\u044B\u043C \u043D\u0430\u0441\u0442\u0440\u043E\u0435\u043D\u0438\u044F \u0434\u043E\u043B\u0436\u0435\u043D \u0437\u0430\u043A\u0430\u043D\u0447\u0438\u0432\u0430\u0442\u044C\u0441\u044F \u043D\u0430 .json",
+        moodMetadataReadOnly: "\u041C\u0435\u0442\u0430\u0434\u0430\u043D\u043D\u044B\u0435 \u043D\u0430\u0441\u0442\u0440\u043E\u0435\u043D\u0438\u044F \u0437\u0430\u043F\u0438\u0441\u0430\u043D\u044B \u0431\u043E\u043B\u0435\u0435 \u043D\u043E\u0432\u043E\u0439 \u0432\u0435\u0440\u0441\u0438\u0435\u0439 Dayline. \u041E\u0431\u043D\u043E\u0432\u0438\u0442\u0435 Dayline, \u0447\u0442\u043E\u0431\u044B \u0440\u0435\u0434\u0430\u043A\u0442\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u043D\u0430\u0441\u0442\u0440\u043E\u0435\u043D\u0438\u0435; \u043D\u0438\u0447\u0435\u0433\u043E \u043D\u0435 \u0438\u0437\u043C\u0435\u043D\u0435\u043D\u043E.",
         moodMoveToOrphanFailed: "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043F\u0435\u0440\u0435\u043C\u0435\u0441\u0442\u0438\u0442\u044C \u0443\u0434\u0430\u043B\u0451\u043D\u043D\u0443\u044E \u0437\u0430\u043F\u0438\u0441\u044C \u043D\u0430\u0441\u0442\u0440\u043E\u0435\u043D\u0438\u044F \u0432 \u0441\u043F\u0438\u0441\u043E\u043A \u0432\u043E\u0441\u0441\u0442\u0430\u043D\u043E\u0432\u043B\u0435\u043D\u0438\u044F: {error}",
         moodMetadataRenameFailed: "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043F\u0435\u0440\u0435\u0438\u043C\u0435\u043D\u043E\u0432\u0430\u0442\u044C \u043C\u0435\u0442\u0430\u0434\u0430\u043D\u043D\u044B\u0435 \u043D\u0430\u0441\u0442\u0440\u043E\u0435\u043D\u0438\u044F: {error}",
         moodNote: "\u0417\u0430\u043C\u0435\u0442\u043A\u0430 \u043E \u043D\u0430\u0441\u0442\u0440\u043E\u0435\u043D\u0438\u0438",
@@ -5063,6 +5652,7 @@ var init_i18n = __esm({
         moodRestoreConflict: "\u0412 \u0446\u0435\u043B\u0435\u0432\u043E\u043C \u0444\u0430\u0439\u043B\u0435 \u0443\u0436\u0435 \u0435\u0441\u0442\u044C \u0437\u0430\u043F\u0438\u0441\u044C \u043D\u0430\u0441\u0442\u0440\u043E\u0435\u043D\u0438\u044F. \u041F\u0435\u0440\u0435\u0437\u0430\u043F\u0438\u0441\u0430\u0442\u044C?",
         moodRestoreDestination: "\u0426\u0435\u043B\u0435\u0432\u043E\u0439 \u0444\u0430\u0439\u043B",
         moodSaveFailed: "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0441\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C \u043D\u0430\u0441\u0442\u0440\u043E\u0435\u043D\u0438\u0435: {error}",
+        moodSaveTimeout: "\u0421\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u0438\u0435 \u0437\u0430\u043D\u0438\u043C\u0430\u0435\u0442 \u0441\u043B\u0438\u0448\u043A\u043E\u043C \u043C\u043D\u043E\u0433\u043E \u0432\u0440\u0435\u043C\u0435\u043D\u0438. \u041F\u043E\u0432\u0442\u043E\u0440\u0438\u0442\u0435 \u043F\u043E\u043F\u044B\u0442\u043A\u0443 \u0438\u043B\u0438 \u0437\u0430\u043A\u0440\u043E\u0439\u0442\u0435 \u044D\u0442\u043E \u043E\u043A\u043D\u043E.",
         moodSaved: "\u041D\u0430\u0441\u0442\u0440\u043E\u0435\u043D\u0438\u0435 \u0441\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u043E",
         moodTitle: "\u0417\u0430\u043F\u0438\u0441\u0430\u0442\u044C \u043D\u0430\u0441\u0442\u0440\u043E\u0435\u043D\u0438\u0435",
         moodTrend: "\u041D\u0430\u0441\u0442\u0440\u043E\u0435\u043D\u0438\u0435 \u0437\u0430 7 \u0434\u043D\u0435\u0439",
@@ -5097,6 +5687,8 @@ var init_i18n = __esm({
         restoreMood: "\u0412\u043E\u0441\u0441\u0442\u0430\u043D\u043E\u0432\u0438\u0442\u044C",
         retry: "\u041F\u043E\u0432\u0442\u043E\u0440\u0438\u0442\u044C",
         russian: "\u0420\u0443\u0441\u0441\u043A\u0438\u0439",
+        s_exifPersist: "\u0421\u043E\u0445\u0440\u0430\u043D\u044F\u0442\u044C \u043C\u0435\u0441\u0442\u043E\u043F\u043E\u043B\u043E\u0436\u0435\u043D\u0438\u0435 \u0444\u043E\u0442\u043E \u0432 \u0437\u0430\u043C\u0435\u0442\u043A\u0435",
+        s_exifPersistDesc: "\u0421\u043E\u0445\u0440\u0430\u043D\u044F\u0442\u044C EXIF GPS \u043D\u043E\u0432\u044B\u0445 \u0438\u0437\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0439 \u0432 \u0441\u0432\u043E\u0439\u0441\u0442\u0432\u0430\u0445 \u0437\u0430\u043C\u0435\u0442\u043A\u0438 \u0434\u043D\u0435\u0432\u043D\u0438\u043A\u0430 \u0438 \u0437\u0430\u043F\u0438\u0441\u044B\u0432\u0430\u0442\u044C \u0448\u0438\u0440\u043E\u0442\u0443/\u0434\u043E\u043B\u0433\u043E\u0442\u0443",
         sad: "\u0413\u0440\u0443\u0441\u0442\u044C",
         save: "\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C",
         saving: "\u0421\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u0438\u0435\u2026",
@@ -5132,6 +5724,7 @@ var init_i18n = __esm({
         sourceBrowse: "\u0412\u044B\u0431\u0440\u0430\u0442\u044C \u043F\u0430\u043F\u043A\u0443",
         sourceDaily: "\u0415\u0436\u0435\u0434\u043D\u0435\u0432\u043D\u044B\u0435 \u0437\u0430\u043C\u0435\u0442\u043A\u0438",
         sourceDailyFolder: "\u041E\u0441\u043D\u043E\u0432\u043D\u0430\u044F \u043F\u0430\u043F\u043A\u0430 \u0435\u0436\u0435\u0434\u043D\u0435\u0432\u043D\u044B\u0445 \u0437\u0430\u043C\u0435\u0442\u043E\u043A",
+        sourceDailyMismatch: "\u041F\u0430\u043F\u043A\u0430 \u0438\u0441\u0442\u043E\u0447\u043D\u0438\u043A\u0430 \u0435\u0436\u0435\u0434\u043D\u0435\u0432\u043D\u044B\u0445 \u0437\u0430\u043C\u0435\u0442\u043E\u043A \u0434\u043E\u043B\u0436\u043D\u0430 \u0441\u043E\u0432\u043F\u0430\u0434\u0430\u0442\u044C \u0441 \u043E\u0441\u043D\u043E\u0432\u043D\u043E\u0439 \u043F\u0430\u043F\u043A\u043E\u0439 \u0435\u0436\u0435\u0434\u043D\u0435\u0432\u043D\u044B\u0445 \u0437\u0430\u043C\u0435\u0442\u043E\u043A.",
         sourceDailyRequired: "\u0423\u043A\u0430\u0436\u0438\u0442\u0435 \u043E\u0441\u043D\u043E\u0432\u043D\u0443\u044E \u043F\u0430\u043F\u043A\u0443 \u0435\u0436\u0435\u0434\u043D\u0435\u0432\u043D\u044B\u0445 \u0437\u0430\u043C\u0435\u0442\u043E\u043A \u0432 \u0445\u0440\u0430\u043D\u0438\u043B\u0438\u0449\u0435.",
         sourceDateField: "\u041F\u043E\u043B\u0435 \u0434\u0430\u0442\u044B (\u043D\u0435\u043E\u0431\u044F\u0437\u0430\u0442\u0435\u043B\u044C\u043D\u043E)",
         sourceDuplicateId: "\u0414\u0443\u0431\u043B\u0438\u0440\u0443\u044E\u0449\u0438\u0439\u0441\u044F ID \u0438\u0441\u0442\u043E\u0447\u043D\u0438\u043A\u0430. \u0418\u0441\u043F\u043E\u043B\u044C\u0437\u0443\u0439\u0442\u0435 \u0443\u043D\u0438\u043A\u0430\u043B\u044C\u043D\u044B\u0435 ID.",
@@ -5170,6 +5763,18 @@ var init_i18n = __esm({
         unsavedTitle: "\u041D\u0435\u0441\u043E\u0445\u0440\u0430\u043D\u0451\u043D\u043D\u044B\u0439 \u0437\u0430\u0433\u043E\u043B\u043E\u0432\u043E\u043A",
         untitledJournalTitle: "\u0417\u0430\u0433\u043E\u043B\u043E\u0432\u043E\u043A",
         updatedAt: "\u041E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u043E \u0432 {time}",
+        useCurrentLocation: "\u0418\u0441\u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u044C \u0442\u0435\u043A\u0443\u0449\u0435\u0435 \u043C\u0435\u0441\u0442\u043E\u043F\u043E\u043B\u043E\u0436\u0435\u043D\u0438\u0435",
+        useCurrentLocationDesc: "\u041E\u0434\u043D\u043E\u043A\u0440\u0430\u0442\u043D\u043E \u0441\u0447\u0438\u0442\u044B\u0432\u0430\u0435\u0442 \u0433\u0435\u043E\u043F\u043E\u0437\u0438\u0446\u0438\u044E \u0443\u0441\u0442\u0440\u043E\u0439\u0441\u0442\u0432\u0430 \u0438 \u043F\u043E\u0434\u0441\u0442\u0430\u0432\u043B\u044F\u0435\u0442 \u043A\u043E\u043E\u0440\u0434\u0438\u043D\u0430\u0442\u044B. \u0420\u0430\u0431\u043E\u0442\u0430\u0435\u0442 \u0442\u043E\u043B\u044C\u043A\u043E \u043F\u043E \u043D\u0430\u0436\u0430\u0442\u0438\u044E \u0438 \u043D\u0435 \u043E\u0442\u0441\u043B\u0435\u0436\u0438\u0432\u0430\u0435\u0442 \u0432\u0430\u0441",
+        locating: "\u041E\u043F\u0440\u0435\u0434\u0435\u043B\u0435\u043D\u0438\u0435 \u043C\u0435\u0441\u0442\u043E\u043F\u043E\u043B\u043E\u0436\u0435\u043D\u0438\u044F\u2026",
+        locationUpdated: "\u0422\u0435\u043A\u0443\u0449\u0435\u0435 \u043C\u0435\u0441\u0442\u043E\u043F\u043E\u043B\u043E\u0436\u0435\u043D\u0438\u0435 \u043F\u043E\u0434\u0441\u0442\u0430\u0432\u043B\u0435\u043D\u043E",
+        locationUpdatedNameCleared: "\u0422\u0435\u043A\u0443\u0449\u0435\u0435 \u043C\u0435\u0441\u0442\u043E\u043F\u043E\u043B\u043E\u0436\u0435\u043D\u0438\u0435 \u043F\u043E\u0434\u0441\u0442\u0430\u0432\u043B\u0435\u043D\u043E; \u043F\u0440\u0435\u0436\u043D\u0435\u0435 \u043D\u0430\u0437\u0432\u0430\u043D\u0438\u0435 \u043C\u0435\u0441\u0442\u0430 \u043E\u0447\u0438\u0449\u0435\u043D\u043E",
+        latitudeOutOfRange: "\u0428\u0438\u0440\u043E\u0442\u0430 \u0434\u043E\u043B\u0436\u043D\u0430 \u0431\u044B\u0442\u044C \u0432 \u0434\u0438\u0430\u043F\u0430\u0437\u043E\u043D\u0435 \u043E\u0442 -90 \u0434\u043E 90",
+        longitudeOutOfRange: "\u0414\u043E\u043B\u0433\u043E\u0442\u0430 \u0434\u043E\u043B\u0436\u043D\u0430 \u0431\u044B\u0442\u044C \u0432 \u0434\u0438\u0430\u043F\u0430\u0437\u043E\u043D\u0435 \u043E\u0442 -180 \u0434\u043E 180",
+        locateButton: "\u041E\u043F\u0440\u0435\u0434\u0435\u043B\u0438\u0442\u044C",
+        locateError: "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043E\u043F\u0440\u0435\u0434\u0435\u043B\u0438\u0442\u044C \u043C\u0435\u0441\u0442\u043E\u043F\u043E\u043B\u043E\u0436\u0435\u043D\u0438\u0435; \u0432\u0432\u0435\u0434\u0438\u0442\u0435 \u043A\u043E\u043E\u0440\u0434\u0438\u043D\u0430\u0442\u044B \u0432\u0440\u0443\u0447\u043D\u0443\u044E",
+        locateUnavailable: "\u0413\u0435\u043E\u043F\u043E\u0437\u0438\u0446\u0438\u044F \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u043D\u0430 \u043D\u0430 \u044D\u0442\u043E\u043C \u0443\u0441\u0442\u0440\u043E\u0439\u0441\u0442\u0432\u0435; \u0432\u0432\u0435\u0434\u0438\u0442\u0435 \u043A\u043E\u043E\u0440\u0434\u0438\u043D\u0430\u0442\u044B \u0432\u0440\u0443\u0447\u043D\u0443\u044E",
+        locateTimedOut: "\u0412\u0440\u0435\u043C\u044F \u043E\u043F\u0440\u0435\u0434\u0435\u043B\u0435\u043D\u0438\u044F \u043C\u0435\u0441\u0442\u043E\u043F\u043E\u043B\u043E\u0436\u0435\u043D\u0438\u044F \u0438\u0441\u0442\u0435\u043A\u043B\u043E; \u043F\u043E\u0432\u0442\u043E\u0440\u0438\u0442\u0435 \u043F\u043E\u043F\u044B\u0442\u043A\u0443 \u0438\u043B\u0438 \u0432\u0432\u0435\u0434\u0438\u0442\u0435 \u043A\u043E\u043E\u0440\u0434\u0438\u043D\u0430\u0442\u044B \u0432\u0440\u0443\u0447\u043D\u0443\u044E",
+        locateDenied: "\u0412 \u0433\u0435\u043E\u043F\u043E\u0437\u0438\u0446\u0438\u0438 \u043E\u0442\u043A\u0430\u0437\u0430\u043D\u043E; \u0440\u0430\u0437\u0440\u0435\u0448\u0438\u0442\u0435 \u0435\u0451 \u0432 \u0441\u0438\u0441\u0442\u0435\u043C\u043D\u044B\u0445 \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0430\u0445 \u0438 \u043F\u043E\u0432\u0442\u043E\u0440\u0438\u0442\u0435 \u043F\u043E\u043F\u044B\u0442\u043A\u0443 \u0438\u043B\u0438 \u0432\u0432\u0435\u0434\u0438\u0442\u0435 \u043A\u043E\u043E\u0440\u0434\u0438\u043D\u0430\u0442\u044B \u0432\u0440\u0443\u0447\u043D\u0443\u044E",
         veryGood: "\u041E\u0442\u043B\u0438\u0447\u043D\u043E",
         veryLow: "\u041E\u0447\u0435\u043D\u044C \u043F\u043B\u043E\u0445\u043E",
         viewRefreshFailed: "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043E\u0431\u043D\u043E\u0432\u0438\u0442\u044C \u043F\u0440\u0435\u0434\u0441\u0442\u0430\u0432\u043B\u0435\u043D\u0438\u0435: {error}",
@@ -5219,6 +5824,14 @@ var init_i18n = __esm({
       de: "de-DE",
       es: "es-ES",
       ru: "ru-RU"
+    };
+    PLURAL_KEY_SUFFIX = {
+      zero: "Zero",
+      one: "One",
+      two: "Two",
+      few: "Few",
+      many: "Many",
+      other: ""
     };
   }
 });
@@ -5382,9 +5995,22 @@ var init_mood_modal_viewport = __esm({
 // src/mood-picker-modal.ts
 var mood_picker_modal_exports = {};
 __export(mood_picker_modal_exports, {
+  MOOD_DATE_CHANGE_DEBOUNCE_MS: () => MOOD_DATE_CHANGE_DEBOUNCE_MS,
+  MOOD_SAVE_TIMEOUT_MS: () => MOOD_SAVE_TIMEOUT_MS,
   MoodPickerModal: () => MoodPickerModal,
-  MoodRecoveryModal: () => MoodRecoveryModal
+  MoodRecoveryModal: () => MoodRecoveryModal,
+  isValidMoodDateValue: () => isValidMoodDateValue
 });
+function isValidMoodDateValue(value) {
+  const match = MOOD_DATE_VALUE.exec(String(value ?? "").trim());
+  if (!match) return false;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (year < 1900) return false;
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  return parsed.getUTCFullYear() === year && parsed.getUTCMonth() === month - 1 && parsed.getUTCDate() === day;
+}
 function normalizeCustomLabels2(value) {
   return Array.from(new Set(
     (Array.isArray(value) ? value : []).map(String).map((label) => label.trim()).filter((label) => label && !BUILT_IN_LABEL_IDS2.has(label))
@@ -5400,20 +6026,13 @@ function createMoodDraft(initial, customLabels) {
     customText: ""
   };
 }
-function draftFingerprint(draft) {
-  return JSON.stringify({
-    ...draft,
-    labels: [...draft.labels].sort(),
-    customLabels: [...draft.customLabels].sort()
-  });
-}
 function extractDate(filePath) {
   const match = String(filePath || "").match(/(\d{4}-\d{2}-\d{2})(?:\.md)?$/);
   if (match) return match[1];
   const now = /* @__PURE__ */ new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 }
-var import_obsidian, BUILT_IN_LABEL_IDS2, MoodPickerModal, MoodRecoveryModal;
+var import_obsidian, BUILT_IN_LABEL_IDS2, MOOD_SAVE_TIMEOUT_MS, MOOD_DATE_CHANGE_DEBOUNCE_MS, MOOD_DATE_VALUE, MoodPickerModal, MoodRecoveryModal;
 var init_mood_picker_modal = __esm({
   "src/mood-picker-modal.ts"() {
     "use strict";
@@ -5423,6 +6042,9 @@ var init_mood_picker_modal = __esm({
     init_i18n();
     init_mood_modal_viewport();
     BUILT_IN_LABEL_IDS2 = new Set(moodLabelsForScore(null).map((item) => item.id));
+    MOOD_SAVE_TIMEOUT_MS = 15e3;
+    MOOD_DATE_CHANGE_DEBOUNCE_MS = 200;
+    MOOD_DATE_VALUE = /^(\d{4})-(\d{2})-(\d{2})$/u;
     MoodPickerModal = class extends import_obsidian.Modal {
       constructor(app, options = {}) {
         super(app);
@@ -5433,11 +6055,14 @@ var init_mood_picker_modal = __esm({
         this.onDateChange = options.onDateChange;
         this.allowDateSelection = options.allowDateSelection === true;
         this.date = options.date || extractDate(options.filePath);
-        this.restoreDraft(createMoodDraft(this.initial, options.customLabels));
-        const draft = this.snapshotDraft();
-        this.drafts = /* @__PURE__ */ new Map([[this.filePath, { draft, baseline: draftFingerprint(draft) }]]);
+        this.restoreState(createMoodDraft(this.initial, options.customLabels));
         this.pendingOperation = null;
         this.closed = false;
+        this.dateInput = null;
+        this.dateChangeTimer = null;
+        this.saveTimer = null;
+        this.saveToken = null;
+        this.saveTimeoutMs = Number.isFinite(options.saveTimeoutMs) && options.saveTimeoutMs > 0 ? Number(options.saveTimeoutMs) : MOOD_SAVE_TIMEOUT_MS;
       }
       onOpen() {
         this.ownerWindow = this.contentEl.ownerDocument.defaultView;
@@ -5461,6 +6086,11 @@ var init_mood_picker_modal = __esm({
       onClose() {
         this.closed = true;
         this.ownerWindow.clearTimeout(this.focusTimer);
+        this.ownerWindow.clearTimeout(this.dateChangeTimer);
+        this.dateChangeTimer = null;
+        this.ownerWindow.clearTimeout(this.saveTimer);
+        this.saveTimer = null;
+        this.saveToken = null;
         this.disposeViewport?.();
         this.disposeViewport = null;
         this.fluidControl?.destroy();
@@ -5469,34 +6099,23 @@ var init_mood_picker_modal = __esm({
         this.contentEl.removeEventListener("keydown", this.keyHandler);
         for (const type of this.lockedEvents || []) this.contentEl.removeEventListener(type, this.blockLockedInteraction, true);
         this.contentEl.empty();
-        this.drafts.clear();
       }
-      snapshotDraft() {
-        return {
-          score: this.score,
-          labels: Array.from(this.labels),
-          customLabels: [...this.customLabels],
-          note: this.note,
-          customText: this.customText
-        };
-      }
-      restoreDraft(draft) {
-        this.score = draft.score;
-        this.labels = new Set(draft.labels);
-        this.customLabels = [...draft.customLabels];
-        this.note = draft.note;
-        this.customText = draft.customText;
-      }
-      cacheDraft() {
-        this.drafts.get(this.filePath).draft = this.snapshotDraft();
+      /** Load one date's stored mood into the editor state. */
+      restoreState(state) {
+        this.score = state.score;
+        this.labels = new Set(state.labels);
+        this.customLabels = [...state.customLabels];
+        this.note = state.note;
+        this.customText = state.customText;
       }
       isLocked() {
         return this.closed || Boolean(this.pendingOperation);
       }
       updateControls() {
         const locked = this.isLocked();
+        const switchingDate = this.pendingOperation === "changing-date";
         for (const control of this.contentEl.querySelectorAll("button, input, textarea, select")) {
-          control.disabled = locked;
+          control.disabled = locked && !(switchingDate && control === this.dateInput);
         }
         const slider = this.contentEl.querySelector('[role="slider"]');
         if (slider) {
@@ -5532,6 +6151,7 @@ var init_mood_picker_modal = __esm({
         this.ownerWindow.clearTimeout(this.focusTimer);
         this.fluidControl?.destroy();
         this.fluidControl = null;
+        this.dateInput = null;
         this.step = step;
         this.contentEl.empty();
         this.contentEl.scrollTop = 0;
@@ -5602,9 +6222,27 @@ var init_mood_picker_modal = __esm({
           }
         });
         label.htmlFor = input.id = `dayline-mood-date-${Date.now()}`;
-        input.addEventListener("change", () => {
-          void this.changeDate(input.value, input);
-        });
+        this.dateInput = input;
+        const schedule = () => this.scheduleDateChange(input);
+        input.addEventListener("change", schedule);
+        input.addEventListener("input", schedule);
+      }
+      /**
+       * Native date inputs fire an event for every edited segment. Switching on an
+       * incomplete or implausible value would rebuild the form mid-typing and can
+       * create a draft for the wrong date, so wait for a settled valid value.
+       */
+      scheduleDateChange(input) {
+        if (this.isLocked()) return;
+        this.ownerWindow.clearTimeout(this.dateChangeTimer);
+        this.dateChangeTimer = null;
+        const value = String(input?.value ?? "");
+        if (!isValidMoodDateValue(value) || value === this.date) return;
+        this.dateChangeTimer = this.ownerWindow.setTimeout(() => {
+          this.dateChangeTimer = null;
+          const target = input?.isConnected ? input : this.contentEl.querySelector('input[type="date"]');
+          void this.changeDate(value, target);
+        }, MOOD_DATE_CHANGE_DEBOUNCE_MS);
       }
       selectScore(score) {
         if (this.isLocked()) return;
@@ -5615,11 +6253,12 @@ var init_mood_picker_modal = __esm({
       }
       async changeDate(date, input) {
         if (this.isLocked()) return;
+        this.ownerWindow.clearTimeout(this.dateChangeTimer);
+        this.dateChangeTimer = null;
         if (!date || date === this.date) {
           if (input) input.value = this.date || "";
           return;
         }
-        this.cacheDraft();
         const previousDate = this.date;
         this.pendingOperation = "changing-date";
         this.ownerWindow.clearTimeout(this.focusTimer);
@@ -5627,15 +6266,10 @@ var init_mood_picker_modal = __esm({
         this.updateControls();
         try {
           const result = await this.onDateChange?.(date);
-          const filePath = result?.filePath || this.filePath;
-          if (!this.drafts.has(filePath)) {
-            const draft = createMoodDraft(result?.initial, result?.customLabels || this.customLabels);
-            this.drafts.set(filePath, { draft, baseline: draftFingerprint(draft) });
-          }
-          this.filePath = filePath;
+          this.filePath = result?.filePath || this.filePath;
           this.date = date;
           this.initial = result?.initial;
-          this.restoreDraft(this.drafts.get(filePath).draft);
+          this.restoreState(createMoodDraft(result?.initial, result?.customLabels || this.customLabels));
           this.saveFailed = false;
           this.pendingOperation = null;
           this.renderScale();
@@ -5754,27 +6388,46 @@ var init_mood_picker_modal = __esm({
           note: this.note.trim() || null,
           customLabels: [...this.customLabels]
         };
+        const token = {};
+        this.saveToken = token;
         this.pendingOperation = "saving";
         this.saveFailed = false;
         this.ownerWindow.clearTimeout(this.focusTimer);
         this.clearError();
         this.updateControls();
+        const timer = this.ownerWindow.setTimeout(() => {
+          if (this.saveToken !== token) return;
+          this.saveToken = null;
+          this.saveTimer = null;
+          this.pendingOperation = null;
+          this.saveFailed = true;
+          this.showError("moodSaveTimeout");
+          this.updateControls();
+          saveButton?.focus();
+        }, this.saveTimeoutMs);
+        this.saveTimer = timer;
         try {
           await this.onSave?.(snapshot);
+          if (this.saveToken !== token) return;
           this.pendingOperation = null;
           this.note = snapshot.note ?? "";
           const noteInput = this.contentEl.querySelector("textarea");
           if (noteInput) noteInput.value = this.note;
-          const draft = this.snapshotDraft();
-          this.drafts.set(snapshot.filePath, { draft, baseline: draftFingerprint(draft) });
           this.updateControls();
           this.close();
         } catch (error) {
+          if (this.saveToken !== token) return;
           this.pendingOperation = null;
           this.saveFailed = true;
           this.showError("moodSaveFailed", error);
           this.updateControls();
           saveButton?.focus();
+        } finally {
+          if (this.saveToken === token) this.saveToken = null;
+          if (this.saveTimer === timer) {
+            this.ownerWindow.clearTimeout(timer);
+            this.saveTimer = null;
+          }
         }
       }
       handleKeydown(event) {
@@ -5890,6 +6543,28 @@ function periodInfo(date, period, weekStartsOn = 1) {
 function emptyScoreCounts() {
   return { "-2": 0, "-1": 0, "0": 0, "1": 0, "2": 0 };
 }
+function dateFromNotePath(path) {
+  if (typeof path !== "string") return void 0;
+  for (const part of path.split(/[\\/]/u)) {
+    const candidate = part.slice(0, 10);
+    if (DATE_PATTERN.test(candidate)) return candidate;
+  }
+  const match = /(\d{4}-\d{2}-\d{2})/u.exec(path);
+  return match?.[1];
+}
+function localDateFromTimestamp(value) {
+  if (typeof value !== "string" || !value.trim()) return void 0;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return void 0;
+  return `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, "0")}-${String(parsed.getDate()).padStart(2, "0")}`;
+}
+function entryDate(record, path) {
+  const explicit = record.date;
+  if (typeof explicit === "string" && DATE_PATTERN.test(explicit.slice(0, 10))) return explicit.slice(0, 10);
+  const fromPath = dateFromNotePath(path);
+  if (fromPath) return fromPath;
+  return localDateFromTimestamp(record.recordedAt) ?? "";
+}
 function normalizeEntries(input) {
   if (Array.isArray(input)) {
     return input.map((value, index) => {
@@ -5898,36 +6573,37 @@ function normalizeEntries(input) {
         return { ...item, mood: item.mood || item.record };
       }
       const record = value;
-      const date = String(record.date || record.recordedAt || "").slice(0, 10);
-      return { date, path: String(index), mood: record };
-    }).filter((item) => /^\d{4}-\d{2}-\d{2}$/u.test(item.date) && Boolean(item.mood));
+      const path = typeof record.path === "string" ? record.path : String(index);
+      return { date: entryDate(record, path), path, mood: record };
+    }).filter((item) => DATE_PATTERN.test(item.date) && Boolean(item.mood));
   }
   return Object.entries(input || {}).map(([path, mood]) => ({
     path,
-    date: String(mood.date || mood.recordedAt || "").slice(0, 10),
+    date: entryDate(mood, path),
     mood
-  })).filter((item) => /^\d{4}-\d{2}-\d{2}$/u.test(item.date));
+  })).filter((item) => DATE_PATTERN.test(item.date));
 }
 function makeReport(info, entries) {
   const scoreCounts = emptyScoreCounts();
   const labelCounts = /* @__PURE__ */ new Map();
   let total = 0;
+  let validCount = 0;
   let minScore = null;
   let maxScore = null;
   for (const entry of entries) {
-    const score = entry.mood?.score;
-    if (score === void 0 || score === null) continue;
+    const score = parseMoodScore(entry.mood?.score);
+    if (score === void 0) continue;
+    validCount++;
     scoreCounts[String(score)]++;
     total += score;
     minScore = minScore === null ? score : Math.min(minScore, score);
     maxScore = maxScore === null ? score : Math.max(maxScore, score);
     for (const label of entry.mood?.labels || []) labelCounts.set(label, (labelCounts.get(label) ?? 0) + 1);
   }
-  const recordCount = entries.filter((entry) => entry.mood).length;
   return {
     ...info,
-    recordCount,
-    averageScore: recordCount ? Math.round(total / recordCount * 100) / 100 : null,
+    recordCount: validCount,
+    averageScore: validCount ? Math.round(total / validCount * 100) / 100 : null,
     minScore,
     maxScore,
     scoreCounts,
@@ -5967,14 +6643,16 @@ function summarizeMoodLabelTrends(input, period = "month", options = {}) {
     if (options.to && entry.date > options.to) continue;
     const mood = entry.mood;
     if (!mood) continue;
+    const score = parseMoodScore(mood.score);
+    if (score === void 0) continue;
     const key = periodInfo(entry.date, period, options.weekStartsOn ?? 1).key;
     for (const label of mood.labels) {
       const current = totals.get(label) || { count: 0, score: 0, trend: /* @__PURE__ */ new Map() };
       current.count++;
-      current.score += mood.score;
+      current.score += score;
       const point = current.trend.get(key) || { count: 0, score: 0 };
       point.count++;
-      point.score += mood.score;
+      point.score += score;
       current.trend.set(key, point);
       totals.set(label, current);
     }
@@ -5997,9 +6675,12 @@ function buildMoodReports(input, options = {}) {
     labelTrends: summarizeMoodLabelTrends(input, "month", options)
   };
 }
+var DATE_PATTERN;
 var init_mood_reports = __esm({
   "src/mood-reports.ts"() {
     "use strict";
+    init_mood();
+    DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/u;
   }
 });
 
@@ -6012,9 +6693,6 @@ function shiftDate(date, days) {
   value.setDate(value.getDate() + days);
   return dateOnly(value);
 }
-function daysInMonth(date) {
-  return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
-}
 function uniqueDates(entries) {
   return Array.from(new Set(entries.map((entry) => entry.date))).sort();
 }
@@ -6025,12 +6703,12 @@ function periodKey(date, period) {
   if (period === "month") return `${year}-${String(month).padStart(2, "0")}`;
   return `${year}-Q${Math.floor((month - 1) / 3) + 1}`;
 }
-function buildRecentMoodTrend(entries, today = /* @__PURE__ */ new Date(), days = 7) {
+function buildRecentMoodTrend(entries, today = /* @__PURE__ */ new Date(), days = 7, timezone = "auto") {
   const count = Math.max(0, Math.floor(days));
   const moodByDate = /* @__PURE__ */ new Map();
   const moodEntries = entries.filter((entry) => Boolean(entry.mood)).slice().sort((a, b) => a.date.localeCompare(b.date) || String(a.mood?.updatedAt || "").localeCompare(String(b.mood?.updatedAt || "")) || a.path.localeCompare(b.path));
   for (const entry of moodEntries) moodByDate.set(entry.date, entry.mood.score);
-  const start = shiftDate(dateOnly(today), -(count - 1));
+  const start = shiftDate(getTodayDate(timezone, today), -(count - 1));
   return Array.from({ length: count }, (_, index) => {
     const date = shiftDate(start, index);
     return { date, score: moodByDate.get(date) };
@@ -6062,10 +6740,11 @@ function aggregateJournalPeriods(entries, period) {
   }));
 }
 function calculateJournalStats(entries, today = /* @__PURE__ */ new Date(), settings = {}) {
+  const todayString = getTodayDate(settings.weatherTimezone || "auto", today);
   const dates = uniqueDates(entries);
   const dateSet = new Set(dates);
   let currentStreak = 0;
-  let cursor = dateOnly(today);
+  let cursor = todayString;
   if (!dateSet.has(cursor)) cursor = shiftDate(cursor, -1);
   while (dateSet.has(cursor)) {
     currentStreak++;
@@ -6079,10 +6758,10 @@ function calculateJournalStats(entries, today = /* @__PURE__ */ new Date(), sett
     longestStreak = Math.max(longestStreak, run);
     previous = date;
   }
-  const monthPrefix = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
-  const todayString = dateOnly(today);
+  const monthPrefix = todayString.slice(0, 7);
   const recordedThisMonth = dates.filter((date) => date.startsWith(monthPrefix) && date <= todayString).length;
-  const monthCompletionRate = Math.round(recordedThisMonth / daysInMonth(today) * 100);
+  const elapsedDaysThisMonth = Number(todayString.slice(8, 10)) || 1;
+  const monthCompletionRate = Math.round(recordedThisMonth / elapsedDaysThisMonth * 100);
   const moodDistribution = {};
   const labelCounts = {};
   for (const entry of entries) {
@@ -6115,6 +6794,7 @@ var init_journal_stats = __esm({
     "use strict";
     init_mood_reports();
     init_i18n();
+    init_date_utils();
   }
 });
 
@@ -6153,14 +6833,24 @@ var init_journal_timeline_interaction = __esm({
 // src/dayline-mobile.ts
 var dayline_mobile_exports = {};
 __export(dayline_mobile_exports, {
+  DAYLINE_VIEW_TYPES: () => DAYLINE_VIEW_TYPES,
   MOBILE_DAYLINE_VIEW: () => MOBILE_DAYLINE_VIEW,
   createSerialMobileDaylineModeController: () => createSerialMobileDaylineModeController,
+  getDaylineLeaves: () => getDaylineLeaves,
   getJournalOpenLeaf: () => getJournalOpenLeaf,
   getMobileDaylineLeaf: () => getMobileDaylineLeaf,
   getMobileDaylineViewType: () => getMobileDaylineViewType,
   getMobileMarkdownLeaf: () => getMobileMarkdownLeaf,
+  getPreferredDaylineLeaf: () => getPreferredDaylineLeaf,
+  isAttachedWorkspaceLeaf: () => isAttachedWorkspaceLeaf,
+  isDaylineLeaf: () => isDaylineLeaf,
+  isDaylineViewType: () => isDaylineViewType,
+  isJournalHostLeaf: () => isJournalHostLeaf,
+  isMainAreaLeaf: () => isMainAreaLeaf,
   normalizeDaylineMobileMode: () => normalizeDaylineMobileMode,
   renderMobileDaylineModeControls: () => renderMobileDaylineModeControls,
+  resolveMobileJournalLeaf: () => resolveMobileJournalLeaf,
+  resolveMobileReturnLeaf: () => resolveMobileReturnLeaf,
   setMobileDaylineLeafView: () => setMobileDaylineLeafView
 });
 function normalizeDaylineMobileMode(value) {
@@ -6176,6 +6866,74 @@ function normalizedViewTypes(viewTypes) {
 function leafViewType(leaf) {
   const value = leaf?.view?.getViewType?.();
   return typeof value === "string" ? value : null;
+}
+function leafRoot(leaf) {
+  if (!leaf || typeof leaf.getRoot !== "function") return null;
+  try {
+    return leaf.getRoot();
+  } catch {
+    return null;
+  }
+}
+function isDaylineViewType(viewType) {
+  return typeof viewType === "string" && DAYLINE_VIEW_TYPES.includes(viewType);
+}
+function isDaylineLeaf(leaf) {
+  return isDaylineViewType(leafViewType(leaf));
+}
+function isJournalHostLeaf(leaf) {
+  const viewType = leafViewType(leaf);
+  return viewType === "markdown" || viewType === "empty";
+}
+function isMainAreaLeaf(workspace, leaf) {
+  if (!leaf) return false;
+  const mainRoot = workspace?.rootSplit;
+  if (!mainRoot || typeof leaf.getRoot !== "function") return true;
+  const root = leafRoot(leaf);
+  return !root || root === mainRoot;
+}
+function isAttachedWorkspaceLeaf(workspace, leaf) {
+  if (!leaf) return false;
+  if (leaf.parent) return true;
+  for (const viewType of ["markdown", "empty"]) {
+    let found = [];
+    try {
+      found = workspace?.getLeavesOfType?.(viewType) || [];
+    } catch {
+      found = [];
+    }
+    if (found.includes(leaf)) return true;
+  }
+  return false;
+}
+function getDaylineLeaves(workspace) {
+  const leaves = [];
+  if (!workspace || typeof workspace.getLeavesOfType !== "function") return leaves;
+  for (const viewType of DAYLINE_VIEW_TYPES) {
+    let found = [];
+    try {
+      found = workspace.getLeavesOfType(viewType) || [];
+    } catch {
+      found = [];
+    }
+    for (const leaf of found) {
+      if (leaf && !leaves.includes(leaf)) leaves.push(leaf);
+    }
+  }
+  return leaves;
+}
+function getPreferredDaylineLeaf(workspace, lastViewType) {
+  const leaves = getDaylineLeaves(workspace);
+  if (leaves.length === 0) return null;
+  if (typeof lastViewType === "string" && lastViewType.length > 0) {
+    const match = leaves.find((leaf) => leafViewType(leaf) === lastViewType);
+    if (match) return match;
+  }
+  for (const viewType of DAYLINE_VIEW_TYPES) {
+    const match = leaves.find((leaf) => leafViewType(leaf) === viewType);
+    if (match) return match;
+  }
+  return leaves[0];
 }
 function getMobileDaylineLeaf(workspace, viewTypes = [MOBILE_DAYLINE_VIEW]) {
   const types = normalizedViewTypes(viewTypes);
@@ -6218,13 +6976,28 @@ function createSerialMobileDaylineModeController(options) {
     }
   };
 }
-function getJournalOpenLeaf(workspace, isMobile = false) {
+function getJournalOpenLeaf(workspace, isMobile = false, journalLeaf = null) {
   const activeLeaf = workspace?.activeLeaf;
   if (activeLeaf?.view?.getViewType?.() === "markdown") return activeLeaf;
   const existing = workspace?.getLeavesOfType?.("markdown")?.[0];
   if (existing) return existing;
-  if (isMobile) return workspace?.getLeaf?.("tab") || workspace?.getLeaf?.(true) || null;
-  return workspace?.getLeaf?.(true) || null;
+  if (!isMobile) return workspace?.getLeaf?.(true) || null;
+  if (journalLeaf && !isDaylineLeaf(journalLeaf) && isMainAreaLeaf(workspace, journalLeaf)) return journalLeaf;
+  const empty = (workspace?.getLeavesOfType?.("empty") || []).find((candidate) => !isDaylineLeaf(candidate) && isMainAreaLeaf(workspace, candidate));
+  if (empty) return empty;
+  return workspace?.getLeaf?.("tab") || workspace?.getLeaf?.(true) || null;
+}
+function resolveMobileJournalLeaf(workspace, recorded) {
+  const reusable = recorded && isJournalHostLeaf(recorded) && isAttachedWorkspaceLeaf(workspace, recorded) && isMainAreaLeaf(workspace, recorded) ? recorded : null;
+  return getJournalOpenLeaf(workspace, true, reusable);
+}
+function resolveMobileReturnLeaf(workspace, candidate) {
+  if (candidate && isDaylineLeaf(candidate)) return null;
+  if (candidate && isJournalHostLeaf(candidate) && isAttachedWorkspaceLeaf(workspace, candidate) && isMainAreaLeaf(workspace, candidate)) {
+    return candidate;
+  }
+  const existing = (workspace?.getLeavesOfType?.("markdown") || []).find((leaf) => !isDaylineLeaf(leaf) && isMainAreaLeaf(workspace, leaf));
+  return existing || null;
 }
 function getMobileMarkdownLeaf(workspace) {
   return getJournalOpenLeaf(workspace, true);
@@ -6265,17 +7038,36 @@ function renderMobileDaylineModeControls(parent, options) {
   }
   if (options?.onReturn) {
     const returnLabel = options?.returnLabel || "Back to note";
-    const button = controls.createEl("button", { cls: "dayline-mobile-mode-button dayline-mobile-return-button", attr: { type: "button", "aria-label": returnLabel, title: returnLabel } });
+    const returnHint = typeof options?.returnHint === "string" && options.returnHint.length > 0 ? options.returnHint : returnLabel;
+    const hintId = `dayline-mobile-return-hint-${mobileReturnHintSequence++}`;
+    const button = controls.createEl("button", {
+      cls: "dayline-mobile-mode-button dayline-mobile-return-button",
+      attr: { type: "button", "aria-label": returnLabel, title: returnLabel, "aria-describedby": hintId }
+    });
     options?.setIcon?.(button, "arrow-left");
-    button.addEventListener("click", () => Promise.resolve(options.onReturn?.()).catch((error) => console.warn("[Dayline] Mobile note return failed:", error)));
+    const hint = controls.createEl("span", {
+      cls: "dayline-mobile-return-hint",
+      text: returnHint,
+      attr: { id: hintId }
+    });
+    button.addEventListener("click", () => {
+      hint?.remove?.();
+      Promise.resolve(options.onReturn?.()).catch((error) => console.warn("[Dayline] Mobile note return failed:", error));
+    });
   }
   return controls;
 }
-var MOBILE_DAYLINE_VIEW;
+var MOBILE_DAYLINE_VIEW, DAYLINE_VIEW_TYPES, mobileReturnHintSequence;
 var init_dayline_mobile = __esm({
   "src/dayline-mobile.ts"() {
     "use strict";
     MOBILE_DAYLINE_VIEW = "dayline-mobile-view";
+    DAYLINE_VIEW_TYPES = [
+      "calendar-sidebar-view",
+      "journal-timeline-view",
+      MOBILE_DAYLINE_VIEW
+    ];
+    mobileReturnHintSequence = 0;
   }
 });
 
@@ -6299,6 +7091,15 @@ function hasTouchTargetSize(width, height, coarsePointer) {
 function bindOpenOnPointer(element, options) {
   const shouldOpen = options.shouldOpen ?? (() => true);
   const { onOpen } = options;
+  if (options.keyboard) {
+    element.addEventListener("keydown", (event) => {
+      if (!KEYBOARD_ACTIVATION_KEYS.includes(event.key)) return;
+      if (!shouldOpen(event.target)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      onOpen(event);
+    });
+  }
   if (options.coarsePointer) {
     let gesture = null;
     const eventTarget = typeof window !== "undefined" ? window : element;
@@ -6387,12 +7188,13 @@ function calendarCellTouchRouting(coarsePointer, phoneLayout = coarsePointer) {
     focusMediaBackground: true
   };
 }
-var COARSE_POINTER_MIN, CALENDAR_POINTER_MOVE_THRESHOLD;
+var COARSE_POINTER_MIN, CALENDAR_POINTER_MOVE_THRESHOLD, KEYBOARD_ACTIVATION_KEYS;
 var init_touch_targets = __esm({
   "src/touch-targets.ts"() {
     "use strict";
     COARSE_POINTER_MIN = 44;
     CALENDAR_POINTER_MOVE_THRESHOLD = 10;
+    KEYBOARD_ACTIVATION_KEYS = ["Enter", " ", "Spacebar"];
   }
 });
 
@@ -6529,7 +7331,7 @@ function timelineEntryTime(entry, settings) {
     hour12: false
   }).format(value);
 }
-var import_obsidian2, JOURNAL_TIMELINE_VIEW, TIMELINE_PAGE_SIZE, JournalTimelineView;
+var import_obsidian2, JOURNAL_TIMELINE_VIEW, TIMELINE_PAGE_SIZE, SEARCH_DEBOUNCE_MS, JournalTimelineView;
 var init_journal_timeline_view = __esm({
   "src/journal-timeline-view.ts"() {
     "use strict";
@@ -6548,6 +7350,7 @@ var init_journal_timeline_view = __esm({
     init_platform_capabilities();
     JOURNAL_TIMELINE_VIEW = "journal-timeline-view";
     TIMELINE_PAGE_SIZE = 50;
+    SEARCH_DEBOUNCE_MS = 150;
     JournalTimelineView = class extends import_obsidian2.ItemView {
       constructor(leaf, plugin) {
         super(leaf);
@@ -6564,6 +7367,7 @@ var init_journal_timeline_view = __esm({
         this.thumbnailLoaders = /* @__PURE__ */ new Map();
         this.thumbnailScrollTimer = null;
         this.mediaRefreshTimer = null;
+        this.searchDebounceTimer = null;
         this.visibleEntryLimit = TIMELINE_PAGE_SIZE;
         this.renderScheduled = false;
         this.renderScheduleTimer = null;
@@ -6594,6 +7398,7 @@ var init_journal_timeline_view = __esm({
           },
           groupLabel: t(this.plugin.settings, "daylineViewGroupLabel"),
           returnLabel: t(this.plugin.settings, "backToNote"),
+          returnHint: t(this.plugin.settings, "backToNoteHint"),
           onSelect: (mode) => mode === "calendar" ? this.plugin.activateView() : this.plugin.activateTimeline(),
           setIcon: import_obsidian2.setIcon,
           onReturn: () => this.plugin._returnToMobileMarkdown()
@@ -6656,6 +7461,7 @@ var init_journal_timeline_view = __esm({
         this.thumbnailScrollTimer = null;
         if (this.mediaRefreshTimer) window.clearTimeout(this.mediaRefreshTimer);
         this.mediaRefreshTimer = null;
+        this.cancelSearchUpdate();
         if (this.renderScheduleTimer) window.clearTimeout(this.renderScheduleTimer);
         this.renderScheduleTimer = null;
         this.renderScheduled = false;
@@ -6733,7 +7539,8 @@ var init_journal_timeline_view = __esm({
         this.renderList(root.createDiv({ cls: "journal-timeline-list" }), entries);
       }
       renderStats(root, before = null) {
-        const stats = calculateJournalStats(this.index.getEntries());
+        const entries = this.index.getEntries();
+        const stats = calculateJournalStats(entries, /* @__PURE__ */ new Date(), this.plugin.settings);
         const details = root.createEl("details", { cls: "journal-timeline-stats-details" });
         if (before) root.insertBefore(details, before);
         const summary = details.createEl("summary");
@@ -6754,7 +7561,7 @@ var init_journal_timeline_view = __esm({
         const trend = section.createDiv({ cls: "journal-stat-trend" });
         trend.createDiv({ cls: "journal-stat-label", text: t(this.plugin.settings, "moodTrend") });
         const grid = trend.createDiv({ cls: "journal-stat-trend-grid" });
-        for (const item of buildRecentMoodTrend(this.index.getEntries())) {
+        for (const item of buildRecentMoodTrend(entries, /* @__PURE__ */ new Date(), 7, this.plugin.settings?.weatherTimezone)) {
           const cell = grid.createDiv({ cls: "journal-stat-trend-cell" });
           cell.style.backgroundColor = getMoodColor(item.score);
           cell.setAttribute("aria-label", `${item.date}: ${item.score === void 0 ? t(this.plugin.settings, "noMood") : moodLabel(this.plugin.settings, item.score)}`);
@@ -6769,6 +7576,20 @@ var init_journal_timeline_view = __esm({
           this.render();
         }, 100);
       }
+      /** Run the search once typing pauses instead of re-filtering on every keystroke. */
+      scheduleSearchUpdate() {
+        this.cancelSearchUpdate();
+        this.searchDebounceTimer = window.setTimeout(() => {
+          this.searchDebounceTimer = null;
+          if (this.closed) return;
+          this.filter.query = this.filterControls?.query?.value || void 0;
+          this.updateResults();
+        }, SEARCH_DEBOUNCE_MS);
+      }
+      cancelSearchUpdate() {
+        if (this.searchDebounceTimer) window.clearTimeout(this.searchDebounceTimer);
+        this.searchDebounceTimer = null;
+      }
       renderFilters(root) {
         const filters = root.createDiv({ cls: "journal-timeline-filter-area" });
         const row = filters.createDiv({ cls: "journal-timeline-filter-row" });
@@ -6777,8 +7598,7 @@ var init_journal_timeline_view = __esm({
         });
         query.value = this.filter.query ?? "";
         query.addEventListener("input", () => {
-          this.filter.query = query.value || void 0;
-          this.updateResults();
+          this.scheduleSearchUpdate();
         });
         const filterButton = row.createEl("button", {
           attr: {
@@ -6931,6 +7751,7 @@ var init_journal_timeline_view = __esm({
         }
       }
       clearFilters() {
+        this.cancelSearchUpdate();
         this.filter = {};
         this.syncFilterControls();
         this.updateResults();
@@ -7342,7 +8163,9 @@ var init_journal_timeline_view = __esm({
           if (this.plugin.openJournalFile) {
             await this.plugin.openJournalFile(file);
           } else {
-            const leaf = getJournalOpenLeaf(this.app.workspace, usesPhoneLayout(this.plugin.capabilities));
+            const phoneMode = usesPhoneLayout(this.plugin.capabilities);
+            const daylineLeaf = phoneMode ? getPreferredDaylineLeaf(this.app.workspace) : null;
+            const leaf = getJournalOpenLeaf(this.app.workspace, phoneMode, daylineLeaf);
             if (!leaf) throw new Error("No markdown leaf is available");
             await leaf.openFile(file);
           }
@@ -7609,8 +8432,6 @@ var init_locale = __esm({
         s_otd: "\u53BB\u5E74\u4ECA\u65E5",
         s_otdButton: "\u663E\u793A\u4FA7\u8FB9\u680F\u6309\u94AE",
         s_otdButtonDesc: "\u5728\u5929\u6C14\u5361\u7247\u4E0B\u65B9\u663E\u793A\u300C\u53BB\u5E74\u4ECA\u65E5\u300D\u6309\u94AE",
-        s_otdDot: "\u65E5\u5386\u4E0A\u663E\u793A\u6807\u8BB0",
-        s_otdDotDesc: "\u5728\u6709\u5F80\u5E74\u8BB0\u5F55\u7684\u65E5\u671F\u683C\u5B50\u4E0A\u663E\u793A\u5C0F\u5706\u70B9\u6807\u8BB0",
         s_otdEntry: "\u4FA7\u8FB9\u680F\u5165\u53E3",
         s_otdEntryDesc: "\u5173\u95ED\u5165\u53E3\u3001\u5408\u5E76\u8FDB\u5929\u6C14\u5361\uFF0C\u6216\u653E\u5230\u9876\u680F\u3002",
         s_otdEntryHeader: "\u9876\u680F\u56FE\u6807",
@@ -7740,8 +8561,6 @@ var init_locale = __esm({
         s_otd: "\u5F80\u5E74\u4ECA\u65E5",
         s_otdButton: "\u986F\u793A\u5074\u908A\u6B04\u6309\u9215",
         s_otdButtonDesc: "\u5728\u5929\u6C23\u5361\u7247\u4E0B\u65B9\u986F\u793A\u300C\u5F80\u5E74\u4ECA\u65E5\u300D\u6309\u9215",
-        s_otdDot: "\u65E5\u66C6\u4E0A\u986F\u793A\u6A19\u8A18",
-        s_otdDotDesc: "\u5728\u6709\u5F80\u5E74\u8A18\u9304\u7684\u65E5\u671F\u683C\u5B50\u4E0A\u986F\u793A\u5C0F\u5713\u9EDE\u6A19\u8A18",
         s_otdEntry: "\u5074\u908A\u6B04\u5165\u53E3",
         s_otdEntryDesc: "\u95DC\u9589\u5165\u53E3\u3001\u5408\u4F75\u81F3\u5929\u6C23\u5361\u7247\uFF0C\u6216\u653E\u7F6E\u65BC\u9802\u6B04\u3002",
         s_otdEntryHeader: "\u9802\u6B04\u5716\u793A",
@@ -7871,8 +8690,6 @@ var init_locale = __esm({
         s_otd: "On This Day",
         s_otdButton: "Show sidebar button",
         s_otdButtonDesc: "Display an On This Day button below the weather card",
-        s_otdDot: "Show markers on calendar",
-        s_otdDotDesc: "Display a small dot on dates with past-year entries",
         s_otdEntry: "Sidebar entry",
         s_otdEntryDesc: "Turn the sidebar entry off, merge it into the weather card, or place it in the header.",
         s_otdEntryHeader: "Header icon",
@@ -8002,8 +8819,6 @@ var init_locale = __esm({
         s_otd: "\u904E\u53BB\u306E\u4ECA\u65E5",
         s_otdButton: "\u30B5\u30A4\u30C9\u30D0\u30FC\u306B\u30DC\u30BF\u30F3\u3092\u8868\u793A",
         s_otdButtonDesc: "\u5929\u6C17\u30AB\u30FC\u30C9\u306E\u4E0B\u306B\u300C\u904E\u53BB\u306E\u4ECA\u65E5\u300D\u30DC\u30BF\u30F3\u3092\u8868\u793A\u3057\u307E\u3059",
-        s_otdDot: "\u30AB\u30EC\u30F3\u30C0\u30FC\u306B\u5370\u3092\u8868\u793A",
-        s_otdDotDesc: "\u904E\u53BB\u306E\u8A18\u9332\u304C\u3042\u308B\u65E5\u4ED8\u30BB\u30EB\u306B\u30C9\u30C3\u30C8\u3092\u8868\u793A\u3057\u307E\u3059",
         s_otdEntry: "\u30B5\u30A4\u30C9\u30D0\u30FC\u306E\u8868\u793A\u5F62\u5F0F",
         s_otdEntryDesc: "\u975E\u8868\u793A\u306B\u3059\u308B\u304B\u3001\u5929\u6C17\u30AB\u30FC\u30C9\u306B\u7D71\u5408\u3059\u308B\u304B\u3001\u30D8\u30C3\u30C0\u30FC\u306B\u914D\u7F6E\u3057\u307E\u3059\u3002",
         s_otdEntryHeader: "\u30D8\u30C3\u30C0\u30FC\u30A2\u30A4\u30B3\u30F3",
@@ -8133,8 +8948,6 @@ var init_locale = __esm({
         s_otd: "\uC791\uB144 \uC624\uB298",
         s_otdButton: "\uC0AC\uC774\uB4DC\uBC14 \uBC84\uD2BC \uD45C\uC2DC",
         s_otdButtonDesc: "\uB0A0\uC528 \uCE74\uB4DC \uC544\uB798\uC5D0 '\uC791\uB144 \uC624\uB298' \uBC84\uD2BC\uC744 \uD45C\uC2DC\uD569\uB2C8\uB2E4",
-        s_otdDot: "\uCE98\uB9B0\uB354\uC5D0 \uD45C\uC2DC",
-        s_otdDotDesc: "\uACFC\uAC70 \uAE30\uB85D\uC774 \uC788\uB294 \uB0A0\uC9DC \uC140\uC5D0 \uC791\uC740 \uC810\uC744 \uD45C\uC2DC\uD569\uB2C8\uB2E4",
         s_otdEntry: "\uC0AC\uC774\uB4DC\uBC14 \uD56D\uBAA9 \uC704\uCE58",
         s_otdEntryDesc: "\uD56D\uBAA9\uC744 \uB044\uAC70\uB098 \uB0A0\uC528 \uCE74\uB4DC\uC5D0 \uD1B5\uD569\uD558\uAC70\uB098 \uC0C1\uB2E8 \uD5E4\uB354\uC5D0 \uBC30\uCE58\uD569\uB2C8\uB2E4.",
         s_otdEntryHeader: "\uD5E4\uB354 \uC544\uC774\uCF58",
@@ -8264,8 +9077,6 @@ var init_locale = __esm({
         s_otd: "Ce jour-l\xE0",
         s_otdButton: "Bouton dans la barre lat\xE9rale",
         s_otdButtonDesc: "Afficher un bouton Ce jour-l\xE0 sous la carte m\xE9t\xE9o",
-        s_otdDot: "Marqueurs sur le calendrier",
-        s_otdDotDesc: "Afficher un petit point sur les dates ayant des souvenirs d'ann\xE9es pass\xE9es",
         s_otdEntry: "Entr\xE9e barre lat\xE9rale",
         s_otdEntryDesc: "D\xE9sactiver, fusionner dans la carte m\xE9t\xE9o ou placer dans l'en-t\xEAte.",
         s_otdEntryHeader: "Ic\xF4ne d'en-t\xEAte",
@@ -8395,8 +9206,6 @@ var init_locale = __esm({
         s_otd: "An diesem Tag",
         s_otdButton: "Seitenleisten-Schaltfl\xE4che",
         s_otdButtonDesc: "Schaltfl\xE4che \u201EAn diesem Tag\u201C unter der Wetterkarte anzeigen",
-        s_otdDot: "Markierungen im Kalender",
-        s_otdDotDesc: "Einen kleinen Punkt an Tagen mit Eintr\xE4gen aus vergangenen Jahren anzeigen",
         s_otdEntry: "Seitenleisteneintrag",
         s_otdEntryDesc: "Deaktivieren, in die Wetterkarte integrieren oder im Header platzieren.",
         s_otdEntryHeader: "Header-Symbol",
@@ -8526,8 +9335,6 @@ var init_locale = __esm({
         s_otd: "Un d\xEDa como hoy",
         s_otdButton: "Mostrar bot\xF3n en la barra lateral",
         s_otdButtonDesc: "Muestra un bot\xF3n de Un d\xEDa como hoy bajo la tarjeta del tiempo",
-        s_otdDot: "Mostrar marcas en calendario",
-        s_otdDotDesc: "Muestra un peque\xF1o punto en fechas con entradas de a\xF1os pasados",
         s_otdEntry: "Entrada de barra lateral",
         s_otdEntryDesc: "Desactivar, fusionar con la tarjeta del tiempo o situar en el encabezado.",
         s_otdEntryHeader: "Icono de cabecera",
@@ -8657,8 +9464,6 @@ var init_locale = __esm({
         s_otd: "\u0412 \u044D\u0442\u043E\u0442 \u0434\u0435\u043D\u044C",
         s_otdButton: "\u041A\u043D\u043E\u043F\u043A\u0430 \u043D\u0430 \u0431\u043E\u043A\u043E\u0432\u043E\u0439 \u043F\u0430\u043D\u0435\u043B\u0438",
         s_otdButtonDesc: "\u041F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u0442\u044C \u043A\u043D\u043E\u043F\u043A\u0443 \xAB\u0412 \u044D\u0442\u043E\u0442 \u0434\u0435\u043D\u044C\xBB \u043F\u043E\u0434 \u043A\u0430\u0440\u0442\u043E\u0447\u043A\u043E\u0439 \u043F\u043E\u0433\u043E\u0434\u044B",
-        s_otdDot: "\u041C\u0430\u0440\u043A\u0435\u0440\u044B \u043D\u0430 \u043A\u0430\u043B\u0435\u043D\u0434\u0430\u0440\u0435",
-        s_otdDotDesc: "\u041F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u0442\u044C \u043C\u0430\u043B\u0435\u043D\u044C\u043A\u0443\u044E \u0442\u043E\u0447\u043A\u0443 \u043D\u0430 \u0434\u0430\u0442\u0430\u0445 \u0441 \u0437\u0430\u043F\u0438\u0441\u044F\u043C\u0438 \u0437\u0430 \u043F\u0440\u043E\u0448\u043B\u044B\u0435 \u0433\u043E\u0434\u044B",
         s_otdEntry: "\u042D\u043B\u0435\u043C\u0435\u043D\u0442 \u0431\u043E\u043A\u043E\u0432\u043E\u0439 \u043F\u0430\u043D\u0435\u043B\u0438",
         s_otdEntryDesc: "\u041E\u0442\u043A\u043B\u044E\u0447\u0438\u0442\u044C, \u043E\u0431\u044A\u0435\u0434\u0438\u043D\u0438\u0442\u044C \u0441 \u043A\u0430\u0440\u0442\u043E\u0447\u043A\u043E\u0439 \u043F\u043E\u0433\u043E\u0434\u044B \u0438\u043B\u0438 \u043F\u043E\u043C\u0435\u0441\u0442\u0438\u0442\u044C \u0432 \u0437\u0430\u0433\u043E\u043B\u043E\u0432\u043E\u043A.",
         s_otdEntryHeader: "\u0417\u043D\u0430\u0447\u043E\u043A \u0432 \u0437\u0430\u0433\u043E\u043B\u043E\u0432\u043A\u0435",
@@ -8714,8 +9519,12 @@ var on_this_day_exports = {};
 __export(on_this_day_exports, {
   OnThisDayModal: () => OnThisDayModal,
   OnThisDayProvider: () => OnThisDayProvider,
+  closeOnThisDayModal: () => closeOnThisDayModal,
   splitTitleFromBody: () => splitTitleFromBody
 });
+function mmddKey(month, day) {
+  return `${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
 function isImageLink(link) {
   const clean = String(link || "").split("|", 1)[0].split("?", 1)[0];
   return IMAGE_EXTENSIONS2.includes(clean.split(".").pop()?.toLowerCase() || "");
@@ -8737,7 +9546,10 @@ function splitTitleFromBody(content, indexTitle, date) {
   const body = dropHeading ? lines.filter((_line, index) => index !== headingIndex).join("\n") : lines.join("\n");
   return { title, body };
 }
-var import_obsidian3, IMAGE_EXTENSIONS2, HEADING_LINE, OnThisDayProvider, OnThisDayModal;
+function closeOnThisDayModal() {
+  activeOnThisDayModal?.close();
+}
+var import_obsidian3, IMAGE_EXTENSIONS2, HEADING_LINE, OnThisDayProvider, FOCUSABLE_SELECTOR, EDITABLE_SELECTOR, activeOnThisDayModal, OnThisDayModal;
 var init_on_this_day = __esm({
   "src/on-this-day.ts"() {
     "use strict";
@@ -8755,10 +9567,27 @@ var init_on_this_day = __esm({
         __publicField(this, "dateIndex", null);
         __publicField(this, "dateIndexYear", null);
         __publicField(this, "entryCache", /* @__PURE__ */ new Map());
+        /** The visible memory wall, so a second open reuses it instead of stacking. */
+        __publicField(this, "_activeModal", null);
         this.plugin = plugin;
       }
       currentYear() {
         return Number(daylineDate(this.plugin.settings).slice(0, 4));
+      }
+      /** A leap year has February 29; a common year has to borrow it for the 28th. */
+      isLeapYear(year) {
+        return year % 4 === 0 && year % 100 !== 0 || year % 400 === 0;
+      }
+      /**
+       * MM-DD keys whose memories belong to one calendar view date.
+       *
+       * A February 29 diary only exists in leap years, so a common-year February 28
+       * view also shows the February 29 memories instead of hiding them for three
+       * years out of four.
+       */
+      viewKeys(mmdd) {
+        if (mmdd !== "02-28" || this.isLeapYear(this.currentYear())) return [mmdd];
+        return [mmdd, "02-29"];
       }
       /** Build a set of all MM-DD values that have indexed journal entries. */
       async ensureDateIndex() {
@@ -8770,25 +9599,30 @@ var init_on_this_day = __esm({
           const year = Number(entry.date.slice(0, 4));
           if (Number.isFinite(year) && year < thisYear) index.add(entry.date.slice(5));
         }
+        if (!this.isLeapYear(thisYear) && index.has("02-29")) index.add("02-28");
         this.dateIndex = index;
         this.dateIndexYear = thisYear;
       }
       /** Quick check: does any year have a diary for this MM-DD? */
       async hasEntries(month, day) {
         await this.ensureDateIndex();
-        const key = `${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-        return this.dateIndex?.has(key) ?? false;
+        return this.viewKeys(mmddKey(month, day)).some((key) => this.dateIndex?.has(key) ?? false);
       }
       /** Full entries for a given MM-DD (images + excerpts). */
       async getEntries(month, day) {
         await this.ensureDateIndex();
-        const key = `${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+        const key = mmddKey(month, day);
         if (this.entryCache.has(key)) return this.entryCache.get(key) || [];
+        const wanted = new Set(this.viewKeys(key));
+        const seen = /* @__PURE__ */ new Set();
         const entries = [];
         const thisYear = this.currentYear();
         for (const entry of this.plugin.journalIndex?.getEntries?.() || []) {
           const year = Number(entry.date.slice(0, 4));
-          if (!Number.isFinite(year) || year >= thisYear || entry.date.slice(5) !== key) continue;
+          if (!Number.isFinite(year) || year >= thisYear || !wanted.has(entry.date.slice(5))) continue;
+          const identity = `${entry.path || ""}|${entry.date}`;
+          if (seen.has(identity)) continue;
+          seen.add(identity);
           const images = (entry.attachments || []).filter(isImageLink);
           const { title, body } = splitTitleFromBody(entry.searchText ?? entry.excerpt ?? "", entry.title, entry.date);
           let excerpt = null;
@@ -8827,17 +9661,39 @@ var init_on_this_day = __esm({
       }
       /** Refresh one MM-DD marker without rebuilding the complete date index. */
       refreshDateIndexFor(mmdd) {
-        this.entryCache.delete(mmdd);
         if (!this.dateIndex) return;
         const thisYear = this.currentYear();
-        const hasHistoricalEntry = (this.plugin.journalIndex?.getEntries?.() || []).some((entry) => entry.date.slice(5) === mmdd && Number(entry.date.slice(0, 4)) < thisYear);
-        if (hasHistoricalEntry) this.dateIndex.add(mmdd);
-        else this.dateIndex.delete(mmdd);
+        const affected = mmdd === "02-28" || mmdd === "02-29" ? ["02-28", "02-29"] : [mmdd];
+        for (const key of affected) {
+          this.entryCache.delete(key);
+          const wanted = new Set(this.viewKeys(key));
+          const hasHistoricalEntry = (this.plugin.journalIndex?.getEntries?.() || []).some((entry) => wanted.has(entry.date.slice(5)) && Number(entry.date.slice(0, 4)) < thisYear);
+          if (hasHistoricalEntry) this.dateIndex.add(key);
+          else this.dateIndex.delete(key);
+        }
       }
       get dateIndexSnapshot() {
         return this.dateIndex;
       }
+      /** The panel this provider currently has on screen, if any. */
+      get activeModal() {
+        return this._activeModal;
+      }
+      /** Close the panel this provider opened. Safe to call from a view teardown. */
+      closeModal() {
+        this._activeModal?.close();
+      }
     };
+    FOCUSABLE_SELECTOR = [
+      "a[href]",
+      "button:not([disabled])",
+      "input:not([disabled])",
+      "select:not([disabled])",
+      "textarea:not([disabled])",
+      '[tabindex]:not([tabindex="-1"])'
+    ].join(", ");
+    EDITABLE_SELECTOR = 'input, textarea, select, [contenteditable=""], [contenteditable="true"]';
+    activeOnThisDayModal = null;
     OnThisDayModal = class {
       constructor(app, plugin, provider, month, day, entries) {
         this.app = app;
@@ -8846,12 +9702,28 @@ var init_on_this_day = __esm({
         this.month = month;
         this.day = day;
         this.entries = entries || [];
+        this.lang = getDisplayLanguage(plugin?.settings || {});
         this._requestToken = 0;
         this._closed = false;
+        this._returnFocusTo = null;
         this._onKey = this._onKeyDown.bind(this);
       }
+      /** Resolve the display language, including a live `'system'` setting. */
+      _displayLanguage() {
+        return this.lang || getDisplayLanguage(this.plugin?.settings || {});
+      }
       open() {
-        const lang = this.plugin.settings.weatherLanguage;
+        const existing = this.provider?._activeModal;
+        if (existing && existing !== this && !existing._closed) {
+          existing.showDate(this.month, this.day, this.entries);
+          return existing;
+        }
+        if (activeOnThisDayModal && activeOnThisDayModal !== this && !activeOnThisDayModal._closed) {
+          activeOnThisDayModal.close();
+        }
+        this._closed = false;
+        this.lang = getDisplayLanguage(this.plugin?.settings || {});
+        const lang = this.lang;
         this.backdrop = createDiv();
         this.backdrop.className = "cal-otd-modal";
         this.backdrop.addEventListener("click", (e) => {
@@ -8859,14 +9731,19 @@ var init_on_this_day = __esm({
         });
         const panel = createDiv();
         panel.className = "cal-otd-panel";
+        panel.setAttribute("role", "dialog");
+        panel.setAttribute("aria-modal", "true");
+        panel.setAttribute("aria-label", localize(lang, "otd_title"));
+        panel.setAttribute("tabindex", "-1");
         this.panel = panel;
         const header = panel.createDiv({ cls: "cal-otd-header" });
-        header.createDiv({ cls: "cal-otd-header-title", text: localize(lang, "otd_title") });
+        this.titleEl = header.createDiv({ cls: "cal-otd-header-title", text: localize(lang, "otd_title") });
         const nav = header.createDiv({ cls: "cal-otd-date-nav" });
         const prevDayBtn = nav.createEl("button", {
           cls: "cal-otd-nav-btn",
           attr: { type: "button", "aria-label": localize(lang, "otd_prevDay"), title: localize(lang, "otd_prevDay") }
         });
+        this.prevDayBtn = prevDayBtn;
         (0, import_obsidian3.setIcon)(prevDayBtn, "chevron-left");
         prevDayBtn.addEventListener("click", (e) => {
           e.stopPropagation();
@@ -8891,6 +9768,7 @@ var init_on_this_day = __esm({
           cls: "cal-otd-nav-btn",
           attr: { type: "button", "aria-label": localize(lang, "otd_nextDay"), title: localize(lang, "otd_nextDay") }
         });
+        this.nextDayBtn = nextDayBtn;
         (0, import_obsidian3.setIcon)(nextDayBtn, "chevron-right");
         nextDayBtn.addEventListener("click", (e) => {
           e.stopPropagation();
@@ -8900,6 +9778,7 @@ var init_on_this_day = __esm({
           cls: "cal-otd-close",
           attr: { type: "button", "aria-label": localize(lang, "otd_close"), title: localize(lang, "otd_close") }
         });
+        this.closeBtn = closeBtn;
         (0, import_obsidian3.setIcon)(closeBtn, "x");
         closeBtn.addEventListener("click", () => this.close());
         this.bodyEl = panel.createDiv({ cls: "cal-otd-grid" });
@@ -8910,7 +9789,58 @@ var init_on_this_day = __esm({
         }
         this.backdrop.appendChild(panel);
         document.body.appendChild(this.backdrop);
+        const active = document.activeElement;
+        this._returnFocusTo = active && active !== document.body ? active : null;
+        if (this.provider) this.provider._activeModal = this;
+        activeOnThisDayModal = this;
         document.addEventListener("keydown", this._onKey);
+        this.focusPanel();
+        return this;
+      }
+      /**
+       * Point the visible panel at another date (a second open for the same
+       * provider) instead of building a second dialog on top of it.
+       */
+      showDate(month, day, entries) {
+        this._requestToken++;
+        this.month = month;
+        this.day = day;
+        this.entries = entries || [];
+        this.lang = getDisplayLanguage(this.plugin?.settings || {});
+        this._applyLanguage();
+        this._updateDateInput();
+        if (this.entries.length === 0) {
+          this._renderMessage(localize(this.lang, "otd_noMemories"), "history");
+        } else {
+          this._renderGrid();
+        }
+        this.focusPanel();
+        return this;
+      }
+      /** Move keyboard focus into the dialog, as a modal is expected to. */
+      focusPanel() {
+        if (!this.panel || typeof this.panel.focus !== "function") return;
+        try {
+          this.panel.focus();
+        } catch {
+        }
+      }
+      /** Re-label the chrome after the display language changed. */
+      _applyLanguage() {
+        const lang = this._displayLanguage();
+        this.panel?.setAttribute("aria-label", localize(lang, "otd_title"));
+        if (this.titleEl) this.titleEl.setText(localize(lang, "otd_title"));
+        for (const [element, key] of [
+          [this.prevDayBtn, "otd_prevDay"],
+          [this.nextDayBtn, "otd_nextDay"],
+          [this.closeBtn, "otd_close"]
+        ]) {
+          if (!element) continue;
+          const label = localize(lang, key);
+          element.setAttribute("aria-label", label);
+          element.setAttribute("title", label);
+        }
+        if (this.dateInput) this.dateInput.setAttribute("aria-label", localize(lang, "otd_datePicker"));
       }
       /**
        * One layout for the empty, loading and error states. They used to be a bare
@@ -8931,20 +9861,81 @@ var init_on_this_day = __esm({
         return state;
       }
       close() {
+        if (this._closed) return;
         this._closed = true;
         this._requestToken++;
         document.removeEventListener("keydown", this._onKey);
+        if (activeOnThisDayModal === this) activeOnThisDayModal = null;
+        if (this.provider && this.provider._activeModal === this) this.provider._activeModal = null;
         if (this.backdrop && this.backdrop.parentElement) {
           this.backdrop.parentElement.removeChild(this.backdrop);
         }
+        this._restoreFocus();
+      }
+      /** Alias for close(), used by teardown paths such as `onunload`. */
+      dispose() {
+        this.close();
+      }
+      /** Return focus to whatever opened the panel. */
+      _restoreFocus() {
+        const target = this._returnFocusTo;
+        this._returnFocusTo = null;
+        if (!target || !target.isConnected || typeof target.focus !== "function") return;
+        try {
+          target.focus();
+        } catch {
+        }
       }
       _onKeyDown(e) {
+        if (this._closed) return;
         if (e.key === "Escape") {
+          e.preventDefault();
           this.close();
-        } else if (e.key === "ArrowLeft") {
+          return;
+        }
+        if (e.key === "Tab") {
+          this._trapFocus(e);
+          return;
+        }
+        if (this._isEditableTarget(e.target)) return;
+        if (e.key === "ArrowLeft") {
           void this._navigateDate(-1);
         } else if (e.key === "ArrowRight") {
           void this._navigateDate(1);
+        }
+      }
+      /** Does the key event come from a field that owns the arrow keys? */
+      _isEditableTarget(target) {
+        if (!target || target.nodeType !== 1) return false;
+        if (target.isContentEditable) return true;
+        try {
+          return typeof target.closest === "function" && Boolean(target.closest(EDITABLE_SELECTOR));
+        } catch {
+          return false;
+        }
+      }
+      /** Keep Tab inside the dialog while it is modal. */
+      _trapFocus(event) {
+        if (!this.panel) return;
+        const focusable = Array.from(this.panel.querySelectorAll(FOCUSABLE_SELECTOR)).filter((element) => !element.hasAttribute("disabled"));
+        if (focusable.length === 0) {
+          event.preventDefault();
+          this.focusPanel();
+          return;
+        }
+        const active = document.activeElement;
+        const first = focusable[0];
+        const last2 = focusable[focusable.length - 1];
+        if (event.shiftKey) {
+          if (active === first || !this.panel.contains(active)) {
+            event.preventDefault();
+            last2.focus();
+          }
+          return;
+        }
+        if (active === last2 || !this.panel.contains(active)) {
+          event.preventDefault();
+          first.focus();
         }
       }
       async _navigateDate(delta) {
@@ -8953,13 +9944,13 @@ var init_on_this_day = __esm({
         this.month = d.getMonth() + 1;
         this.day = d.getDate();
         this._updateDateInput();
-        this._renderMessage(localize(this.plugin.settings.weatherLanguage, "loading"));
+        this._renderMessage(localize(this._displayLanguage(), "loading"));
         const requestToken = ++this._requestToken;
         try {
           this.entries = await this.provider.getEntries(this.month, this.day);
           if (this._closed || requestToken !== this._requestToken) return;
           if (this.entries.length === 0) {
-            this._renderMessage(localize(this.plugin.settings.weatherLanguage, "otd_noMemories"), "history");
+            this._renderMessage(localize(this._displayLanguage(), "otd_noMemories"), "history");
           } else {
             this._renderGrid();
           }
@@ -8979,7 +9970,7 @@ var init_on_this_day = __esm({
       }
       _renderGrid() {
         this.bodyEl.empty();
-        const lang = this.plugin.settings.weatherLanguage;
+        const lang = this._displayLanguage();
         const currentYear = Number(daylineDate(this.plugin.settings).slice(0, 4));
         const openLabel = localize(lang, "otd_openNote");
         for (const entry of this.entries) {
@@ -9039,6 +10030,116 @@ var init_on_this_day = __esm({
         }
       }
     };
+  }
+});
+
+// src/geolocation.ts
+function formatCoordinates(latitude, longitude) {
+  return `${latitude.toFixed(COORDINATE_DECIMALS)}, ${longitude.toFixed(COORDINATE_DECIMALS)}`;
+}
+function coordinateNumber(value) {
+  if (value === null || value === void 0) return null;
+  const text = typeof value === "string" ? value.trim() : value;
+  if (text === "") return null;
+  const parsed = Number(text);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+function coordinatesMovedBeyondThreshold(previousLatitude, previousLongitude, nextLatitude, nextLongitude) {
+  const prevLat = coordinateNumber(previousLatitude);
+  const prevLng = coordinateNumber(previousLongitude);
+  if (prevLat === null || prevLng === null) return false;
+  if (!Number.isFinite(nextLatitude) || !Number.isFinite(nextLongitude)) return false;
+  return formatCoordinates(prevLat, prevLng) !== formatCoordinates(nextLatitude, nextLongitude);
+}
+function applyDeviceLocation(settings, coords) {
+  const clearedLocationName = Boolean(settings.weatherLocationName) && coordinatesMovedBeyondThreshold(
+    settings.weatherLatitude,
+    settings.weatherLongitude,
+    coords.latitude,
+    coords.longitude
+  );
+  if (clearedLocationName) settings.weatherLocationName = "";
+  settings.weatherLatitude = coords.latitude.toFixed(COORDINATE_DECIMALS);
+  settings.weatherLongitude = coords.longitude.toFixed(COORDINATE_DECIMALS);
+  return { clearedLocationName };
+}
+function resolveGeolocation(navigatorOverride) {
+  const nav = navigatorOverride !== void 0 ? navigatorOverride : typeof navigator !== "undefined" ? { geolocation: navigator.geolocation } : null;
+  const provider = nav?.geolocation;
+  if (provider && typeof provider.getCurrentPosition === "function") return provider;
+  return null;
+}
+function normalizeCoordinates(latitude, longitude) {
+  const lat = Number(latitude);
+  const lng = Number(longitude);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
+  return { latitude: lat, longitude: lng };
+}
+function geolocationErrorCode(error) {
+  const code = Number(error?.code);
+  return Number.isFinite(code) ? code : null;
+}
+function requestCurrentCoordinates(navigatorOverride, options = {}) {
+  const provider = resolveGeolocation(navigatorOverride);
+  if (!provider) return Promise.reject(new Error("unavailable"));
+  const timeoutMs = options.timeoutMs ?? GEOLOCATION_TIMEOUT_MS;
+  const maximumAgeMs = options.maximumAgeMs ?? 6e5;
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const timer = window.setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      reject(new Error("timeout"));
+    }, timeoutMs);
+    const finish = (task) => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timer);
+      task();
+    };
+    try {
+      provider.getCurrentPosition(
+        (position) => finish(() => {
+          const coords = normalizeCoordinates(position?.coords?.latitude, position?.coords?.longitude);
+          if (!coords) {
+            reject(new Error("invalid"));
+            return;
+          }
+          const accuracy = Number(position?.coords?.accuracy);
+          resolve(Number.isFinite(accuracy) && accuracy >= 0 ? { ...coords, accuracy } : coords);
+        }),
+        (error) => finish(() => {
+          const message = error?.message;
+          if (typeof message === "string" && message.length > 0) {
+            console.debug("[Dayline] Geolocation failed:", message);
+          }
+          const code = geolocationErrorCode(error);
+          if (code === 1) reject(new Error("denied"));
+          else if (code === 2) reject(new Error("unavailable"));
+          else if (code === 3) reject(new Error("timeout"));
+          else reject(new Error("failed"));
+        }),
+        { enableHighAccuracy: false, timeout: timeoutMs, maximumAge: maximumAgeMs }
+      );
+    } catch (error) {
+      finish(() => reject(error instanceof Error ? error : new Error(String(error))));
+    }
+  });
+}
+function geolocationFailureKey(error) {
+  const message = error instanceof Error ? error.message : "";
+  if (message === "unavailable") return "locateUnavailable";
+  if (message === "timeout") return "locateTimedOut";
+  if (message === "denied") return "locateDenied";
+  return "locateError";
+}
+var GEOLOCATION_TIMEOUT_MS, COORDINATE_DECIMALS;
+var init_geolocation = __esm({
+  "src/geolocation.ts"() {
+    "use strict";
+    GEOLOCATION_TIMEOUT_MS = 15e3;
+    COORDINATE_DECIMALS = 2;
   }
 });
 
@@ -9221,11 +10322,12 @@ var init_calendar_display = __esm({
 });
 
 // src/journal-source-settings.ts
-function validateJournalSources(value) {
+function validateJournalSources(value, dailyFolder) {
   if (!Array.isArray(value)) throw new Error("sourceInvalidArray");
   const ids = /* @__PURE__ */ new Set();
   const paths = /* @__PURE__ */ new Set();
   let daily = false;
+  const normalizedDailyFolder = typeof dailyFolder === "string" ? normalizeVaultPath(dailyFolder) : null;
   return value.map((source, index) => {
     const fail = (key) => {
       throw Object.assign(new Error(key), { row: index + 1 });
@@ -9246,6 +10348,9 @@ function validateJournalSources(value) {
     if (source.enabled !== false) {
       if (paths.has(path)) fail("sourceDuplicatePath");
       if (type === "daily" && daily) fail("sourceMultipleDaily");
+      if (type === "daily" && normalizedDailyFolder !== null && path !== normalizedDailyFolder) {
+        fail("sourceDailyMismatch");
+      }
       paths.add(path);
       daily || (daily = type === "daily");
     }
@@ -9441,7 +10546,7 @@ var init_journal_source_settings = __esm({
             list.hidden = true;
           } else {
             try {
-              this.sources = validateJournalSources(JSON.parse(this.raw));
+              this.sources = validateJournalSources(JSON.parse(this.raw), this.dailyFolder);
               this.jsonOpen = false;
               this.error = null;
               this.renderFields();
@@ -9478,11 +10583,11 @@ var init_journal_source_settings = __esm({
         let sources;
         let dailyFolder;
         try {
-          sources = validateJournalSources(this.jsonOpen ? JSON.parse(this.raw) : this.sources);
           const dailyRaw = this.dailyFolder.trim();
           const normalizedDaily = normalizeVaultPath(dailyRaw);
           if (!dailyRaw || normalizedDaily.split("/").some((part) => part === "." || part === "..")) throw new Error("sourceDailyRequired");
           dailyFolder = normalizedDaily || "/";
+          sources = validateJournalSources(this.jsonOpen ? JSON.parse(this.raw) : this.sources, dailyFolder);
         } catch (error) {
           this.showError(error);
           return;
@@ -9534,18 +10639,49 @@ var init_journal_source_settings = __esm({
 // src/settings-tab.ts
 var settings_tab_exports = {};
 __export(settings_tab_exports, {
+  DEFAULT_MOOD_METADATA_PATH: () => DEFAULT_MOOD_METADATA_PATH,
   DaylineSettingsTab: () => DaylineSettingsTab,
   SETTINGS_ACTION_ROWS: () => SETTINGS_ACTION_ROWS,
   SETTINGS_SECTION_IDS: () => SETTINGS_SECTION_IDS,
   SETTINGS_SECTION_LABEL_KEYS: () => SETTINGS_SECTION_LABEL_KEYS,
+  SETTINGS_TEXT_COMMIT_DELAY_MS: () => SETTINGS_TEXT_COMMIT_DELAY_MS,
+  addExifPersistMetadataSetting: () => addExifPersistMetadataSetting,
   commitJournalSourceSettings: () => commitJournalSourceSettings,
+  createSettingsLocalizer: () => createSettingsLocalizer,
+  normalizeMoodMetadataPath: () => normalizeMoodMetadataPath,
+  parseCoordinateSettingValue: () => parseCoordinateSettingValue,
   shouldShowCalendarMoodStyle: () => shouldShowCalendarMoodStyle,
   shouldShowCalendarWeatherOptions: () => shouldShowCalendarWeatherOptions,
   shouldShowExifGeocoding: () => shouldShowExifGeocoding,
   shouldShowOnThisDayExcerptSettings: () => shouldShowOnThisDayExcerptSettings,
+  shouldShowUseCurrentLocationButton: () => shouldShowUseCurrentLocationButton,
   shouldShowWeatherLocationOption: () => shouldShowWeatherLocationOption,
   shouldShowWeatherSettings: () => shouldShowWeatherSettings
 });
+function parseCoordinateSettingValue(kind, raw) {
+  const value = String(raw ?? "").trim();
+  if (value === "") return { ok: true, value: "" };
+  if (!DECIMAL_NUMBER_PATTERN.test(value)) return { ok: false, messageKey: "coordinateMustBeNumeric" };
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return { ok: false, messageKey: "coordinateMustBeNumeric" };
+  if (Math.abs(parsed) > COORDINATE_LIMITS[kind]) {
+    return { ok: false, messageKey: COORDINATE_RANGE_MESSAGE_KEYS[kind] };
+  }
+  return { ok: true, value };
+}
+function normalizeMoodMetadataPath(raw) {
+  const value = String(raw ?? "").trim();
+  if (value === "") return { ok: true, value: DEFAULT_MOOD_METADATA_PATH };
+  if (!/\.json$/i.test(value)) return { ok: false, messageKey: "moodMetadataPathMustBeJson" };
+  return { ok: true, value };
+}
+function shouldShowUseCurrentLocationButton(capabilities) {
+  if (!capabilities) return false;
+  return Boolean(capabilities.isMobileApp || capabilities.isIos || capabilities.isAndroid);
+}
+function createSettingsLocalizer(settings) {
+  return (key, ...args) => localize(getDisplayLanguage(settings), key, ...args);
+}
 async function commitJournalSourceSettings(plugin, save = () => plugin.saveSettings()) {
   const saved = await save();
   if (saved === false) return false;
@@ -9568,12 +10704,19 @@ function shouldShowOnThisDayExcerptSettings(settings) {
 function shouldShowExifGeocoding(settings) {
   return settings.showExif === true;
 }
-var import_obsidian5, VIEW_TYPE, SETTINGS_SECTION_IDS, SETTINGS_SECTION_LABEL_KEYS, SETTINGS_ACTION_ROWS, DaylineSettingsTab, FolderSuggestModal;
+function addExifPersistMetadataSetting(containerEl, plugin, saveSettings = () => plugin.saveSettings()) {
+  new import_obsidian5.Setting(containerEl).setName(t(plugin.settings, "s_exifPersist")).setDesc(t(plugin.settings, "s_exifPersistDesc")).addToggle((toggle) => toggle.setValue(plugin.settings.exifPersistMetadata === true).onChange(async (value) => {
+    plugin.settings.exifPersistMetadata = value === true;
+    await saveSettings();
+  }));
+}
+var import_obsidian5, VIEW_TYPE, SETTINGS_TEXT_COMMIT_DELAY_MS, DEFAULT_MOOD_METADATA_PATH, COORDINATE_LIMITS, COORDINATE_RANGE_MESSAGE_KEYS, DECIMAL_NUMBER_PATTERN, SETTINGS_SECTION_IDS, SETTINGS_SECTION_LABEL_KEYS, SETTINGS_ACTION_ROWS, DaylineSettingsTab, FolderSuggestModal;
 var init_settings_tab = __esm({
   "src/settings-tab.ts"() {
     "use strict";
     import_obsidian5 = require("obsidian");
     init_i18n();
+    init_geolocation();
     init_locale();
     init_dayline_wordmark_compact();
     init_dayline_logo();
@@ -9583,6 +10726,14 @@ var init_settings_tab = __esm({
     init_journal_source_settings();
     init_on_this_day_entry();
     VIEW_TYPE = "calendar-sidebar-view";
+    SETTINGS_TEXT_COMMIT_DELAY_MS = 800;
+    DEFAULT_MOOD_METADATA_PATH = "Calendar/journal-metadata.json";
+    COORDINATE_LIMITS = { latitude: 90, longitude: 180 };
+    COORDINATE_RANGE_MESSAGE_KEYS = {
+      latitude: "latitudeOutOfRange",
+      longitude: "longitudeOutOfRange"
+    };
+    DECIMAL_NUMBER_PATTERN = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/;
     SETTINGS_SECTION_IDS = [
       "general",
       "calendar-journal",
@@ -9611,6 +10762,7 @@ var init_settings_tab = __esm({
       constructor(app, plugin) {
         super(app, plugin);
         this.plugin = plugin;
+        this._pendingFieldFlushes = /* @__PURE__ */ new Set();
       }
       async _saveSettings() {
         try {
@@ -9657,6 +10809,109 @@ var init_settings_tab = __esm({
           this._notifyViewRefreshFailure(error);
         }
       }
+      /**
+       * Flush a debounced text field immediately, e.g. when the settings pane is
+       * closed before the typing pause elapsed.
+       */
+      _flushPendingFieldCommits() {
+        const pending = [...this._pendingFieldFlushes];
+        this._pendingFieldFlushes.clear();
+        for (const flush of pending) flush();
+      }
+      hide() {
+        this._flushPendingFieldCommits();
+        super.hide();
+      }
+      /**
+       * Text settings fields commit on blur or after a short pause in typing, never
+       * on every keystroke: intermediate values used to be saved and each one could
+       * trigger several weather requests. Invalid text stays in the field with an
+       * inline message and never reaches the settings object.
+       */
+      _bindValidatedTextField(text, { field, parse, showError, clearError, apply }) {
+        let timer = null;
+        const clearTimer = () => {
+          if (timer === null) return;
+          window.clearTimeout(timer);
+          timer = null;
+        };
+        const commit = async () => {
+          clearTimer();
+          const result = parse(text.getValue());
+          if (!result.ok) {
+            showError(result.messageKey);
+            return;
+          }
+          clearError();
+          if (this.plugin.settings[field] === result.value) return;
+          this.plugin.settings[field] = result.value;
+          if (!await this._saveSettings()) return;
+          await apply();
+        };
+        const flush = () => {
+          if (timer !== null) void commit();
+        };
+        const schedule = () => {
+          clearTimer();
+          timer = window.setTimeout(() => {
+            timer = null;
+            void commit();
+          }, SETTINGS_TEXT_COMMIT_DELAY_MS);
+        };
+        text.inputEl.addEventListener("input", schedule);
+        text.inputEl.addEventListener("blur", () => {
+          void commit();
+        });
+        this._pendingFieldFlushes.add(flush);
+      }
+      _addValidatedTextField(containerEl, { name, description, placeholder, field, initialValue, parse, localizeError, apply }) {
+        const setting = new import_obsidian5.Setting(containerEl).setName(name).setDesc(description);
+        setting.addText((text) => {
+          text.setPlaceholder(placeholder);
+          text.setValue(String(initialValue));
+          this._bindValidatedTextField(text, {
+            field,
+            parse,
+            showError: (key) => setting.setDesc(localizeError(key)),
+            clearError: () => setting.setDesc(description),
+            apply
+          });
+          return text;
+        });
+        return setting;
+      }
+      async _reloadMoodMetadataStore() {
+        try {
+          this.plugin.moodStore.configure(this.plugin.settings);
+          await this.plugin.moodStore.load();
+          await this.plugin.journalIndex.refresh(this.plugin.settings);
+          this.plugin.refreshJournalViews();
+        } catch (error) {
+          const message = error?.message || String(error);
+          console.warn("[Dayline] Mood metadata path change failed:", message);
+          new import_obsidian5.Notice(t(this.plugin.settings, "moodMetadataPathFailed"));
+        }
+      }
+      async _fillWeatherCoordinatesFromDevice(button) {
+        this._flushPendingFieldCommits();
+        const settings = this.plugin.settings;
+        button?.setDisabled?.(true);
+        button?.setButtonText?.(t(settings, "locating"));
+        try {
+          const coords = await requestCurrentCoordinates();
+          const { clearedLocationName } = applyDeviceLocation(settings, coords);
+          if (!await this._saveSettings()) return;
+          new import_obsidian5.Notice(t(settings, clearedLocationName ? "locationUpdatedNameCleared" : "locationUpdated"));
+          this.display();
+          await this._refreshViews();
+        } catch (error) {
+          console.debug("[Dayline] Geolocation failed:", error?.message || error);
+          new import_obsidian5.Notice(t(settings, geolocationFailureKey(error)));
+        } finally {
+          button?.setDisabled?.(false);
+          button?.setButtonText?.(t(this.plugin.settings, "locateButton"));
+        }
+      }
       _addSection(containerEl, id) {
         const setting = new import_obsidian5.Setting(containerEl).setName(t(this.plugin.settings, SETTINGS_SECTION_LABEL_KEYS[id])).setHeading();
         setting.settingEl.dataset.daylineSettingsSection = id;
@@ -9667,10 +10922,11 @@ var init_settings_tab = __esm({
         return setting;
       }
       display() {
+        this._flushPendingFieldCommits();
         const { containerEl } = this;
         containerEl.empty();
         containerEl.addClass("dayline-settings-container");
-        const _s = (key, ...args) => localize(this.plugin.settings.weatherLanguage, key, ...args);
+        const _s = createSettingsLocalizer(this.plugin.settings);
         renderSettingsBrand(containerEl, { markSvg: dayline_logo_default, wordmarkSvg: dayline_wordmark_compact_default });
         this._addSection(containerEl, "general");
         new import_obsidian5.Setting(containerEl).setName(t(this.plugin.settings, "language")).setDesc(t(this.plugin.settings, "languageDesc")).addDropdown((dd) => {
@@ -9781,20 +11037,31 @@ var init_settings_tab = __esm({
           })
         );
         if (shouldShowWeatherSettings(this.plugin.settings)) {
-          new import_obsidian5.Setting(containerEl).setName(_s("s_latitude")).setDesc(_s("s_latitudeDesc")).addText(
-            (text) => text.setPlaceholder("39.9042").setValue(String(this.plugin.settings.weatherLatitude)).onChange(async (value) => {
-              this.plugin.settings.weatherLatitude = value.trim();
-              if (!await this._saveSettings()) return;
-              await this._refreshViews();
-            })
-          );
-          new import_obsidian5.Setting(containerEl).setName(_s("s_longitude")).setDesc(_s("s_longitudeDesc")).addText(
-            (text) => text.setPlaceholder("116.4074").setValue(String(this.plugin.settings.weatherLongitude)).onChange(async (value) => {
-              this.plugin.settings.weatherLongitude = value.trim();
-              if (!await this._saveSettings()) return;
-              await this._refreshViews();
-            })
-          );
+          this._addValidatedTextField(containerEl, {
+            name: _s("s_latitude"),
+            description: _s("s_latitudeDesc"),
+            placeholder: "39.9042",
+            field: "weatherLatitude",
+            initialValue: this.plugin.settings.weatherLatitude,
+            parse: (raw) => parseCoordinateSettingValue("latitude", raw),
+            localizeError: (key) => t(this.plugin.settings, key),
+            apply: () => this._refreshViews()
+          });
+          this._addValidatedTextField(containerEl, {
+            name: _s("s_longitude"),
+            description: _s("s_longitudeDesc"),
+            placeholder: "116.4074",
+            field: "weatherLongitude",
+            initialValue: this.plugin.settings.weatherLongitude,
+            parse: (raw) => parseCoordinateSettingValue("longitude", raw),
+            localizeError: (key) => t(this.plugin.settings, key),
+            apply: () => this._refreshViews()
+          });
+          if (shouldShowUseCurrentLocationButton(this.plugin.capabilities)) {
+            new import_obsidian5.Setting(containerEl).setName(t(this.plugin.settings, "useCurrentLocation")).setDesc(t(this.plugin.settings, "useCurrentLocationDesc")).addButton((button) => button.setButtonText(t(this.plugin.settings, "locateButton")).onClick(async () => {
+              await this._fillWeatherCoordinatesFromDevice(button);
+            }));
+          }
           new import_obsidian5.Setting(containerEl).setName(_s("s_locationName")).setDesc(_s("s_locationNameDesc")).addText(
             (text) => text.setPlaceholder(_s("s_locationName")).setValue(String(this.plugin.settings.weatherLocationName)).onChange(async (value) => {
               this.plugin.settings.weatherLocationName = value.trim();
@@ -9866,6 +11133,7 @@ var init_settings_tab = __esm({
           if (!await this._saveSettings()) return;
           this.display();
         }));
+        addExifPersistMetadataSetting(containerEl, this.plugin, () => this._saveSettings());
         if (shouldShowExifGeocoding(this.plugin.settings)) {
           new import_obsidian5.Setting(containerEl).setName(_s("s_exifGeocode")).setDesc(_s("s_exifGeocodeDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.exifReverseGeocode).onChange(async (value) => {
             this.plugin.settings.exifReverseGeocode = value;
@@ -9885,13 +11153,6 @@ var init_settings_tab = __esm({
             this.display();
             const leaf = this.app.workspace.getLeavesOfType(VIEW_TYPE)[0];
             if (leaf?.view) leaf.view.render();
-          })
-        );
-        new import_obsidian5.Setting(containerEl).setName(_s("s_otdDot")).setDesc(_s("s_otdDotDesc")).addToggle(
-          (toggle) => toggle.setValue(this.plugin.settings.onThisDayDot).onChange(async (value) => {
-            this.plugin.settings.onThisDayDot = value;
-            if (!await this._saveSettings()) return;
-            this._refreshCalendarView();
           })
         );
         if (shouldShowOnThisDayExcerptSettings(this.plugin.settings)) {
@@ -9923,15 +11184,16 @@ var init_settings_tab = __esm({
           }
         }
         this._addSection(containerEl, "data-maintenance");
-        new import_obsidian5.Setting(containerEl).setName(t(this.plugin.settings, "moodMetadataPath")).setDesc(t(this.plugin.settings, "moodMetadataPathDesc")).addText((text) => text.setValue(this.plugin.settings.moodMetadataPath).setPlaceholder("Calendar/journal-metadata.json").onChange(async (value) => {
-          const next = value.trim() || "Calendar/journal-metadata.json";
-          this.plugin.settings.moodMetadataPath = next;
-          if (!await this._saveSettings()) return;
-          this.plugin.moodStore.configure(this.plugin.settings);
-          await this.plugin.moodStore.load();
-          await this.plugin.journalIndex.refresh(this.plugin.settings);
-          this.plugin.refreshJournalViews();
-        }));
+        this._addValidatedTextField(containerEl, {
+          name: t(this.plugin.settings, "moodMetadataPath"),
+          description: t(this.plugin.settings, "moodMetadataPathDesc"),
+          placeholder: DEFAULT_MOOD_METADATA_PATH,
+          field: "moodMetadataPath",
+          initialValue: this.plugin.settings.moodMetadataPath,
+          parse: (raw) => normalizeMoodMetadataPath(raw),
+          localizeError: (key) => t(this.plugin.settings, key),
+          apply: () => this._reloadMoodMetadataStore()
+        });
         this._addActionRow(new import_obsidian5.Setting(containerEl).setName(t(this.plugin.settings, "moodExport")).setDesc(t(this.plugin.settings, "moodExportDesc")), "moodExport").addButton((button) => button.setButtonText(t(this.plugin.settings, "exportMoodCsvCommand")).onClick(() => this.plugin.exportMood("csv"))).addButton((button) => button.setButtonText(t(this.plugin.settings, "exportMoodJsonCommand")).onClick(() => this.plugin.exportMood("json")));
         this._addActionRow(new import_obsidian5.Setting(containerEl).setName(t(this.plugin.settings, "metadataBackup")).setDesc(t(this.plugin.settings, "metadataBackupDesc")), "metadataBackup").addButton((button) => button.setButtonText(t(this.plugin.settings, "exportMetadataCommand")).onClick(async () => {
           try {
@@ -10087,1076 +11349,10 @@ var require_badge_storm = __commonJS({
   }
 });
 
-// src/weather-cache.ts
-function weatherConfigKey(settings) {
-  const latitude = Number.parseFloat(String(settings.weatherLatitude));
-  const longitude = Number.parseFloat(String(settings.weatherLongitude));
-  return JSON.stringify({
-    latitude: Number.isFinite(latitude) ? Number(latitude.toFixed(6)) : null,
-    longitude: Number.isFinite(longitude) ? Number(longitude.toFixed(6)) : null,
-    units: settings.weatherUnits === "imperial" ? "imperial" : "metric",
-    timezone: settings.weatherTimezone || "auto",
-    apiVersion: WEATHER_API_VERSION
-  });
-}
-function migrateCompatibleSnapshot(snapshot, settings) {
-  if (!snapshot || typeof snapshot !== "object") return null;
-  const expected = weatherConfigKey(settings);
-  if (snapshot.configKey === expected) return { ...snapshot };
-  if (snapshot.configKey !== void 0 && snapshot.configKey !== null) return null;
-  const latitude = Number.parseFloat(String(settings.weatherLatitude));
-  const longitude = Number.parseFloat(String(settings.weatherLongitude));
-  const snapshotLatitude = Number.parseFloat(String(snapshot.latitude));
-  const snapshotLongitude = Number.parseFloat(String(snapshot.longitude));
-  const sameLocation = Number.isFinite(snapshotLatitude) && Number.isFinite(snapshotLongitude) && Math.abs(snapshotLatitude - latitude) < 1e-6 && Math.abs(snapshotLongitude - longitude) < 1e-6;
-  const sameUnits = snapshot.units === (settings.weatherUnits === "imperial" ? "imperial" : "metric");
-  if (!sameLocation || !sameUnits) return null;
-  return { ...snapshot, configKey: expected };
-}
-function isSnapshotStale(snapshot, ttlHours, now = Date.now()) {
-  if (!snapshot) return true;
-  const rawTimestamp = snapshot.cachedAt ?? snapshot.fetchedAt;
-  if (!rawTimestamp) return true;
-  const timestamp = new Date(rawTimestamp).getTime();
-  if (!Number.isFinite(timestamp)) return true;
-  return now - timestamp > ttlHours * 60 * 60 * 1e3;
-}
-function cloneStaleSnapshot(snapshot, offline = false) {
-  if (!snapshot || typeof snapshot !== "object") return null;
-  const clone2 = { ...snapshot };
-  delete clone2.stale;
-  delete clone2.offline;
-  return offline ? { ...clone2, stale: true, offline: true } : { ...clone2, stale: true };
-}
-function toCanonicalWeatherSnapshot(snapshot) {
-  if (!snapshot || typeof snapshot !== "object") return null;
-  const canonical = { ...snapshot };
-  delete canonical.stale;
-  delete canonical.offline;
-  return canonical;
-}
-var WEATHER_API_VERSION;
-var init_weather_cache = __esm({
-  "src/weather-cache.ts"() {
-    "use strict";
-    WEATHER_API_VERSION = "open-meteo-v1";
-  }
-});
-
-// src/weather-service.ts
-var weather_service_exports = {};
-__export(weather_service_exports, {
-  WEATHER_MAX_ATTEMPTS: () => WEATHER_MAX_ATTEMPTS,
-  WEATHER_RETRY_BASE_DELAY_MS: () => WEATHER_RETRY_BASE_DELAY_MS,
-  WEATHER_RETRY_MAX_DELAY_MS: () => WEATHER_RETRY_MAX_DELAY_MS,
-  WeatherRequestError: () => WeatherRequestError,
-  WeatherService: () => WeatherService,
-  getWeatherRetryDelay: () => getWeatherRetryDelay,
-  isOfflineWeatherFailure: () => isOfflineWeatherFailure,
-  isRetryableWeatherFailure: () => isRetryableWeatherFailure,
-  lookupWeatherCode: () => lookupWeatherCode,
-  requestWeatherWithRetry: () => requestWeatherWithRetry,
-  toWeatherError: () => toWeatherError,
-  validateWeatherCoordinates: () => validateWeatherCoordinates,
-  weatherBadgeIcon: () => weatherBadgeIcon
-});
-function getObsidianWeatherDeps() {
-  if (!_obsidianWeatherDeps) _obsidianWeatherDeps = require("obsidian");
-  return _obsidianWeatherDeps;
-}
-function daylineDate2(settings, date = /* @__PURE__ */ new Date()) {
-  return getTodayDate(settings?.weatherTimezone || "auto", date);
-}
-function errorStatus(value) {
-  if (typeof value === "number") return value;
-  const status = value?.status ?? value?.statusCode ?? value?.response?.status ?? value?.error?.status;
-  return Number.isFinite(Number(status)) ? Number(status) : void 0;
-}
-function isRetryableWeatherFailure(value) {
-  const status = errorStatus(value);
-  if (status === void 0 || status === 0) return true;
-  return status === 408 || status === 429 || status >= 500 && status <= 599;
-}
-function isOfflineWeatherFailure(value) {
-  const status = errorStatus(value);
-  return status === void 0 || status === 0 || status === 408 || status === 429 || status >= 500 && status <= 599;
-}
-function getWeatherRetryDelay(attempt, options = {}) {
-  const base = Math.max(0, Number(options.baseDelayMs ?? WEATHER_RETRY_BASE_DELAY_MS));
-  const max = Math.max(base, Number(options.maxDelayMs ?? WEATHER_RETRY_MAX_DELAY_MS));
-  return Math.min(max, base * 2 ** Math.max(0, attempt - 1));
-}
-function toWeatherError(reason) {
-  if (reason instanceof Error) return reason;
-  const message = typeof reason === "string" ? reason : `Weather request failed: ${String(reason)}`;
-  const error = new Error(message);
-  const status = errorStatus(reason);
-  if (status !== void 0) error.status = status;
-  return error;
-}
-async function requestWeatherWithRetry(request, options = {}) {
-  const requestedAttempts = Number(options.maxAttempts ?? WEATHER_MAX_ATTEMPTS);
-  const maxAttempts = Math.max(1, Math.min(
-    WEATHER_MAX_ATTEMPTS,
-    Number.isFinite(requestedAttempts) ? Math.floor(requestedAttempts) : WEATHER_MAX_ATTEMPTS
-  ));
-  const sleep = options.sleep || ((ms) => new Promise((resolve) => window.setTimeout(resolve, ms)));
-  let lastError;
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    try {
-      const response = await request(attempt);
-      const status = errorStatus(response);
-      if (status === void 0 || status >= 200 && status < 300) return response;
-      lastError = new WeatherRequestError(`Weather API returned status ${status}`, status);
-      if (attempt >= maxAttempts || !isRetryableWeatherFailure(lastError)) throw lastError;
-    } catch (error) {
-      lastError = toWeatherError(error);
-      if (attempt >= maxAttempts || !isRetryableWeatherFailure(lastError)) throw lastError;
-    }
-    await sleep(getWeatherRetryDelay(attempt, options));
-  }
-  throw lastError ?? new Error("Weather request failed");
-}
-function badgeIconFromScene(icon) {
-  return SCENE_TO_BADGE[icon] || "badge-cloud.svg";
-}
-function lookupWeatherCode(code) {
-  const entry = WMO_CODES.find((w) => w.code === code);
-  const resolved = entry || { condition: `Weather code ${code}`, icon: "overcast.svg" };
-  return { ...resolved, badgeIcon: badgeIconFromScene(resolved.icon) };
-}
-function weatherBadgeIcon(snapshot) {
-  if (!snapshot || typeof snapshot !== "object") return "badge-cloud.svg";
-  if (typeof snapshot.weatherCode === "number") {
-    return lookupWeatherCode(snapshot.weatherCode).badgeIcon;
-  }
-  if (typeof snapshot.icon === "string") return badgeIconFromScene(snapshot.icon);
-  return "badge-cloud.svg";
-}
-function validateWeatherCoordinates(lat, lng) {
-  const n = parseFloat(lat);
-  const g = parseFloat(lng);
-  return typeof n === "number" && !isNaN(n) && n >= -90 && n <= 90 && typeof g === "number" && !isNaN(g) && g >= -180 && g <= 180;
-}
-function compatibleSnapshot(snapshot, settings) {
-  const migrated = migrateCompatibleSnapshot(snapshot, settings);
-  if (!migrated) return null;
-  const lat = parseFloat(settings.weatherLatitude);
-  const lng = parseFloat(settings.weatherLongitude);
-  const { stale: _stale, offline: _offline, ...canonicalFields } = migrated;
-  return {
-    ...canonicalFields,
-    location: settings.weatherLocationName || `${lat.toFixed(2)}, ${lng.toFixed(2)}`
-  };
-}
-function normalizeIcon(snapshot) {
-  if (!snapshot || typeof snapshot !== "object") return snapshot;
-  if (typeof snapshot.icon === "string" && !snapshot.icon.endsWith(".svg") && snapshot.weatherCode != null) {
-    return { ...snapshot, icon: lookupWeatherCode(snapshot.weatherCode).icon };
-  }
-  return { ...snapshot };
-}
-function valueAt(values, index) {
-  return Array.isArray(values) && index >= 0 ? values[index] : void 0;
-}
-function numberAt(values, index) {
-  const value = valueAt(values, index);
-  return typeof value === "number" && Number.isFinite(value) ? value : null;
-}
-function stringAt(values, index) {
-  const value = valueAt(values, index);
-  return typeof value === "string" && value.length > 0 ? value : null;
-}
-var _obsidianWeatherDeps, WEATHER_MAX_ATTEMPTS, WEATHER_RETRY_BASE_DELAY_MS, WEATHER_RETRY_MAX_DELAY_MS, WeatherRequestError, WMO_CODES, SCENE_TO_BADGE, WeatherService;
-var init_weather_service = __esm({
-  "src/weather-service.ts"() {
-    "use strict";
-    init_date_utils();
-    init_weather_cache();
-    WEATHER_MAX_ATTEMPTS = 3;
-    WEATHER_RETRY_BASE_DELAY_MS = 250;
-    WEATHER_RETRY_MAX_DELAY_MS = 2e3;
-    WeatherRequestError = class extends Error {
-      constructor(message, status) {
-        super(message);
-        this.name = "WeatherRequestError";
-        this.status = status;
-      }
-    };
-    WMO_CODES = [
-      { code: 0, condition: "Clear sky", icon: "clear-day.svg" },
-      { code: 1, condition: "Mainly clear", icon: "clear-day.svg" },
-      { code: 2, condition: "Partly cloudy", icon: "partly-cloudy-day.svg" },
-      { code: 3, condition: "Overcast", icon: "overcast.svg" },
-      { code: 45, condition: "Foggy", icon: "fog.svg" },
-      { code: 48, condition: "Depositing rime fog", icon: "fog.svg" },
-      { code: 51, condition: "Light drizzle", icon: "drizzle.svg" },
-      { code: 53, condition: "Moderate drizzle", icon: "drizzle.svg" },
-      { code: 55, condition: "Dense drizzle", icon: "drizzle.svg" },
-      { code: 61, condition: "Slight rain", icon: "rain.svg" },
-      { code: 63, condition: "Moderate rain", icon: "rain.svg" },
-      { code: 65, condition: "Heavy rain", icon: "rain.svg" },
-      { code: 71, condition: "Slight snow fall", icon: "snow.svg" },
-      { code: 73, condition: "Moderate snow fall", icon: "snow.svg" },
-      { code: 75, condition: "Heavy snow fall", icon: "snow.svg" },
-      { code: 77, condition: "Snow grains", icon: "snow.svg" },
-      { code: 80, condition: "Slight rain showers", icon: "rain.svg" },
-      { code: 81, condition: "Moderate rain showers", icon: "rain.svg" },
-      { code: 82, condition: "Violent rain showers", icon: "rain.svg" },
-      { code: 85, condition: "Slight snow showers", icon: "snow.svg" },
-      { code: 86, condition: "Heavy snow showers", icon: "snow.svg" },
-      { code: 95, condition: "Thunderstorm", icon: "thunderstorms.svg" },
-      { code: 96, condition: "Thunderstorm w/ hail", icon: "thunderstorms.svg" },
-      { code: 99, condition: "Thunderstorm w/ heavy hail", icon: "thunderstorms.svg" }
-    ];
-    SCENE_TO_BADGE = {
-      "clear-day.svg": "badge-sun.svg",
-      "partly-cloudy-day.svg": "badge-cloud-sun.svg",
-      "overcast.svg": "badge-cloud.svg",
-      "fog.svg": "badge-fog.svg",
-      "drizzle.svg": "badge-drizzle.svg",
-      "rain.svg": "badge-rain.svg",
-      "snow.svg": "badge-snow.svg",
-      "thunderstorms.svg": "badge-storm.svg"
-    };
-    WeatherService = class {
-      constructor(plugin, options = {}) {
-        this.plugin = plugin;
-        this._request = options.request || getObsidianWeatherDeps().requestUrl;
-        this._sleep = options.sleep;
-        this._now = options.now || (() => Date.now());
-        this._retryOptions = {
-          maxAttempts: options.maxAttempts ?? WEATHER_MAX_ATTEMPTS,
-          baseDelayMs: options.baseDelayMs ?? WEATHER_RETRY_BASE_DELAY_MS,
-          maxDelayMs: options.maxDelayMs ?? WEATHER_RETRY_MAX_DELAY_MS
-        };
-        this._inFlight = /* @__PURE__ */ new Map();
-        this._memoryCache = /* @__PURE__ */ new Map();
-      }
-      _nowIso() {
-        return new Date(this._now()).toISOString();
-      }
-      _requestContext() {
-        const source = this.plugin.settings;
-        const settings = {
-          weatherLatitude: source.weatherLatitude,
-          weatherLongitude: source.weatherLongitude,
-          weatherUnits: source.weatherUnits,
-          weatherTimezone: source.weatherTimezone,
-          weatherTtlHours: source.weatherTtlHours,
-          weatherLocationName: source.weatherLocationName,
-          dailyFolder: source.dailyFolder
-        };
-        return {
-          settings,
-          configKey: weatherConfigKey(settings),
-          today: daylineDate2(settings, new Date(this._now()))
-        };
-      }
-      _runDeduplicated(dateStr, configKey, operation) {
-        const requestKey = `${dateStr}|${configKey}`;
-        if (this._inFlight.has(requestKey)) return this._inFlight.get(requestKey);
-        const promise = Promise.resolve().then(operation).finally(() => {
-          if (this._inFlight.get(requestKey) === promise) this._inFlight.delete(requestKey);
-        });
-        this._inFlight.set(requestKey, promise);
-        return promise;
-      }
-      /** Get weather, returning a stale offline snapshot when refresh cannot complete. */
-      async getSnapshot(dateStr) {
-        const s = this.plugin.settings;
-        if (!s.weatherEnabled) return null;
-        if (!validateWeatherCoordinates(s.weatherLatitude, s.weatherLongitude)) return null;
-        const context = this._requestContext();
-        return this._runDeduplicated(dateStr, context.configKey, () => this._fetchOrUseCached(dateStr, false, context));
-      }
-      /** Check whether a frontmatter snapshot or memory cache record needs refresh. */
-      _shouldFetch(record, ttlHours) {
-        if (record && typeof record === "object" && "cachedAt" in record) {
-          return isSnapshotStale({ ...record.snapshot || {}, cachedAt: record.cachedAt }, ttlHours, this._now());
-        }
-        return isSnapshotStale(record, ttlHours, this._now());
-      }
-      _configKey() {
-        return weatherConfigKey(this.plugin.settings);
-      }
-      isSnapshotCompatible(snapshot) {
-        return !!compatibleSnapshot(snapshot, this.plugin.settings);
-      }
-      _readLegacySnapshots(dateStr, sourcePath, settings = this.plugin.settings) {
-        const app = this.plugin.app;
-        const candidatePaths = [sourcePath, joinVaultPath(settings.dailyFolder, `${dateStr}.md`)].filter((path, index, paths) => path && paths.indexOf(path) === index);
-        const snapshots = [];
-        for (const path of candidatePaths) {
-          const existingFile = app?.vault?.getAbstractFileByPath?.(path);
-          if (!existingFile) continue;
-          const TFile4 = getObsidianWeatherDeps().TFile;
-          if (!(existingFile instanceof TFile4)) continue;
-          const cache = app.metadataCache?.getFileCache?.(existingFile);
-          const snapshot = compatibleSnapshot(cache?.frontmatter?._calendar_weather, settings);
-          if (snapshot) snapshots.push({ snapshot: normalizeIcon(snapshot), source: "frontmatter" });
-        }
-        return snapshots;
-      }
-      _cachedCandidates(dateStr, sourcePath, settings = this.plugin.settings, configKey = weatherConfigKey(settings)) {
-        const candidates = [];
-        const cacheEntry = this.plugin.weatherCache?.[dateStr];
-        const cacheSnapshot = compatibleSnapshot(cacheEntry, settings);
-        if (cacheSnapshot) {
-          if (cacheEntry?.offline || cacheEntry?.stale) {
-            const canonical = toCanonicalWeatherSnapshot(cacheEntry);
-            if (canonical) {
-              this.plugin.weatherCache[dateStr] = canonical;
-              this.plugin._saveWeatherCache?.();
-            }
-          }
-          candidates.push({ snapshot: normalizeIcon(cacheSnapshot), source: "weatherCache" });
-        }
-        candidates.push(...this._readLegacySnapshots(dateStr, sourcePath, settings));
-        const memoryRecord = this._memoryCache.get(dateStr);
-        if (memoryRecord?.configKey === configKey && memoryRecord.snapshot) {
-          const memorySnapshot = compatibleSnapshot(memoryRecord.snapshot, settings);
-          if (memorySnapshot) {
-            candidates.push({
-              snapshot: normalizeIcon(memorySnapshot),
-              source: "memory",
-              record: memoryRecord
-            });
-          }
-        }
-        return candidates;
-      }
-      _selectCached(dateStr, sourcePath, ttlHours, settings = this.plugin.settings, configKey = weatherConfigKey(settings)) {
-        const candidates = this._cachedCandidates(dateStr, sourcePath, settings, configKey);
-        if (candidates.length === 0) return null;
-        const fresh = candidates.find((candidate) => !this._shouldFetch(candidate.record || candidate.snapshot, ttlHours));
-        return fresh || candidates[0];
-      }
-      getCachedSnapshot(dateStr, sourcePath) {
-        return this._selectCached(dateStr, sourcePath, this.plugin.settings.weatherTtlHours || 2)?.snapshot || null;
-      }
-      _migrateFrontmatterCache(dateStr, candidate) {
-        if (candidate?.source !== "frontmatter" || !candidate.snapshot) return;
-        this.plugin.weatherCache = this.plugin.weatherCache || {};
-        this.plugin.weatherCache[dateStr] = { ...candidate.snapshot };
-        this.plugin._saveWeatherCache?.();
-      }
-      async _fetchOrUseCached(dateStr, forceRefresh, context = this._requestContext()) {
-        const s = context.settings;
-        const lat = parseFloat(s.weatherLatitude);
-        const lng = parseFloat(s.weatherLongitude);
-        const units = s.weatherUnits === "imperial" ? "imperial" : "metric";
-        const ttlHours = s.weatherTtlHours || 2;
-        const locationName = s.weatherLocationName || "";
-        const memoryRecord = this._memoryCache.get(dateStr);
-        const cached = this._selectCached(dateStr, void 0, ttlHours, s, context.configKey);
-        if (!forceRefresh && memoryRecord?.configKey === context.configKey && memoryRecord.snapshot === null && !cached && !this._shouldFetch(memoryRecord, ttlHours)) {
-          return null;
-        }
-        if (!forceRefresh && cached && !this._shouldFetch(cached.record || cached.snapshot, ttlHours)) {
-          this._migrateFrontmatterCache(dateStr, cached);
-          return cached.snapshot;
-        }
-        const fetchResult = await this._fetchFromOpenMeteoResult(lat, lng, dateStr, units, locationName, context);
-        const weather = fetchResult.snapshot;
-        if (!weather) {
-          if (cached?.snapshot) return cloneStaleSnapshot(cached.snapshot, fetchResult.offline);
-          if (context.configKey === this._configKey()) {
-            this._memoryCache.set(dateStr, { snapshot: null, cachedAt: this._nowIso(), configKey: context.configKey });
-          }
-          return null;
-        }
-        if (context.configKey === this._configKey()) {
-          await this._persistSnapshot(dateStr, weather);
-          this._memoryCache.set(dateStr, { snapshot: weather, cachedAt: this._nowIso(), configKey: context.configKey });
-        }
-        return weather;
-      }
-      _dailyFields(isArchive) {
-        const fields = [
-          "temperature_2m_max",
-          "temperature_2m_min",
-          "weathercode",
-          "relative_humidity_2m_max",
-          "apparent_temperature_max",
-          "wind_speed_10m_max",
-          "sunrise",
-          "sunset"
-        ];
-        if (!isArchive) fields.push("precipitation_probability_max");
-        return fields.join(",");
-      }
-      _buildWeatherUrl(lat, lng, dateStr, units, context = this._requestContext()) {
-        const timezone = context.settings.weatherTimezone || "auto";
-        const today = context.today;
-        const isToday = dateStr === today;
-        const isArchive = dateStr < today;
-        const params = new URLSearchParams({
-          latitude: String(lat),
-          longitude: String(lng),
-          daily: this._dailyFields(isArchive),
-          timezone,
-          start_date: dateStr,
-          end_date: dateStr
-        });
-        if (isToday) {
-          params.set("current", "temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m");
-        }
-        if (units === "imperial") {
-          params.set("temperature_unit", "fahrenheit");
-          params.set("wind_speed_unit", "mph");
-        } else {
-          params.set("temperature_unit", "celsius");
-          params.set("wind_speed_unit", "kmh");
-        }
-        const baseUrl = isArchive ? "https://archive-api.open-meteo.com/v1/archive" : "https://api.open-meteo.com/v1/forecast";
-        return `${baseUrl}?${params.toString()}`;
-      }
-      async _requestWeather(url) {
-        return requestWeatherWithRetry(
-          () => this._request({ url, timeout: 1e4 }),
-          { ...this._retryOptions, sleep: this._sleep }
-        );
-      }
-      _location(lat, lng, locationName) {
-        return locationName || `${lat.toFixed(2)}, ${lng.toFixed(2)}`;
-      }
-      _dailyIndex(daily, dateStr) {
-        const dates = Array.isArray(daily?.time) ? daily.time : [];
-        return dates.indexOf(dateStr);
-      }
-      _dailySnapshot(daily, idx, lat, lng, dateStr, units, locationName, configKey, fetchedAt = this._nowIso()) {
-        if (!daily || idx < 0) return null;
-        const code = numberAt(daily.weathercode || daily.weather_code, idx);
-        if (typeof code !== "number") return null;
-        const wmo = lookupWeatherCode(code);
-        const tempMax = numberAt(daily.temperature_2m_max, idx);
-        const tempMin = numberAt(daily.temperature_2m_min, idx);
-        const feelsLike = numberAt(daily.apparent_temperature_max, idx);
-        return {
-          fetchedAt,
-          date: dateStr,
-          location: this._location(lat, lng, locationName),
-          latitude: lat,
-          longitude: lng,
-          temperature: tempMax == null ? null : Math.round(tempMax),
-          feelsLike: feelsLike == null ? null : Math.round(feelsLike),
-          humidity: numberAt(daily.relative_humidity_2m_max, idx),
-          weatherCode: code,
-          condition: wmo.condition,
-          icon: wmo.icon,
-          high: tempMax,
-          low: tempMin,
-          temperatureLabel: "High",
-          precipitationProbability: numberAt(daily.precipitation_probability_max, idx),
-          windSpeed: numberAt(daily.wind_speed_10m_max, idx),
-          sunrise: stringAt(daily.sunrise, idx),
-          sunset: stringAt(daily.sunset, idx),
-          units,
-          configKey
-        };
-      }
-      _currentSnapshot(json, lat, lng, dateStr, units, locationName, configKey, fetchedAt) {
-        const cur = json?.current;
-        const daily = json?.daily;
-        if (!cur || typeof cur !== "object") return null;
-        const code = typeof cur.weather_code === "number" ? cur.weather_code : null;
-        if (code === null) return null;
-        const idx = this._dailyIndex(daily, dateStr);
-        const wmo = lookupWeatherCode(code);
-        const dailyMax = numberAt(daily?.temperature_2m_max, idx);
-        const dailyMin = numberAt(daily?.temperature_2m_min, idx);
-        return {
-          fetchedAt,
-          date: dateStr,
-          location: this._location(lat, lng, locationName),
-          latitude: lat,
-          longitude: lng,
-          temperature: typeof cur.temperature_2m === "number" ? Math.round(cur.temperature_2m) : null,
-          feelsLike: typeof cur.apparent_temperature === "number" ? Math.round(cur.apparent_temperature) : null,
-          humidity: typeof cur.relative_humidity_2m === "number" ? cur.relative_humidity_2m : null,
-          weatherCode: code,
-          condition: wmo.condition,
-          icon: wmo.icon,
-          high: dailyMax,
-          low: dailyMin,
-          temperatureLabel: "Now",
-          precipitationProbability: numberAt(daily?.precipitation_probability_max, idx),
-          windSpeed: typeof cur.wind_speed_10m === "number" ? cur.wind_speed_10m : numberAt(daily?.wind_speed_10m_max, idx),
-          sunrise: stringAt(daily?.sunrise, idx),
-          sunset: stringAt(daily?.sunset, idx),
-          units,
-          configKey
-        };
-      }
-      /** Call Open-Meteo once per operation, with all retry attempts inside it. */
-      async _fetchFromOpenMeteoResult(lat, lng, dateStr, units, locationName, context = this._requestContext()) {
-        const url = this._buildWeatherUrl(lat, lng, dateStr, units, context);
-        let response;
-        try {
-          response = await this._requestWeather(url);
-        } catch (err) {
-          console.warn("[Dayline] Weather fetch failed:", err?.message || err);
-          return { snapshot: null, offline: isOfflineWeatherFailure(err) };
-        }
-        if (!response?.json || typeof response.json !== "object") return { snapshot: null, offline: false };
-        try {
-          const fetchedAt = this._nowIso();
-          const today = context.today;
-          if (dateStr === today) {
-            const current = this._currentSnapshot(response.json, lat, lng, dateStr, units, locationName, context.configKey, fetchedAt);
-            if (current) return { snapshot: current, offline: false };
-          }
-          const daily = response.json.daily;
-          const idx = this._dailyIndex(daily, dateStr);
-          return {
-            snapshot: this._dailySnapshot(daily, idx, lat, lng, dateStr, units, locationName, context.configKey, fetchedAt),
-            offline: false
-          };
-        } catch (err) {
-          console.warn("[Dayline] Weather response was unusable:", err?.message || err);
-          return { snapshot: null, offline: false };
-        }
-      }
-      /** Preserve the historical null-returning helper for direct callers. */
-      async _fetchFromOpenMeteo(lat, lng, dateStr, units, locationName) {
-        return (await this._fetchFromOpenMeteoResult(lat, lng, dateStr, units, locationName)).snapshot;
-      }
-      /** Compatibility helper for callers that still need a daily-only request. */
-      async _dailyOnlyFetch(lat, lng, dateStr, params) {
-        const today = daylineDate2(this.plugin.settings, new Date(this._now()));
-        const baseUrl = dateStr < today ? "https://archive-api.open-meteo.com/v1/archive" : "https://api.open-meteo.com/v1/forecast";
-        try {
-          return await this._requestWeather(`${baseUrl}?${params.toString()}`);
-        } catch (err) {
-          console.warn("[Dayline] Daily weather fetch failed:", err?.message || err);
-          return null;
-        }
-      }
-      /** Persist only canonical data; offline/stale status is transient UI state. */
-      async _persistSnapshot(dateStr, weather) {
-        const canonical = toCanonicalWeatherSnapshot(weather);
-        if (!canonical) return;
-        if (canonical.configKey && canonical.configKey !== this._configKey()) return;
-        if (!this.plugin.weatherCache) this.plugin.weatherCache = {};
-        this.plugin.weatherCache[dateStr] = { ...canonical, configKey: this._configKey() };
-        this.plugin._saveWeatherCache?.();
-      }
-      /** Force a refresh while retaining stale-cache fallback and deduplication. */
-      async forceRefresh(dateStr) {
-        const s = this.plugin.settings;
-        if (!s.weatherEnabled) return null;
-        if (!validateWeatherCoordinates(s.weatherLatitude, s.weatherLongitude)) return null;
-        const context = this._requestContext();
-        return this._runDeduplicated(dateStr, context.configKey, () => this._fetchOrUseCached(dateStr, true, context));
-      }
-      /** Check if a date has a compatible cached snapshot. */
-      hasCachedSnapshot(dateStr, sourcePath) {
-        if (!this.plugin.settings.weatherEnabled) return false;
-        return !!this.getCachedSnapshot(dateStr, sourcePath);
-      }
-      /** Bulk-fetch weather for a list of dates with a delay between requests. */
-      async bulkBackfill(dateStrs, onProgress) {
-        let done = 0;
-        const total = dateStrs.length;
-        for (const dateStr of dateStrs) {
-          const entry = this.plugin.weatherCache?.[dateStr];
-          if (entry && this.isSnapshotCompatible(entry) && entry.fetchedAt && !this._shouldFetch(entry, this.plugin.settings.weatherTtlHours || 2)) {
-            done++;
-            onProgress?.(done, total, dateStr, true);
-            continue;
-          }
-          try {
-            await this.forceRefresh(dateStr);
-          } catch (e) {
-            console.warn("[Dayline] Backfill failed for", dateStr, e.message);
-          }
-          done++;
-          onProgress?.(done, total, dateStr, false);
-          if (done < total) await new Promise((resolve) => window.setTimeout(resolve, 2e3));
-        }
-        this.plugin._saveWeatherCache?.();
-        return done;
-      }
-    };
-  }
-});
-
-// src/weather-conditions.ts
-var weather_conditions_exports = {};
-__export(weather_conditions_exports, {
-  WEATHER_CONDITION_CODES: () => WEATHER_CONDITION_CODES,
-  weatherConditionLabel: () => weatherConditionLabel
-});
-function weatherConditionLabel(snapshot, settings = {}) {
-  const table = WEATHER_CONDITIONS[getDisplayLanguage(settings)] || WEATHER_CONDITIONS[DEFAULT_DISPLAY_LANGUAGE];
-  const code = Number(snapshot?.weatherCode);
-  if (Number.isFinite(code)) {
-    const index = WEATHER_CONDITION_CODES.indexOf(code);
-    if (index >= 0) return table.conditions[index];
-    return table.unknown.replace("{code}", String(code));
-  }
-  return String(snapshot?.condition || "");
-}
-var WEATHER_CONDITION_CODES, WEATHER_CONDITIONS;
-var init_weather_conditions = __esm({
-  "src/weather-conditions.ts"() {
-    "use strict";
-    init_i18n();
-    WEATHER_CONDITION_CODES = [
-      0,
-      1,
-      2,
-      3,
-      45,
-      48,
-      51,
-      53,
-      55,
-      61,
-      63,
-      65,
-      71,
-      73,
-      75,
-      77,
-      80,
-      81,
-      82,
-      85,
-      86,
-      95,
-      96,
-      99
-    ];
-    WEATHER_CONDITIONS = {
-      en: {
-        conditions: [
-          "Clear sky",
-          "Mainly clear",
-          "Partly cloudy",
-          "Overcast",
-          "Foggy",
-          "Depositing rime fog",
-          "Light drizzle",
-          "Moderate drizzle",
-          "Dense drizzle",
-          "Slight rain",
-          "Moderate rain",
-          "Heavy rain",
-          "Slight snow fall",
-          "Moderate snow fall",
-          "Heavy snow fall",
-          "Snow grains",
-          "Slight rain showers",
-          "Moderate rain showers",
-          "Violent rain showers",
-          "Slight snow showers",
-          "Heavy snow showers",
-          "Thunderstorm",
-          "Thunderstorm w/ hail",
-          "Thunderstorm w/ heavy hail"
-        ],
-        unknown: "Weather code {code}"
-      },
-      zh: {
-        conditions: [
-          "\u6674",
-          "\u5927\u81F4\u6674\u6717",
-          "\u5C40\u90E8\u591A\u4E91",
-          "\u9634",
-          "\u6709\u96FE",
-          "\u96FE\u51C7",
-          "\u5C0F\u6BDB\u6BDB\u96E8",
-          "\u4E2D\u7B49\u6BDB\u6BDB\u96E8",
-          "\u6D53\u5BC6\u6BDB\u6BDB\u96E8",
-          "\u5C0F\u96E8",
-          "\u4E2D\u96E8",
-          "\u5927\u96E8",
-          "\u5C0F\u96EA",
-          "\u4E2D\u96EA",
-          "\u5927\u96EA",
-          "\u7C73\u96EA",
-          "\u5C0F\u9635\u96E8",
-          "\u4E2D\u7B49\u9635\u96E8",
-          "\u5F3A\u9635\u96E8",
-          "\u5C0F\u9635\u96EA",
-          "\u5927\u9635\u96EA",
-          "\u96F7\u66B4",
-          "\u96F7\u66B4\u4F34\u51B0\u96F9",
-          "\u96F7\u66B4\u4F34\u5F3A\u51B0\u96F9"
-        ],
-        unknown: "\u5929\u6C14\u4EE3\u7801 {code}"
-      },
-      "zh-tw": {
-        conditions: [
-          "\u6674",
-          "\u5927\u81F4\u6674\u6717",
-          "\u5C40\u90E8\u591A\u96F2",
-          "\u9670",
-          "\u6709\u9727",
-          "\u9727\u51C7",
-          "\u5C0F\u6BDB\u6BDB\u96E8",
-          "\u4E2D\u7B49\u6BDB\u6BDB\u96E8",
-          "\u6FC3\u5BC6\u6BDB\u6BDB\u96E8",
-          "\u5C0F\u96E8",
-          "\u4E2D\u96E8",
-          "\u5927\u96E8",
-          "\u5C0F\u96EA",
-          "\u4E2D\u96EA",
-          "\u5927\u96EA",
-          "\u7C73\u96EA",
-          "\u5C0F\u9663\u96E8",
-          "\u4E2D\u7B49\u9663\u96E8",
-          "\u5F37\u9663\u96E8",
-          "\u5C0F\u9663\u96EA",
-          "\u5927\u9663\u96EA",
-          "\u96F7\u66B4",
-          "\u96F7\u66B4\u4F34\u51B0\u96F9",
-          "\u96F7\u66B4\u4F34\u5F37\u51B0\u96F9"
-        ],
-        unknown: "\u5929\u6C23\u4EE3\u78BC {code}"
-      },
-      ja: {
-        conditions: [
-          "\u5FEB\u6674",
-          "\u6674\u308C",
-          "\u4E00\u90E8\u66C7\u308A",
-          "\u66C7\u308A",
-          "\u9727",
-          "\u7740\u6C37\u6027\u306E\u9727",
-          "\u5F31\u3044\u9727\u96E8",
-          "\u9727\u96E8",
-          "\u5F37\u3044\u9727\u96E8",
-          "\u5F31\u3044\u96E8",
-          "\u96E8",
-          "\u5F37\u3044\u96E8",
-          "\u5F31\u3044\u96EA",
-          "\u96EA",
-          "\u5F37\u3044\u96EA",
-          "\u96EA\u3042\u3089\u308C",
-          "\u5F31\u3044\u306B\u308F\u304B\u96E8",
-          "\u306B\u308F\u304B\u96E8",
-          "\u6FC0\u3057\u3044\u306B\u308F\u304B\u96E8",
-          "\u5F31\u3044\u306B\u308F\u304B\u96EA",
-          "\u5F37\u3044\u306B\u308F\u304B\u96EA",
-          "\u96F7\u96E8",
-          "\u96F9\u3092\u4F34\u3046\u96F7\u96E8",
-          "\u6FC0\u3057\u3044\u96F9\u3092\u4F34\u3046\u96F7\u96E8"
-        ],
-        unknown: "\u5929\u6C17\u30B3\u30FC\u30C9 {code}"
-      },
-      ko: {
-        conditions: [
-          "\uB9D1\uC74C",
-          "\uB300\uCCB4\uB85C \uB9D1\uC74C",
-          "\uBD80\uBD84\uC801\uC73C\uB85C \uD750\uB9BC",
-          "\uD750\uB9BC",
-          "\uC548\uAC1C",
-          "\uCC29\uBE59\uC131 \uC548\uAC1C",
-          "\uC57D\uD55C \uC774\uC2AC\uBE44",
-          "\uC774\uC2AC\uBE44",
-          "\uAC15\uD55C \uC774\uC2AC\uBE44",
-          "\uC57D\uD55C \uBE44",
-          "\uBE44",
-          "\uAC15\uD55C \uBE44",
-          "\uC57D\uD55C \uB208",
-          "\uB208",
-          "\uAC15\uD55C \uB208",
-          "\uC2F8\uB77D\uB208",
-          "\uC57D\uD55C \uC18C\uB098\uAE30",
-          "\uC18C\uB098\uAE30",
-          "\uAC15\uD55C \uC18C\uB098\uAE30",
-          "\uC57D\uD55C \uB208 \uC18C\uB098\uAE30",
-          "\uAC15\uD55C \uB208 \uC18C\uB098\uAE30",
-          "\uB1CC\uC6B0",
-          "\uC6B0\uBC15\uC744 \uB3D9\uBC18\uD55C \uB1CC\uC6B0",
-          "\uAC15\uD55C \uC6B0\uBC15\uC744 \uB3D9\uBC18\uD55C \uB1CC\uC6B0"
-        ],
-        unknown: "\uB0A0\uC528 \uCF54\uB4DC {code}"
-      },
-      fr: {
-        conditions: [
-          "Ciel d\xE9gag\xE9",
-          "Plut\xF4t d\xE9gag\xE9",
-          "Partiellement nuageux",
-          "Couvert",
-          "Brouillard",
-          "Brouillard givrant",
-          "Bruine l\xE9g\xE8re",
-          "Bruine mod\xE9r\xE9e",
-          "Bruine dense",
-          "Pluie faible",
-          "Pluie mod\xE9r\xE9e",
-          "Pluie forte",
-          "Neige faible",
-          "Neige mod\xE9r\xE9e",
-          "Neige forte",
-          "Grains de neige",
-          "Averses faibles",
-          "Averses mod\xE9r\xE9es",
-          "Averses violentes",
-          "Averses de neige faibles",
-          "Averses de neige fortes",
-          "Orage",
-          "Orage avec gr\xEAle",
-          "Orage avec forte gr\xEAle"
-        ],
-        unknown: "Code m\xE9t\xE9o {code}"
-      },
-      de: {
-        conditions: [
-          "Klarer Himmel",
-          "\xDCberwiegend klar",
-          "Teils bew\xF6lkt",
-          "Bedeckt",
-          "Neblig",
-          "Gefrierender Nebel",
-          "Leichter Nieselregen",
-          "M\xE4\xDFiger Nieselregen",
-          "Dichter Nieselregen",
-          "Leichter Regen",
-          "M\xE4\xDFiger Regen",
-          "Starker Regen",
-          "Leichter Schneefall",
-          "M\xE4\xDFiger Schneefall",
-          "Starker Schneefall",
-          "Schneegriesel",
-          "Leichte Regenschauer",
-          "M\xE4\xDFige Regenschauer",
-          "Heftige Regenschauer",
-          "Leichte Schneeschauer",
-          "Starke Schneeschauer",
-          "Gewitter",
-          "Gewitter mit Hagel",
-          "Gewitter mit starkem Hagel"
-        ],
-        unknown: "Wettercode {code}"
-      },
-      es: {
-        conditions: [
-          "Cielo despejado",
-          "Mayormente despejado",
-          "Parcialmente nublado",
-          "Cubierto",
-          "Niebla",
-          "Niebla helada",
-          "Llovizna ligera",
-          "Llovizna moderada",
-          "Llovizna densa",
-          "Lluvia ligera",
-          "Lluvia moderada",
-          "Lluvia intensa",
-          "Nevada ligera",
-          "Nevada moderada",
-          "Nevada intensa",
-          "Granos de nieve",
-          "Chubascos ligeros",
-          "Chubascos moderados",
-          "Chubascos violentos",
-          "Chubascos de nieve ligeros",
-          "Chubascos de nieve intensos",
-          "Tormenta",
-          "Tormenta con granizo",
-          "Tormenta con granizo fuerte"
-        ],
-        unknown: "C\xF3digo meteorol\xF3gico {code}"
-      },
-      ru: {
-        conditions: [
-          "\u042F\u0441\u043D\u043E",
-          "\u041F\u0440\u0435\u0438\u043C\u0443\u0449\u0435\u0441\u0442\u0432\u0435\u043D\u043D\u043E \u044F\u0441\u043D\u043E",
-          "\u041F\u0435\u0440\u0435\u043C\u0435\u043D\u043D\u0430\u044F \u043E\u0431\u043B\u0430\u0447\u043D\u043E\u0441\u0442\u044C",
-          "\u041F\u0430\u0441\u043C\u0443\u0440\u043D\u043E",
-          "\u0422\u0443\u043C\u0430\u043D",
-          "\u0418\u0437\u043C\u043E\u0440\u043E\u0437\u044C",
-          "\u0421\u043B\u0430\u0431\u0430\u044F \u043C\u043E\u0440\u043E\u0441\u044C",
-          "\u0423\u043C\u0435\u0440\u0435\u043D\u043D\u0430\u044F \u043C\u043E\u0440\u043E\u0441\u044C",
-          "\u0421\u0438\u043B\u044C\u043D\u0430\u044F \u043C\u043E\u0440\u043E\u0441\u044C",
-          "\u041D\u0435\u0431\u043E\u043B\u044C\u0448\u043E\u0439 \u0434\u043E\u0436\u0434\u044C",
-          "\u0423\u043C\u0435\u0440\u0435\u043D\u043D\u044B\u0439 \u0434\u043E\u0436\u0434\u044C",
-          "\u0421\u0438\u043B\u044C\u043D\u044B\u0439 \u0434\u043E\u0436\u0434\u044C",
-          "\u041D\u0435\u0431\u043E\u043B\u044C\u0448\u043E\u0439 \u0441\u043D\u0435\u0433",
-          "\u0423\u043C\u0435\u0440\u0435\u043D\u043D\u044B\u0439 \u0441\u043D\u0435\u0433",
-          "\u0421\u0438\u043B\u044C\u043D\u044B\u0439 \u0441\u043D\u0435\u0433",
-          "\u0421\u043D\u0435\u0436\u043D\u044B\u0435 \u0437\u0451\u0440\u043D\u0430",
-          "\u041D\u0435\u0431\u043E\u043B\u044C\u0448\u0438\u0435 \u043B\u0438\u0432\u043D\u0438",
-          "\u0423\u043C\u0435\u0440\u0435\u043D\u043D\u044B\u0435 \u043B\u0438\u0432\u043D\u0438",
-          "\u0421\u0438\u043B\u044C\u043D\u044B\u0435 \u043B\u0438\u0432\u043D\u0438",
-          "\u041D\u0435\u0431\u043E\u043B\u044C\u0448\u0438\u0435 \u0441\u043D\u0435\u0436\u043D\u044B\u0435 \u043B\u0438\u0432\u043D\u0438",
-          "\u0421\u0438\u043B\u044C\u043D\u044B\u0435 \u0441\u043D\u0435\u0436\u043D\u044B\u0435 \u043B\u0438\u0432\u043D\u0438",
-          "\u0413\u0440\u043E\u0437\u0430",
-          "\u0413\u0440\u043E\u0437\u0430 \u0441 \u0433\u0440\u0430\u0434\u043E\u043C",
-          "\u0413\u0440\u043E\u0437\u0430 \u0441 \u0441\u0438\u043B\u044C\u043D\u044B\u043C \u0433\u0440\u0430\u0434\u043E\u043C"
-        ],
-        unknown: "\u041A\u043E\u0434 \u043F\u043E\u0433\u043E\u0434\u044B {code}"
-      }
-    };
-  }
-});
-
-// src/weather-display.ts
-var weather_display_exports = {};
-__export(weather_display_exports, {
-  DEFAULT_WEATHER_DISPLAY_FIELDS: () => DEFAULT_WEATHER_DISPLAY_FIELDS,
-  WEATHER_DISPLAY_FIELDS: () => WEATHER_DISPLAY_FIELDS,
-  buildWeatherCardParts: () => buildWeatherCardParts,
-  buildWeatherDetailParts: () => buildWeatherDetailParts,
-  buildWeatherExtraParts: () => buildWeatherExtraParts,
-  buildWeatherStatus: () => buildWeatherStatus,
-  formatWeatherTime: () => formatWeatherTime,
-  normalizeWeatherDisplayFields: () => normalizeWeatherDisplayFields,
-  weatherWindUnit: () => weatherWindUnit
-});
-function normalizeWeatherDisplayFields(value) {
-  const source = Array.isArray(value) ? value : DEFAULT_WEATHER_DISPLAY_FIELDS;
-  const allowed = new Set(WEATHER_DISPLAY_FIELDS);
-  return Array.from(new Set(source.map(String))).filter((field) => allowed.has(field));
-}
-function formatWeatherTime(value, _language = "en", _timezone = "auto") {
-  const match = typeof value === "string" ? /T(\d{1,2}):(\d{2})/.exec(value) : null;
-  if (!match) return "";
-  return `${String(Number(match[1])).padStart(2, "0")}:${match[2]}`;
-}
-function weatherWindUnit(units) {
-  return units === "imperial" ? "mph" : "km/h";
-}
-function buildWeatherDetailParts(snapshot, labels) {
-  const unit = snapshot.units === "imperial" ? "\xB0F" : "\xB0C";
-  const parts = [];
-  if (snapshot.feelsLike != null) parts.push(`${labels.feels} ${snapshot.feelsLike}${unit}`);
-  if (snapshot.humidity != null) parts.push(`${labels.humidity} ${snapshot.humidity}%`);
-  return parts;
-}
-function buildWeatherExtraParts(snapshot, labels, language = "en", timezone = "auto") {
-  const parts = [];
-  if (snapshot.low != null && labels.low) parts.push(`${labels.low} ${snapshot.low}${snapshot.units === "imperial" ? "\xB0F" : "\xB0C"}`);
-  if (snapshot.precipitationProbability != null) {
-    parts.push(`${labels.precipitation} ${snapshot.precipitationProbability}%`);
-  }
-  if (snapshot.windSpeed != null) {
-    parts.push(`${labels.wind} ${Math.round(Number(snapshot.windSpeed))} ${weatherWindUnit(snapshot.units)}`);
-  }
-  const sunrise = formatWeatherTime(snapshot.sunrise, language, timezone);
-  const sunset = formatWeatherTime(snapshot.sunset, language, timezone);
-  if (sunrise) parts.push(`${labels.sunrise} ${sunrise}`);
-  if (sunset) parts.push(`${labels.sunset} ${sunset}`);
-  return parts;
-}
-function buildWeatherCardParts(snapshot, labels, selectedFields, language = "en", timezone = "auto") {
-  const fields = new Set(normalizeWeatherDisplayFields(selectedFields));
-  const detail = [];
-  const extra = [];
-  const unit = snapshot.units === "imperial" ? "\xB0F" : "\xB0C";
-  if (fields.has("feels") && snapshot.feelsLike != null) {
-    detail.push(`${labels.feels} ${snapshot.feelsLike}${unit}`);
-  }
-  if (fields.has("humidity") && snapshot.humidity != null) {
-    detail.push(`${labels.humidity} ${snapshot.humidity}%`);
-  }
-  if (fields.has("low") && snapshot.low != null) {
-    extra.push(`${labels.low} ${snapshot.low}${unit}`);
-  }
-  if (fields.has("precipitation") && snapshot.precipitationProbability != null) {
-    extra.push(`${labels.precipitation} ${snapshot.precipitationProbability}%`);
-  }
-  if (fields.has("wind") && snapshot.windSpeed != null) {
-    extra.push(`${labels.wind} ${Math.round(Number(snapshot.windSpeed))} ${weatherWindUnit(snapshot.units)}`);
-  }
-  if (fields.has("sunrise")) {
-    const sunrise = formatWeatherTime(snapshot.sunrise, language, timezone);
-    if (sunrise) extra.push(`${labels.sunrise} ${sunrise}`);
-  }
-  if (fields.has("sunset")) {
-    const sunset = formatWeatherTime(snapshot.sunset, language, timezone);
-    if (sunset) extra.push(`${labels.sunset} ${sunset}`);
-  }
-  return { detail, extra };
-}
-function buildWeatherStatus(snapshot, labels) {
-  if (!snapshot.stale && !snapshot.offline) return [];
-  return [labels.cached, snapshot.stale ? labels.stale : "", snapshot.offline ? labels.offline : ""].filter(Boolean);
-}
-var DEFAULT_WEATHER_DISPLAY_FIELDS, WEATHER_DISPLAY_FIELDS;
-var init_weather_display = __esm({
-  "src/weather-display.ts"() {
-    "use strict";
-    DEFAULT_WEATHER_DISPLAY_FIELDS = ["feels", "humidity"];
-    WEATHER_DISPLAY_FIELDS = [
-      "feels",
-      "humidity",
-      "low",
-      "precipitation",
-      "wind",
-      "sunrise",
-      "sunset"
-    ];
-  }
-});
-
-// src/thumbnail-service.ts
-var thumbnail_service_exports = {};
-__export(thumbnail_service_exports, {
-  HEIC_EXTENSIONS: () => HEIC_EXTENSIONS,
-  IMAGE_EXTENSIONS: () => IMAGE_EXTENSIONS3,
-  ThumbnailService: () => ThumbnailService
-});
-var IMAGE_EXTENSIONS3, HEIC_EXTENSIONS, ThumbnailService;
-var init_thumbnail_service = __esm({
-  "src/thumbnail-service.ts"() {
-    "use strict";
-    init_media_links();
-    IMAGE_EXTENSIONS3 = IMAGE_EXTENSIONS;
-    HEIC_EXTENSIONS = ["heic", "heif"];
-    ThumbnailService = class {
-      constructor(app, heicCache) {
-        __publicField(this, "app");
-        __publicField(this, "heicCache");
-        this.app = app;
-        this.heicCache = heicCache;
-      }
-      isImageFile(file) {
-        return Boolean(file?.extension && IMAGE_EXTENSIONS3.includes(String(file.extension).toLowerCase()));
-      }
-      isImageLink(link) {
-        return classifyMediaLink(link).kind === "image";
-      }
-      resolve(link, sourcePath) {
-        const normalized = normalizeMediaLink(link);
-        if (normalized.toLowerCase().startsWith("http://") || normalized.toLowerCase().startsWith("https://")) return null;
-        const file = this.app.metadataCache.getFirstLinkpathDest(normalized, sourcePath);
-        return this.isImageFile(file) ? file : null;
-      }
-      async load(link, sourcePath, index = 0) {
-        const normalized = normalizeMediaLink(link);
-        if (normalized.toLowerCase().startsWith("http://") || normalized.toLowerCase().startsWith("https://")) {
-          return this.isImageLink(normalized) ? { url: normalized, path: normalized, index } : null;
-        }
-        const file = this.resolve(normalized, sourcePath);
-        if (!file) return null;
-        try {
-          const ext = String(file.extension).toLowerCase();
-          const url = HEIC_EXTENSIONS.includes(ext) ? (await this.heicCache?.getThumbnail(file))?.dataUrl : this.app.vault.getResourcePath(file);
-          return url ? { url, path: file.path, index } : null;
-        } catch {
-          return null;
-        }
-      }
-      async loadFirst(links, sourcePath) {
-        for (let index = 0; index < links.length; index++) {
-          const result = await this.load(links[index], sourcePath, index);
-          if (result) return result;
-        }
-        return null;
-      }
-    };
-  }
-});
-
-// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/shared/bitstream.js
+// node_modules/mediabunny/dist/modules/shared/bitstream.js
 var Bitstream;
 var init_bitstream = __esm({
-  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/shared/bitstream.js"() {
+  "node_modules/mediabunny/dist/modules/shared/bitstream.js"() {
     Bitstream = class _Bitstream {
       constructor(bytes) {
         this.bytes = bytes;
@@ -11220,10 +11416,10 @@ var init_bitstream = __esm({
   }
 });
 
-// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/shared/aac-misc.js
+// node_modules/mediabunny/dist/modules/shared/aac-misc.js
 var aacFrequencyTable, aacChannelMap, parseAacAudioSpecificConfig;
 var init_aac_misc = __esm({
-  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/shared/aac-misc.js"() {
+  "node_modules/mediabunny/dist/modules/shared/aac-misc.js"() {
     init_bitstream();
     aacFrequencyTable = [
       96e3,
@@ -11275,10 +11471,10 @@ var init_aac_misc = __esm({
   }
 });
 
-// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/logging.js
+// node_modules/mediabunny/dist/modules/src/logging.js
 var LogLevel, Logging;
 var init_logging = __esm({
-  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/logging.js"() {
+  "node_modules/mediabunny/dist/modules/src/logging.js"() {
     init_misc();
     (function(LogLevel2) {
       LogLevel2[LogLevel2["Silent"] = 0] = "Silent";
@@ -11334,7 +11530,7 @@ var init_logging = __esm({
   }
 });
 
-// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/misc.js
+// node_modules/mediabunny/dist/modules/src/misc.js
 function assert(x) {
   if (!x) {
     throw new Error("Assertion failed.");
@@ -11342,7 +11538,7 @@ function assert(x) {
 }
 var normalizeRotation, last, readExpGolomb, readSignedExpGolomb, toUint8Array, toDataView, textDecoder, invertObject, COLOR_PRIMARIES_MAP, COLOR_PRIMARIES_MAP_INVERSE, TRANSFER_CHARACTERISTICS_MAP, TRANSFER_CHARACTERISTICS_MAP_INVERSE, MATRIX_COEFFICIENTS_MAP, MATRIX_COEFFICIENTS_MAP_INVERSE, AsyncMutex, HEX_STRING_REGEX, bytesToHexString, hexStringToBytes, reverseBitsU32, binarySearchExact, binarySearchLessOrEqual, promiseWithResolvers, removeItem, findLast, findLastIndex, assertNever, getUint24, clamp, UNDETERMINED_LANGUAGE, roundIfAlmostInteger, roundToMultiple, roundToDivisor, ilog, ISO_639_2_REGEX, isIso639Dash2LanguageCode, SECOND_TO_MICROSECOND_FACTOR, mergeRequestInit, normalizeHeaders, retriedFetch, isChromiumCache, isChromium, chromiumVersionCache, getChromiumVersion, coalesceIndex, closedIntervalsOverlap, base64ToBytes, uint8ArraysAreEqual, polyfillSymbolDispose, isNumber, arrayCount, arrayArgmin, simplifyRational, wait, EventEmitter;
 var init_misc = __esm({
-  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/misc.js"() {
+  "node_modules/mediabunny/dist/modules/src/misc.js"() {
     init_logging();
     normalizeRotation = (rotation) => {
       const mappedRotation = (rotation % 360 + 360) % 360;
@@ -11778,10 +11974,10 @@ var init_misc = __esm({
   }
 });
 
-// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/codec.js
+// node_modules/mediabunny/dist/modules/src/codec.js
 var PCM_AUDIO_CODECS, NON_PCM_AUDIO_CODECS, AUDIO_CODECS, AVC_LEVEL_TABLE, VP9_LEVEL_TABLE, VP9_DEFAULT_SUFFIX, AV1_DEFAULT_SUFFIX, PRORES_FOURCCS, extractVideoCodecString, extractAudioCodecString, OPUS_SAMPLE_RATE, PCM_CODEC_REGEX, parsePcmCodec, VALID_VIDEO_CODEC_STRING_PREFIXES;
 var init_codec = __esm({
-  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/codec.js"() {
+  "node_modules/mediabunny/dist/modules/src/codec.js"() {
     init_aac_misc();
     init_misc();
     PCM_AUDIO_CODECS = [
@@ -12091,19 +12287,19 @@ var init_codec = __esm({
   }
 });
 
-// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/shared/ac3-misc.js
+// node_modules/mediabunny/dist/modules/shared/ac3-misc.js
 var AC3_SAMPLE_RATES, EAC3_REDUCED_SAMPLE_RATES;
 var init_ac3_misc = __esm({
-  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/shared/ac3-misc.js"() {
+  "node_modules/mediabunny/dist/modules/shared/ac3-misc.js"() {
     AC3_SAMPLE_RATES = [48e3, 44100, 32e3];
     EAC3_REDUCED_SAMPLE_RATES = [24e3, 22050, 16e3];
   }
 });
 
-// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/codec-data.js
+// node_modules/mediabunny/dist/modules/src/codec-data.js
 var AvcNalUnitType, HevcNalUnitType, iterateNalUnitsInAnnexB, iterateNalUnitsInLengthPrefixed, iterateAvcNalUnits, extractNalUnitTypeForAvc, removeEmulationPreventionBytes, ANNEX_B_START_CODE, extractAvcDecoderConfigurationRecord, AVC_HEVC_ASPECT_RATIO_IDC_TABLE, parseAvcSps, skipAvcHrdParameters, iterateHevcNalUnits, extractNalUnitTypeForHevc, parseHevcSps, extractHevcDecoderConfigurationRecord, parseProfileTierLevel, skipScalingListData, skipAllStRefPicSets, skipStRefPicSet, parseHevcVui, skipHevcHrdParameters, skipSubLayerHrdParameters, HevcNaluOrderState, extractVp9CodecInfoFromPacket, iterateAv1PacketObus, extractAv1CodecInfoFromPacket, parseOpusIdentificationHeader, OPUS_FRAME_DURATION_TABLE, parseOpusTocByte, parseModesFromVorbisSetupPacket, determineVideoPacketType, FlacBlockType, readVorbisComments, AC3_ACMOD_CHANNEL_COUNTS, AC3_FRAME_SIZES, AC3_REGISTRATION_DESCRIPTOR, EAC3_REGISTRATION_DESCRIPTOR, parseEac3Config, getEac3SampleRate, getEac3ChannelCount;
 var init_codec_data = __esm({
-  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/codec-data.js"() {
+  "node_modules/mediabunny/dist/modules/src/codec-data.js"() {
     init_codec();
     init_misc();
     init_logging();
@@ -13890,10 +14086,10 @@ var init_codec_data = __esm({
   }
 });
 
-// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/demuxer.js
+// node_modules/mediabunny/dist/modules/src/demuxer.js
 var Demuxer;
 var init_demuxer = __esm({
-  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/demuxer.js"() {
+  "node_modules/mediabunny/dist/modules/src/demuxer.js"() {
     Demuxer = class {
       constructor(input) {
         this.input = input;
@@ -13904,10 +14100,10 @@ var init_demuxer = __esm({
   }
 });
 
-// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/packet.js
+// node_modules/mediabunny/dist/modules/src/packet.js
 var PLACEHOLDER_DATA, EncodedPacket;
 var init_packet = __esm({
-  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/packet.js"() {
+  "node_modules/mediabunny/dist/modules/src/packet.js"() {
     init_misc();
     PLACEHOLDER_DATA = /* @__PURE__ */ new Uint8Array(0);
     EncodedPacket = class _EncodedPacket {
@@ -14071,10 +14267,10 @@ var init_packet = __esm({
   }
 });
 
-// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/isobmff/isobmff-misc.js
+// node_modules/mediabunny/dist/modules/src/isobmff/isobmff-misc.js
 var buildIsobmffMimeType, parsePsshBoxContents, psshBoxesAreEqual;
 var init_isobmff_misc = __esm({
-  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/isobmff/isobmff-misc.js"() {
+  "node_modules/mediabunny/dist/modules/src/isobmff/isobmff-misc.js"() {
     init_misc();
     buildIsobmffMimeType = (info) => {
       const base = info.hasVideo ? "video/" : info.hasAudio ? "audio/" : "application/";
@@ -14117,10 +14313,10 @@ var init_isobmff_misc = __esm({
   }
 });
 
-// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/metadata.js
+// node_modules/mediabunny/dist/modules/src/metadata.js
 var RichImageData, AttachedFile, DEFAULT_TRACK_DISPOSITION;
 var init_metadata = __esm({
-  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/metadata.js"() {
+  "node_modules/mediabunny/dist/modules/src/metadata.js"() {
     RichImageData = class {
       /** Creates a new {@link RichImageData}. */
       constructor(data, mimeType) {
@@ -14167,10 +14363,10 @@ var init_metadata = __esm({
   }
 });
 
-// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/source.js
+// node_modules/mediabunny/dist/modules/src/source.js
 var DEFAULT_MIN_READ_POSITION, DEFAULT_MAX_READ_POSITION, sourceFinalizationRegistry, Source, SourceRef, PathedSource, sourceRequestsAreEqual, URL_SOURCE_MIN_LOAD_AMOUNT, DEFAULT_RETRY_DELAY, warnedOrigins, UrlSource, BYTE_RANGE_REGEX, parseByteRangeHeader, PREFETCH_PROFILES, ReadOrchestrator, RangedSource;
 var init_source = __esm({
-  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/source.js"() {
+  "node_modules/mediabunny/dist/modules/src/source.js"() {
     init_misc();
     init_input();
     init_logging();
@@ -15170,10 +15366,10 @@ var init_source = __esm({
   }
 });
 
-// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/reader.js
+// node_modules/mediabunny/dist/modules/src/reader.js
 var Reader, FileSlice, checkIsInRange, readBytes, readU8, readU16, readU16Be, readU24Be, readI16Be, readU32, readU32Be, readU32Le, readI32Be, readI32Le, readU64, readU64Be, readI64Be, readI64Le, readF32Be, readF64Be, readAscii;
 var init_reader = __esm({
-  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/reader.js"() {
+  "node_modules/mediabunny/dist/modules/src/reader.js"() {
     init_input();
     init_misc();
     init_source();
@@ -15433,10 +15629,10 @@ var init_reader = __esm({
   }
 });
 
-// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/isobmff/isobmff-reader.js
+// node_modules/mediabunny/dist/modules/src/isobmff/isobmff-reader.js
 var MIN_BOX_HEADER_SIZE, MAX_BOX_HEADER_SIZE, readBoxHeader, readFixed_16_16, readFixed_2_30, readIsomVariableInteger, readMetadataStringShort, readDataBox;
 var init_isobmff_reader = __esm({
-  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/isobmff/isobmff-reader.js"() {
+  "node_modules/mediabunny/dist/modules/src/isobmff/isobmff-reader.js"() {
     init_metadata();
     init_misc();
     init_reader();
@@ -15512,10 +15708,10 @@ var init_isobmff_reader = __esm({
   }
 });
 
-// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/aes.js
+// node_modules/mediabunny/dist/modules/src/aes.js
 var AES_128_BLOCK_SIZE, Te4, Td0, Td1, Td2, Td3, Td4, rcon, tablesGenerated, generateAesTables, Aes128CbcContext;
 var init_aes = __esm({
-  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/aes.js"() {
+  "node_modules/mediabunny/dist/modules/src/aes.js"() {
     init_misc();
     AES_128_BLOCK_SIZE = 16;
     Te4 = new Uint32Array(256);
@@ -15649,10 +15845,10 @@ var init_aes = __esm({
   }
 });
 
-// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/isobmff/isobmff-demuxer.js
+// node_modules/mediabunny/dist/modules/src/isobmff/isobmff-demuxer.js
 var IsobmffDemuxer, IsobmffTrackBacking, IsobmffVideoTrackBacking, IsobmffAudioTrackBacking, getSampleIndexForTimestamp, getKeyframeSampleIndexForTimestamp, getSampleInfo, getNextKeyframeIndexForSample, offsetFragmentTrackDataByTimestamp, extractRotationFromMatrix, sampleTableIsEmpty, getOrCreateEncryptionAuxInfo, resolveEncryptionAuxInfo, decryptSample, decryptCtr, decryptCbcs, collectCryptRanges;
 var init_isobmff_demuxer = __esm({
-  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/isobmff/isobmff-demuxer.js"() {
+  "node_modules/mediabunny/dist/modules/src/isobmff/isobmff-demuxer.js"() {
     init_aac_misc();
     init_codec();
     init_codec_data();
@@ -18584,7 +18780,7 @@ var init_isobmff_demuxer = __esm({
   }
 });
 
-// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/matroska/ebml.js
+// node_modules/mediabunny/dist/modules/src/matroska/ebml.js
 function assertDefinedSize(size) {
   if (size === void 0) {
     throw new Error("Undefined element size is used in a place where it is not supported.");
@@ -18592,7 +18788,7 @@ function assertDefinedSize(size) {
 }
 var EBMLId, LEVEL_0_EBML_IDS, LEVEL_1_EBML_IDS, LEVEL_0_AND_1_EBML_IDS, MAX_VAR_INT_SIZE, MIN_HEADER_SIZE, MAX_HEADER_SIZE, readVarIntSize, readVarInt, readUnsignedInt, readUnsignedBigInt, readElementId, readElementSize, readElementHeader, readAsciiString, readUnicodeString, readFloat, searchForNextElementId, resync, CODEC_STRING_MAP;
 var init_ebml = __esm({
-  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/matroska/ebml.js"() {
+  "node_modules/mediabunny/dist/modules/src/matroska/ebml.js"() {
     init_misc();
     init_reader();
     (function(EBMLId2) {
@@ -18928,10 +19124,10 @@ var init_ebml = __esm({
   }
 });
 
-// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/matroska/matroska-misc.js
+// node_modules/mediabunny/dist/modules/src/matroska/matroska-misc.js
 var buildMatroskaMimeType;
 var init_matroska_misc = __esm({
-  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/matroska/matroska-misc.js"() {
+  "node_modules/mediabunny/dist/modules/src/matroska/matroska-misc.js"() {
     buildMatroskaMimeType = (info) => {
       const base = info.hasVideo ? "video/" : info.hasAudio ? "audio/" : "application/";
       let string = base + (info.isWebM ? "webm" : "x-matroska");
@@ -18944,10 +19140,10 @@ var init_matroska_misc = __esm({
   }
 });
 
-// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/matroska/matroska-demuxer.js
+// node_modules/mediabunny/dist/modules/src/matroska/matroska-demuxer.js
 var BlockLacing, ContentEncodingScope, ContentCompAlgo, METADATA_ELEMENTS, MAX_RESYNC_LENGTH, MatroskaDemuxer, MatroskaTrackBacking, MatroskaVideoTrackBacking, MatroskaAudioTrackBacking;
 var init_matroska_demuxer = __esm({
-  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/matroska/matroska-demuxer.js"() {
+  "node_modules/mediabunny/dist/modules/src/matroska/matroska-demuxer.js"() {
     init_codec_data();
     init_codec();
     init_demuxer();
@@ -20995,10 +21191,10 @@ var init_matroska_demuxer = __esm({
   }
 });
 
-// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/shared/mp3-misc.js
+// node_modules/mediabunny/dist/modules/shared/mp3-misc.js
 var MP3_FRAME_HEADER_SIZE, SAMPLING_RATES, KILOBIT_RATES, XING, INFO, computeMp3FrameSize, computeAverageMp3FrameSize, getXingOffset, readMp3FrameHeader, decodeSynchsafe, XingFlags, getMp3ChannelCount;
 var init_mp3_misc = __esm({
-  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/shared/mp3-misc.js"() {
+  "node_modules/mediabunny/dist/modules/shared/mp3-misc.js"() {
     MP3_FRAME_HEADER_SIZE = 4;
     SAMPLING_RATES = [44100, 48e3, 32e3];
     KILOBIT_RATES = [
@@ -21265,10 +21461,10 @@ var init_mp3_misc = __esm({
   }
 });
 
-// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/id3.js
+// node_modules/mediabunny/dist/modules/src/id3.js
 var Id3V2HeaderFlags, Id3V2TextEncoding, ID3_V1_TAG_SIZE, ID3_V2_HEADER_SIZE, ID3_V1_GENRES, parseId3V1Tag, readId3V1String, readId3V2Header, parseId3V2Tag, Id3V2Reader;
 var init_id3 = __esm({
-  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/id3.js"() {
+  "node_modules/mediabunny/dist/modules/src/id3.js"() {
     init_mp3_misc();
     init_logging();
     init_misc();
@@ -21969,10 +22165,10 @@ var init_id3 = __esm({
   }
 });
 
-// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/mp3/mp3-reader.js
+// node_modules/mediabunny/dist/modules/src/mp3/mp3-reader.js
 var readNextMp3FrameHeader;
 var init_mp3_reader = __esm({
-  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/mp3/mp3-reader.js"() {
+  "node_modules/mediabunny/dist/modules/src/mp3/mp3-reader.js"() {
     init_mp3_misc();
     init_reader();
     readNextMp3FrameHeader = async (reader, startPos, until, ref = null) => {
@@ -22004,10 +22200,10 @@ var init_mp3_reader = __esm({
   }
 });
 
-// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/mp3/mp3-demuxer.js
+// node_modules/mediabunny/dist/modules/src/mp3/mp3-demuxer.js
 var Mp3Demuxer, Mp3AudioTrackBacking;
 var init_mp3_demuxer = __esm({
-  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/mp3/mp3-demuxer.js"() {
+  "node_modules/mediabunny/dist/modules/src/mp3/mp3-demuxer.js"() {
     init_demuxer();
     init_metadata();
     init_misc();
@@ -22315,10 +22511,10 @@ var init_mp3_demuxer = __esm({
   }
 });
 
-// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/ogg/ogg-misc.js
+// node_modules/mediabunny/dist/modules/src/ogg/ogg-misc.js
 var OGGS, OGG_CRC_POLYNOMIAL, OGG_CRC_TABLE, computeOggPageCrc, extractSampleMetadata, buildOggMimeType;
 var init_ogg_misc = __esm({
-  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/ogg/ogg-misc.js"() {
+  "node_modules/mediabunny/dist/modules/src/ogg/ogg-misc.js"() {
     init_codec_data();
     init_misc();
     OGGS = 1399285583;
@@ -22386,10 +22582,10 @@ var init_ogg_misc = __esm({
   }
 });
 
-// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/ogg/ogg-reader.js
+// node_modules/mediabunny/dist/modules/src/ogg/ogg-reader.js
 var MIN_PAGE_HEADER_SIZE, MAX_PAGE_HEADER_SIZE, MAX_PAGE_SIZE, readPageHeader, findNextPageHeader;
 var init_ogg_reader = __esm({
-  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/ogg/ogg-reader.js"() {
+  "node_modules/mediabunny/dist/modules/src/ogg/ogg-reader.js"() {
     init_reader();
     init_ogg_misc();
     MIN_PAGE_HEADER_SIZE = 27;
@@ -22450,10 +22646,10 @@ var init_ogg_reader = __esm({
   }
 });
 
-// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/ogg/ogg-demuxer.js
+// node_modules/mediabunny/dist/modules/src/ogg/ogg-demuxer.js
 var OggDemuxer, OggAudioTrackBacking, findPacketStartPosition, findPreviousPacketEndPosition;
 var init_ogg_demuxer = __esm({
-  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/ogg/ogg-demuxer.js"() {
+  "node_modules/mediabunny/dist/modules/src/ogg/ogg-demuxer.js"() {
     init_codec();
     init_codec_data();
     init_demuxer();
@@ -23141,10 +23337,10 @@ var init_ogg_demuxer = __esm({
   }
 });
 
-// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/wave/wave-demuxer.js
+// node_modules/mediabunny/dist/modules/src/wave/wave-demuxer.js
 var WaveFormat, WaveDemuxer, PACKET_SIZE_IN_FRAMES, WaveAudioTrackBacking;
 var init_wave_demuxer = __esm({
-  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/wave/wave-demuxer.js"() {
+  "node_modules/mediabunny/dist/modules/src/wave/wave-demuxer.js"() {
     init_demuxer();
     init_metadata();
     init_misc();
@@ -23598,10 +23794,10 @@ var init_wave_demuxer = __esm({
   }
 });
 
-// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/adts/adts-reader.js
+// node_modules/mediabunny/dist/modules/src/adts/adts-reader.js
 var MIN_ADTS_FRAME_HEADER_SIZE, MAX_ADTS_FRAME_HEADER_SIZE, readAdtsFrameHeader;
 var init_adts_reader = __esm({
-  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/adts/adts-reader.js"() {
+  "node_modules/mediabunny/dist/modules/src/adts/adts-reader.js"() {
     init_bitstream();
     init_reader();
     MIN_ADTS_FRAME_HEADER_SIZE = 7;
@@ -23659,10 +23855,10 @@ var init_adts_reader = __esm({
   }
 });
 
-// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/adts/adts-demuxer.js
+// node_modules/mediabunny/dist/modules/src/adts/adts-demuxer.js
 var SAMPLES_PER_AAC_FRAME, AdtsDemuxer, AdtsAudioTrackBacking;
 var init_adts_demuxer = __esm({
-  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/adts/adts-demuxer.js"() {
+  "node_modules/mediabunny/dist/modules/src/adts/adts-demuxer.js"() {
     init_aac_misc();
     init_demuxer();
     init_id3();
@@ -23931,10 +24127,10 @@ var init_adts_demuxer = __esm({
   }
 });
 
-// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/flac/flac-misc.js
+// node_modules/mediabunny/dist/modules/src/flac/flac-misc.js
 var getBlockSizeOrUncommon, getSampleRateOrUncommon, readCodedNumber, readBlockSize, readSampleRate, calculateCrc8;
 var init_flac_misc = __esm({
-  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/flac/flac-misc.js"() {
+  "node_modules/mediabunny/dist/modules/src/flac/flac-misc.js"() {
     init_bitstream();
     init_misc();
     init_reader();
@@ -24067,10 +24263,10 @@ var init_flac_misc = __esm({
   }
 });
 
-// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/flac/flac-demuxer.js
+// node_modules/mediabunny/dist/modules/src/flac/flac-demuxer.js
 var FlacDemuxer, FlacAudioTrackBacking;
 var init_flac_demuxer = __esm({
-  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/flac/flac-demuxer.js"() {
+  "node_modules/mediabunny/dist/modules/src/flac/flac-demuxer.js"() {
     init_codec_data();
     init_demuxer();
     init_misc();
@@ -24544,10 +24740,10 @@ var init_flac_demuxer = __esm({
   }
 });
 
-// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/input-format.js
+// node_modules/mediabunny/dist/modules/src/input-format.js
 var InputFormat, IsobmffInputFormat, Mp4InputFormat, QuickTimeInputFormat, MatroskaInputFormat, Mp3InputFormat, WaveInputFormat, OggInputFormat, FlacInputFormat, AdtsInputFormat, MP4, QTFF, MATROSKA, MP3, WAVE, OGG, ADTS, FLAC, validateInputFormatOptions;
 var init_input_format = __esm({
-  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/input-format.js"() {
+  "node_modules/mediabunny/dist/modules/src/input-format.js"() {
     init_isobmff_demuxer();
     init_ebml();
     init_matroska_demuxer();
@@ -24935,19 +25131,19 @@ var init_input_format = __esm({
   }
 });
 
-// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/custom-coder.js
+// node_modules/mediabunny/dist/modules/src/custom-coder.js
 var customVideoDecoders, customAudioDecoders;
 var init_custom_coder = __esm({
-  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/custom-coder.js"() {
+  "node_modules/mediabunny/dist/modules/src/custom-coder.js"() {
     customVideoDecoders = [];
     customAudioDecoders = [];
   }
 });
 
-// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/media-sink.js
+// node_modules/mediabunny/dist/modules/src/media-sink.js
 var validatePacketRetrievalOptions, validateTimestamp, maybeFixPacketType, EncodedPacketSink;
 var init_media_sink = __esm({
-  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/media-sink.js"() {
+  "node_modules/mediabunny/dist/modules/src/media-sink.js"() {
     init_input();
     init_input_track();
     init_misc();
@@ -25209,10 +25405,10 @@ var init_media_sink = __esm({
   }
 });
 
-// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/input-track.js
+// node_modules/mediabunny/dist/modules/src/input-track.js
 var InputTrack, requireSync, toValidatedPredicate, InputVideoTrack, InputAudioTrack, desc, prefer, toValidatedInputTrackQuery, mergeInputTrackQueries, queryInputTracks;
 var init_input_track = __esm({
-  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/input-track.js"() {
+  "node_modules/mediabunny/dist/modules/src/input-track.js"() {
     init_codec_data();
     init_custom_coder();
     init_logging();
@@ -25981,10 +26177,10 @@ var init_input_track = __esm({
   }
 });
 
-// ../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/input.js
+// node_modules/mediabunny/dist/modules/src/input.js
 var DEFAULT_SOURCE_CACHE_GROUP, Input, UnsupportedInputFormatError, InputDisposedError;
 var init_input = __esm({
-  "../../../Users/haoo/Desktop/Obsidian-Calendar-Sidebar/node_modules/mediabunny/dist/modules/src/input.js"() {
+  "node_modules/mediabunny/dist/modules/src/input.js"() {
     init_input_format();
     init_input_track();
     init_misc();
@@ -26376,12 +26572,14 @@ __export(media_service_exports, {
   AUDIO_ARTWORK_MAX_BYTES: () => AUDIO_ARTWORK_MAX_BYTES,
   IMAGE_EXTENSIONS: () => IMAGE_EXTENSIONS,
   MEDIA_CACHE_LIMIT: () => MEDIA_CACHE_LIMIT,
+  MEDIA_DEFERRED_REVOKE_LIMIT: () => MEDIA_DEFERRED_REVOKE_LIMIT,
   METADATA_CACHE_LIMIT: () => METADATA_CACHE_LIMIT,
   MediaService: () => MediaService,
   VIDEO_COVER_MAX_EDGE: () => VIDEO_COVER_MAX_EDGE,
   VIDEO_COVER_TIMEOUT_MS: () => VIDEO_COVER_TIMEOUT_MS,
   formatMediaMetadataForDisplay: () => formatMediaMetadataForDisplay,
-  scaleVideoCoverDimensions: () => scaleVideoCoverDimensions
+  scaleVideoCoverDimensions: () => scaleVideoCoverDimensions,
+  withTimeout: () => withTimeout
 });
 function loadMediaBunny() {
   const host = typeof window !== "undefined" ? window : void 0;
@@ -26393,18 +26591,22 @@ function loadMediaBunny() {
   }));
   return mediaBunnyPromise;
 }
-function withTimeout(promise, timeoutMs) {
+function timerHost() {
+  return typeof window !== "undefined" ? window : globalThis;
+}
+function withTimeout(promise, timeoutMs, label = "media operation") {
   return new Promise((resolve, reject) => {
-    const timer = window.setTimeout(() => reject(new Error(`media operation timed out after ${timeoutMs}ms`)), timeoutMs);
+    const host = timerHost();
+    const timer = host.setTimeout(() => reject(new Error(`${label} timed out after ${timeoutMs}ms`)), timeoutMs);
     promise.then(
       (value) => {
-        window.clearTimeout(timer);
+        host.clearTimeout(timer);
         resolve(value);
       },
       // Rejections are forwarded as Error instances; a non-Error reason would
       // otherwise surface to callers as a bare value.
       (error) => {
-        window.clearTimeout(timer);
+        host.clearTimeout(timer);
         reject(toMediaError(error));
       }
     );
@@ -26570,7 +26772,7 @@ function toDateString(value) {
 function roundDuration(value) {
   return typeof value === "number" && Number.isFinite(value) ? Math.round(value * 1e6) / 1e6 : void 0;
 }
-var MEDIA_CACHE_LIMIT, METADATA_CACHE_LIMIT, VIDEO_COVER_TIMEOUT_MS, VIDEO_COVER_MAX_EDGE, AUDIO_ARTWORK_MAX_BYTES, SAFE_ARTWORK_MIME_TYPES, mediaBunnyPromise, MEDIA_BUNNY_BRIDGE_SYMBOL, MediaService;
+var MEDIA_CACHE_LIMIT, METADATA_CACHE_LIMIT, VIDEO_COVER_TIMEOUT_MS, VIDEO_COVER_MAX_EDGE, AUDIO_ARTWORK_MAX_BYTES, MEDIA_DEFERRED_REVOKE_LIMIT, SAFE_ARTWORK_MIME_TYPES, mediaBunnyPromise, MEDIA_BUNNY_BRIDGE_SYMBOL, MediaService;
 var init_media_service = __esm({
   "src/media-service.ts"() {
     "use strict";
@@ -26580,6 +26782,7 @@ var init_media_service = __esm({
     VIDEO_COVER_TIMEOUT_MS = 8e3;
     VIDEO_COVER_MAX_EDGE = 1024;
     AUDIO_ARTWORK_MAX_BYTES = 8 * 1024 * 1024;
+    MEDIA_DEFERRED_REVOKE_LIMIT = 256;
     SAFE_ARTWORK_MIME_TYPES = /* @__PURE__ */ new Set([
       "image/avif",
       "image/gif",
@@ -26600,6 +26803,8 @@ var init_media_service = __esm({
         __publicField(this, "metadataPending", /* @__PURE__ */ new Map());
         __publicField(this, "coverCache", /* @__PURE__ */ new Map());
         __publicField(this, "coverPending", /* @__PURE__ */ new Map());
+        /** Blob URLs evicted from the LRU that a mounted view node may still show. */
+        __publicField(this, "deferredCoverUrls", /* @__PURE__ */ new Set());
         __publicField(this, "disposed", false);
         this.app = app;
         this.heicCache = heicCache;
@@ -26824,7 +27029,7 @@ var init_media_service = __esm({
           const result = await promise;
           if (this.coverPending.get(key) === promise) {
             this.touch(this.coverCache, key, result, MEDIA_CACHE_LIMIT, (evicted) => {
-              this.revokeCoverResult(evicted);
+              this.deferCoverRevocation(evicted);
             });
           } else {
             this.revokeCoverResult(result);
@@ -26973,6 +27178,7 @@ var init_media_service = __esm({
       invalidate(path) {
         if (!path) {
           this.clearMap(this.coverCache);
+          this.revokeDeferredCovers();
           this.metadataCache.clear();
           this.coverPending.clear();
           this.metadataPending.clear();
@@ -26996,6 +27202,27 @@ var init_media_service = __esm({
       revokeCoverResult(value) {
         if (value?.url.startsWith("blob:")) URL.revokeObjectURL(value.url);
       }
+      /**
+       * Park an evicted blob URL instead of revoking it right away: the calendar or
+       * timeline may still have it mounted, and revoking turns that image into a
+       * broken one. Parked URLs are released at teardown, or oldest-first once the
+       * park exceeds `MEDIA_DEFERRED_REVOKE_LIMIT` so a long session stays bounded.
+       */
+      deferCoverRevocation(value) {
+        const url = value?.url;
+        if (!url || !url.startsWith("blob:") || this.deferredCoverUrls.has(url)) return;
+        this.deferredCoverUrls.add(url);
+        while (this.deferredCoverUrls.size > MEDIA_DEFERRED_REVOKE_LIMIT) {
+          const oldest = this.deferredCoverUrls.values().next().value;
+          if (oldest === void 0) break;
+          this.deferredCoverUrls.delete(oldest);
+          URL.revokeObjectURL(oldest);
+        }
+      }
+      revokeDeferredCovers() {
+        for (const url of this.deferredCoverUrls) URL.revokeObjectURL(url);
+        this.deferredCoverUrls.clear();
+      }
       route(feature) {
         return this.capabilities?.routes?.[feature] || "full";
       }
@@ -27006,9 +27233,1185 @@ var init_media_service = __esm({
       dispose() {
         this.disposed = true;
         this.clearMap(this.coverCache);
+        this.revokeDeferredCovers();
         this.metadataCache.clear();
         this.coverPending.clear();
         this.metadataPending.clear();
+      }
+    };
+  }
+});
+
+// src/weather-cache.ts
+var weather_cache_exports = {};
+__export(weather_cache_exports, {
+  WEATHER_API_VERSION: () => WEATHER_API_VERSION,
+  WEATHER_CACHE_MAX_ENTRIES: () => WEATHER_CACHE_MAX_ENTRIES,
+  WEATHER_RECENT_DAYS: () => WEATHER_RECENT_DAYS,
+  cloneStaleOfflineSnapshot: () => cloneStaleOfflineSnapshot,
+  cloneStaleSnapshot: () => cloneStaleSnapshot,
+  isHistoricalWeatherDate: () => isHistoricalWeatherDate,
+  isSnapshotStale: () => isSnapshotStale,
+  migrateCompatibleSnapshot: () => migrateCompatibleSnapshot,
+  pruneWeatherCache: () => pruneWeatherCache,
+  toCanonicalWeatherSnapshot: () => toCanonicalWeatherSnapshot,
+  weatherCacheEntryDate: () => weatherCacheEntryDate,
+  weatherConfigKey: () => weatherConfigKey,
+  weatherDateAgeDays: () => weatherDateAgeDays
+});
+function weatherConfigKey(settings) {
+  const latitude = Number.parseFloat(String(settings.weatherLatitude));
+  const longitude = Number.parseFloat(String(settings.weatherLongitude));
+  return JSON.stringify({
+    latitude: Number.isFinite(latitude) ? Number(latitude.toFixed(6)) : null,
+    longitude: Number.isFinite(longitude) ? Number(longitude.toFixed(6)) : null,
+    units: settings.weatherUnits === "imperial" ? "imperial" : "metric",
+    timezone: settings.weatherTimezone || "auto",
+    apiVersion: WEATHER_API_VERSION
+  });
+}
+function migrateCompatibleSnapshot(snapshot, settings) {
+  if (!snapshot || typeof snapshot !== "object") return null;
+  const expected = weatherConfigKey(settings);
+  if (snapshot.configKey === expected) return { ...snapshot };
+  if (snapshot.configKey !== void 0 && snapshot.configKey !== null) return null;
+  const latitude = Number.parseFloat(String(settings.weatherLatitude));
+  const longitude = Number.parseFloat(String(settings.weatherLongitude));
+  const snapshotLatitude = Number.parseFloat(String(snapshot.latitude));
+  const snapshotLongitude = Number.parseFloat(String(snapshot.longitude));
+  const sameLocation = Number.isFinite(snapshotLatitude) && Number.isFinite(snapshotLongitude) && Math.abs(snapshotLatitude - latitude) < 1e-6 && Math.abs(snapshotLongitude - longitude) < 1e-6;
+  const sameUnits = snapshot.units === (settings.weatherUnits === "imperial" ? "imperial" : "metric");
+  if (!sameLocation || !sameUnits) return null;
+  return { ...snapshot, configKey: expected };
+}
+function weatherDateAgeDays(date, today) {
+  if (typeof date !== "string" || typeof today !== "string") return null;
+  if (!ISO_DATE_PATTERN.test(date) || !ISO_DATE_PATTERN.test(today)) return null;
+  const age = (Date.parse(`${today}T00:00:00.000Z`) - Date.parse(`${date}T00:00:00.000Z`)) / (24 * 60 * 60 * 1e3);
+  return Number.isFinite(age) ? age : null;
+}
+function isHistoricalWeatherDate(date, today, recentDays = WEATHER_RECENT_DAYS) {
+  const age = weatherDateAgeDays(date, today);
+  if (age === null) return false;
+  const window2 = Number.isFinite(recentDays) && recentDays >= 0 ? recentDays : WEATHER_RECENT_DAYS;
+  return age > window2;
+}
+function hasSnapshotPayload(snapshot) {
+  return Object.keys(snapshot).some((key) => !NON_PAYLOAD_FIELDS.has(key));
+}
+function isSnapshotStale(snapshot, ttlHours, now = Date.now(), options = {}) {
+  if (!snapshot) return true;
+  const rawTimestamp = snapshot.cachedAt ?? snapshot.fetchedAt;
+  if (!rawTimestamp) return true;
+  const timestamp = new Date(rawTimestamp).getTime();
+  if (!Number.isFinite(timestamp)) return true;
+  if (now - timestamp <= ttlHours * 60 * 60 * 1e3) return false;
+  const date = options.date ?? snapshot.date;
+  return !(isHistoricalWeatherDate(date, options.today, options.recentDays) && hasSnapshotPayload(snapshot));
+}
+function weatherCacheEntryDate(entry) {
+  if (!entry || typeof entry !== "object") return null;
+  if (typeof entry.date === "string" && ISO_DATE_PATTERN.test(entry.date)) return entry.date;
+  const raw = entry.fetchedAt ?? entry.cachedAt;
+  if (typeof raw === "string") {
+    const iso = raw.slice(0, 10);
+    if (ISO_DATE_PATTERN.test(iso)) return iso;
+  }
+  return null;
+}
+function pruneWeatherCache(cache, options = {}) {
+  if (!cache || typeof cache !== "object") return 0;
+  const requested = Number(options.maxEntries ?? WEATHER_CACHE_MAX_ENTRIES);
+  const maxEntries = Number.isFinite(requested) && requested >= 1 ? Math.floor(requested) : WEATHER_CACHE_MAX_ENTRIES;
+  let removed = 0;
+  const minDate = options.minDate;
+  if (typeof minDate === "string" && ISO_DATE_PATTERN.test(minDate)) {
+    for (const key of Object.keys(cache)) {
+      const date = weatherCacheEntryDate(cache[key]);
+      if (date && date < minDate) {
+        delete cache[key];
+        removed++;
+      }
+    }
+  }
+  const keys = Object.keys(cache);
+  if (keys.length <= maxEntries) return removed;
+  const ordered = keys.map((key) => ({ key, date: weatherCacheEntryDate(cache[key]) })).sort((left, right) => {
+    const leftDate = left.date ?? "";
+    const rightDate = right.date ?? "";
+    if (leftDate !== rightDate) return leftDate < rightDate ? -1 : 1;
+    return left.key < right.key ? -1 : left.key > right.key ? 1 : 0;
+  });
+  for (const entry of ordered.slice(0, keys.length - maxEntries)) {
+    delete cache[entry.key];
+    removed++;
+  }
+  return removed;
+}
+function cloneStaleOfflineSnapshot(snapshot) {
+  return cloneStaleSnapshot(snapshot, true);
+}
+function cloneStaleSnapshot(snapshot, offline = false) {
+  if (!snapshot || typeof snapshot !== "object") return null;
+  const clone2 = { ...snapshot };
+  delete clone2.stale;
+  delete clone2.offline;
+  return offline ? { ...clone2, stale: true, offline: true } : { ...clone2, stale: true };
+}
+function toCanonicalWeatherSnapshot(snapshot) {
+  if (!snapshot || typeof snapshot !== "object") return null;
+  const canonical = { ...snapshot };
+  delete canonical.stale;
+  delete canonical.offline;
+  return canonical;
+}
+var WEATHER_API_VERSION, WEATHER_RECENT_DAYS, WEATHER_CACHE_MAX_ENTRIES, ISO_DATE_PATTERN, NON_PAYLOAD_FIELDS;
+var init_weather_cache = __esm({
+  "src/weather-cache.ts"() {
+    "use strict";
+    WEATHER_API_VERSION = "open-meteo-v1";
+    WEATHER_RECENT_DAYS = 7;
+    WEATHER_CACHE_MAX_ENTRIES = 3650;
+    ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+    NON_PAYLOAD_FIELDS = /* @__PURE__ */ new Set(["cachedAt", "configKey", "stale", "offline"]);
+  }
+});
+
+// src/weather-service.ts
+var weather_service_exports = {};
+__export(weather_service_exports, {
+  WEATHER_MAX_ATTEMPTS: () => WEATHER_MAX_ATTEMPTS,
+  WEATHER_REQUEST_TIMEOUT_MS: () => WEATHER_REQUEST_TIMEOUT_MS,
+  WEATHER_RETRY_BASE_DELAY_MS: () => WEATHER_RETRY_BASE_DELAY_MS,
+  WEATHER_RETRY_MAX_DELAY_MS: () => WEATHER_RETRY_MAX_DELAY_MS,
+  WeatherRequestError: () => WeatherRequestError,
+  WeatherService: () => WeatherService,
+  getWeatherRetryDelay: () => getWeatherRetryDelay,
+  isOfflineWeatherFailure: () => isOfflineWeatherFailure,
+  isRetryableWeatherFailure: () => isRetryableWeatherFailure,
+  lookupWeatherCode: () => lookupWeatherCode,
+  requestWeatherWithRetry: () => requestWeatherWithRetry,
+  toWeatherError: () => toWeatherError,
+  validateWeatherCoordinates: () => validateWeatherCoordinates,
+  weatherBadgeIcon: () => weatherBadgeIcon
+});
+function getObsidianWeatherDeps() {
+  if (!_obsidianWeatherDeps) _obsidianWeatherDeps = require("obsidian");
+  return _obsidianWeatherDeps;
+}
+function daylineDate2(settings, date = /* @__PURE__ */ new Date()) {
+  return getTodayDate(settings?.weatherTimezone || "auto", date);
+}
+function errorStatus(value) {
+  if (typeof value === "number") return value;
+  const status = value?.status ?? value?.statusCode ?? value?.response?.status ?? value?.error?.status;
+  return Number.isFinite(Number(status)) ? Number(status) : void 0;
+}
+function isRetryableWeatherFailure(value) {
+  const status = errorStatus(value);
+  if (status === void 0 || status === 0) return true;
+  return status === 408 || status === 429 || status >= 500 && status <= 599;
+}
+function isOfflineWeatherFailure(value) {
+  const status = errorStatus(value);
+  return status === void 0 || status === 0 || status === 408 || status === 429 || status >= 500 && status <= 599;
+}
+function getWeatherRetryDelay(attempt, options = {}) {
+  const base = Math.max(0, Number(options.baseDelayMs ?? WEATHER_RETRY_BASE_DELAY_MS));
+  const max = Math.max(base, Number(options.maxDelayMs ?? WEATHER_RETRY_MAX_DELAY_MS));
+  return Math.min(max, base * 2 ** Math.max(0, attempt - 1));
+}
+function toWeatherError(reason) {
+  if (reason instanceof Error) return reason;
+  const message = typeof reason === "string" ? reason : `Weather request failed: ${String(reason)}`;
+  const error = new Error(message);
+  const status = errorStatus(reason);
+  if (status !== void 0) error.status = status;
+  return error;
+}
+async function requestWeatherWithRetry(request, options = {}) {
+  const requestedAttempts = Number(options.maxAttempts ?? WEATHER_MAX_ATTEMPTS);
+  const maxAttempts = Math.max(1, Math.min(
+    WEATHER_MAX_ATTEMPTS,
+    Number.isFinite(requestedAttempts) ? Math.floor(requestedAttempts) : WEATHER_MAX_ATTEMPTS
+  ));
+  const sleep = options.sleep || ((ms) => new Promise((resolve) => window.setTimeout(resolve, ms)));
+  let lastError;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const response = await request(attempt);
+      const status = errorStatus(response);
+      if (status === void 0 || status >= 200 && status < 300) return response;
+      lastError = new WeatherRequestError(`Weather API returned status ${status}`, status);
+      if (attempt >= maxAttempts || !isRetryableWeatherFailure(lastError)) throw lastError;
+    } catch (error) {
+      lastError = toWeatherError(error);
+      if (attempt >= maxAttempts || !isRetryableWeatherFailure(lastError)) throw lastError;
+    }
+    await sleep(getWeatherRetryDelay(attempt, options));
+  }
+  throw lastError ?? new Error("Weather request failed");
+}
+function badgeIconFromScene(icon) {
+  return SCENE_TO_BADGE[icon] || "badge-cloud.svg";
+}
+function lookupWeatherCode(code) {
+  const entry = WMO_CODES.find((w) => w.code === code);
+  const resolved = entry || { condition: `Weather code ${code}`, icon: "overcast.svg" };
+  return { ...resolved, badgeIcon: badgeIconFromScene(resolved.icon) };
+}
+function weatherBadgeIcon(snapshot) {
+  if (!snapshot || typeof snapshot !== "object") return "badge-cloud.svg";
+  if (typeof snapshot.weatherCode === "number") {
+    return lookupWeatherCode(snapshot.weatherCode).badgeIcon;
+  }
+  if (typeof snapshot.icon === "string") return badgeIconFromScene(snapshot.icon);
+  return "badge-cloud.svg";
+}
+function validateWeatherCoordinates(lat, lng) {
+  const n = parseFloat(lat);
+  const g = parseFloat(lng);
+  return typeof n === "number" && !isNaN(n) && n >= -90 && n <= 90 && typeof g === "number" && !isNaN(g) && g >= -180 && g <= 180;
+}
+function compatibleSnapshot(snapshot, settings) {
+  const migrated = migrateCompatibleSnapshot(snapshot, settings);
+  if (!migrated) return null;
+  const lat = parseFloat(settings.weatherLatitude);
+  const lng = parseFloat(settings.weatherLongitude);
+  const { stale: _stale, offline: _offline, ...canonicalFields } = migrated;
+  return {
+    ...canonicalFields,
+    location: settings.weatherLocationName || `${lat.toFixed(2)}, ${lng.toFixed(2)}`
+  };
+}
+function normalizeIcon(snapshot) {
+  if (!snapshot || typeof snapshot !== "object") return snapshot;
+  if (typeof snapshot.icon === "string" && !snapshot.icon.endsWith(".svg") && snapshot.weatherCode != null) {
+    return { ...snapshot, icon: lookupWeatherCode(snapshot.weatherCode).icon };
+  }
+  return { ...snapshot };
+}
+function valueAt(values, index) {
+  return Array.isArray(values) && index >= 0 ? values[index] : void 0;
+}
+function numberAt(values, index) {
+  const value = valueAt(values, index);
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+function stringAt(values, index) {
+  const value = valueAt(values, index);
+  return typeof value === "string" && value.length > 0 ? value : null;
+}
+var _obsidianWeatherDeps, WEATHER_MAX_ATTEMPTS, WEATHER_RETRY_BASE_DELAY_MS, WEATHER_RETRY_MAX_DELAY_MS, WEATHER_REQUEST_TIMEOUT_MS, WeatherRequestError, WMO_CODES, SCENE_TO_BADGE, WeatherService;
+var init_weather_service = __esm({
+  "src/weather-service.ts"() {
+    "use strict";
+    init_date_utils();
+    init_media_service();
+    init_weather_cache();
+    WEATHER_MAX_ATTEMPTS = 3;
+    WEATHER_RETRY_BASE_DELAY_MS = 250;
+    WEATHER_RETRY_MAX_DELAY_MS = 2e3;
+    WEATHER_REQUEST_TIMEOUT_MS = 1e4;
+    WeatherRequestError = class extends Error {
+      constructor(message, status) {
+        super(message);
+        this.name = "WeatherRequestError";
+        this.status = status;
+      }
+    };
+    WMO_CODES = [
+      { code: 0, condition: "Clear sky", icon: "clear-day.svg" },
+      { code: 1, condition: "Mainly clear", icon: "clear-day.svg" },
+      { code: 2, condition: "Partly cloudy", icon: "partly-cloudy-day.svg" },
+      { code: 3, condition: "Overcast", icon: "overcast.svg" },
+      { code: 45, condition: "Foggy", icon: "fog.svg" },
+      { code: 48, condition: "Depositing rime fog", icon: "fog.svg" },
+      { code: 51, condition: "Light drizzle", icon: "drizzle.svg" },
+      { code: 53, condition: "Moderate drizzle", icon: "drizzle.svg" },
+      { code: 55, condition: "Dense drizzle", icon: "drizzle.svg" },
+      { code: 61, condition: "Slight rain", icon: "rain.svg" },
+      { code: 63, condition: "Moderate rain", icon: "rain.svg" },
+      { code: 65, condition: "Heavy rain", icon: "rain.svg" },
+      { code: 71, condition: "Slight snow fall", icon: "snow.svg" },
+      { code: 73, condition: "Moderate snow fall", icon: "snow.svg" },
+      { code: 75, condition: "Heavy snow fall", icon: "snow.svg" },
+      { code: 77, condition: "Snow grains", icon: "snow.svg" },
+      { code: 80, condition: "Slight rain showers", icon: "rain.svg" },
+      { code: 81, condition: "Moderate rain showers", icon: "rain.svg" },
+      { code: 82, condition: "Violent rain showers", icon: "rain.svg" },
+      { code: 85, condition: "Slight snow showers", icon: "snow.svg" },
+      { code: 86, condition: "Heavy snow showers", icon: "snow.svg" },
+      { code: 95, condition: "Thunderstorm", icon: "thunderstorms.svg" },
+      { code: 96, condition: "Thunderstorm w/ hail", icon: "thunderstorms.svg" },
+      { code: 99, condition: "Thunderstorm w/ heavy hail", icon: "thunderstorms.svg" }
+    ];
+    SCENE_TO_BADGE = {
+      "clear-day.svg": "badge-sun.svg",
+      "partly-cloudy-day.svg": "badge-cloud-sun.svg",
+      "overcast.svg": "badge-cloud.svg",
+      "fog.svg": "badge-fog.svg",
+      "drizzle.svg": "badge-drizzle.svg",
+      "rain.svg": "badge-rain.svg",
+      "snow.svg": "badge-snow.svg",
+      "thunderstorms.svg": "badge-storm.svg"
+    };
+    WeatherService = class {
+      constructor(plugin, options = {}) {
+        this.plugin = plugin;
+        this._request = options.request || getObsidianWeatherDeps().requestUrl;
+        this._sleep = options.sleep;
+        this._now = options.now || (() => Date.now());
+        this._retryOptions = {
+          maxAttempts: options.maxAttempts ?? WEATHER_MAX_ATTEMPTS,
+          baseDelayMs: options.baseDelayMs ?? WEATHER_RETRY_BASE_DELAY_MS,
+          maxDelayMs: options.maxDelayMs ?? WEATHER_RETRY_MAX_DELAY_MS
+        };
+        this._inFlight = /* @__PURE__ */ new Map();
+        this._memoryCache = /* @__PURE__ */ new Map();
+      }
+      _nowIso() {
+        return new Date(this._now()).toISOString();
+      }
+      _today() {
+        return daylineDate2(this.plugin.settings, new Date(this._now()));
+      }
+      _requestContext() {
+        const source = this.plugin.settings;
+        const settings = {
+          weatherLatitude: source.weatherLatitude,
+          weatherLongitude: source.weatherLongitude,
+          weatherUnits: source.weatherUnits,
+          weatherTimezone: source.weatherTimezone,
+          weatherTtlHours: source.weatherTtlHours,
+          weatherLocationName: source.weatherLocationName,
+          dailyFolder: source.dailyFolder
+        };
+        return {
+          settings,
+          configKey: weatherConfigKey(settings),
+          today: daylineDate2(settings, new Date(this._now()))
+        };
+      }
+      _runDeduplicated(dateStr, configKey, operation) {
+        const requestKey = `${dateStr}|${configKey}`;
+        if (this._inFlight.has(requestKey)) return this._inFlight.get(requestKey);
+        const promise = Promise.resolve().then(operation).finally(() => {
+          if (this._inFlight.get(requestKey) === promise) this._inFlight.delete(requestKey);
+        });
+        this._inFlight.set(requestKey, promise);
+        return promise;
+      }
+      /** Get weather, returning a stale offline snapshot when refresh cannot complete. */
+      async getSnapshot(dateStr) {
+        const s = this.plugin.settings;
+        if (!s.weatherEnabled) return null;
+        if (!validateWeatherCoordinates(s.weatherLatitude, s.weatherLongitude)) return null;
+        const context = this._requestContext();
+        return this._runDeduplicated(dateStr, context.configKey, () => this._fetchOrUseCached(dateStr, false, context));
+      }
+      /**
+       * Check whether a frontmatter snapshot or memory cache record needs refresh.
+       * `dateStr` is optional so existing callers keep working; when it is omitted
+       * the snapshot's own `date` field supplies the freshness context.
+       */
+      _shouldFetch(record, ttlHours, dateStr = void 0) {
+        const options = { date: dateStr, today: this._today() };
+        if (record && typeof record === "object" && "cachedAt" in record) {
+          return isSnapshotStale({ ...record.snapshot || {}, cachedAt: record.cachedAt }, ttlHours, this._now(), options);
+        }
+        return isSnapshotStale(record, ttlHours, this._now(), options);
+      }
+      _configKey() {
+        return weatherConfigKey(this.plugin.settings);
+      }
+      isSnapshotCompatible(snapshot) {
+        return !!compatibleSnapshot(snapshot, this.plugin.settings);
+      }
+      _readLegacySnapshots(dateStr, sourcePath, settings = this.plugin.settings) {
+        const app = this.plugin.app;
+        const candidatePaths = [sourcePath, joinVaultPath(settings.dailyFolder, `${dateStr}.md`)].filter((path, index, paths) => path && paths.indexOf(path) === index);
+        const snapshots = [];
+        for (const path of candidatePaths) {
+          const existingFile = app?.vault?.getAbstractFileByPath?.(path);
+          if (!existingFile) continue;
+          const TFile4 = getObsidianWeatherDeps().TFile;
+          if (!(existingFile instanceof TFile4)) continue;
+          const cache = app.metadataCache?.getFileCache?.(existingFile);
+          const snapshot = compatibleSnapshot(cache?.frontmatter?._calendar_weather, settings);
+          if (snapshot) snapshots.push({ snapshot: normalizeIcon(snapshot), source: "frontmatter" });
+        }
+        return snapshots;
+      }
+      _cachedCandidates(dateStr, sourcePath, settings = this.plugin.settings, configKey = weatherConfigKey(settings)) {
+        const candidates = [];
+        const cacheEntry = this.plugin.weatherCache?.[dateStr];
+        const cacheSnapshot = compatibleSnapshot(cacheEntry, settings);
+        if (cacheSnapshot) {
+          if (cacheEntry?.offline || cacheEntry?.stale) {
+            const canonical = toCanonicalWeatherSnapshot(cacheEntry);
+            if (canonical) {
+              this.plugin.weatherCache[dateStr] = canonical;
+              this.plugin._saveWeatherCache?.();
+            }
+          }
+          candidates.push({ snapshot: normalizeIcon(cacheSnapshot), source: "weatherCache" });
+        }
+        candidates.push(...this._readLegacySnapshots(dateStr, sourcePath, settings));
+        const memoryRecord = this._memoryCache.get(dateStr);
+        if (memoryRecord?.configKey === configKey && memoryRecord.snapshot) {
+          const memorySnapshot = compatibleSnapshot(memoryRecord.snapshot, settings);
+          if (memorySnapshot) {
+            candidates.push({
+              snapshot: normalizeIcon(memorySnapshot),
+              source: "memory",
+              record: memoryRecord
+            });
+          }
+        }
+        return candidates;
+      }
+      _selectCached(dateStr, sourcePath, ttlHours, settings = this.plugin.settings, configKey = weatherConfigKey(settings)) {
+        const candidates = this._cachedCandidates(dateStr, sourcePath, settings, configKey);
+        if (candidates.length === 0) return null;
+        const fresh = candidates.find((candidate) => !this._shouldFetch(candidate.record || candidate.snapshot, ttlHours, dateStr));
+        return fresh || candidates[0];
+      }
+      getCachedSnapshot(dateStr, sourcePath) {
+        return this._selectCached(dateStr, sourcePath, this.plugin.settings.weatherTtlHours || 2)?.snapshot || null;
+      }
+      _migrateFrontmatterCache(dateStr, candidate) {
+        if (candidate?.source !== "frontmatter" || !candidate.snapshot) return;
+        this.plugin.weatherCache = this.plugin.weatherCache || {};
+        this.plugin.weatherCache[dateStr] = { ...candidate.snapshot };
+        this.plugin._saveWeatherCache?.();
+      }
+      async _fetchOrUseCached(dateStr, forceRefresh, context = this._requestContext()) {
+        const s = context.settings;
+        const lat = parseFloat(s.weatherLatitude);
+        const lng = parseFloat(s.weatherLongitude);
+        const units = s.weatherUnits === "imperial" ? "imperial" : "metric";
+        const ttlHours = s.weatherTtlHours || 2;
+        const locationName = s.weatherLocationName || "";
+        const memoryRecord = this._memoryCache.get(dateStr);
+        const cached = this._selectCached(dateStr, void 0, ttlHours, s, context.configKey);
+        if (!forceRefresh && memoryRecord?.configKey === context.configKey && memoryRecord.snapshot === null && !cached && !this._shouldFetch(memoryRecord, ttlHours, dateStr)) {
+          return null;
+        }
+        if (!forceRefresh && cached && !this._shouldFetch(cached.record || cached.snapshot, ttlHours, dateStr)) {
+          this._migrateFrontmatterCache(dateStr, cached);
+          return cached.snapshot;
+        }
+        const fetchResult = await this._fetchFromOpenMeteoResult(lat, lng, dateStr, units, locationName, context);
+        const weather = fetchResult.snapshot;
+        if (!weather) {
+          if (cached?.snapshot) return cloneStaleSnapshot(cached.snapshot, fetchResult.offline);
+          if (context.configKey === this._configKey()) {
+            this._memoryCache.set(dateStr, { snapshot: null, cachedAt: this._nowIso(), configKey: context.configKey });
+          }
+          return null;
+        }
+        if (context.configKey === this._configKey()) {
+          await this._persistSnapshot(dateStr, weather);
+          this._memoryCache.set(dateStr, { snapshot: weather, cachedAt: this._nowIso(), configKey: context.configKey });
+        }
+        return weather;
+      }
+      _dailyFields(isArchive) {
+        const fields = [
+          "temperature_2m_max",
+          "temperature_2m_min",
+          "weathercode",
+          "relative_humidity_2m_max",
+          "apparent_temperature_max",
+          "wind_speed_10m_max",
+          "sunrise",
+          "sunset"
+        ];
+        if (!isArchive) fields.push("precipitation_probability_max");
+        return fields.join(",");
+      }
+      /**
+       * ERA5/archive data lags several days, so recent past days must come from the
+       * forecast API's `past_days` window; only settled history uses the archive.
+       */
+      _isArchiveDate(dateStr, today) {
+        return dateStr < today && isHistoricalWeatherDate(dateStr, today, WEATHER_RECENT_DAYS);
+      }
+      _weatherBaseUrl(dateStr, today) {
+        return this._isArchiveDate(dateStr, today) ? "https://archive-api.open-meteo.com/v1/archive" : "https://api.open-meteo.com/v1/forecast";
+      }
+      _buildWeatherUrl(lat, lng, dateStr, units, context = this._requestContext()) {
+        const timezone = context.settings.weatherTimezone || "auto";
+        const today = context.today;
+        const isToday = dateStr === today;
+        const isArchive = this._isArchiveDate(dateStr, today);
+        const isRecentPast = dateStr < today && !isArchive;
+        const params = new URLSearchParams({
+          latitude: String(lat),
+          longitude: String(lng),
+          daily: this._dailyFields(isArchive),
+          timezone,
+          start_date: dateStr,
+          end_date: dateStr
+        });
+        if (isToday) {
+          params.set("current", "temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m");
+        }
+        if (isRecentPast) {
+          const ageDays = weatherDateAgeDays(dateStr, today);
+          params.set("past_days", String(Math.min(WEATHER_RECENT_DAYS, Math.max(1, Math.round(ageDays ?? 1)))));
+        }
+        if (units === "imperial") {
+          params.set("temperature_unit", "fahrenheit");
+          params.set("wind_speed_unit", "mph");
+        } else {
+          params.set("temperature_unit", "celsius");
+          params.set("wind_speed_unit", "kmh");
+        }
+        return `${this._weatherBaseUrl(dateStr, today)}?${params.toString()}`;
+      }
+      async _requestWeather(url) {
+        return requestWeatherWithRetry(
+          () => withTimeout(
+            Promise.resolve(this._request({ url })),
+            WEATHER_REQUEST_TIMEOUT_MS,
+            "weather request"
+          ),
+          { ...this._retryOptions, sleep: this._sleep }
+        );
+      }
+      _location(lat, lng, locationName) {
+        return locationName || `${lat.toFixed(2)}, ${lng.toFixed(2)}`;
+      }
+      _dailyIndex(daily, dateStr) {
+        const dates = Array.isArray(daily?.time) ? daily.time : [];
+        return dates.indexOf(dateStr);
+      }
+      _dailySnapshot(daily, idx, lat, lng, dateStr, units, locationName, configKey, fetchedAt = this._nowIso()) {
+        if (!daily || idx < 0) return null;
+        const code = numberAt(daily.weathercode || daily.weather_code, idx);
+        if (typeof code !== "number") return null;
+        const wmo = lookupWeatherCode(code);
+        const tempMax = numberAt(daily.temperature_2m_max, idx);
+        const tempMin = numberAt(daily.temperature_2m_min, idx);
+        const feelsLike = numberAt(daily.apparent_temperature_max, idx);
+        return {
+          fetchedAt,
+          date: dateStr,
+          location: this._location(lat, lng, locationName),
+          latitude: lat,
+          longitude: lng,
+          temperature: tempMax == null ? null : Math.round(tempMax),
+          feelsLike: feelsLike == null ? null : Math.round(feelsLike),
+          humidity: numberAt(daily.relative_humidity_2m_max, idx),
+          weatherCode: code,
+          condition: wmo.condition,
+          icon: wmo.icon,
+          high: tempMax,
+          low: tempMin,
+          temperatureLabel: "High",
+          precipitationProbability: numberAt(daily.precipitation_probability_max, idx),
+          windSpeed: numberAt(daily.wind_speed_10m_max, idx),
+          sunrise: stringAt(daily.sunrise, idx),
+          sunset: stringAt(daily.sunset, idx),
+          units,
+          configKey
+        };
+      }
+      _currentSnapshot(json, lat, lng, dateStr, units, locationName, configKey, fetchedAt) {
+        const cur = json?.current;
+        const daily = json?.daily;
+        if (!cur || typeof cur !== "object") return null;
+        const code = typeof cur.weather_code === "number" ? cur.weather_code : null;
+        if (code === null) return null;
+        const idx = this._dailyIndex(daily, dateStr);
+        const wmo = lookupWeatherCode(code);
+        const dailyMax = numberAt(daily?.temperature_2m_max, idx);
+        const dailyMin = numberAt(daily?.temperature_2m_min, idx);
+        return {
+          fetchedAt,
+          date: dateStr,
+          location: this._location(lat, lng, locationName),
+          latitude: lat,
+          longitude: lng,
+          temperature: typeof cur.temperature_2m === "number" ? Math.round(cur.temperature_2m) : null,
+          feelsLike: typeof cur.apparent_temperature === "number" ? Math.round(cur.apparent_temperature) : null,
+          humidity: typeof cur.relative_humidity_2m === "number" ? cur.relative_humidity_2m : null,
+          weatherCode: code,
+          condition: wmo.condition,
+          icon: wmo.icon,
+          high: dailyMax,
+          low: dailyMin,
+          temperatureLabel: "Now",
+          precipitationProbability: numberAt(daily?.precipitation_probability_max, idx),
+          windSpeed: typeof cur.wind_speed_10m === "number" ? cur.wind_speed_10m : numberAt(daily?.wind_speed_10m_max, idx),
+          sunrise: stringAt(daily?.sunrise, idx),
+          sunset: stringAt(daily?.sunset, idx),
+          units,
+          configKey
+        };
+      }
+      /** Call Open-Meteo once per operation, with all retry attempts inside it. */
+      async _fetchFromOpenMeteoResult(lat, lng, dateStr, units, locationName, context = this._requestContext()) {
+        const url = this._buildWeatherUrl(lat, lng, dateStr, units, context);
+        let response;
+        try {
+          response = await this._requestWeather(url);
+        } catch (err) {
+          console.warn("[Dayline] Weather fetch failed:", err?.message || err);
+          return { snapshot: null, offline: isOfflineWeatherFailure(err) };
+        }
+        if (!response?.json || typeof response.json !== "object") return { snapshot: null, offline: false };
+        try {
+          const fetchedAt = this._nowIso();
+          const today = context.today;
+          if (dateStr === today) {
+            const current = this._currentSnapshot(response.json, lat, lng, dateStr, units, locationName, context.configKey, fetchedAt);
+            if (current) return { snapshot: current, offline: false };
+          }
+          const daily = response.json.daily;
+          const idx = this._dailyIndex(daily, dateStr);
+          return {
+            snapshot: this._dailySnapshot(daily, idx, lat, lng, dateStr, units, locationName, context.configKey, fetchedAt),
+            offline: false
+          };
+        } catch (err) {
+          console.warn("[Dayline] Weather response was unusable:", err?.message || err);
+          return { snapshot: null, offline: false };
+        }
+      }
+      /** Preserve the historical null-returning helper for direct callers. */
+      async _fetchFromOpenMeteo(lat, lng, dateStr, units, locationName) {
+        return (await this._fetchFromOpenMeteoResult(lat, lng, dateStr, units, locationName)).snapshot;
+      }
+      /** Compatibility helper for callers that still need a daily-only request. */
+      async _dailyOnlyFetch(lat, lng, dateStr, params) {
+        const today = daylineDate2(this.plugin.settings, new Date(this._now()));
+        const baseUrl = this._weatherBaseUrl(dateStr, today);
+        try {
+          return await this._requestWeather(`${baseUrl}?${params.toString()}`);
+        } catch (err) {
+          console.warn("[Dayline] Daily weather fetch failed:", err?.message || err);
+          return null;
+        }
+      }
+      /** Persist only canonical data; offline/stale status is transient UI state. */
+      async _persistSnapshot(dateStr, weather) {
+        const canonical = toCanonicalWeatherSnapshot(weather);
+        if (!canonical) return;
+        if (canonical.configKey && canonical.configKey !== this._configKey()) return;
+        if (!this.plugin.weatherCache) this.plugin.weatherCache = {};
+        this.plugin.weatherCache[dateStr] = { ...canonical, configKey: this._configKey() };
+        pruneWeatherCache(this.plugin.weatherCache, { maxEntries: WEATHER_CACHE_MAX_ENTRIES });
+        this.plugin._saveWeatherCache?.();
+      }
+      /** Force a refresh while retaining stale-cache fallback and deduplication. */
+      async forceRefresh(dateStr) {
+        const s = this.plugin.settings;
+        if (!s.weatherEnabled) return null;
+        if (!validateWeatherCoordinates(s.weatherLatitude, s.weatherLongitude)) return null;
+        const context = this._requestContext();
+        return this._runDeduplicated(dateStr, context.configKey, () => this._fetchOrUseCached(dateStr, true, context));
+      }
+      /** Check if a date has a compatible cached snapshot. */
+      hasCachedSnapshot(dateStr, sourcePath) {
+        if (!this.plugin.settings.weatherEnabled) return false;
+        return !!this.getCachedSnapshot(dateStr, sourcePath);
+      }
+      /** Bulk-fetch weather for a list of dates with a delay between requests. */
+      async bulkBackfill(dateStrs, onProgress) {
+        let done = 0;
+        const total = dateStrs.length;
+        for (const dateStr of dateStrs) {
+          const entry = this.plugin.weatherCache?.[dateStr];
+          if (entry && this.isSnapshotCompatible(entry) && entry.fetchedAt && !this._shouldFetch(entry, this.plugin.settings.weatherTtlHours || 2, dateStr)) {
+            done++;
+            onProgress?.(done, total, dateStr, true);
+            continue;
+          }
+          try {
+            await this.forceRefresh(dateStr);
+          } catch (e) {
+            console.warn("[Dayline] Backfill failed for", dateStr, e.message);
+          }
+          done++;
+          onProgress?.(done, total, dateStr, false);
+          if (done < total) await new Promise((resolve) => window.setTimeout(resolve, 2e3));
+        }
+        this.plugin._saveWeatherCache?.();
+        return done;
+      }
+    };
+  }
+});
+
+// src/weather-conditions.ts
+var weather_conditions_exports = {};
+__export(weather_conditions_exports, {
+  WEATHER_CONDITION_CODES: () => WEATHER_CONDITION_CODES,
+  weatherConditionLabel: () => weatherConditionLabel
+});
+function weatherConditionLabel(snapshot, settings = {}) {
+  const table = WEATHER_CONDITIONS[getDisplayLanguage(settings)] || WEATHER_CONDITIONS[DEFAULT_DISPLAY_LANGUAGE];
+  const code = Number(snapshot?.weatherCode);
+  if (Number.isFinite(code)) {
+    const index = WEATHER_CONDITION_CODES.indexOf(code);
+    if (index >= 0) return table.conditions[index];
+    return table.unknown.replace("{code}", String(code));
+  }
+  return String(snapshot?.condition || "");
+}
+var WEATHER_CONDITION_CODES, WEATHER_CONDITIONS;
+var init_weather_conditions = __esm({
+  "src/weather-conditions.ts"() {
+    "use strict";
+    init_i18n();
+    WEATHER_CONDITION_CODES = [
+      0,
+      1,
+      2,
+      3,
+      45,
+      48,
+      51,
+      53,
+      55,
+      61,
+      63,
+      65,
+      71,
+      73,
+      75,
+      77,
+      80,
+      81,
+      82,
+      85,
+      86,
+      95,
+      96,
+      99
+    ];
+    WEATHER_CONDITIONS = {
+      en: {
+        conditions: [
+          "Clear sky",
+          "Mainly clear",
+          "Partly cloudy",
+          "Overcast",
+          "Foggy",
+          "Depositing rime fog",
+          "Light drizzle",
+          "Moderate drizzle",
+          "Dense drizzle",
+          "Slight rain",
+          "Moderate rain",
+          "Heavy rain",
+          "Slight snow fall",
+          "Moderate snow fall",
+          "Heavy snow fall",
+          "Snow grains",
+          "Slight rain showers",
+          "Moderate rain showers",
+          "Violent rain showers",
+          "Slight snow showers",
+          "Heavy snow showers",
+          "Thunderstorm",
+          "Thunderstorm w/ hail",
+          "Thunderstorm w/ heavy hail"
+        ],
+        unknown: "Weather code {code}"
+      },
+      zh: {
+        conditions: [
+          "\u6674",
+          "\u5927\u81F4\u6674\u6717",
+          "\u5C40\u90E8\u591A\u4E91",
+          "\u9634",
+          "\u6709\u96FE",
+          "\u96FE\u51C7",
+          "\u5C0F\u6BDB\u6BDB\u96E8",
+          "\u4E2D\u7B49\u6BDB\u6BDB\u96E8",
+          "\u6D53\u5BC6\u6BDB\u6BDB\u96E8",
+          "\u5C0F\u96E8",
+          "\u4E2D\u96E8",
+          "\u5927\u96E8",
+          "\u5C0F\u96EA",
+          "\u4E2D\u96EA",
+          "\u5927\u96EA",
+          "\u7C73\u96EA",
+          "\u5C0F\u9635\u96E8",
+          "\u4E2D\u7B49\u9635\u96E8",
+          "\u5F3A\u9635\u96E8",
+          "\u5C0F\u9635\u96EA",
+          "\u5927\u9635\u96EA",
+          "\u96F7\u66B4",
+          "\u96F7\u66B4\u4F34\u51B0\u96F9",
+          "\u96F7\u66B4\u4F34\u5F3A\u51B0\u96F9"
+        ],
+        unknown: "\u5929\u6C14\u4EE3\u7801 {code}"
+      },
+      "zh-tw": {
+        conditions: [
+          "\u6674",
+          "\u5927\u81F4\u6674\u6717",
+          "\u5C40\u90E8\u591A\u96F2",
+          "\u9670",
+          "\u6709\u9727",
+          "\u9727\u51C7",
+          "\u5C0F\u6BDB\u6BDB\u96E8",
+          "\u4E2D\u7B49\u6BDB\u6BDB\u96E8",
+          "\u6FC3\u5BC6\u6BDB\u6BDB\u96E8",
+          "\u5C0F\u96E8",
+          "\u4E2D\u96E8",
+          "\u5927\u96E8",
+          "\u5C0F\u96EA",
+          "\u4E2D\u96EA",
+          "\u5927\u96EA",
+          "\u7C73\u96EA",
+          "\u5C0F\u9663\u96E8",
+          "\u4E2D\u7B49\u9663\u96E8",
+          "\u5F37\u9663\u96E8",
+          "\u5C0F\u9663\u96EA",
+          "\u5927\u9663\u96EA",
+          "\u96F7\u66B4",
+          "\u96F7\u66B4\u4F34\u51B0\u96F9",
+          "\u96F7\u66B4\u4F34\u5F37\u51B0\u96F9"
+        ],
+        unknown: "\u5929\u6C23\u4EE3\u78BC {code}"
+      },
+      ja: {
+        conditions: [
+          "\u5FEB\u6674",
+          "\u6674\u308C",
+          "\u4E00\u90E8\u66C7\u308A",
+          "\u66C7\u308A",
+          "\u9727",
+          "\u7740\u6C37\u6027\u306E\u9727",
+          "\u5F31\u3044\u9727\u96E8",
+          "\u9727\u96E8",
+          "\u5F37\u3044\u9727\u96E8",
+          "\u5F31\u3044\u96E8",
+          "\u96E8",
+          "\u5F37\u3044\u96E8",
+          "\u5F31\u3044\u96EA",
+          "\u96EA",
+          "\u5F37\u3044\u96EA",
+          "\u96EA\u3042\u3089\u308C",
+          "\u5F31\u3044\u306B\u308F\u304B\u96E8",
+          "\u306B\u308F\u304B\u96E8",
+          "\u6FC0\u3057\u3044\u306B\u308F\u304B\u96E8",
+          "\u5F31\u3044\u306B\u308F\u304B\u96EA",
+          "\u5F37\u3044\u306B\u308F\u304B\u96EA",
+          "\u96F7\u96E8",
+          "\u96F9\u3092\u4F34\u3046\u96F7\u96E8",
+          "\u6FC0\u3057\u3044\u96F9\u3092\u4F34\u3046\u96F7\u96E8"
+        ],
+        unknown: "\u5929\u6C17\u30B3\u30FC\u30C9 {code}"
+      },
+      ko: {
+        conditions: [
+          "\uB9D1\uC74C",
+          "\uB300\uCCB4\uB85C \uB9D1\uC74C",
+          "\uBD80\uBD84\uC801\uC73C\uB85C \uD750\uB9BC",
+          "\uD750\uB9BC",
+          "\uC548\uAC1C",
+          "\uCC29\uBE59\uC131 \uC548\uAC1C",
+          "\uC57D\uD55C \uC774\uC2AC\uBE44",
+          "\uC774\uC2AC\uBE44",
+          "\uAC15\uD55C \uC774\uC2AC\uBE44",
+          "\uC57D\uD55C \uBE44",
+          "\uBE44",
+          "\uAC15\uD55C \uBE44",
+          "\uC57D\uD55C \uB208",
+          "\uB208",
+          "\uAC15\uD55C \uB208",
+          "\uC2F8\uB77D\uB208",
+          "\uC57D\uD55C \uC18C\uB098\uAE30",
+          "\uC18C\uB098\uAE30",
+          "\uAC15\uD55C \uC18C\uB098\uAE30",
+          "\uC57D\uD55C \uB208 \uC18C\uB098\uAE30",
+          "\uAC15\uD55C \uB208 \uC18C\uB098\uAE30",
+          "\uB1CC\uC6B0",
+          "\uC6B0\uBC15\uC744 \uB3D9\uBC18\uD55C \uB1CC\uC6B0",
+          "\uAC15\uD55C \uC6B0\uBC15\uC744 \uB3D9\uBC18\uD55C \uB1CC\uC6B0"
+        ],
+        unknown: "\uB0A0\uC528 \uCF54\uB4DC {code}"
+      },
+      fr: {
+        conditions: [
+          "Ciel d\xE9gag\xE9",
+          "Plut\xF4t d\xE9gag\xE9",
+          "Partiellement nuageux",
+          "Couvert",
+          "Brouillard",
+          "Brouillard givrant",
+          "Bruine l\xE9g\xE8re",
+          "Bruine mod\xE9r\xE9e",
+          "Bruine dense",
+          "Pluie faible",
+          "Pluie mod\xE9r\xE9e",
+          "Pluie forte",
+          "Neige faible",
+          "Neige mod\xE9r\xE9e",
+          "Neige forte",
+          "Grains de neige",
+          "Averses faibles",
+          "Averses mod\xE9r\xE9es",
+          "Averses violentes",
+          "Averses de neige faibles",
+          "Averses de neige fortes",
+          "Orage",
+          "Orage avec gr\xEAle",
+          "Orage avec forte gr\xEAle"
+        ],
+        unknown: "Code m\xE9t\xE9o {code}"
+      },
+      de: {
+        conditions: [
+          "Klarer Himmel",
+          "\xDCberwiegend klar",
+          "Teils bew\xF6lkt",
+          "Bedeckt",
+          "Neblig",
+          "Gefrierender Nebel",
+          "Leichter Nieselregen",
+          "M\xE4\xDFiger Nieselregen",
+          "Dichter Nieselregen",
+          "Leichter Regen",
+          "M\xE4\xDFiger Regen",
+          "Starker Regen",
+          "Leichter Schneefall",
+          "M\xE4\xDFiger Schneefall",
+          "Starker Schneefall",
+          "Schneegriesel",
+          "Leichte Regenschauer",
+          "M\xE4\xDFige Regenschauer",
+          "Heftige Regenschauer",
+          "Leichte Schneeschauer",
+          "Starke Schneeschauer",
+          "Gewitter",
+          "Gewitter mit Hagel",
+          "Gewitter mit starkem Hagel"
+        ],
+        unknown: "Wettercode {code}"
+      },
+      es: {
+        conditions: [
+          "Cielo despejado",
+          "Mayormente despejado",
+          "Parcialmente nublado",
+          "Cubierto",
+          "Niebla",
+          "Niebla helada",
+          "Llovizna ligera",
+          "Llovizna moderada",
+          "Llovizna densa",
+          "Lluvia ligera",
+          "Lluvia moderada",
+          "Lluvia intensa",
+          "Nevada ligera",
+          "Nevada moderada",
+          "Nevada intensa",
+          "Granos de nieve",
+          "Chubascos ligeros",
+          "Chubascos moderados",
+          "Chubascos violentos",
+          "Chubascos de nieve ligeros",
+          "Chubascos de nieve intensos",
+          "Tormenta",
+          "Tormenta con granizo",
+          "Tormenta con granizo fuerte"
+        ],
+        unknown: "C\xF3digo meteorol\xF3gico {code}"
+      },
+      ru: {
+        conditions: [
+          "\u042F\u0441\u043D\u043E",
+          "\u041F\u0440\u0435\u0438\u043C\u0443\u0449\u0435\u0441\u0442\u0432\u0435\u043D\u043D\u043E \u044F\u0441\u043D\u043E",
+          "\u041F\u0435\u0440\u0435\u043C\u0435\u043D\u043D\u0430\u044F \u043E\u0431\u043B\u0430\u0447\u043D\u043E\u0441\u0442\u044C",
+          "\u041F\u0430\u0441\u043C\u0443\u0440\u043D\u043E",
+          "\u0422\u0443\u043C\u0430\u043D",
+          "\u0418\u0437\u043C\u043E\u0440\u043E\u0437\u044C",
+          "\u0421\u043B\u0430\u0431\u0430\u044F \u043C\u043E\u0440\u043E\u0441\u044C",
+          "\u0423\u043C\u0435\u0440\u0435\u043D\u043D\u0430\u044F \u043C\u043E\u0440\u043E\u0441\u044C",
+          "\u0421\u0438\u043B\u044C\u043D\u0430\u044F \u043C\u043E\u0440\u043E\u0441\u044C",
+          "\u041D\u0435\u0431\u043E\u043B\u044C\u0448\u043E\u0439 \u0434\u043E\u0436\u0434\u044C",
+          "\u0423\u043C\u0435\u0440\u0435\u043D\u043D\u044B\u0439 \u0434\u043E\u0436\u0434\u044C",
+          "\u0421\u0438\u043B\u044C\u043D\u044B\u0439 \u0434\u043E\u0436\u0434\u044C",
+          "\u041D\u0435\u0431\u043E\u043B\u044C\u0448\u043E\u0439 \u0441\u043D\u0435\u0433",
+          "\u0423\u043C\u0435\u0440\u0435\u043D\u043D\u044B\u0439 \u0441\u043D\u0435\u0433",
+          "\u0421\u0438\u043B\u044C\u043D\u044B\u0439 \u0441\u043D\u0435\u0433",
+          "\u0421\u043D\u0435\u0436\u043D\u044B\u0435 \u0437\u0451\u0440\u043D\u0430",
+          "\u041D\u0435\u0431\u043E\u043B\u044C\u0448\u0438\u0435 \u043B\u0438\u0432\u043D\u0438",
+          "\u0423\u043C\u0435\u0440\u0435\u043D\u043D\u044B\u0435 \u043B\u0438\u0432\u043D\u0438",
+          "\u0421\u0438\u043B\u044C\u043D\u044B\u0435 \u043B\u0438\u0432\u043D\u0438",
+          "\u041D\u0435\u0431\u043E\u043B\u044C\u0448\u0438\u0435 \u0441\u043D\u0435\u0436\u043D\u044B\u0435 \u043B\u0438\u0432\u043D\u0438",
+          "\u0421\u0438\u043B\u044C\u043D\u044B\u0435 \u0441\u043D\u0435\u0436\u043D\u044B\u0435 \u043B\u0438\u0432\u043D\u0438",
+          "\u0413\u0440\u043E\u0437\u0430",
+          "\u0413\u0440\u043E\u0437\u0430 \u0441 \u0433\u0440\u0430\u0434\u043E\u043C",
+          "\u0413\u0440\u043E\u0437\u0430 \u0441 \u0441\u0438\u043B\u044C\u043D\u044B\u043C \u0433\u0440\u0430\u0434\u043E\u043C"
+        ],
+        unknown: "\u041A\u043E\u0434 \u043F\u043E\u0433\u043E\u0434\u044B {code}"
+      }
+    };
+  }
+});
+
+// src/weather-display.ts
+var weather_display_exports = {};
+__export(weather_display_exports, {
+  DEFAULT_WEATHER_DISPLAY_FIELDS: () => DEFAULT_WEATHER_DISPLAY_FIELDS,
+  WEATHER_DISPLAY_FIELDS: () => WEATHER_DISPLAY_FIELDS,
+  buildWeatherCardParts: () => buildWeatherCardParts,
+  buildWeatherDetailParts: () => buildWeatherDetailParts,
+  buildWeatherExtraParts: () => buildWeatherExtraParts,
+  buildWeatherStatus: () => buildWeatherStatus,
+  formatWeatherTime: () => formatWeatherTime,
+  normalizeWeatherDisplayFields: () => normalizeWeatherDisplayFields,
+  weatherWindUnit: () => weatherWindUnit
+});
+function normalizeWeatherDisplayFields(value) {
+  const source = Array.isArray(value) ? value : DEFAULT_WEATHER_DISPLAY_FIELDS;
+  const allowed = new Set(WEATHER_DISPLAY_FIELDS);
+  return Array.from(new Set(source.map(String))).filter((field) => allowed.has(field));
+}
+function formatWeatherTime(value, _language = "en", _timezone = "auto") {
+  const match = typeof value === "string" ? /T(\d{1,2}):(\d{2})/.exec(value) : null;
+  if (!match) return "";
+  return `${String(Number(match[1])).padStart(2, "0")}:${match[2]}`;
+}
+function weatherWindUnit(units) {
+  return units === "imperial" ? "mph" : "km/h";
+}
+function buildWeatherDetailParts(snapshot, labels) {
+  const unit = snapshot.units === "imperial" ? "\xB0F" : "\xB0C";
+  const parts = [];
+  if (snapshot.feelsLike != null) parts.push(`${labels.feels} ${snapshot.feelsLike}${unit}`);
+  if (snapshot.humidity != null) parts.push(`${labels.humidity} ${snapshot.humidity}%`);
+  return parts;
+}
+function buildWeatherExtraParts(snapshot, labels, language = "en", timezone = "auto") {
+  const parts = [];
+  if (snapshot.low != null && labels.low) parts.push(`${labels.low} ${snapshot.low}${snapshot.units === "imperial" ? "\xB0F" : "\xB0C"}`);
+  if (snapshot.precipitationProbability != null) {
+    parts.push(`${labels.precipitation} ${snapshot.precipitationProbability}%`);
+  }
+  if (snapshot.windSpeed != null) {
+    parts.push(`${labels.wind} ${Math.round(Number(snapshot.windSpeed))} ${weatherWindUnit(snapshot.units)}`);
+  }
+  const sunrise = formatWeatherTime(snapshot.sunrise, language, timezone);
+  const sunset = formatWeatherTime(snapshot.sunset, language, timezone);
+  if (sunrise) parts.push(`${labels.sunrise} ${sunrise}`);
+  if (sunset) parts.push(`${labels.sunset} ${sunset}`);
+  return parts;
+}
+function buildWeatherCardParts(snapshot, labels, selectedFields, language = "en", timezone = "auto") {
+  const fields = new Set(normalizeWeatherDisplayFields(selectedFields));
+  const detail = [];
+  const extra = [];
+  const unit = snapshot.units === "imperial" ? "\xB0F" : "\xB0C";
+  if (fields.has("feels") && snapshot.feelsLike != null) {
+    detail.push(`${labels.feels} ${snapshot.feelsLike}${unit}`);
+  }
+  if (fields.has("humidity") && snapshot.humidity != null) {
+    detail.push(`${labels.humidity} ${snapshot.humidity}%`);
+  }
+  if (fields.has("low") && snapshot.low != null) {
+    extra.push(`${labels.low} ${snapshot.low}${unit}`);
+  }
+  if (fields.has("precipitation") && snapshot.precipitationProbability != null) {
+    extra.push(`${labels.precipitation} ${snapshot.precipitationProbability}%`);
+  }
+  if (fields.has("wind") && snapshot.windSpeed != null) {
+    extra.push(`${labels.wind} ${Math.round(Number(snapshot.windSpeed))} ${weatherWindUnit(snapshot.units)}`);
+  }
+  if (fields.has("sunrise")) {
+    const sunrise = formatWeatherTime(snapshot.sunrise, language, timezone);
+    if (sunrise) extra.push(`${labels.sunrise} ${sunrise}`);
+  }
+  if (fields.has("sunset")) {
+    const sunset = formatWeatherTime(snapshot.sunset, language, timezone);
+    if (sunset) extra.push(`${labels.sunset} ${sunset}`);
+  }
+  return { detail, extra };
+}
+function buildWeatherStatus(snapshot, labels) {
+  if (!snapshot.stale && !snapshot.offline) return [];
+  return [labels.cached, snapshot.stale ? labels.stale : "", snapshot.offline ? labels.offline : ""].filter(Boolean);
+}
+var DEFAULT_WEATHER_DISPLAY_FIELDS, WEATHER_DISPLAY_FIELDS;
+var init_weather_display = __esm({
+  "src/weather-display.ts"() {
+    "use strict";
+    DEFAULT_WEATHER_DISPLAY_FIELDS = ["feels", "humidity"];
+    WEATHER_DISPLAY_FIELDS = [
+      "feels",
+      "humidity",
+      "low",
+      "precipitation",
+      "wind",
+      "sunrise",
+      "sunset"
+    ];
+  }
+});
+
+// src/thumbnail-service.ts
+var thumbnail_service_exports = {};
+__export(thumbnail_service_exports, {
+  HEIC_EXTENSIONS: () => HEIC_EXTENSIONS,
+  IMAGE_EXTENSIONS: () => IMAGE_EXTENSIONS3,
+  ThumbnailService: () => ThumbnailService
+});
+var IMAGE_EXTENSIONS3, HEIC_EXTENSIONS, ThumbnailService;
+var init_thumbnail_service = __esm({
+  "src/thumbnail-service.ts"() {
+    "use strict";
+    init_media_links();
+    IMAGE_EXTENSIONS3 = IMAGE_EXTENSIONS;
+    HEIC_EXTENSIONS = ["heic", "heif"];
+    ThumbnailService = class {
+      constructor(app, heicCache) {
+        __publicField(this, "app");
+        __publicField(this, "heicCache");
+        this.app = app;
+        this.heicCache = heicCache;
+      }
+      isImageFile(file) {
+        return Boolean(file?.extension && IMAGE_EXTENSIONS3.includes(String(file.extension).toLowerCase()));
+      }
+      isImageLink(link) {
+        return classifyMediaLink(link).kind === "image";
+      }
+      resolve(link, sourcePath) {
+        const normalized = normalizeMediaLink(link);
+        if (normalized.toLowerCase().startsWith("http://") || normalized.toLowerCase().startsWith("https://")) return null;
+        const file = this.app.metadataCache.getFirstLinkpathDest(normalized, sourcePath);
+        return this.isImageFile(file) ? file : null;
+      }
+      async load(link, sourcePath, index = 0) {
+        const normalized = normalizeMediaLink(link);
+        if (normalized.toLowerCase().startsWith("http://") || normalized.toLowerCase().startsWith("https://")) {
+          return this.isImageLink(normalized) ? { url: normalized, path: normalized, index } : null;
+        }
+        const file = this.resolve(normalized, sourcePath);
+        if (!file) return null;
+        try {
+          const ext = String(file.extension).toLowerCase();
+          const url = HEIC_EXTENSIONS.includes(ext) ? (await this.heicCache?.getThumbnail(file))?.dataUrl : this.app.vault.getResourcePath(file);
+          return url ? { url, path: file.path, index } : null;
+        } catch {
+          return null;
+        }
+      }
+      async loadFirst(links, sourcePath) {
+        for (let index = 0; index < links.length; index++) {
+          const result = await this.load(links[index], sourcePath, index);
+          if (result) return result;
+        }
+        return null;
       }
     };
   }
@@ -29673,11 +31076,33 @@ var init_heic_codec = __esm({
   }
 });
 
+// manifest.json
+var manifest_default;
+var init_manifest = __esm({
+  "manifest.json"() {
+    manifest_default = {
+      id: "dayline-journal",
+      name: "Dayline Journal",
+      version: "2.7.0",
+      minAppVersion: "1.5.0",
+      description: "A visual journal for calendars, timelines, moods, memories, weather, and photos. / \u96C6\u65E5\u5386\u3001\u65F6\u95F4\u7EBF\u3001\u5FC3\u60C5\u3001\u56DE\u987E\u3001\u5929\u6C14\u548C\u7167\u7247\u4E8E\u4E00\u4F53\u7684\u53EF\u89C6\u5316\u65E5\u8BB0\u5DE5\u5177.",
+      author: "Haoo",
+      isDesktopOnly: false
+    };
+  }
+});
+
 // src/image-metadata.ts
 var image_metadata_exports = {};
 __export(image_metadata_exports, {
   GEOCODER_CACHE_MAX_ENTRIES: () => GEOCODER_CACHE_MAX_ENTRIES,
   GEOCODER_CACHE_TTL_MS: () => GEOCODER_CACHE_TTL_MS,
+  GEOCODER_COORDINATE_DECIMALS: () => GEOCODER_COORDINATE_DECIMALS,
+  GEOCODER_FALLBACK_VERSION: () => GEOCODER_FALLBACK_VERSION,
+  GEOCODER_NEGATIVE_TTL_MS: () => GEOCODER_NEGATIVE_TTL_MS,
+  GEOCODER_REPOSITORY_URL: () => GEOCODER_REPOSITORY_URL,
+  GEOCODER_REQUEST_TIMEOUT_MS: () => GEOCODER_REQUEST_TIMEOUT_MS,
+  GEOCODER_USER_AGENT: () => GEOCODER_USER_AGENT,
   HEIC_EXTS: () => HEIC_EXTS,
   HeicCache: () => HeicCache,
   ImageMetadataCache: () => ImageMetadataCache,
@@ -29689,8 +31114,17 @@ __export(image_metadata_exports, {
   formatExifForDisplay: () => formatExifForDisplay,
   geocoderLanguageTag: () => geocoderLanguageTag,
   normalizeGeocoderLanguage: () => normalizeGeocoderLanguage,
-  parseImageExif: () => parseImageExif
+  parseImageExif: () => parseImageExif,
+  resolveGeocoderUserAgent: () => resolveGeocoderUserAgent
 });
+function _normalizeGeocoderVersion(version) {
+  const raw = typeof version === "string" ? version.trim() : "";
+  return /^\d+\.\d+(\.\d+)?([-+][0-9A-Za-z.-]+)?$/.test(raw) ? raw : GEOCODER_FALLBACK_VERSION;
+}
+function resolveGeocoderUserAgent(version) {
+  const resolved = version ?? manifest_default?.version;
+  return `ObsidianDayline/${_normalizeGeocoderVersion(resolved)} (+${GEOCODER_REPOSITORY_URL})`;
+}
 function normalizeGeocoderLanguage(language) {
   const raw = String(language || "").trim().toLowerCase().replace(/_/g, "-");
   if (raw === "zh-tw" || raw === "zh-hk" || raw === "zh-mo" || raw.startsWith("zh-hant") || raw.startsWith("zh-tw") || raw.startsWith("zh-hk")) {
@@ -29804,15 +31238,21 @@ function _parseExifData(exifBytes) {
       if (tag === 3) result.gpsLonRef = val;
       if (tag === 4) result.gpsLon = val;
     }
-    if (Array.isArray(result.gpsLat) && result.gpsLat.length >= 3 && result.gpsLat.every(Number.isFinite)) {
-      const lat = result.gpsLat[0] + result.gpsLat[1] / 60 + result.gpsLat[2] / 3600;
-      if (Number.isFinite(lat)) result.gpsLatDecimal = result.gpsLatRef === "S" ? -lat : lat;
-    }
-    if (Array.isArray(result.gpsLon) && result.gpsLon.length >= 3 && result.gpsLon.every(Number.isFinite)) {
-      const lon = result.gpsLon[0] + result.gpsLon[1] / 60 + result.gpsLon[2] / 3600;
-      if (Number.isFinite(lon)) result.gpsLonDecimal = result.gpsLonRef === "W" ? -lon : lon;
+    const lat = _gpsDecimal(result.gpsLat, result.gpsLatRef);
+    const lon = _gpsDecimal(result.gpsLon, result.gpsLonRef);
+    if (lat !== void 0 && lon !== void 0 && !(lat === 0 && lon === 0)) {
+      result.gpsLatDecimal = lat;
+      result.gpsLonDecimal = lon;
     }
     return result;
+  }
+  function _gpsDecimal(parts, ref) {
+    if (ref !== "N" && ref !== "S" && ref !== "E" && ref !== "W") return void 0;
+    if (!Array.isArray(parts) || parts.length < 3) return void 0;
+    if (!parts.every((part) => typeof part === "number" && Number.isFinite(part))) return void 0;
+    const degrees = parts[0] + parts[1] / 60 + parts[2] / 3600;
+    if (!Number.isFinite(degrees)) return void 0;
+    return ref === "S" || ref === "W" ? -degrees : degrees;
   }
   function _readTag(entryOffset, type, count, tiffBase) {
     const sizes = { 1: 1, 2: 1, 3: 2, 4: 4, 5: 8, 6: 1, 7: 1, 8: 2, 9: 4, 10: 8, 11: 4, 12: 8 };
@@ -29850,7 +31290,7 @@ function _parseExifData(exifBytes) {
           const numerator = readInteger(valueOffset + i * 8);
           const denominator = readInteger(valueOffset + i * 8 + 4);
           if (numerator === void 0 || denominator === void 0) return void 0;
-          values.push(denominator === 0 ? numerator : numerator / denominator);
+          values.push(denominator === 0 ? Number.NaN : numerator / denominator);
         }
         return count === 1 ? values[0] : values;
       }
@@ -29919,13 +31359,186 @@ function parseWebpExif(arrayBuffer) {
   }
   return null;
 }
+function _readBoxType(dv, offset) {
+  return String.fromCharCode(
+    dv.getUint8(offset),
+    dv.getUint8(offset + 1),
+    dv.getUint8(offset + 2),
+    dv.getUint8(offset + 3)
+  );
+}
+function _readIsoBoxes(dv, start, end) {
+  const boxes = [];
+  let offset = start;
+  while (offset >= start && offset + 8 <= end) {
+    let size = dv.getUint32(offset);
+    const type = _readBoxType(dv, offset + 4);
+    let headerSize = 8;
+    if (size === 1) {
+      if (offset + 16 > end) break;
+      size = dv.getUint32(offset + 8) * 4294967296 + dv.getUint32(offset + 12);
+      headerSize = 16;
+    } else if (size === 0) {
+      size = end - offset;
+    }
+    if (!Number.isSafeInteger(size) || size < headerSize || offset + size > end) break;
+    boxes.push({ type, start: offset + headerSize, end: offset + size });
+    offset += size;
+  }
+  return boxes;
+}
+function _readHeicItemId(dv, iinf, itemType) {
+  if (iinf.end - iinf.start < 4) return null;
+  const version = dv.getUint8(iinf.start);
+  let offset = iinf.start + 4;
+  let count;
+  if (version === 0) {
+    if (offset + 2 > iinf.end) return null;
+    count = dv.getUint16(offset);
+    offset += 2;
+  } else {
+    if (offset + 4 > iinf.end) return null;
+    count = dv.getUint32(offset);
+    offset += 4;
+  }
+  for (let i = 0; i < count && offset + 8 <= iinf.end; i++) {
+    const size = dv.getUint32(offset);
+    const type = _readBoxType(dv, offset + 4);
+    if (size < 8 || offset + size > iinf.end) break;
+    if (type === "infe") {
+      const entry = { start: offset + 8, end: offset + size };
+      if (entry.end - entry.start < 8) {
+        offset += size;
+        continue;
+      }
+      const entryVersion = dv.getUint8(entry.start);
+      const typeOffset = entryVersion >= 3 ? entry.start + 10 : entry.start + 8;
+      let entryType = null;
+      if (entryVersion >= 2) {
+        if (typeOffset + 4 <= entry.end) entryType = _readBoxType(dv, typeOffset);
+      } else {
+        let at = entry.start + 8;
+        let name = "";
+        while (at < entry.end && dv.getUint8(at) !== 0) {
+          name += String.fromCharCode(dv.getUint8(at));
+          at++;
+        }
+        entryType = name || null;
+      }
+      if (entryType === itemType) {
+        return entryVersion >= 3 && entry.start + 8 <= entry.end ? dv.getUint32(entry.start + 4) : dv.getUint16(entry.start + 4);
+      }
+    }
+    offset += size;
+  }
+  return null;
+}
+function _readHeicItemExtents(dv, iloc, itemId) {
+  if (itemId === null || iloc.end - iloc.start < 8) return [];
+  const version = dv.getUint8(iloc.start);
+  let offset = iloc.start + 4;
+  const fieldSizes = dv.getUint8(offset);
+  offset += 1;
+  const offsetSize = fieldSizes >> 4 & 15;
+  const lengthSize = fieldSizes & 15;
+  const baseFieldSizes = dv.getUint8(offset);
+  offset += 1;
+  const baseOffsetSize = baseFieldSizes >> 4 & 15;
+  const indexSize = version === 1 || version === 2 ? baseFieldSizes & 15 : 0;
+  if (offsetSize === 0 || offsetSize > 8 || lengthSize === 0 || lengthSize > 8 || baseOffsetSize > 8 || indexSize > 8) {
+    return [];
+  }
+  let count;
+  if (version < 2) {
+    if (offset + 2 > iloc.end) return [];
+    count = dv.getUint16(offset);
+    offset += 2;
+  } else {
+    if (offset + 4 > iloc.end) return [];
+    count = dv.getUint32(offset);
+    offset += 4;
+  }
+  const readField2 = (at, size) => {
+    let value = 0;
+    for (let i = 0; i < size; i++) value = value * 256 + dv.getUint8(at + i);
+    return value;
+  };
+  const extents = [];
+  for (let i = 0; i < count; i++) {
+    const idSize = version < 2 ? 2 : 4;
+    if (offset + idSize + 2 > iloc.end) break;
+    const id = idSize === 2 ? dv.getUint16(offset) : dv.getUint32(offset);
+    offset += idSize;
+    let constructionMethod = 0;
+    if (version === 1 || version === 2) {
+      if (offset + 2 > iloc.end) break;
+      constructionMethod = dv.getUint16(offset) & 15;
+      offset += 2;
+    }
+    if (offset + 2 + baseOffsetSize + 2 > iloc.end) break;
+    offset += 2;
+    const baseOffset = readField2(offset, baseOffsetSize);
+    offset += baseOffsetSize;
+    const extentCount = dv.getUint16(offset);
+    offset += 2;
+    for (let e = 0; e < extentCount; e++) {
+      if (offset + indexSize + offsetSize + lengthSize > iloc.end) return extents;
+      offset += indexSize;
+      const extentOffset = readField2(offset, offsetSize);
+      offset += offsetSize;
+      const extentLength = readField2(offset, lengthSize);
+      offset += lengthSize;
+      if (id === itemId && constructionMethod === 0) {
+        extents.push({ offset: baseOffset + extentOffset, length: extentLength });
+      }
+    }
+  }
+  return extents;
+}
+function _hasTiffHeader(dv, offset) {
+  if (!Number.isSafeInteger(offset) || offset < 0 || offset + 8 > dv.byteLength) return false;
+  const byteOrder = dv.getUint16(offset);
+  if (byteOrder !== 18761 && byteOrder !== 19789) return false;
+  return dv.getUint16(offset + 2, byteOrder === 18761) === 42;
+}
+function _locateHeicExifBuffer(arrayBuffer, dv) {
+  const meta = _readIsoBoxes(dv, 0, dv.byteLength).find((box) => box.type === "meta");
+  if (!meta || meta.start + 4 > meta.end) return null;
+  const children = _readIsoBoxes(dv, meta.start + 4, meta.end);
+  const iinf = children.find((box) => box.type === "iinf");
+  const iloc = children.find((box) => box.type === "iloc");
+  if (!iinf || !iloc) return null;
+  const itemId = _readHeicItemId(dv, iinf, "Exif");
+  const extent = _readHeicItemExtents(dv, iloc, itemId)[0];
+  if (!extent || !Number.isSafeInteger(extent.offset) || extent.length <= 0) return null;
+  const start = extent.offset;
+  const end = Math.min(dv.byteLength, start + extent.length);
+  if (start < 0 || start + 4 > end) return null;
+  const declared = dv.getUint32(start);
+  const probes = [start + 4, start];
+  if (declared > 0) probes.unshift(start + declared, start + 4 + declared);
+  for (const probe of probes) {
+    if (probe + 8 <= end && _hasTiffHeader(dv, probe)) {
+      return arrayBuffer.slice(probe, Math.min(end, probe + MAX_EXIF_BLOCK_BYTES));
+    }
+  }
+  const scanEnd = Math.min(end - 8, start + 4096);
+  for (let probe = start; probe < scanEnd; probe++) {
+    if (_hasTiffHeader(dv, probe)) {
+      return arrayBuffer.slice(probe, Math.min(end, probe + MAX_EXIF_BLOCK_BYTES));
+    }
+  }
+  return null;
+}
 function parseHeicExif(arrayBuffer) {
   const dv = new DataView(arrayBuffer);
+  const located = _locateHeicExifBuffer(arrayBuffer, dv);
+  if (located) return _parseExifData(located);
+  if (_readIsoBoxes(dv, 0, dv.byteLength).some((box) => box.type === "meta")) return null;
   const scanEnd = Math.min(dv.byteLength, MAX_HEIC_TIFF_SCAN_BYTES);
   const max = Math.max(0, scanEnd - 8);
   for (let i = 0; i < max; i++) {
-    const bo = dv.getUint16(i);
-    if ((bo === 18761 || bo === 19789) && dv.getUint16(i + 2, bo === 18761) === 42) {
+    if (_hasTiffHeader(dv, i)) {
       const exifSlice = arrayBuffer.slice(i, Math.min(arrayBuffer.byteLength, i + MAX_EXIF_BLOCK_BYTES));
       return _parseExifData(exifSlice);
     }
@@ -29933,12 +31546,12 @@ function parseHeicExif(arrayBuffer) {
   return null;
 }
 function parseImageExif(arrayBuffer) {
-  if (!arrayBuffer || arrayBuffer.byteLength < 4) return null;
+  if (!arrayBuffer || arrayBuffer.byteLength < 12) return null;
   const dv = new DataView(arrayBuffer);
   const magic = dv.getUint16(0);
   const magic4 = dv.getUint32(0);
   const brand4 = dv.getUint32(8);
-  const isHeic = arrayBuffer.byteLength > 12 && dv.getUint32(4) === 1718909296 && // "ftyp"
+  const isHeic = dv.getUint32(4) === 1718909296 && // "ftyp"
   (brand4 === 1751476579 || brand4 === 1751476600 || brand4 === 1751479907 || // heic/heix/hevc
   brand4 === 1751476589 || brand4 === 1751476595 || brand4 === 1751479917 || // heim/heis/hevm
   brand4 === 1751479923 || brand4 === 1835623985 || brand4 === 1836279345);
@@ -29973,16 +31586,21 @@ function formatExifForDisplay(raw) {
   if (raw.exposureTime !== void 0 && raw.exposureTime !== null) {
     let shutter;
     if (typeof raw.exposureTime === "number") {
-      if (raw.exposureTime >= 1) {
-        shutter = raw.exposureTime + "s";
-      } else {
-        const denom = Math.round(1 / raw.exposureTime);
-        shutter = "1/" + denom + "s";
+      const seconds = raw.exposureTime;
+      if (Number.isFinite(seconds) && seconds > 0) {
+        if (seconds >= 1) {
+          shutter = seconds + "s";
+        } else {
+          const denominator = 1 / seconds;
+          const rounded = Math.round(denominator);
+          const nearInteger = rounded >= 1 && Math.abs(denominator - rounded) <= Math.max(0.01, rounded * 5e-3);
+          shutter = seconds >= 0.3 || !nearInteger ? Number(seconds.toPrecision(4)) + "s" : "1/" + rounded + "s";
+        }
       }
     } else {
       shutter = String(raw.exposureTime);
     }
-    fields.push({ key: "exif_shutter", value: shutter });
+    if (shutter !== void 0) fields.push({ key: "exif_shutter", value: shutter });
   }
   if (raw.iso !== void 0 && raw.iso !== null) {
     fields.push({ key: "exif_iso", value: String(raw.iso) });
@@ -30001,13 +31619,19 @@ function formatExifForDisplay(raw) {
   }
   return fields.length > 0 ? fields : null;
 }
-var GEOCODER_LANGUAGES, requestUrl, MAX_EXIF_BLOCK_BYTES, MAX_HEIC_TIFF_SCAN_BYTES, ImageMetadataCache, HEIC_EXTS, MAX_HEIC_BYTES, MAX_HEIC_PIXELS, MAX_HEIC_EDGE, HeicCache, GEOCODER_CACHE_TTL_MS, GEOCODER_CACHE_MAX_ENTRIES, ReverseGeocoder;
+var GEOCODER_LANGUAGES, GEOCODER_REPOSITORY_URL, GEOCODER_FALLBACK_VERSION, GEOCODER_NEGATIVE_TTL_MS, GEOCODER_REQUEST_TIMEOUT_MS, GEOCODER_USER_AGENT, requestUrl, MAX_EXIF_BLOCK_BYTES, MAX_HEIC_TIFF_SCAN_BYTES, ImageMetadataCache, HEIC_EXTS, MAX_HEIC_BYTES, MAX_HEIC_PIXELS, MAX_HEIC_EDGE, HeicCache, GEOCODER_CACHE_TTL_MS, GEOCODER_CACHE_MAX_ENTRIES, GEOCODER_COORDINATE_DECIMALS, ReverseGeocoder;
 var init_image_metadata = __esm({
   "src/image-metadata.ts"() {
     "use strict";
     init_plugin_identity();
     init_i18n();
+    init_manifest();
     GEOCODER_LANGUAGES = ["en", "zh", "zh-tw", "ja", "ko", "fr", "de", "es", "ru"];
+    GEOCODER_REPOSITORY_URL = "https://github.com/Haoo-7/Obsidian-Dayline";
+    GEOCODER_FALLBACK_VERSION = "0.0.0";
+    GEOCODER_NEGATIVE_TTL_MS = 10 * 60 * 1e3;
+    GEOCODER_REQUEST_TIMEOUT_MS = 10 * 1e3;
+    GEOCODER_USER_AGENT = resolveGeocoderUserAgent();
     MAX_EXIF_BLOCK_BYTES = 8 * 1024 * 1024;
     MAX_HEIC_TIFF_SCAN_BYTES = 16 * 1024 * 1024;
     ImageMetadataCache = class {
@@ -30079,6 +31703,7 @@ var init_image_metadata = __esm({
         this._cache = /* @__PURE__ */ new Map();
         this._pending = /* @__PURE__ */ new Map();
         this._libheifReady = null;
+        this._decoder = null;
         this._conversionQueue = Promise.resolve();
       }
       _getLibheif() {
@@ -30088,9 +31713,30 @@ var init_image_metadata = __esm({
           if (!factory) {
             return Promise.reject(new Error("libheif not loaded"));
           }
-          this._libheifReady = Promise.resolve(factory());
+          this._libheifReady = Promise.resolve(factory()).catch((error) => {
+            this._libheifReady = null;
+            throw error;
+          });
         }
         return this._libheifReady;
+      }
+      /** Reuse the cache's decoder, creating it on first use. */
+      _getDecoder(libheif) {
+        if (!this._decoder) this._decoder = new libheif.HeifDecoder();
+        return this._decoder;
+      }
+      /**
+       * Release the WASM context that `decode()` allocated. `image.free()` only
+       * releases the image handle, so without this each conversion would retain one
+       * file's worth of heap until the next decode on the same instance.
+       */
+      _freeDecoderContext(libheif, decoder) {
+        if (!decoder?.decoder || typeof libheif?.heif_context_free !== "function") return;
+        try {
+          libheif.heif_context_free(decoder.decoder);
+        } catch {
+        }
+        decoder.decoder = null;
       }
       /**
        * Get a JPEG data URL thumbnail for a HEIC file.
@@ -30128,6 +31774,8 @@ var init_image_metadata = __esm({
       }
       async _convert(file) {
         let images = [];
+        let libheif = null;
+        let decoder = null;
         try {
           const fileSize = Number(file.stat?.size);
           if (Number.isFinite(fileSize) && fileSize > MAX_HEIC_BYTES) {
@@ -30140,8 +31788,8 @@ var init_image_metadata = __esm({
             console.warn("[Dayline] HEIC conversion skipped: file exceeds 100 MiB limit");
             return null;
           }
-          const libheif = await this._getLibheif();
-          const decoder = new libheif.HeifDecoder();
+          libheif = await this._getLibheif();
+          decoder = this._getDecoder(libheif);
           images = decoder.decode(new Uint8Array(buf)) || [];
           if (!images || !images.length) return null;
           const img = images[0];
@@ -30187,6 +31835,7 @@ var init_image_metadata = __esm({
             } catch {
             }
           }
+          this._freeDecoderContext(libheif, decoder);
         }
       }
       _hasLibheifFactory() {
@@ -30201,23 +31850,29 @@ var init_image_metadata = __esm({
           this._cache.clear();
           this._pending.clear();
           this._libheifReady = null;
+          this._decoder = null;
         }
       }
     };
     GEOCODER_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1e3;
     GEOCODER_CACHE_MAX_ENTRIES = 256;
+    GEOCODER_COORDINATE_DECIMALS = 3;
     ReverseGeocoder = class {
       constructor(options = {}) {
         this._cache = /* @__PURE__ */ new Map();
         this._pending = /* @__PURE__ */ new Map();
+        this._failed = /* @__PURE__ */ new Map();
         this._persistentCache = options.cache && typeof options.cache === "object" ? options.cache : null;
         this._onChange = options.onChange;
         this._now = options.now || (() => Date.now());
         this._ttlMs = Math.max(1, Number(options.ttlMs ?? GEOCODER_CACHE_TTL_MS));
         this._maxEntries = Math.max(1, Math.floor(Number(options.maxEntries ?? GEOCODER_CACHE_MAX_ENTRIES)));
         this._minRequestIntervalMs = Math.max(0, Number(options.minRequestIntervalMs ?? 1e3));
+        this._negativeTtlMs = Math.max(0, Number(options.negativeTtlMs ?? GEOCODER_NEGATIVE_TTL_MS));
+        this._requestTimeoutMs = Math.max(1, Number(options.requestTimeoutMs ?? GEOCODER_REQUEST_TIMEOUT_MS));
         this._sleep = options.sleep || ((ms) => new Promise((resolve) => window.setTimeout(resolve, ms)));
         this._request = options.request || ((request) => getRequestUrl()(request));
+        this._userAgent = typeof options.userAgent === "string" && options.userAgent.trim() ? options.userAgent.trim() : resolveGeocoderUserAgent(options.pluginVersion ?? options.app?.plugins?.manifests?.[PLUGIN_ID]?.version);
         this._getLanguage = options.getLanguage || (() => "en");
         this._lastRequest = 0;
         this._requestQueue = Promise.resolve();
@@ -30231,10 +31886,14 @@ var init_image_metadata = __esm({
         const longitude = Number(lon);
         if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
         if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) return null;
-        return { latitude, longitude };
+        const factor = 10 ** GEOCODER_COORDINATE_DECIMALS;
+        return {
+          latitude: Math.round(latitude * factor) / factor,
+          longitude: Math.round(longitude * factor) / factor
+        };
       }
       _key(lat, lon, language) {
-        return `${lat.toFixed(5)},${lon.toFixed(5)}|${this._normalizeLanguage(language)}`;
+        return `${lat.toFixed(GEOCODER_COORDINATE_DECIMALS)},${lon.toFixed(GEOCODER_COORDINATE_DECIMALS)}|${this._normalizeLanguage(language)}`;
       }
       _record(raw, fallbackNow = this._now()) {
         if (typeof raw === "string" && raw.trim()) {
@@ -30275,14 +31934,30 @@ var init_image_metadata = __esm({
             changed = true;
           }
         }
+        for (const [key, failedAt] of this._failed.entries()) {
+          if (now - failedAt > this._negativeTtlMs) this._failed.delete(key);
+        }
         const ordered = [...this._cache.entries()].sort((a, b) => Date.parse(b[1].cachedAt) - Date.parse(a[1].cachedAt));
         for (const [key] of ordered.slice(this._maxEntries)) {
           this._cache.delete(key);
           if (this._persistentCache) delete this._persistentCache[key];
           changed = true;
         }
+        while (this._failed.size > this._maxEntries) {
+          this._failed.delete(this._failed.keys().next().value);
+        }
         if (changed && notify) this._onChange?.();
         return changed;
+      }
+      _isNegativelyCached(key, now) {
+        if (this._negativeTtlMs <= 0) return false;
+        const failedAt = this._failed.get(key);
+        if (failedAt === void 0) return false;
+        if (now - failedAt > this._negativeTtlMs) {
+          this._failed.delete(key);
+          return false;
+        }
+        return true;
       }
       /**
        * Look up a human-readable place name for coordinates.
@@ -30293,9 +31968,11 @@ var init_image_metadata = __esm({
         if (!coordinates) return null;
         const effectiveLanguage = this._normalizeLanguage(language);
         const key = this._key(coordinates.latitude, coordinates.longitude, effectiveLanguage);
-        this._prune();
+        const now = this._now();
+        this._prune(now);
         const cached = this._cache.get(key);
         if (cached) return cached.name;
+        if (this._isNegativelyCached(key, now)) return null;
         if (this._pending.has(key)) return this._pending.get(key);
         this._requestQueue = this._requestQueue.catch(() => {
         }).then(() => this._doLookup(coordinates.latitude, coordinates.longitude, effectiveLanguage));
@@ -30306,14 +31983,33 @@ var init_image_metadata = __esm({
           if (result) {
             const record = { name: result, cachedAt: new Date(this._now()).toISOString() };
             this._cache.set(key, record);
+            this._failed.delete(key);
             if (this._persistentCache) this._persistentCache[key] = record;
             this._prune(this._now());
             this._onChange?.();
+          } else {
+            this._failed.set(key, this._now());
+            this._prune(this._now(), false);
           }
           return result;
         } finally {
           this._pending.delete(key);
         }
+      }
+      /** Reject a request that never settles so it cannot block the queue forever. */
+      _withTimeout(promise) {
+        let timer;
+        return Promise.race([
+          promise,
+          new Promise((_resolve, reject) => {
+            timer = window.setTimeout(
+              () => reject(new Error(`geocoder request timed out after ${this._requestTimeoutMs}ms`)),
+              this._requestTimeoutMs
+            );
+          })
+        ]).finally(() => {
+          if (timer !== void 0) window.clearTimeout(timer);
+        });
       }
       async _doLookup(lat, lon, language) {
         const now = this._now();
@@ -30331,7 +32027,10 @@ var init_image_metadata = __esm({
             "accept-language": geocoderLanguageTag(language)
           });
           const url = `https://nominatim.openstreetmap.org/reverse?${params.toString()}`;
-          const resp = await this._request({ url, headers: { "User-Agent": "ObsidianDayline/2.0" } });
+          const resp = await this._withTimeout(this._request({
+            url,
+            headers: { "User-Agent": this._userAgent }
+          }));
           if (resp.status === 200 && resp.json) {
             const data = resp.json;
             if (data.address) {
@@ -30349,6 +32048,7 @@ var init_image_metadata = __esm({
       invalidate() {
         this._cache.clear();
         this._pending.clear();
+        this._failed.clear();
         if (this._persistentCache) {
           for (const key of Object.keys(this._persistentCache)) delete this._persistentCache[key];
           this._onChange?.();
@@ -30367,7 +32067,7 @@ __export(mobile_quick_entry_exports, {
   createMobileMarkdownQuickEntry: () => createMobileMarkdownQuickEntry
 });
 function isPhoneMobileApp(capabilities) {
-  return Boolean(capabilities?.isMobileApp && capabilities?.isPhone);
+  return Boolean(capabilities?.isMobileApp) && usesPhoneLayout(capabilities);
 }
 function leafViewType2(leaf) {
   try {
@@ -30464,6 +32164,7 @@ var MOBILE_QUICK_ENTRY_ICON, MOBILE_QUICK_ENTRY_TITLE, MOBILE_QUICK_ENTRY_VIEW_T
 var init_mobile_quick_entry = __esm({
   "src/mobile-quick-entry.ts"() {
     "use strict";
+    init_platform_capabilities();
     MOBILE_QUICK_ENTRY_ICON = "calendar-range";
     MOBILE_QUICK_ENTRY_TITLE = "Dayline";
     MOBILE_QUICK_ENTRY_VIEW_TYPE = "markdown";
@@ -30508,6 +32209,21 @@ var init_media_interaction = __esm({
   "src/media-interaction.ts"() {
     "use strict";
     METADATA_CONTROL_SELECTOR = ".cal-media-info-button, .dayline-note-media-info";
+  }
+});
+
+// src/css-url.ts
+var css_url_exports = {};
+__export(css_url_exports, {
+  cssUrl: () => cssUrl
+});
+function cssUrl(value) {
+  const escaped = String(value ?? "").replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\r/g, "\\d ").replace(/\n/g, "\\a ");
+  return `url("${escaped}")`;
+}
+var init_css_url = __esm({
+  "src/css-url.ts"() {
+    "use strict";
   }
 });
 
@@ -30632,7 +32348,7 @@ var init_mobile_diagnostics = __esm({
 });
 
 // src/plugin.ts
-var { Plugin, ItemView: ItemView2, TFile: TFile3, Notice: Notice5, Modal: Modal2, Menu, setIcon: setIcon5, Platform } = require("obsidian");
+var { Plugin, ItemView: ItemView2, TFile: TFile3, Notice: Notice5, Modal: Modal2, Menu, setIcon: setIcon5, Platform, normalizePath } = require("obsidian");
 var { PLUGIN_ID: PLUGIN_ID2, LEGACY_PLUGIN_IDS: LEGACY_PLUGIN_IDS2 } = (init_plugin_identity(), __toCommonJS(plugin_identity_exports));
 var { JournalIndex: JournalIndex2, startJournalIndexLoad: startJournalIndexLoad2, waitForJournalIndexStartup: waitForJournalIndexStartup2 } = (init_journal_index(), __toCommonJS(journal_index_exports));
 var { subscribeJournalMetadataRefresh: subscribeJournalMetadataRefresh2 } = (init_journal_metadata_refresh(), __toCommonJS(journal_metadata_refresh_exports));
@@ -30640,7 +32356,7 @@ var { MoodStore: MoodStore2 } = (init_mood_store(), __toCommonJS(mood_store_expo
 var { MoodPickerModal: MoodPickerModal2, MoodRecoveryModal: MoodRecoveryModal2 } = (init_mood_picker_modal(), __toCommonJS(mood_picker_modal_exports));
 var { saveMoodExport: saveMoodExport2, serializeMoodCsv: serializeMoodCsv2, serializeMoodJson: serializeMoodJson2 } = (init_mood_export(), __toCommonJS(mood_export_exports));
 var { JournalTimelineView: JournalTimelineView2, JOURNAL_TIMELINE_VIEW: JOURNAL_TIMELINE_VIEW2 } = (init_journal_timeline_view(), __toCommonJS(journal_timeline_view_exports));
-var { OnThisDayProvider: OnThisDayProvider2, OnThisDayModal: OnThisDayModal2 } = (init_on_this_day(), __toCommonJS(on_this_day_exports));
+var { OnThisDayProvider: OnThisDayProvider2, OnThisDayModal: OnThisDayModal2, closeOnThisDayModal: closeOnThisDayModal2 } = (init_on_this_day(), __toCommonJS(on_this_day_exports));
 var {
   normalizeOnThisDayEntryMode: normalizeOnThisDayEntryMode2,
   onThisDayEntryDate: onThisDayEntryDate2,
@@ -30667,6 +32383,7 @@ var badgeRainSvg = require_badge_rain();
 var badgeSnowSvg = require_badge_snow();
 var badgeStormSvg = require_badge_storm();
 var { WeatherService: WeatherService2, lookupWeatherCode: lookupWeatherCode2, validateWeatherCoordinates: validateWeatherCoordinates2, weatherBadgeIcon: weatherBadgeIcon2 } = (init_weather_service(), __toCommonJS(weather_service_exports));
+var { pruneWeatherCache: pruneWeatherCache2, WEATHER_CACHE_MAX_ENTRIES: WEATHER_CACHE_MAX_ENTRIES2 } = (init_weather_cache(), __toCommonJS(weather_cache_exports));
 var { weatherConditionLabel: weatherConditionLabel2 } = (init_weather_conditions(), __toCommonJS(weather_conditions_exports));
 var { buildWeatherCardParts: buildWeatherCardParts2, buildWeatherStatus: buildWeatherStatus2, normalizeWeatherDisplayFields: normalizeWeatherDisplayFields2 } = (init_weather_display(), __toCommonJS(weather_display_exports));
 var { localize: _l } = (init_locale(), __toCommonJS(locale_exports));
@@ -30678,7 +32395,7 @@ var { cachedMonthsReferencingMedia: cachedMonthsReferencingMedia2 } = (init_cale
 var { MEDIA_EXTENSIONS: MEDIA_EXTENSIONS2, IMAGE_EXTENSIONS: MEDIA_IMAGE_EXTENSIONS, classifyMediaLink: classifyMediaLink2, createMediaAttachment: createMediaAttachment2, normalizeMediaLink: normalizeMediaLink2 } = (init_media_links(), __toCommonJS(media_links_exports));
 var { OverlayRegistry: OverlayRegistry2 } = (init_overlay_registry(), __toCommonJS(overlay_registry_exports));
 var { SerialTaskQueue: SerialTaskQueue2 } = (init_task_queue(), __toCommonJS(task_queue_exports));
-var { formatCalendarMonth: formatCalendarMonth2, getCalendarGridOffset: getCalendarGridOffset2, getCalendarWeekdays: getCalendarWeekdays2, getDisplayLanguage: getDisplayLanguage2, LOCALE_TAGS: LOCALE_TAGS2, moodLabel: moodLabel2, normalizeDisplayLanguageSetting: normalizeDisplayLanguageSetting2, t: t2 } = (init_i18n(), __toCommonJS(i18n_exports));
+var { formatCalendarMonth: formatCalendarMonth2, formatJournalDate: formatJournalDate2, getCalendarGridOffset: getCalendarGridOffset2, getCalendarWeekdays: getCalendarWeekdays2, getDisplayLanguage: getDisplayLanguage2, LOCALE_TAGS: LOCALE_TAGS2, moodLabel: moodLabel2, normalizeDisplayLanguageSetting: normalizeDisplayLanguageSetting2, t: t2 } = (init_i18n(), __toCommonJS(i18n_exports));
 var { getMoodColor: getMoodColor2 } = (init_mood(), __toCommonJS(mood_exports));
 var { shouldHandleCalendarMonthShortcut: shouldHandleCalendarMonthShortcut2 } = (init_calendar_keyboard(), __toCommonJS(calendar_keyboard_exports));
 var { calendarEntryAffectsDisplay: calendarEntryAffectsDisplay2, calendarMediaAccessibilityLabel: calendarMediaAccessibilityLabel2, calendarMoodMarker: calendarMoodMarker2, calendarMoodMarkerClass: calendarMoodMarkerClass2, isCurrentCalendarMonth: isCurrentCalendarMonth2, shouldShowCalendarMood: shouldShowCalendarMood2, shouldShowCalendarWeatherCard: shouldShowCalendarWeatherCard2, shouldShowCalendarWeatherBadge: shouldShowCalendarWeatherBadge2, shouldShowCalendarWeatherLocation: shouldShowCalendarWeatherLocation2 } = (init_calendar_display(), __toCommonJS(calendar_display_exports));
@@ -30695,14 +32412,22 @@ var {
   shouldOpenCalendarDateFromPointer: shouldOpenCalendarDateFromPointer2
 } = (init_media_interaction(), __toCommonJS(media_interaction_exports));
 var { calendarCellTouchRouting: calendarCellTouchRouting2, bindOpenOnPointer: bindOpenOnPointer2 } = (init_touch_targets(), __toCommonJS(touch_targets_exports));
+var { cssUrl: cssUrl2 } = (init_css_url(), __toCommonJS(css_url_exports));
 var {
+  DAYLINE_VIEW_TYPES: DAYLINE_VIEW_TYPES2,
   MOBILE_DAYLINE_VIEW: MOBILE_DAYLINE_VIEW2,
   createSerialMobileDaylineModeController: createSerialMobileDaylineModeController2,
   getJournalOpenLeaf: getJournalOpenLeaf2,
   getMobileDaylineLeaf: getMobileDaylineLeaf2,
   getMobileDaylineViewType: getMobileDaylineViewType2,
+  getPreferredDaylineLeaf: getPreferredDaylineLeaf2,
+  isAttachedWorkspaceLeaf: isAttachedWorkspaceLeaf2,
+  isJournalHostLeaf: isJournalHostLeaf2,
+  isMainAreaLeaf: isMainAreaLeaf2,
   normalizeDaylineMobileMode: normalizeDaylineMobileMode2,
-  renderMobileDaylineModeControls: renderMobileDaylineModeControls2
+  renderMobileDaylineModeControls: renderMobileDaylineModeControls2,
+  resolveMobileJournalLeaf: resolveMobileJournalLeaf2,
+  resolveMobileReturnLeaf: resolveMobileReturnLeaf2
 } = (init_dayline_mobile(), __toCommonJS(dayline_mobile_exports));
 var { collectMobileDiagnostics: collectMobileDiagnostics2, formatMobileDiagnostics: formatMobileDiagnostics2 } = (init_mobile_diagnostics(), __toCommonJS(mobile_diagnostics_exports));
 var VIEW_TYPE2 = "calendar-sidebar-view";
@@ -30748,9 +32473,10 @@ var DEFAULT_SETTINGS = {
   // show EXIF metadata tooltip on image hover
   exifReverseGeocode: false,
   // never send GPS coordinates unless explicitly enabled
+  // Insert-time EXIF/GPS frontmatter persistence. Off by default: it writes to
+  // the user's notes, so it must be an explicit opt-in.
+  exifPersistMetadata: false,
   // --- On This Day settings ---
-  onThisDayDot: false,
-  // show accent dots on cells with past-year entries
   onThisDayEntry: "merged",
   // 'off' | 'merged' | 'header'
   onThisDayButton: true,
@@ -30768,6 +32494,11 @@ var DEFAULT_SETTINGS = {
   reminderEnabled: false,
   reminderHour: 21
 };
+function _mergeCacheByKey(diskValue, localValue) {
+  const disk = diskValue && typeof diskValue === "object" ? diskValue : {};
+  const local = localValue && typeof localValue === "object" ? localValue : {};
+  return { ...disk, ...local };
+}
 var DaylinePlugin = class extends Plugin {
   async onload() {
     this._dataWriteQueue = Promise.resolve();
@@ -30782,21 +32513,25 @@ var DaylinePlugin = class extends Plugin {
     this._mobileTimelineFilter = {};
     this._mobileDaylineModeController = null;
     this._mobileReturnLeaf = null;
+    this._mobileJournalLeaf = null;
+    this._mobileDaylineLastViewTypeValue = null;
+    this._lastReminderDate = null;
     this._otdRequestToken = 0;
+    this._exifPersistInFlight = /* @__PURE__ */ new Map();
+    this._exifPersistPending = /* @__PURE__ */ new Set();
     await this._migrateLegacyData();
     await this.loadSettings();
     this.capabilities = detectPlatformCapabilities2({ Platform, app: this.app });
     this._mobileQuickEntry = createMobileMarkdownQuickEntry2(this);
     this._recordMobileDiagnostic("plugin-loaded");
     this._applyCapabilityClasses();
+    this._bindCapabilityRefresh();
     this.moodStore = new MoodStore2(this.app, this.settings);
     await this.moodStore.load();
+    this._warnIfMoodStoreReadOnly();
     this.journalIndex = new JournalIndex2(this.app, (path) => this.moodStore.getForIndex(path));
     if (!this.capabilities.isMobile) {
-      this._desktopJournalIndexStartup = waitForJournalIndexStartup2(this.app).then(() => this.journalIndex.ensureReady(this.settings));
-      this._desktopJournalIndexStartup.catch((error) => {
-        console.warn("[Dayline] Initial journal index refresh failed:", error?.message || error);
-      });
+      this._desktopJournalIndexStartup = this._startJournalIndexAfterMetadataResolved();
     }
     this._reminderTimer = window.setInterval(() => this._maybeRemind(), 60 * 1e3);
     this.weatherService = new WeatherService2(this);
@@ -30837,51 +32572,50 @@ var DaylinePlugin = class extends Plugin {
       else this._showDaylineMenu(event);
     });
     this._syncDaylineRibbon();
-    this.addCommand({
-      id: "open-calendar-sidebar",
-      name: t2(this.settings, "openCalendar"),
-      callback: () => this.activateView()
-    });
-    this.addCommand({
-      id: "refresh-weather",
-      name: t2(this.settings, "refreshWeather"),
-      callback: () => {
-        const calendar = this.app.workspace.getLeavesOfType(VIEW_TYPE2)[0]?.view;
-        if (calendar) {
-          calendar.refreshWeather().catch((err) => {
-            console.warn("[Dayline] Refresh weather failed:", err.message);
-          });
+    this._localizedCommands = {
+      openCalendar: this.addCommand({
+        id: "open-calendar-sidebar",
+        name: t2(this.settings, "openCalendar"),
+        callback: () => this.activateView()
+      }),
+      // Command to refresh weather for the active date
+      refreshWeather: this.addCommand({
+        id: "refresh-weather",
+        name: t2(this.settings, "refreshWeather"),
+        callback: () => {
+          void this.refreshActiveWeather();
         }
-      }
-    });
-    this.addCommand({
-      id: "open-on-this-day",
-      name: t2(this.settings, "openOnThisDay"),
-      callback: () => {
-        const [, month, day] = _daylineDate(this.settings).split("-").map(Number);
-        this.openOnThisDay(month, day);
-      }
-    });
-    this.addCommand({
-      id: "open-journal-timeline",
-      name: t2(this.settings, "openTimelineCommand"),
-      callback: () => this.activateTimeline()
-    });
-    this.addCommand({
-      id: "new-daily-note",
-      name: t2(this.settings, "newDailyCommand"),
-      callback: () => this.createDailyNoteForToday()
-    });
-    this.addCommand({
-      id: "record-current-mood",
-      name: t2(this.settings, "recordMoodCommand"),
-      callback: () => this.recordCurrentMood()
-    });
-    this.addCommand({
-      id: "copy-mobile-diagnostics",
-      name: t2(this.settings, "copyDiagnosticsCommand"),
-      callback: () => this._copyMobileDiagnostics()
-    });
+      }),
+      // Command: Open On This Day modal
+      openOnThisDay: this.addCommand({
+        id: "open-on-this-day",
+        name: t2(this.settings, "openOnThisDay"),
+        callback: () => {
+          const [, month, day] = _daylineDate(this.settings).split("-").map(Number);
+          this.openOnThisDay(month, day);
+        }
+      }),
+      openTimelineCommand: this.addCommand({
+        id: "open-journal-timeline",
+        name: t2(this.settings, "openTimelineCommand"),
+        callback: () => this.activateTimeline()
+      }),
+      newDailyCommand: this.addCommand({
+        id: "new-daily-note",
+        name: t2(this.settings, "newDailyCommand"),
+        callback: () => this.createDailyNoteForToday()
+      }),
+      recordMoodCommand: this.addCommand({
+        id: "record-current-mood",
+        name: t2(this.settings, "recordMoodCommand"),
+        callback: () => this.recordCurrentMood()
+      }),
+      copyDiagnosticsCommand: this.addCommand({
+        id: "copy-mobile-diagnostics",
+        name: t2(this.settings, "copyDiagnosticsCommand"),
+        callback: () => this._copyMobileDiagnostics()
+      })
+    };
     this.addSettingTab(new DaylineSettingsTab2(this.app, this));
     this._exifTooltipEl = null;
     this._exifHoverTimer = null;
@@ -30919,10 +32653,13 @@ var DaylinePlugin = class extends Plugin {
         this._mobileQuickEntry?.sync();
       })
     );
-    this.registerEvent(this.app.vault.on("create", (file) => this._handleJournalCreateOrModify(file)));
-    this.registerEvent(this.app.vault.on("modify", (file) => this._handleJournalCreateOrModify(file)));
+    this.registerEvent(this.app.vault.on("create", (file) => this._handleJournalCreate(file)));
+    this.registerEvent(this.app.vault.on("modify", (file) => this._handleVaultModify(file)));
     this.registerEvent(this.app.vault.on("delete", (file) => this._handleJournalDelete(file)));
     this.registerEvent(this.app.vault.on("rename", (file, oldPath) => this._handleJournalRename(file, oldPath)));
+    this.registerEvent(this.app.metadataCache.on("changed", (file, _data, cache) => {
+      void this._syncJournalEmbedExif(file, cache);
+    }));
     subscribeJournalMetadataRefresh2({
       metadataCache: this.app.metadataCache,
       registerEvent: (eventRef) => this.registerEvent(eventRef),
@@ -30940,12 +32677,9 @@ var DaylinePlugin = class extends Plugin {
     window.clearInterval(this._reminderTimer);
     this._removeExifDismissHandlers();
     this._endExifHover();
-    await this._flushWeatherCache();
-    await this._flushGeocoderCache();
-    await this._journalWriteQueue?.flush();
-    await this.moodStore?.flush();
-    await this.viewVisibilityController?.unload();
     this._removeAllOverlays();
+    closeOnThisDayModal2?.();
+    this._unbindCapabilityRefresh();
     this._mobileQuickEntry?.dispose();
     this._mobileQuickEntry = null;
     this._removeCapabilityClasses();
@@ -30953,11 +32687,35 @@ var DaylinePlugin = class extends Plugin {
     this._exifTooltipEl?.remove();
     this._exifTooltipEl = null;
     document.getElementById("calendar-sidebar-styles")?.remove();
+    const flushes = [
+      () => this._flushWeatherCache(),
+      () => this._flushGeocoderCache(),
+      () => this._journalWriteQueue?.flush(),
+      () => this.moodStore?.flush(),
+      () => this.viewVisibilityController?.unload()
+    ];
+    const results = await Promise.allSettled(flushes.map((flush) => Promise.resolve().then(flush)));
+    for (const result of results) {
+      if (result.status === "rejected") {
+        console.warn("[Dayline] Unload flush failed:", result.reason?.message || result.reason);
+      }
+    }
   }
   _persistViewVisibility(kind, visible) {
     const key = kind === "calendar" ? "showCalendarView" : "showTimelineView";
     this.settings[key] = visible;
     return this.saveSettings();
+  }
+  /**
+   * P-16: command names are captured by Obsidian at registration, so a language
+   * change used to need a reload. Re-resolve them from the current settings.
+   */
+  _refreshCommandNames() {
+    const commands = this._localizedCommands;
+    if (!commands) return;
+    for (const [key, command] of Object.entries(commands)) {
+      if (command && typeof command === "object") command.name = t2(this.settings, key);
+    }
   }
   _showDaylineMenu(event) {
     const menu = new Menu();
@@ -31026,6 +32784,36 @@ var DaylinePlugin = class extends Plugin {
     const root = typeof document !== "undefined" ? document.body : null;
     root?.classList.remove("dayline-coarse-pointer", "dayline-mobile", "dayline-phone", "dayline-tablet");
   }
+  /**
+   * Re-probe capabilities against the live viewport. Obsidian re-derives its
+   * phone/tablet layout from a media query on resize and `css-change`, so a
+   * rotated phone or a narrow iPad split must not keep the capabilities that
+   * were detected at load (U-11). The existing object is mutated in place so
+   * every service constructed with a reference to it stays current.
+   */
+  _refreshPlatformCapabilities() {
+    const next = detectPlatformCapabilities2({ Platform, app: this.app });
+    if (this.capabilities && typeof this.capabilities === "object") Object.assign(this.capabilities, next);
+    else this.capabilities = next;
+    this._applyCapabilityClasses();
+    this._mobileQuickEntry?.sync();
+    this._syncDaylineRibbon();
+    return this.capabilities;
+  }
+  _bindCapabilityRefresh() {
+    if (typeof window === "undefined" || typeof window.addEventListener !== "function") return;
+    this._unbindCapabilityRefresh();
+    this._capabilityRefreshHandler = () => this._refreshPlatformCapabilities();
+    window.addEventListener("resize", this._capabilityRefreshHandler);
+    window.addEventListener("css-change", this._capabilityRefreshHandler);
+  }
+  _unbindCapabilityRefresh() {
+    const handler = this._capabilityRefreshHandler;
+    if (!handler || typeof window === "undefined") return;
+    window.removeEventListener("resize", handler);
+    window.removeEventListener("css-change", handler);
+    this._capabilityRefreshHandler = null;
+  }
   _installExifDismissHandlers() {
     if (typeof document === "undefined") return;
     const pointer = (event) => {
@@ -31056,7 +32844,8 @@ var DaylinePlugin = class extends Plugin {
     const configDir = String(this.app.vault?.configDir || "").replace(/[\\/]+$/, "");
     if (!configDir) return;
     const dataPath = (pluginId) => `${configDir}/plugins/${pluginId}/data.json`;
-    const currentPath = dataPath(PLUGIN_ID2);
+    const manifestDir = String(this.manifest?.dir || "").replace(/[\\/]+$/, "");
+    const currentPath = manifestDir ? normalizePath(`${manifestDir}/data.json`) : dataPath(PLUGIN_ID2);
     try {
       if (await adapter.exists(currentPath)) return;
       for (const legacyId of LEGACY_PLUGIN_IDS2) {
@@ -31076,19 +32865,64 @@ var DaylinePlugin = class extends Plugin {
     this._syncDaylineRibbon();
     return opened;
   }
+  /**
+   * Wait for Obsidian to finish restoring the layout and resolving metadata
+   * before the first index build. A vault mutation may invalidate the first
+   * rebuild: ensureReady() retries until a complete rebuild has committed, while
+   * refresh() intentionally resolves after an invalidated attempt.
+   */
+  _startJournalIndexAfterMetadataResolved() {
+    const startup = waitForJournalIndexStartup2(this.app).then(() => this.journalIndex?.ensureReady ? this.journalIndex.ensureReady(this.settings) : this.journalIndex?.refresh?.(this.settings));
+    startup.catch((error) => {
+      console.warn("[Dayline] Initial journal index refresh failed:", error?.message || error);
+    });
+    return startup;
+  }
   async ensureJournalIndexReady() {
-    if (this._desktopJournalIndexStartup) return this._desktopJournalIndexStartup;
-    if (this.journalIndex?.ensureReady) return this.journalIndex.ensureReady(this.settings);
-    if (this.journalIndex && !this.journalIndex.isReady) return this.journalIndex.refresh(this.settings);
+    if (!this._desktopJournalIndexStartup) {
+      this._desktopJournalIndexStartup = this._startJournalIndexAfterMetadataResolved();
+    }
+    return this._desktopJournalIndexStartup;
   }
   _mobileDaylineViewTypes() {
-    return [VIEW_TYPE2, JOURNAL_TIMELINE_VIEW2, MOBILE_DAYLINE_VIEW2];
+    return [...DAYLINE_VIEW_TYPES2];
   }
   _mobileDaylineViewType(mode) {
     return getMobileDaylineViewType2(mode, VIEW_TYPE2, JOURNAL_TIMELINE_VIEW2);
   }
   _getMobileDaylineLeaf() {
     return getMobileDaylineLeaf2(this.app.workspace, this._mobileDaylineViewTypes());
+  }
+  _getMobileLastLeaf() {
+    const lastViewType = this._mobileDaylineLastViewType();
+    const preferred = getPreferredDaylineLeaf2(this.app.workspace, lastViewType);
+    if (preferred) return preferred;
+    const workspace = this.app.workspace;
+    const activeLeaf = workspace?.activeLeaf;
+    if (activeLeaf && this._mobileDaylineViewTypes().includes(activeLeaf?.view?.getViewType?.())) return activeLeaf;
+    return null;
+  }
+  _mobileDaylineLastViewType() {
+    if (typeof this._mobileDaylineLastViewTypeValue === "string") return this._mobileDaylineLastViewTypeValue;
+    return null;
+  }
+  _getMobileJournalLeaf() {
+    const leaf = this._mobileJournalLeaf;
+    if (!leaf) return null;
+    if (isJournalHostLeaf2(leaf) && isAttachedWorkspaceLeaf2(this.app.workspace, leaf) && isMainAreaLeaf2(this.app.workspace, leaf)) {
+      return leaf;
+    }
+    this._mobileJournalLeaf = null;
+    return null;
+  }
+  _getMobileReturnLeaf() {
+    const leaf = this._mobileReturnLeaf;
+    if (!leaf) return null;
+    if (!isJournalHostLeaf2(leaf) || !isAttachedWorkspaceLeaf2(this.app.workspace, leaf)) {
+      this._mobileReturnLeaf = null;
+      return null;
+    }
+    return leaf;
   }
   _getMobileTimelineFilter() {
     return { ...this._mobileTimelineFilter || {} };
@@ -31102,13 +32936,26 @@ var DaylinePlugin = class extends Plugin {
         getLeaf: () => this._getMobileDaylineLeaf(),
         getViewType: (mode) => this._mobileDaylineViewType(mode),
         revealLeaf: (leaf) => this.app.workspace.revealLeaf?.(leaf),
-        onApplied: ({ mode }) => {
+        onApplied: ({ mode, viewType }) => {
           this._mobileDaylineLastMode = mode;
+          this._mobileDaylineLastViewTypeValue = viewType;
           this._syncDaylineRibbon();
         }
       });
     }
     return this._mobileDaylineModeController;
+  }
+  _openDaylineDrawerLeaf(preferredLeaf = null) {
+    const workspace = this.app.workspace;
+    if (preferredLeaf) return preferredLeaf;
+    const lastLeaf = this._getMobileLastLeaf();
+    if (lastLeaf) return lastLeaf;
+    try {
+      const rightLeaf = workspace?.getRightLeaf?.(false);
+      if (rightLeaf) return rightLeaf;
+    } catch {
+    }
+    return this._getMobileDaylineLeaf();
   }
   _requestMobileDaylineMode(mode, preferredLeaf = null, afterApply = null) {
     return this._getMobileDaylineModeController().request(mode, preferredLeaf, afterApply || void 0);
@@ -31128,12 +32975,12 @@ var DaylinePlugin = class extends Plugin {
     return this._openMobileDayline(normalized, null, afterApply);
   }
   async _returnToMobileMarkdown() {
-    const leaf = this._mobileReturnLeaf;
-    if (!leaf || typeof leaf.setViewState !== "function") return false;
+    const workspace = this.app.workspace;
+    const leaf = resolveMobileReturnLeaf2(workspace, this._getMobileReturnLeaf());
+    if (!leaf || typeof leaf.openFile !== "function") return false;
     try {
-      await leaf.setViewState({ type: "markdown", active: true });
-      await this.app.workspace?.revealLeaf?.(leaf);
-      this.app.workspace?.setActiveLeaf?.(leaf, { focus: true });
+      await workspace?.revealLeaf?.(leaf);
+      workspace?.setActiveLeaf?.(leaf, { focus: true });
       return true;
     } catch (error) {
       console.warn("[Dayline] Failed to return to Markdown:", error?.message || error);
@@ -31143,7 +32990,8 @@ var DaylinePlugin = class extends Plugin {
   async _openMobileDayline(mode = "calendar", preferredLeaf = null, afterApply = null) {
     if (!this.capabilities?.isMobile) return false;
     try {
-      await this._requestMobileDaylineMode(mode, preferredLeaf, afterApply);
+      const leaf = this._openDaylineDrawerLeaf(preferredLeaf);
+      await this._requestMobileDaylineMode(mode, leaf, afterApply);
       return true;
     } catch (error) {
       this._recordMobileDiagnostic("mobile-view-open-failed");
@@ -31164,8 +33012,11 @@ var DaylinePlugin = class extends Plugin {
   }
   async openJournalFile(file) {
     const workspace = this.app.workspace;
-    const leaf = getJournalOpenLeaf2(workspace, this._usesPhoneDaylineMode());
+    const phoneMode = this._usesPhoneDaylineMode();
+    const journalLeaf = phoneMode ? this._getMobileJournalLeaf() : null;
+    const leaf = phoneMode ? resolveMobileJournalLeaf2(workspace, journalLeaf) : getJournalOpenLeaf2(workspace, false);
     if (!leaf) throw new Error("No markdown leaf is available");
+    if (phoneMode && !journalLeaf && isMainAreaLeaf2(workspace, leaf)) this._mobileJournalLeaf = leaf;
     await leaf.openFile(file);
     await workspace.revealLeaf?.(leaf);
     workspace.setActiveLeaf?.(leaf, { focus: true });
@@ -31212,10 +33063,42 @@ var DaylinePlugin = class extends Plugin {
       else delete frontmatter.title;
     });
     await this.journalIndex.refreshFile(file.path, this.settings);
-    this.refreshJournalViews();
+  }
+  /**
+   * Ensure the file behind a mood edit exists. A journal path that is exactly
+   * the configured daily note must go through createDailyNoteForDate: creating
+   * it empty here would bypass the Daily Notes template and Templater, and the
+   * blank file would later be opened as "today's note" (P-07).
+   */
+  async _ensureMoodJournalFile(path) {
+    const date = this._dailyNoteDateForPath(path);
+    if (date) return this.createDailyNoteForDate(date);
+    return this.ensureJournalFile(path, "");
+  }
+  /** The date when `path` is exactly the configured daily note for that date. */
+  _dailyNoteDateForPath(path) {
+    const folder = normalizeVaultPath2(this.settings?.dailyFolder || "");
+    const name = String(path || "").split("/").pop()?.replace(/\.md$/i, "") || "";
+    if (!folder || !/^\d{4}-\d{2}-\d{2}$/.test(name)) return null;
+    return normalizeVaultPath2(path) === joinVaultPath2(folder, `${name}.md`) ? name : null;
+  }
+  /** M-01: a future `schemaVersion` puts the store in read-only mode. */
+  _moodStoreIsReadOnly() {
+    return this.moodStore?.readOnly === true;
+  }
+  /**
+   * Tell the user why mood editing is unavailable instead of letting every
+   * write fail with an unhandled rejection. Returns true when the caller must
+   * stop.
+   */
+  _warnIfMoodStoreReadOnly() {
+    if (!this._moodStoreIsReadOnly()) return false;
+    new Notice5(t2(this.settings, "moodMetadataReadOnly"));
+    return true;
   }
   async openMoodPicker(path, options = {}) {
-    if (path && options.ensureFile !== false) await this.ensureJournalFile(path, "");
+    if (this._warnIfMoodStoreReadOnly()) return;
+    if (path && options.ensureFile !== false) await this._ensureMoodJournalFile(path);
     const entry = this.journalIndex.getEntries().find((item) => item.path === path);
     new MoodPickerModal2(this.app, {
       filePath: path,
@@ -31234,25 +33117,25 @@ var DaylinePlugin = class extends Plugin {
       },
       onSave: async ({ filePath, score, labels, note }) => {
         const targetPath = filePath || path;
-        await this.ensureJournalFile(targetPath, "");
+        await this._ensureMoodJournalFile(targetPath);
         await this.moodStore.set(targetPath, score, labels, this.settings, note);
         await this.journalIndex.refreshFile(targetPath, this.settings);
-        this.refreshJournalViews();
         new Notice5(`${t2(this.settings, "moodSaved")}: ${targetPath}`);
       }
     }).open();
   }
   openMoodRecovery() {
+    if (this._warnIfMoodStoreReadOnly()) return;
     new MoodRecoveryModal2(this.app, {
       store: this.moodStore,
       settings: this.settings,
       onChanged: async () => {
         await this.journalIndex.refresh(this.settings);
-        this.refreshJournalViews();
       }
     }).open();
   }
   async deleteMoodRecord(path) {
+    if (this._warnIfMoodStoreReadOnly()) return false;
     const label = t2(this.settings, "deleteMoodConfirm");
     if (typeof window !== "undefined" && !window.confirm(`${label}
 ${path}`)) return false;
@@ -31261,7 +33144,6 @@ ${path}`)) return false;
       const deleted = await this.moodStore.deleteRecord(path, true, visibleMood);
       if (!deleted) return false;
       await this.journalIndex.refresh(this.settings);
-      this.refreshJournalViews();
       new Notice5(t2(this.settings, "moodDeleted"));
       return true;
     } catch (error) {
@@ -31291,17 +33173,52 @@ ${path}`)) return false;
   _maybeRemind() {
     if (!this.settings.reminderEnabled) return;
     const now = /* @__PURE__ */ new Date();
-    const clock = getClockPartsInTimeZone2(now, this.settings.weatherTimezone || "auto");
-    if (clock.hour !== Number(this.settings.reminderHour ?? 21) || clock.minute !== 0) return;
     const date = _daylineDate(this.settings, now);
-    if (this.journalIndex.getEntries().some((entry) => entry.date === date)) return;
+    if (this._lastReminderDate === date) return;
+    const clock = getClockPartsInTimeZone2(now, this.settings.weatherTimezone || "auto");
+    const reminderHour = Number(this.settings.reminderHour ?? 21);
+    if (!(clock.hour >= reminderHour)) return;
+    if (this._hasJournalEntryForDate(date)) return;
+    this._lastReminderDate = date;
     new Notice5(t2(this.settings, "dailyReminder"));
   }
+  /**
+   * Whether the day's journal already exists. The phone index is built lazily,
+   * so an empty entry list only means it is not ready yet; fall back to the vault
+   * so a note the user did write is never reported as missing (P-06).
+   */
+  _hasJournalEntryForDate(date) {
+    if (this.journalIndex?.isReady && typeof this.journalIndex.getEntries === "function") {
+      return this.journalIndex.getEntries().some((entry) => entry.date === date);
+    }
+    const path = joinVaultPath2(this.settings.dailyFolder, `${date}.md`);
+    return Boolean(this.app?.vault?.getAbstractFileByPath?.(path));
+  }
+  /**
+   * Create the configured daily note for `dateStr`.
+   *
+   * Two callers can ask for the same date in the same tick (a mood save plus
+   * the click that opened the cell, for example). The check-then-create below
+   * used to make the loser throw "File already exists", so the in-flight
+   * creation is cached per path (P-13).
+   */
   async createDailyNoteForDate(dateStr) {
     const folder = normalizeVaultPath2(this.settings.dailyFolder);
     const path = joinVaultPath2(folder, `${dateStr}.md`);
     const existing = this.app.vault.getAbstractFileByPath(path);
     if (existing instanceof TFile3) return existing;
+    if (!this._dailyNoteCreations) this._dailyNoteCreations = /* @__PURE__ */ new Map();
+    const inFlight = this._dailyNoteCreations.get(path);
+    if (inFlight) return inFlight;
+    const creation = this._createDailyNoteFile(folder, path, dateStr);
+    this._dailyNoteCreations.set(path, creation);
+    try {
+      return await creation;
+    } finally {
+      if (this._dailyNoteCreations.get(path) === creation) this._dailyNoteCreations.delete(path);
+    }
+  }
+  async _createDailyNoteFile(folder, path, dateStr) {
     await this.ensureFolder(folder);
     const dnPlugin = this.app.internalPlugins?.getPluginById?.("daily-notes");
     const templatePath = dnPlugin?.instance?.options?.template;
@@ -31315,11 +33232,23 @@ ${path}`)) return false;
           if (created instanceof TFile3) return created;
         }
         const content = await this.app.vault.read(templateFile);
-        const resolved = content.replace(/\{\{date\}\}/g, dateStr).replace(/\{\{title\}\}/g, dateStr);
-        return this.app.vault.create(path, resolved);
+        return this._createVaultFile(path, _resolveDailyNoteTemplate(content, dateStr));
       }
     }
-    return this.app.vault.create(path, "");
+    return this._createVaultFile(path, "");
+  }
+  /**
+   * The file may have been created by another plugin while this call was in
+   * flight; re-query instead of surfacing its "already exists" error.
+   */
+  async _createVaultFile(path, content) {
+    try {
+      return await this.app.vault.create(path, content);
+    } catch (error) {
+      const created = this.app.vault.getAbstractFileByPath(path);
+      if (created instanceof TFile3) return created;
+      throw error;
+    }
   }
   async ensureFolder(path) {
     const normalized = String(path || "").replace(/\\/g, "/").replace(/\/$/, "");
@@ -31337,10 +33266,56 @@ ${path}`)) return false;
     await this.ensureFolder(parentVaultPath2(path));
     return this.app.vault.create(path, content);
   }
+  /** Route a vault modify to the mood metadata store or the journal index. */
+  _handleVaultModify(file) {
+    if (this._isMoodMetadataFile(file)) {
+      this._reloadMoodMetadataFromDisk();
+      return;
+    }
+    this._handleJournalCreateOrModify(file);
+  }
+  _moodMetadataPath() {
+    const path = this.settings?.moodMetadataPath;
+    return typeof path === "string" && path.length > 0 ? normalizeVaultPath2(path) : "";
+  }
+  _isMoodMetadataFile(file) {
+    const target = this._moodMetadataPath();
+    if (!target || !file?.path) return false;
+    return normalizeVaultPath2(file.path) === target;
+  }
+  /**
+   * Another device (or Obsidian Sync) rewrote the mood metadata JSON, so the
+   * in-memory store is stale. The store owns the reload entry point; call it
+   * defensively because older store builds may not expose it.
+   */
+  _reloadMoodMetadataFromDisk() {
+    const store = this.moodStore;
+    if (!store || typeof store.reloadFromDisk !== "function") return;
+    Promise.resolve(store.reloadFromDisk()).then(() => this.refreshJournalViews()).catch((error) => console.warn("[Dayline] Mood metadata reload failed:", error?.message || error));
+  }
+  /**
+   * Shared vault-event fan-out. The journal index refresh for Markdown is owned
+   * by the `metadataCache.changed` subscription: doing it here as well rebuilt
+   * every entry twice per save (P-17).
+   */
   _handleJournalCreateOrModify(file) {
     this._notifyCalendarImageChange(file);
+  }
+  /**
+   * A note recreated at a path that was renamed or deleted used to keep its
+   * delete tombstone, which permanently hid a frontmatter mood on the new note
+   * (M-05). Only a create may clear it: the tombstone is stale exactly when it
+   * predates the new file's creation time.
+   */
+  _handleJournalCreate(file) {
+    this._handleJournalCreateOrModify(file);
     if (!(file instanceof TFile3) || file.extension !== "md") return;
-    this.journalIndex.refreshFile(file.path, this.settings).catch((error) => console.warn("[Dayline] Journal index refresh failed:", error?.message || error));
+    const path = file.path;
+    const ctime = file.stat?.ctime;
+    Promise.resolve(this.moodStore?.clearStaleTombstone?.(path, ctime)).then((cleared) => {
+      if (cleared) return this.journalIndex.refreshFile(path, this.settings);
+      return void 0;
+    }).catch((error) => console.warn("[Dayline] Clearing stale mood tombstone failed:", error?.message || error));
   }
   _handleJournalDelete(file) {
     this._notifyCalendarImageChange(file);
@@ -31425,7 +33400,10 @@ ${path}`)) return false;
   openOnThisDay(month, day) {
     const calendarLeaf = this.app.workspace.getLeavesOfType(VIEW_TYPE2)[0];
     const provider = calendarLeaf?.view?._otdProvider;
-    if (!provider) return;
+    if (!provider) {
+      new Notice5(t2(this.settings, "calendarViewRequired"));
+      return;
+    }
     const token = ++this._otdRequestToken;
     provider.getEntries(month, day).then((entries) => {
       if (token !== this._otdRequestToken) return;
@@ -31446,7 +33424,7 @@ ${path}`)) return false;
   _showExifTooltip(anchorEl, fields, loading, kind = "image") {
     const tip = this._exifTooltipEl;
     if (!tip || !anchorEl?.isConnected) return;
-    const lang = this.settings.weatherLanguage;
+    const lang = getDisplayLanguage2(this.settings);
     tip.replaceChildren();
     const addText = (tag, className, value) => {
       const el = createEl(tag);
@@ -31509,8 +33487,134 @@ ${path}`)) return false;
     this._exifTouchAnchor = null;
     this._hideExifTooltip();
   }
+  /* ----- Insert-time EXIF/GPS persistence ----- */
+  /**
+   * Sync the EXIF record for every image embedded in a journal note. This is an
+   * insert-time feature: a record is written only when the image has no record
+   * yet, or when the version (mtime+size) recorded for it no longer matches the
+   * file. A current record is never rewritten — that is exactly what keeps the
+   * frontmatter write below from re-triggering `changed` and looping (P-10).
+   */
+  _syncJournalEmbedExif(file, cache = null) {
+    if (this.settings?.exifPersistMetadata !== true) return Promise.resolve();
+    if (!(file instanceof TFile3) || file.extension !== "md") return Promise.resolve();
+    const path = file.path;
+    if (!this._exifPersistInFlight) this._exifPersistInFlight = /* @__PURE__ */ new Map();
+    if (!this._exifPersistPending) this._exifPersistPending = /* @__PURE__ */ new Set();
+    if (this._exifPersistInFlight.has(path)) {
+      this._exifPersistPending.add(path);
+      return this._exifPersistInFlight.get(path);
+    }
+    const sources = this.journalIndex?.resolveSources?.(this.settings) || [];
+    if (!sources.length || !sources.some((source) => isPathInFolder2(path, source.path))) return Promise.resolve();
+    const run = this._runJournalEmbedExifSync(file, cache).catch((error) => {
+      console.warn("[Dayline] EXIF insert-time sync failed:", path, error?.message || error);
+    }).then(() => {
+      if (this._exifPersistInFlight.get(path) === run) this._exifPersistInFlight.delete(path);
+      if (this._exifPersistPending.delete(path)) void this._syncJournalEmbedExif(file, null);
+    });
+    this._exifPersistInFlight.set(path, run);
+    return run;
+  }
+  async _runJournalEmbedExifSync(file, cache) {
+    const fileCache = cache || this.app.metadataCache.getFileCache(file);
+    const embeds = Array.isArray(fileCache?.embeds) ? fileCache.embeds : [];
+    for (const embed of embeds) {
+      const link = embed?.link;
+      if (!link) continue;
+      const target = this.app.metadataCache.getFirstLinkpathDest(link, file.path);
+      if (!(target instanceof TFile3)) continue;
+      const extension = String(target.extension || "").toLowerCase();
+      if (!MEDIA_IMAGE_EXTENSIONS.includes(extension)) continue;
+      await this._getPersistedExifFields(target, file.path, link);
+    }
+  }
+  /** `{ mtime, size }` for a media file, or null when the adapter cannot stat it. */
+  async _statMediaVersion(file) {
+    const statPromise = this.app.vault?.adapter?.stat?.(file.path);
+    const stat = statPromise ? await statPromise.catch(() => null) : null;
+    return stat ? { mtime: Number(stat.mtime) || 0, size: Number(stat.size) || 0 } : null;
+  }
+  /**
+   * A persisted record is current while its stored version still matches the
+   * file on disk. Without a readable stat nothing can be proven changed, so the
+   * record is left alone rather than rewritten forever.
+   */
+  _exifRecordIsCurrent(record, version) {
+    if (!version) return true;
+    return Number(record?.mtime) === version.mtime && Number(record?.size) === version.size;
+  }
+  /**
+   * Resolve the stored place name for a GPS pair and append it as its own
+   * `exif_place` field. The `exif_gps` value is a coordinate string that used to
+   * be a shared array from metadataCache/exifCache, so it is never overwritten
+   * with a place name (W-02); only the caller's private copy is touched.
+   */
+  async _addExifPlace(fields) {
+    if (!this.settings.exifReverseGeocode || !this.geocoder) return;
+    const gps = fields.find((field) => field.key === "exif_gps")?.value;
+    if (!gps) return;
+    const [latitude, longitude] = String(gps).split(",").map((value) => Number.parseFloat(value.trim()));
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return;
+    const place = await Promise.resolve(this.geocoder.lookup(latitude, longitude)).catch(() => null);
+    if (!place) return;
+    const existing = fields.find((field) => field.key === "exif_place");
+    if (existing) existing.value = place;
+    else fields.push({ key: "exif_place", value: place });
+  }
+  /**
+   * EXIF fields for one embedded image, always as private copies. A record that
+   * is still current is returned as a copy; otherwise the EXIF is read and the
+   * record plus top-level `latitude`/`longitude` are persisted.
+   */
+  async _getPersistedExifFields(file, notePath, imageLink, options = {}) {
+    const note = this.app.vault.getAbstractFileByPath(notePath);
+    const normalizedLink = normalizeMediaLink2(imageLink);
+    const frontmatter = note instanceof TFile3 ? this.app.metadataCache.getFileCache(note)?.frontmatter : null;
+    const records = Array.isArray(frontmatter?._dayline_media_metadata) ? frontmatter._dayline_media_metadata : [];
+    const cached = records.find((record) => record && (record.normalizedLink === normalizedLink || record.link === imageLink));
+    const version = await this._statMediaVersion(file);
+    if (Array.isArray(cached?.fields) && this._exifRecordIsCurrent(cached, version)) {
+      return cached.fields.map((field) => ({ ...field }));
+    }
+    const read = await this.exifCache.get(file);
+    if (!Array.isArray(read) || read.length === 0) return [];
+    const fields = read.map((field) => ({ ...field }));
+    if (options.reverseGeocode !== false) await this._addExifPlace(fields);
+    if (note instanceof TFile3 && options.persist !== false) {
+      try {
+        await this._persistExifFields(note, normalizedLink, fields, version);
+      } catch (error) {
+        console.warn("[Dayline] EXIF frontmatter persist failed:", note.path, error?.message || error);
+      }
+    }
+    return fields;
+  }
+  async _persistExifFields(note, normalizedLink, fields, version = null) {
+    if (!(note instanceof TFile3) || !Array.isArray(fields) || fields.length === 0) return;
+    const storedFields = fields.map((field) => ({ ...field }));
+    await this.app.fileManager.processFrontMatter(note, (frontmatter) => {
+      const records = Array.isArray(frontmatter._dayline_media_metadata) ? frontmatter._dayline_media_metadata.filter((record2) => record2?.normalizedLink !== normalizedLink) : [];
+      const record = { normalizedLink, fields: storedFields };
+      if (version) {
+        record.mtime = version.mtime;
+        record.size = version.size;
+      }
+      frontmatter._dayline_media_metadata = [...records, record];
+      const gps = storedFields.find((field) => field.key === "exif_gps")?.value;
+      if (gps && frontmatter.latitude == null && frontmatter.longitude == null) {
+        const [latitude, longitude] = String(gps).split(",").map((value) => Number.parseFloat(value.trim()));
+        if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
+          frontmatter.latitude = latitude;
+          frontmatter.longitude = longitude;
+        }
+      }
+    });
+  }
   async loadSettings() {
-    const data = await this.loadData() || {};
+    const raw = await this.loadData();
+    const hasPersistedSettings = Boolean(raw) && typeof raw === "object" && Object.keys(raw).length > 0;
+    const data = raw || {};
     this.weatherCache = data.weatherCache || {};
     this.geocoderCache = data.geocoderCache && typeof data.geocoderCache === "object" ? data.geocoderCache : {};
     this._cleanupWeatherCache();
@@ -31518,7 +33622,7 @@ ${path}`)) return false;
     const legacyWeatherVisible = data.showCalendarWeather !== false;
     if (data.showCalendarWeatherCard === void 0) this.settings.showCalendarWeatherCard = legacyWeatherVisible;
     if (data.showCalendarWeatherBadge === void 0) this.settings.showCalendarWeatherBadge = legacyWeatherVisible;
-    this.settings.displayLanguage = normalizeDisplayLanguageSetting2(data);
+    this.settings.displayLanguage = hasPersistedSettings ? normalizeDisplayLanguageSetting2(data) : "system";
     this.settings.weatherLanguage = getDisplayLanguage2({
       displayLanguage: this.settings.displayLanguage,
       weatherLanguage: data.weatherLanguage
@@ -31538,11 +33642,28 @@ ${path}`)) return false;
     settings.showCalendarView = settings.showCalendarView !== false;
     settings.showTimelineView = settings.showTimelineView === true;
     this.moodStore?.configure(settings);
+    this._refreshCommandNames();
     await this._enqueueDataWrite((data) => {
       Object.assign(data, settings);
-      data.weatherCache = this.weatherCache || {};
-      data.geocoderCache = this.geocoderCache || {};
+      data.weatherCache = _mergeCacheByKey(data.weatherCache, this.weatherCache);
+      data.geocoderCache = _mergeCacheByKey(data.geocoderCache, this.geocoderCache);
     });
+  }
+  /**
+   * Obsidian Sync (or another device) can rewrite data.json while this instance
+   * is idle. Re-read it before the next save, or this instance's in-memory
+   * settings and caches would overwrite the synced values.
+   */
+  async onExternalSettingsChange() {
+    try {
+      await this.loadSettings();
+      this.moodStore?.configure?.(this.settings);
+      this.refreshJournalViews();
+      this._refreshCommandNames();
+      this._syncDaylineRibbon();
+    } catch (error) {
+      console.warn("[Dayline] External settings reload failed:", error?.message || error);
+    }
   }
   /** Save weather cache without touching settings. Debounced to avoid excessive writes. */
   _saveWeatherCache() {
@@ -31569,7 +33690,7 @@ ${path}`)) return false;
       this._weatherSaveTimer = null;
     }
     return this._enqueueDataWrite((data) => {
-      data.weatherCache = this.weatherCache || {};
+      data.weatherCache = _mergeCacheByKey(data.weatherCache, this.weatherCache);
     });
   }
   /** Save reverse-geocoder cache without touching settings. */
@@ -31588,29 +33709,39 @@ ${path}`)) return false;
       this._geocoderSaveTimer = null;
     }
     return this._enqueueDataWrite((data) => {
-      data.geocoderCache = this.geocoderCache || {};
+      data.geocoderCache = _mergeCacheByKey(data.geocoderCache, this.geocoderCache);
     });
   }
-  /** Remove cache entries older than 90 days. */
+  /**
+   * Bound the weather cache by entry count. Weather is no longer written to
+   * frontmatter, so this cache is the only copy of backfilled history; the old
+   * 90-day `fetchedAt` sweep deleted it permanently (W-04).
+   */
   _cleanupWeatherCache() {
     if (!this.weatherCache) return;
-    const cutoff = Date.now() - 90 * 24 * 60 * 60 * 1e3;
-    let removed = 0;
-    for (const [key, entry] of Object.entries(this.weatherCache)) {
-      if (entry && entry.fetchedAt) {
-        const timestamp = new Date(entry.fetchedAt).getTime();
-        if (!Number.isFinite(timestamp) || timestamp < cutoff) {
-          delete this.weatherCache[key];
-          removed++;
-        }
-      }
-    }
+    const removed = pruneWeatherCache2(this.weatherCache, { maxEntries: WEATHER_CACHE_MAX_ENTRIES2 });
     if (removed > 0) {
       window.clearTimeout(this._weatherCleanupTimer);
       this._weatherCleanupTimer = window.setTimeout(() => {
         this._weatherCleanupTimer = null;
         this._saveWeatherCache();
       }, 5e3);
+    }
+  }
+  /**
+   * Refresh weather for the active date. The command has no view when the
+   * calendar is closed, which used to make it fail silently (P-16).
+   */
+  async refreshActiveWeather() {
+    const calendar = this.app.workspace.getLeavesOfType(VIEW_TYPE2)[0]?.view;
+    if (!calendar) {
+      new Notice5(t2(this.settings, "calendarViewRequired"));
+      return;
+    }
+    try {
+      await calendar.refreshWeather();
+    } catch (error) {
+      console.warn("[Dayline] Refresh weather failed:", error?.message || error);
     }
   }
   async activateView() {
@@ -31672,6 +33803,10 @@ var CalendarView = class extends ItemView2 {
     this.displayMonth = new Date(todayYear, todayMonth - 1, 1);
     this.monthCache = /* @__PURE__ */ new Map();
     this._refreshTimer = null;
+    this._renderScheduled = false;
+    this._renderFrame = null;
+    this._renderTimer = null;
+    this._midnightTimer = null;
     this.activeDate = null;
     this.weather = plugin.weatherService;
     this._weatherCardEl = null;
@@ -31690,9 +33825,8 @@ var CalendarView = class extends ItemView2 {
     this._overlayContainers = /* @__PURE__ */ new Set();
     this.exifCache = plugin.exifCache;
     this.mediaService = plugin.mediaService;
-    this._exifNoteImages = /* @__PURE__ */ new WeakSet();
     this._exifNoteMediaControls = /* @__PURE__ */ new WeakSet();
-    this._exifNoteDisposers = /* @__PURE__ */ new Set();
+    this._exifNoteDisposers = /* @__PURE__ */ new Map();
     this._otdProvider = new OnThisDayProvider2(plugin);
     this._otdDotCache = null;
     this._otdStripToken = 0;
@@ -31721,6 +33855,7 @@ var CalendarView = class extends ItemView2 {
       },
       groupLabel: t2(this.plugin.settings, "daylineViewGroupLabel"),
       returnLabel: t2(this.plugin.settings, "backToNote"),
+      returnHint: t2(this.plugin.settings, "backToNoteHint"),
       onSelect: (mode) => mode === "timeline" ? this.plugin.activateTimeline() : this.plugin.activateView(),
       setIcon: setIcon5,
       onReturn: () => this.plugin._returnToMobileMarkdown()
@@ -31749,6 +33884,7 @@ var CalendarView = class extends ItemView2 {
       }
     };
     root.addEventListener("keydown", this._calendarKeydownHandler);
+    this._scheduleMidnightRefresh();
     this._unsubscribeIndex = this.plugin.journalIndex?.subscribe?.((_, change) => {
       this._onJournalIndexChanged(change).catch((error) => console.warn("[Dayline] Calendar index refresh failed:", error?.message || error));
     });
@@ -31786,6 +33922,9 @@ var CalendarView = class extends ItemView2 {
     this._calendarKeydownHandler = null;
     this._unsubscribeIndex?.();
     this._unsubscribeIndex = null;
+    this._otdProvider?.closeModal?.();
+    this._clearMidnightRefresh();
+    this._cancelScheduledRender();
     window.clearTimeout(this._refreshTimer);
     window.clearTimeout(this._exifNoteTimer);
     this.plugin._endExifHover();
@@ -31807,6 +33946,54 @@ var CalendarView = class extends ItemView2 {
     root.removeClass("cal-mood-marker-dot");
     root.removeClass("cal-mood-marker-bar");
   }
+  /**
+   * Coalesce every render trigger into one repaint per frame (P-17). Clicking a
+   * date fires `active-leaf-change` and the click handler together, which used
+   * to rebuild the whole grid twice.
+   */
+  _scheduleRender() {
+    if (this.closed || this._renderScheduled) return;
+    this._renderScheduled = true;
+    const run = () => {
+      this._renderScheduled = false;
+      this._renderFrame = null;
+      this._renderTimer = null;
+      if (!this.closed) this.render();
+    };
+    if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
+      this._renderFrame = window.requestAnimationFrame(run);
+    } else if (typeof window !== "undefined") {
+      this._renderTimer = window.setTimeout(run, 0);
+    } else {
+      run();
+    }
+  }
+  _cancelScheduledRender() {
+    if (this._renderFrame != null && typeof window !== "undefined") window.cancelAnimationFrame?.(this._renderFrame);
+    if (this._renderTimer != null && typeof window !== "undefined") window.clearTimeout(this._renderTimer);
+    this._renderFrame = null;
+    this._renderTimer = null;
+    this._renderScheduled = false;
+  }
+  /** Repaint shortly after the next local midnight so "today" stays correct. */
+  _scheduleMidnightRefresh() {
+    this._clearMidnightRefresh();
+    if (typeof window === "undefined") return;
+    const now = /* @__PURE__ */ new Date();
+    const nextMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 1, 0);
+    const delay = Math.max(1e3, nextMidnight.getTime() - now.getTime());
+    this._midnightTimer = window.setTimeout(() => {
+      this._midnightTimer = null;
+      if (this.closed) return;
+      this.render();
+      this._scheduleMidnightRefresh();
+    }, delay);
+  }
+  _clearMidnightRefresh() {
+    if (this._midnightTimer == null) return;
+    if (typeof window !== "undefined") window.clearTimeout(this._midnightTimer);
+    this._midnightTimer = null;
+  }
   _handleActiveLeafChange() {
     const previousMonth = this._monthKey(this.displayMonth);
     const activeView = this.app.workspace.activeLeaf?.view;
@@ -31817,13 +34004,11 @@ var CalendarView = class extends ItemView2 {
       if (nextMonth !== previousMonth) {
         this.displayMonth = this._monthStartForDate(this.activeDate) || this.displayMonth;
         this.monthCache.delete(nextMonth);
-        this.buildMonthCache(this.displayMonth).then(() => {
-          if (!this.closed) this.render();
-        }).catch((error) => console.warn("[Dayline] Active-date month sync failed:", error?.message || error));
+        this.buildMonthCache(this.displayMonth).then(() => this._scheduleRender()).catch((error) => console.warn("[Dayline] Active-date month sync failed:", error?.message || error));
         return;
       }
     }
-    window.setTimeout(() => this.render(), 0);
+    this._scheduleRender();
   }
   /* ----- File change refresh (debounced) ----- */
   _onMediaChanged(file) {
@@ -31891,12 +34076,11 @@ var CalendarView = class extends ItemView2 {
   /* ----- Public refresh (called from plugin and index updates) ----- */
   async refresh() {
     this.monthCache.delete(this._monthKey(this.displayMonth));
-    if (this.exifCache) this.exifCache.invalidate();
     if (this._otdProvider) this._otdProvider.invalidate();
     this._otdDotCache = null;
     await this.buildMonthCache(this.displayMonth);
     this.render();
-    if (this._otdProvider && (this.plugin.settings.onThisDayDot || shouldShowHeaderOnThisDayEntry2(this.plugin.settings))) {
+    if (this._otdProvider && shouldShowHeaderOnThisDayEntry2(this.plugin.settings)) {
       this._otdProvider.ensureDateIndex().then(() => {
         this._otdDotCache = this._otdProvider.dateIndexSnapshot;
         this.render();
@@ -32074,11 +34258,11 @@ var CalendarView = class extends ItemView2 {
       usesPhoneLayout2(this.plugin.capabilities)
     );
     const firstDay = getCalendarGridOffset2(year, month, this.plugin.settings);
-    const daysInMonth2 = new Date(year, month + 1, 0).getDate();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
     for (let i = 0; i < firstDay; i++) {
       grid.createDiv({ cls: "cal-day cal-day-empty" });
     }
-    for (let d = 1; d <= daysInMonth2; d++) {
+    for (let d = 1; d <= daysInMonth; d++) {
       const dateStr = formatDateParts2(year, month + 1, d);
       const dateEntry = imageMap.get(dateStr) || {
         date: dateStr,
@@ -32097,14 +34281,22 @@ var CalendarView = class extends ItemView2 {
       const media = dateEntry.media || [];
       const cover = dateEntry.cover || media[0];
       const isToday = dateStr === todayStr;
-      const cell = grid.createDiv({ cls: "cal-day" });
+      const cell = grid.createDiv({
+        cls: "cal-day",
+        attr: {
+          role: "button",
+          tabindex: "0",
+          "data-calendar-focus": `day-${dateStr}`
+        }
+      });
       if (cover) cell.addClass("cal-has-image");
       else cell.addClass("cal-no-image");
       if (dateEntry.hasRecord) cell.addClass("cal-has-record");
       if (dateEntry.hasWeather) cell.addClass("cal-has-weather");
       const entryCountLabel = t2(this.plugin.settings, dateEntry.entryCount === 1 ? "calendarEntryCountOne" : "calendarEntryCount", { count: dateEntry.entryCount });
+      const localizedDate = formatJournalDate2(dateStr, this.plugin.settings);
       cell.setAttribute("aria-label", [
-        dateEntry.entryCount ? t2(this.plugin.settings, "calendarEntriesOnDate", { date: dateStr, entries: entryCountLabel }) : dateStr,
+        dateEntry.entryCount ? t2(this.plugin.settings, "calendarEntriesOnDate", { date: localizedDate, entries: entryCountLabel }) : localizedDate,
         dateEntry.hasWeather ? t2(this.plugin.settings, "calendarWeatherAvailable") : ""
       ].filter(Boolean).join(", "));
       if (isToday) cell.addClass("cal-today");
@@ -32178,16 +34370,16 @@ var CalendarView = class extends ItemView2 {
         }
       }
       const dailyPath = joinVaultPath2(this.plugin.settings.dailyFolder, `${dateStr}.md`);
-      const mood = shouldShowCalendarMood2(this.plugin.settings) ? this.plugin.moodStore?.get(dailyPath) || dateEntry.mood : void 0;
       const moodPath = dateEntry.primaryEntryPath || dateEntry.path || dailyPath;
+      const mood = shouldShowCalendarMood2(this.plugin.settings) ? this.plugin.moodStore?.get(moodPath) || dateEntry.mood : void 0;
       const hasMoodTarget = Boolean(mood) || Boolean(dateEntry.hasRecord);
       if (touchRouting.showMoodControl && shouldShowCalendarMood2(this.plugin.settings) && hasMoodTarget) {
         const moodButton = cell.createEl("button", {
           cls: `cal-mood-button ${mood ? `mood-${mood.score}` : "cal-mood-empty"}`,
           attr: {
             type: "button",
-            "aria-label": `${t2(this.plugin.settings, "recordMood")}: ${dateStr}`,
-            title: mood ? moodLabel2(this.plugin.settings, mood.score) : `${t2(this.plugin.settings, "recordMood")}: ${dateStr}`
+            "aria-label": `${t2(this.plugin.settings, "recordMood")}: ${localizedDate}`,
+            title: mood ? moodLabel2(this.plugin.settings, mood.score) : `${t2(this.plugin.settings, "recordMood")}: ${localizedDate}`
           }
         });
         if (mood) moodButton.style.setProperty("--journal-mood-color", getMoodColor2(mood.score));
@@ -32200,17 +34392,13 @@ var CalendarView = class extends ItemView2 {
           void this.plugin.openMoodPicker(moodPath, { allowDateSelection: true, ensureFile: false });
         });
       }
-      if (this.plugin.settings.onThisDayDot && this._otdDotCache) {
-        const mmdd = `${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-        if (this._otdDotCache.has(mmdd) && dateStr !== todayStr) {
-          cell.createDiv({ cls: "cal-otd-dot" });
-        }
-      }
       cell.createSpan({ cls: "cal-day-num", text: String(d) });
+      const openDate = () => this._openNote(dateStr, dateEntry.primaryEntryPath || dateEntry.path);
       bindOpenOnPointer2(cell, {
         coarsePointer: this.plugin.capabilities?.coarsePointer,
         shouldOpen: shouldOpenCalendarDateFromPointer2,
-        onOpen: () => this._openNote(dateStr, dateEntry.primaryEntryPath || dateEntry.path)
+        keyboard: true,
+        onOpen: openDate
       });
     }
   }
@@ -32248,12 +34436,21 @@ var CalendarView = class extends ItemView2 {
       attr: { type: "button", "data-calendar-focus": "jump-apply", "aria-label": t2(this.plugin.settings, "apply"), title: t2(this.plugin.settings, "apply") }
     });
     setIcon5(apply, "check");
-    apply.addEventListener("click", (event) => {
-      event.stopPropagation();
+    const applyJump = () => {
       apply.focus({ preventScroll: true });
       const nextYear = Math.max(1, Math.min(9999, Number.parseInt(yearInput.value, 10) || this.displayMonth.getFullYear()));
       const nextMonth = Math.max(0, Math.min(11, Number.parseInt(monthSelect.value, 10) || 0));
       void this._jumpToMonth(nextYear, nextMonth);
+    };
+    apply.addEventListener("click", (event) => {
+      event.stopPropagation();
+      applyJump();
+    });
+    yearInput.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter") return;
+      event.preventDefault();
+      event.stopPropagation();
+      applyJump();
     });
   }
   _goToToday() {
@@ -32282,40 +34479,6 @@ var CalendarView = class extends ItemView2 {
   _hideExifTooltip() {
     this.plugin._hideExifTooltip();
   }
-  /** Mouse entered a day cell with an image — start the hover timer. */
-  _onExifEnter(cell, imageLink, dateStr, sourcePath) {
-    if (!this.plugin.settings.showExif) return;
-    const hoverToken = this.plugin._beginExifHover();
-    this.plugin._exifHoverTimer = window.setTimeout(() => {
-      void (async () => {
-        try {
-          const notePath = sourcePath || joinVaultPath2(this.plugin.settings.dailyFolder, `${dateStr}.md`);
-          const file = this.app.metadataCache.getFirstLinkpathDest(imageLink, notePath);
-          if (!(file instanceof TFile3)) return;
-          if (!this.plugin._isCurrentExifHover(hoverToken)) return;
-          this.plugin._showExifTooltip(cell, null, true);
-          const fields = await this._getPersistedExifFields(file, notePath, imageLink);
-          if (!this.plugin._isCurrentExifHover(hoverToken)) return;
-          this.plugin._showExifTooltip(cell, fields, false);
-          if (this.plugin.settings.exifReverseGeocode && fields && this.plugin.geocoder) {
-            const gpsField = fields.find((f) => f.key === "exif_gps");
-            if (gpsField) {
-              const parts = gpsField.value.split(",").map((s) => parseFloat(s.trim()));
-              if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
-                const place = await this.plugin.geocoder.lookup(parts[0], parts[1]);
-                if (place && this.plugin._isCurrentExifHover(hoverToken)) {
-                  gpsField.value = place;
-                  this.plugin._showExifTooltip(cell, fields, false);
-                }
-              }
-            }
-          }
-        } catch {
-          this.plugin._hideExifTooltip();
-        }
-      })();
-    }, 500);
-  }
   _onMediaEnter(cell, attachment, immediate = false) {
     if (!this.plugin.settings.showExif || !attachment) return;
     if (immediate && this.plugin._toggleExifTouch(cell)) return;
@@ -32339,42 +34502,6 @@ var CalendarView = class extends ItemView2 {
     if (this.plugin._exifTouchAnchor && (!anchor || this.plugin._exifTouchAnchor === anchor)) return;
     this.plugin._endExifHover();
   }
-  async _getPersistedExifFields(file, notePath, imageLink) {
-    const note = this.app.vault.getAbstractFileByPath(notePath);
-    const normalizedLink = normalizeMediaLink2(imageLink);
-    const frontmatter = note instanceof TFile3 ? this.app.metadataCache.getFileCache(note)?.frontmatter : null;
-    const records = Array.isArray(frontmatter?._dayline_media_metadata) ? frontmatter._dayline_media_metadata : [];
-    const cached = records.find((record) => record && (record.normalizedLink === normalizedLink || record.link === imageLink));
-    const statPromise = this.app.vault?.adapter?.stat?.(file.path);
-    const stat = statPromise ? await statPromise.catch(() => null) : null;
-    const version = stat ? { mtime: Number(stat.mtime) || 0, size: Number(stat.size) || 0 } : null;
-    if (Array.isArray(cached?.fields) && (!version || Number(cached.mtime) === version.mtime && Number(cached.size) === version.size)) {
-      return cached.fields;
-    }
-    const fields = await this.exifCache.get(file);
-    if (note instanceof TFile3 && fields?.length) void this._persistExifFields(note, normalizedLink, fields, version);
-    return fields;
-  }
-  async _persistExifFields(note, normalizedLink, fields, version = null) {
-    if (!(note instanceof TFile3) || !Array.isArray(fields) || fields.length === 0) return;
-    await this.app.fileManager.processFrontMatter(note, (frontmatter) => {
-      const records = Array.isArray(frontmatter._dayline_media_metadata) ? frontmatter._dayline_media_metadata.filter((record2) => record2?.normalizedLink !== normalizedLink) : [];
-      const record = { normalizedLink, fields };
-      if (version) {
-        record.mtime = version.mtime;
-        record.size = version.size;
-      }
-      frontmatter._dayline_media_metadata = [...records, record];
-      const gps = fields.find((field) => field.key === "exif_gps")?.value;
-      if (gps && frontmatter.latitude == null && frontmatter.longitude == null) {
-        const [latitude, longitude] = String(gps).split(",").map((value) => Number.parseFloat(value.trim()));
-        if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
-          frontmatter.latitude = latitude;
-          frontmatter.longitude = longitude;
-        }
-      }
-    });
-  }
   /* ----- Read cached weather from plugin data (no more YAML pollution) ----- */
   _readCachedWeather(dateStr, sourcePath) {
     const entry = this.weather.getCachedSnapshot(dateStr, sourcePath);
@@ -32389,16 +34516,20 @@ var CalendarView = class extends ItemView2 {
   /* ----- Render weather card below month header (idempotent) ----- */
   _renderWeatherCard(containerEl) {
     const s = this.plugin.settings;
+    const lang = getDisplayLanguage2(s);
     if (!s.weatherEnabled || !shouldShowCalendarWeatherCard2(s)) {
       return;
     }
     if (!validateWeatherCoordinates2(s.weatherLatitude, s.weatherLongitude)) {
       const hint = containerEl.createDiv({ cls: "cal-weather-setup" });
-      hint.setText(_l(s.weatherLanguage, "setupHint"));
-      hint.setAttribute("aria-label", _l(s.weatherLanguage, "setupAria"));
+      hint.setText(_l(lang, "setupHint"));
+      hint.setAttribute("aria-label", _l(lang, "setupAria"));
       return;
     }
     const cardDate = this.activeDate || _daylineDate(this.plugin.settings);
+    if (this._weatherCardDate === cardDate && this._weatherCardEl && !this._weatherCardEl.isConnected) {
+      containerEl.appendChild(this._weatherCardEl);
+    }
     if (this._weatherCardDate === cardDate && this._weatherCardEl && this._weatherCardEl.isConnected) {
       this._revalidateConnectedWeatherCard(cardDate);
       return;
@@ -32429,11 +34560,11 @@ var CalendarView = class extends ItemView2 {
     infoEl.createDiv({ cls: "cal-weather-detail" });
     infoEl.createDiv({ cls: "cal-weather-extra" });
     infoEl.createDiv({ cls: "cal-weather-status" });
-    tempEl.setText(_l(s.weatherLanguage, "loading"));
-    if (locationEl) locationEl.setText(`${_l(s.weatherLanguage, "weatherLocation")}: ${s.weatherLocationName || `${parseFloat(s.weatherLatitude).toFixed(2)}, ${parseFloat(s.weatherLongitude).toFixed(2)}`}`);
+    tempEl.setText(_l(lang, "loading"));
+    if (locationEl) locationEl.setText(`${_l(lang, "weatherLocation")}: ${s.weatherLocationName || `${parseFloat(s.weatherLatitude).toFixed(2)}, ${parseFloat(s.weatherLongitude).toFixed(2)}`}`);
     const refreshBtn = main.createEl("button", {
       cls: "cal-weather-refresh",
-      attr: { "aria-label": _l(s.weatherLanguage, "refresh"), title: _l(s.weatherLanguage, "refresh") }
+      attr: { "aria-label": _l(lang, "refresh"), title: _l(lang, "refresh") }
     });
     setIcon5(refreshBtn, "refresh-cw");
     refreshBtn.addEventListener("click", (e) => {
@@ -32470,7 +34601,7 @@ var CalendarView = class extends ItemView2 {
   _renderOnThisDayHeader(headerActions) {
     if (!shouldShowHeaderOnThisDayEntry2(this.plugin.settings)) return;
     const dateStr = this._onThisDayTargetDate();
-    const lang = this.plugin.settings.weatherLanguage;
+    const lang = getDisplayLanguage2(this.plugin.settings);
     const label = _l(lang, "otd_title");
     const btn = headerActions.createEl("button", {
       cls: "cal-icon-button cal-otd-header-button",
@@ -32509,7 +34640,7 @@ var CalendarView = class extends ItemView2 {
     const preview = pickOnThisDayPreview2(entries);
     if (!preview) return;
     const host = resolveWeatherOnThisDayHost2(containerEl) || createStandaloneOnThisDayHost2(containerEl);
-    const lang = this.plugin.settings.weatherLanguage;
+    const lang = getDisplayLanguage2(this.plugin.settings);
     const todayYear = Number(_daylineDate(this.plugin.settings).slice(0, 4));
     const yearsAgo = onThisDayYearsAgo2(preview.year, todayYear);
     const title = _l(lang, "otd_title");
@@ -32526,7 +34657,7 @@ var CalendarView = class extends ItemView2 {
     if (photo && preview.image) {
       const notePath = preview.imageNotePath || joinVaultPath2(this.plugin.settings.dailyFolder, `${preview.imageDateStr || dateStr}.md`);
       this.plugin.thumbnailService?.load(preview.image, notePath).then((result) => {
-        if (result && photo.isConnected) photo.style.backgroundImage = `url(${result.url})`;
+        if (result && photo.isConnected) photo.style.backgroundImage = cssUrl2(result.url);
       }).catch((error) => console.warn("[Dayline] On This Day thumbnail load failed:", error?.message || error));
     } else if (photo) {
       photo.classList.add("is-empty");
@@ -32564,7 +34695,7 @@ var CalendarView = class extends ItemView2 {
   _updateWeatherCardUI() {
     const card = this._weatherCardEl;
     if (!card || !card.isConnected) return;
-    const lang = this.plugin.settings.weatherLanguage;
+    const lang = getDisplayLanguage2(this.plugin.settings);
     card.removeClass("cal-weather-loading");
     card.removeClass("cal-weather-error");
     const locationEl = card.querySelector(".cal-weather-location");
@@ -32676,26 +34807,37 @@ var CalendarView = class extends ItemView2 {
       this._weatherLoading = true;
     }
     const renderToken = this._fetchToken;
+    const isCurrent = () => renderToken === this._fetchToken && this._weatherCardDate === dateStr;
+    const abandonLoadingState = () => {
+      if (!btnEl) this._weatherLoading = false;
+    };
     try {
       const snap = await this.weather.forceRefresh(dateStr);
-      if (renderToken !== this._fetchToken || this._weatherCardDate !== dateStr) return;
+      if (!isCurrent()) {
+        abandonLoadingState();
+        return;
+      }
       this._weatherSnapshot = snap;
       this._weatherError = !snap;
       this._weatherLoading = false;
       this._updateWeatherCardUI();
       this.render();
-      const lang = this.plugin.settings.weatherLanguage;
+      const lang = getDisplayLanguage2(this.plugin.settings);
       if (snap) {
         new Notice5(_l(lang, "weatherUpdated", dateStr));
       } else {
         new Notice5(_l(lang, "noDataFor", dateStr));
       }
     } catch (err) {
-      this._weatherError = true;
-      this._weatherLoading = false;
-      this._updateWeatherCardUI();
-      const lang = this.plugin.settings.weatherLanguage;
-      new Notice5(_l(lang, "refreshFailed", err.message || t2(this.plugin.settings, "unknownError")));
+      if (isCurrent()) {
+        this._weatherError = true;
+        this._weatherLoading = false;
+        this._updateWeatherCardUI();
+        const lang = getDisplayLanguage2(this.plugin.settings);
+        new Notice5(_l(lang, "refreshFailed", err.message || t2(this.plugin.settings, "unknownError")));
+      } else {
+        abandonLoadingState();
+      }
     } finally {
       if (wasLoading && btnEl) {
         btnEl.removeAttribute("disabled");
@@ -32756,7 +34898,7 @@ var CalendarView = class extends ItemView2 {
     const openFileInLeaf = (f) => {
       this.plugin.openJournalFile(f).then((leaf) => {
         this._syncActiveDate(leaf);
-        this.render();
+        this._scheduleRender();
         this._triggerWeatherAfterOpen(dateStr);
       }).catch((error) => {
         console.warn("[Dayline] Open note failed:", error?.message || error);
@@ -32875,7 +35017,11 @@ var CalendarView = class extends ItemView2 {
     this._processImageEls(container.querySelectorAll("img"));
     this._processEmbedEls(container.querySelectorAll(".internal-embed"));
     const observer = new MutationObserver((mutations) => {
+      let removedElement = false;
       for (const m of mutations) {
+        for (const node of m.removedNodes) {
+          if (node.nodeType === 1) removedElement = true;
+        }
         for (const node of m.addedNodes) {
           if (node.nodeType === 1) {
             if (node.tagName === "IMG") this._processImageEls([node]);
@@ -32887,15 +35033,34 @@ var CalendarView = class extends ItemView2 {
           }
         }
       }
+      if (removedElement) this._releaseDetachedNoteMedia();
     });
     observer.observe(container, { childList: true, subtree: true });
     this._exifObservers.set(leaf, observer);
   }
+  _noteMediaDisposers() {
+    if (!(this._exifNoteDisposers instanceof Map)) this._exifNoteDisposers = /* @__PURE__ */ new Map();
+    return this._exifNoteDisposers;
+  }
+  /** Drop one element's listeners/controls, restoring the attributes we changed. */
+  _releaseNoteMediaEntry(el) {
+    if (!(this._exifNoteDisposers instanceof Map)) return;
+    const disposers = this._exifNoteDisposers.get(el);
+    if (!disposers) return;
+    this._exifNoteDisposers.delete(el);
+    for (const dispose of disposers) dispose();
+  }
+  /** Release instrumentation for every tracked element no longer in the DOM. */
+  _releaseDetachedNoteMedia() {
+    if (!(this._exifNoteDisposers instanceof Map)) return;
+    for (const el of Array.from(this._exifNoteDisposers.keys())) {
+      if (!el.isConnected) this._releaseNoteMediaEntry(el);
+    }
+  }
   _processImageEls(images) {
     if (this.closed) return;
     for (const img of images) {
-      if (this._exifNoteImages.has(img)) continue;
-      this._exifNoteImages.add(img);
+      if (this._noteMediaDisposers().has(img)) continue;
       this._bindNoteMediaHover(img, {
         onEnter: (e) => this._onNoteImageEnter(e, img),
         onLeave: () => this._onExifLeave(img),
@@ -32909,13 +35074,12 @@ var CalendarView = class extends ItemView2 {
   _processEmbedEls(embeds) {
     if (this.closed) return;
     for (const el of embeds) {
-      if (this._exifNoteImages.has(el)) continue;
+      if (this._noteMediaDisposers().has(el)) continue;
       const src = el.getAttribute("src") || "";
       const normalizedSrc = normalizeMediaLink2(src);
       const classified = classifyMediaLink2(normalizedSrc);
       const ext = classified.extension;
       if (!ext || !MEDIA_EXTENSIONS2.includes(ext)) continue;
-      this._exifNoteImages.add(el);
       this._bindNoteMediaHover(el, {
         onEnter: (e) => MEDIA_IMAGE_EXTENSIONS.includes(ext) ? this._onNoteImageEnter(e, el) : this._onNoteMediaEnter(e, el),
         onLeave: () => this._onExifLeave(el),
@@ -32935,7 +35099,10 @@ var CalendarView = class extends ItemView2 {
     try {
       const notePath = this._notePathForElement(el);
       const file = this.app.metadataCache.getFirstLinkpathDest(src, notePath);
-      if (!(file instanceof TFile3)) return;
+      if (!(file instanceof TFile3)) {
+        loader.remove();
+        return;
+      }
       const thumb = await this.plugin.heicCache.getThumbnail(file);
       if (this.closed) {
         loader.remove();
@@ -32952,7 +35119,6 @@ var CalendarView = class extends ItemView2 {
       const img = loader.createEl("img", { cls: "cal-heic-preview-image" });
       img.src = thumb.dataUrl;
       img.setAttribute("data-cal-exif", "1");
-      this._exifNoteImages.add(img);
       this._bindNoteMediaHover(img, {
         onEnter: (e) => this._onNoteImageEnter(e, img),
         onLeave: () => this._onExifLeave(img),
@@ -33008,7 +35174,8 @@ var CalendarView = class extends ItemView2 {
     }, immediate ? 0 : 500);
   }
   _bindNoteMediaHover(el, { onEnter, onLeave, onFocus }) {
-    if (!this._exifNoteDisposers) this._exifNoteDisposers = /* @__PURE__ */ new Set();
+    const disposers = this._noteMediaDisposers();
+    this._releaseNoteMediaEntry(el);
     const hadTabIndex = el.hasAttribute("tabindex");
     const previousTabIndex = hadTabIndex ? el.getAttribute("tabindex") : null;
     const hadAriaLabel = el.hasAttribute("aria-label");
@@ -33021,7 +35188,7 @@ var CalendarView = class extends ItemView2 {
     el.addEventListener("mouseenter", enter);
     el.addEventListener("mouseleave", leave);
     el.addEventListener("focusin", focus);
-    this._exifNoteDisposers.add(() => {
+    disposers.set(el, [() => {
       el.removeEventListener("mouseenter", enter);
       el.removeEventListener("mouseleave", leave);
       el.removeEventListener("focusin", focus);
@@ -33029,14 +35196,15 @@ var CalendarView = class extends ItemView2 {
       else el.removeAttribute("tabindex");
       if (hadAriaLabel) el.setAttribute("aria-label", previousAriaLabel);
       else el.removeAttribute("aria-label");
-    });
+    }]);
   }
   _disposeNoteMediaInstrumentation() {
-    const disposers = Array.from(this._exifNoteDisposers || []);
-    this._exifNoteDisposers = /* @__PURE__ */ new Set();
-    this._exifNoteImages = /* @__PURE__ */ new WeakSet();
+    const entries = this._exifNoteDisposers instanceof Map ? Array.from(this._exifNoteDisposers.values()) : [];
+    this._exifNoteDisposers = /* @__PURE__ */ new Map();
     this._exifNoteMediaControls = /* @__PURE__ */ new WeakSet();
-    for (const dispose of disposers) dispose();
+    for (const disposers of entries) {
+      for (const dispose of disposers) dispose();
+    }
   }
   _addNoteMediaInfoControl(el, open) {
     const owner = getMediaControlOwner2(el);
@@ -33064,12 +35232,15 @@ var CalendarView = class extends ItemView2 {
     button.addEventListener("click", onClick);
     parent.insertBefore(button, reference.nextSibling);
     this._exifNoteMediaControls.add(owner);
-    if (!this._exifNoteDisposers) this._exifNoteDisposers = /* @__PURE__ */ new Set();
-    this._exifNoteDisposers.add(() => {
+    const disposers = this._noteMediaDisposers();
+    const dispose = () => {
       button.removeEventListener("pointerdown", onPointerDown);
       button.removeEventListener("click", onClick);
       button.remove();
-    });
+    };
+    const existing = disposers.get(el);
+    if (existing) existing.push(dispose);
+    else disposers.set(el, [dispose]);
   }
   _notePathForElement(el) {
     const leaves = this.app.workspace.getLeavesOfType("markdown") || [];
@@ -33162,7 +35333,7 @@ var CalendarView = class extends ItemView2 {
     if (snap && typeof snap.icon === "string" && !snap.icon.endsWith(".svg") && snap.weatherCode != null) {
       snap.icon = lookupWeatherCode2(snap.weatherCode).icon;
     }
-    const isStale = snap && typeof snap === "object" ? this.weather._shouldFetch(snap, this.plugin.settings.weatherTtlHours || 2) : true;
+    const isStale = snap && typeof snap === "object" ? this.weather._shouldFetch(snap, this.plugin.settings.weatherTtlHours || 2, dateStr) : true;
     if (!snap || isStale) {
       const fetched = await this.weather.getSnapshot(dateStr);
       if (fetched) snap = fetched;
@@ -33197,7 +35368,7 @@ var CalendarView = class extends ItemView2 {
     const infoEl = overlay.createDiv({ cls: "cal-overlay-info" });
     const tempEl = infoEl.createDiv({ cls: "cal-overlay-temp" });
     const detailEl = infoEl.createDiv({ cls: "cal-overlay-detail" });
-    const lang = this.plugin.settings.weatherLanguage;
+    const lang = getDisplayLanguage2(this.plugin.settings);
     const unitSym = this._unitSymbol(snap.units);
     const labelKey = snap.temperatureLabel === "Now" ? "now" : "high";
     tempEl.setText(`${_l(lang, labelKey)} ${snap.temperature ?? "?"}${unitSym}`);
@@ -33249,7 +35420,7 @@ var CalendarView = class extends ItemView2 {
       const detailEl = overlayEl.querySelector(".cal-overlay-detail");
       const iconEl = overlayEl.querySelector(".cal-overlay-icon");
       const unitSym = this._unitSymbol(snap.units);
-      const lang = this.plugin.settings.weatherLanguage;
+      const lang = getDisplayLanguage2(this.plugin.settings);
       const labelKey = snap.temperatureLabel === "Now" ? "now" : "high";
       if (tempEl) tempEl.textContent = `${_l(lang, labelKey)} ${snap.temperature ?? "?"}${unitSym}`;
       if (iconEl) {
@@ -33332,11 +35503,11 @@ var CalendarView = class extends ItemView2 {
       (this.plugin.journalIndex?.getEntries?.() || []).map((entry) => entry.date).filter((date) => date < _daylineDate(this.plugin.settings))
     )).sort();
     const missingDates = dateStrs.filter((date) => !this.weather.hasCachedSnapshot(date));
+    const lang = getDisplayLanguage2(this.plugin.settings);
     if (missingDates.length === 0) {
-      new Notice5(_l(this.plugin.settings.weatherLanguage, "s_backfillAllDone"));
+      new Notice5(_l(lang, "s_backfillAllDone"));
       return;
     }
-    const lang = this.plugin.settings.weatherLanguage;
     new Notice5(_l(lang, "s_backfillStarted", missingDates.length));
     await this.weather.bulkBackfill(missingDates, (done, total) => {
       if (done % 5 === 0 || done === total) {
@@ -33411,6 +35582,24 @@ var CreateNoteModal = class extends Modal2 {
 };
 function _daylineDate(settings, date = /* @__PURE__ */ new Date()) {
   return getTodayDate2(settings?.weatherTimezone || "auto", date);
+}
+function _resolveDailyNoteTemplate(content, dateStr) {
+  const source = String(content ?? "");
+  const title = String(dateStr ?? "");
+  const moment = typeof window !== "undefined" ? window.moment : void 0;
+  const supportsMoment = typeof moment === "function";
+  const day = supportsMoment ? moment(title, "YYYY-MM-DD", true) : null;
+  const now = supportsMoment ? moment() : null;
+  const usable = (value) => Boolean(value && typeof value.format === "function" && value.isValid?.() !== false);
+  return source.replace(/\{\{(date|time|title)(?::([^}]*))?\}\}/g, (match, name, format) => {
+    if (name === "title") return title;
+    if (name === "date") {
+      if (usable(day)) return day.format(format || "YYYY-MM-DD");
+      return format ? match : title;
+    }
+    if (usable(now)) return now.format(format || "HH:mm");
+    return format ? match : "";
+  });
 }
 var SVG_ICONS = {
   "clear-day.svg": `data:image/svg+xml,${encodeURIComponent('<svg viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="clear-day"><g id="Sun"><circle id="Core" cx="64" cy="63.9999" r="19.5" fill="url(#a)" stroke="#F8AF18"/><g id="Rays"><path d="M61 19C61 17.3431 62.3431 16 64 16C65.6568 16 67 17.3431 67 19V33C67 34.6569 65.6568 36 64 36C62.3431 36 61 34.6569 61 33V19Z" fill="#F8AF18"/><path d="M93.6985 30.0589C94.87 28.8873 96.7696 28.8873 97.9411 30.0589C99.1127 31.2304 99.1127 33.1299 97.9411 34.3015L88.0416 44.201C86.8701 45.3726 84.9706 45.3726 83.799 44.201C82.6274 43.0294 82.6274 41.1299 83.799 39.9584L93.6985 30.0589Z" fill="#F8AF18"/><path d="M109 61C110.657 61 112 62.3432 112 64C112 65.6569 110.657 67 109 67H95C93.3431 67 92 65.6569 92 64C92 62.3432 93.3431 61 95 61H109Z" fill="#F8AF18"/><path d="M97.9411 93.6985C99.1127 94.8701 99.1127 96.7696 97.9411 97.9411C96.7696 99.1127 94.8701 99.1127 93.6985 97.9411L83.799 88.0416C82.6274 86.8701 82.6274 84.9706 83.799 83.799C84.9706 82.6274 86.8701 82.6274 88.0416 83.799L97.9411 93.6985Z" fill="#F8AF18"/><path d="M61 95C61 93.3431 62.3431 92 64 92C65.6568 92 67 93.3431 67 95V109C67 110.657 65.6568 112 64 112C62.3431 112 61 110.657 61 109V95Z" fill="#F8AF18"/><path d="M39.9584 83.799C41.1299 82.6274 43.0294 82.6274 44.201 83.799C45.3726 84.9706 45.3726 86.8701 44.201 88.0416L34.3015 97.9411C33.1299 99.1127 31.2304 99.1127 30.0589 97.9411C28.8873 96.7696 28.8873 94.87 30.0589 93.6985L39.9584 83.799Z" fill="#F8AF18"/><path d="M33 61C34.6569 61 36 62.3431 36 64C36 65.6568 34.6569 67 33 67H19C17.3431 67 16 65.6568 16 64C16 62.3431 17.3431 61 19 61H33Z" fill="#F8AF18"/><path d="M44.201 39.9584C45.3726 41.1299 45.3726 43.0294 44.201 44.201C43.0294 45.3726 41.1299 45.3726 39.9584 44.201L30.0589 34.3015C28.8873 33.1299 28.8873 31.2305 30.0589 30.0589C31.2305 28.8873 33.1299 28.8873 34.3015 30.0589L44.201 39.9584Z" fill="#F8AF18"/></g></g></g><defs><linearGradient id="a" x1="64" y1="43.9999" x2="64" y2="83.9999" gradientUnits="userSpaceOnUse"><stop stop-color="#FBBF24"/><stop offset="1" stop-color="#F8AF18"/></linearGradient></defs></svg>')}`,

@@ -70,8 +70,10 @@ describe('tablet vs phone layout routing', () => {
 
   it('lets tablets open journal entries in the existing leaf without creating a tab', () => {
     const openSource = sliceBetween(pluginSource, 'async openJournalFile(file)', 'async _openTimelineView()');
-    // getJournalOpenLeaf only creates a tab when the phone layout is active.
-    expect(openSource).toContain('getJournalOpenLeaf(workspace, this._usesPhoneDaylineMode())');
+    // getJournalOpenLeaf only creates a tab when the phone layout is active, and
+    // phones resolve a main-area leaf (never the Dayline drawer leaf) so dates
+    // cannot replace the calendar.
+    expect(openSource).toContain('resolveMobileJournalLeaf(workspace, journalLeaf)');
     expect(openSource).not.toContain("getLeaf('split')");
     expect(openSource).toContain('await workspace.revealLeaf?.(leaf);');
   });
@@ -96,7 +98,7 @@ describe('tablet vs phone layout routing', () => {
   it('only renders the mood control where a mood or journal entry exists', () => {
     // An empty frame on every date littered the grid with targets that stole
     // taps from the date itself, so the control is gated on real content.
-    const renderSource = sliceBetween(pluginSource, 'const hasMoodTarget', 'On This Day dot marker');
+    const renderSource = sliceBetween(pluginSource, 'const hasMoodTarget', '// Date number');
     expect(renderSource).toContain('const hasMoodTarget = Boolean(mood) || Boolean(dateEntry.hasRecord);');
     // The guard itself must use it; declaring the flag is not enough.
     const guard = renderSource.slice(renderSource.indexOf('if (touchRouting.showMoodControl'));
@@ -107,7 +109,7 @@ describe('tablet vs phone layout routing', () => {
     // Opening on pointerdown put the modal under the finger before release, so
     // the tap's trailing click hit the modal backdrop and dismissed the picker
     // unless the user kept holding the button down.
-    const renderSource = sliceBetween(pluginSource, 'const hasMoodTarget', 'On This Day dot marker');
+    const renderSource = sliceBetween(pluginSource, 'const hasMoodTarget', '// Date number');
     const clickHandler = renderSource.slice(renderSource.indexOf("addEventListener('click'"));
     expect(clickHandler.slice(0, clickHandler.indexOf('});'))).toContain('openMoodPicker');
 

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { buildJournalLocationOptions, buildJournalTagOptions, filterJournalEntries, journalEntryMatchesMediaFilter, locationFilterKey, MISSING_LOCATION_FILTER } from '../src/journal-timeline-filters';
 import type { JournalEntry } from '../src/types';
 
@@ -36,5 +36,30 @@ describe('journal timeline filters', () => {
     ];
     expect(buildJournalLocationOptions(entries).map((item) => item.label)).toEqual(['Paris', 'lat 31.23, lng 121.47', 'No location']);
     expect(buildJournalTagOptions(entries).map((item) => item.value)).toEqual(['travel', 'food']);
+  });
+
+  it('ANDs every whitespace-separated query term instead of matching the whole phrase', () => {
+    const tokyo = entry({ normalizedSearchText: 'tokyo sunny walk' });
+
+    expect(filterJournalEntries([tokyo], { query: 'tokyo walk' })).toEqual([tokyo]);
+    expect(filterJournalEntries([tokyo], { query: '  tokyo   walk  ' })).toEqual([tokyo]);
+    expect(filterJournalEntries([tokyo], { query: 'tokyo rain' })).toEqual([]);
+  });
+
+  it('reuses the normalized search index instead of normalizing it again per keystroke', () => {
+    const normalize = vi.spyOn(String.prototype, 'normalize');
+    const indexed = entry({
+      normalizedSearchText: `tokyo ${'walk '.repeat(512)}`,
+      searchText: `${'raw body '.repeat(512)}`,
+      title: 'Ignored because the index is present',
+    });
+
+    const result = filterJournalEntries([indexed], { query: 'tokyo walk' });
+    const normalizeCalls = normalize.mock.calls.length;
+    normalize.mockRestore();
+
+    expect(result).toEqual([indexed]);
+    // Only the short query may be normalized; the indexed text is already NFKC.
+    expect(normalizeCalls).toBe(1);
   });
 });

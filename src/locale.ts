@@ -83,8 +83,6 @@ export interface LocaleStrings {
   s_otd: string;
   s_otdButton: string;
   s_otdButtonDesc: string;
-  s_otdDot: string;
-  s_otdDotDesc: string;
   s_otdEntry: string;
   s_otdEntryDesc: string;
   s_otdEntryHeader: string;
@@ -216,8 +214,6 @@ export const LOCALE: Record<DisplayLanguage, LocaleStrings> = {
     s_otd: "去年今日",
     s_otdButton: "显示侧边栏按钮",
     s_otdButtonDesc: "在天气卡片下方显示「去年今日」按钮",
-    s_otdDot: "日历上显示标记",
-    s_otdDotDesc: "在有往年记录的日期格子上显示小圆点标记",
     s_otdEntry: "侧边栏入口",
     s_otdEntryDesc: "关闭入口、合并进天气卡，或放到顶栏。",
     s_otdEntryHeader: "顶栏图标",
@@ -347,8 +343,6 @@ export const LOCALE: Record<DisplayLanguage, LocaleStrings> = {
     s_otd: "往年今日",
     s_otdButton: "顯示側邊欄按鈕",
     s_otdButtonDesc: "在天氣卡片下方顯示「往年今日」按鈕",
-    s_otdDot: "日曆上顯示標記",
-    s_otdDotDesc: "在有往年記錄的日期格子上顯示小圓點標記",
     s_otdEntry: "側邊欄入口",
     s_otdEntryDesc: "關閉入口、合併至天氣卡片，或放置於頂欄。",
     s_otdEntryHeader: "頂欄圖示",
@@ -478,8 +472,6 @@ export const LOCALE: Record<DisplayLanguage, LocaleStrings> = {
     s_otd: "On This Day",
     s_otdButton: "Show sidebar button",
     s_otdButtonDesc: "Display an On This Day button below the weather card",
-    s_otdDot: "Show markers on calendar",
-    s_otdDotDesc: "Display a small dot on dates with past-year entries",
     s_otdEntry: "Sidebar entry",
     s_otdEntryDesc: "Turn the sidebar entry off, merge it into the weather card, or place it in the header.",
     s_otdEntryHeader: "Header icon",
@@ -609,8 +601,6 @@ export const LOCALE: Record<DisplayLanguage, LocaleStrings> = {
     s_otd: "過去の今日",
     s_otdButton: "サイドバーにボタンを表示",
     s_otdButtonDesc: "天気カードの下に「過去の今日」ボタンを表示します",
-    s_otdDot: "カレンダーに印を表示",
-    s_otdDotDesc: "過去の記録がある日付セルにドットを表示します",
     s_otdEntry: "サイドバーの表示形式",
     s_otdEntryDesc: "非表示にするか、天気カードに統合するか、ヘッダーに配置します。",
     s_otdEntryHeader: "ヘッダーアイコン",
@@ -740,8 +730,6 @@ export const LOCALE: Record<DisplayLanguage, LocaleStrings> = {
     s_otd: "작년 오늘",
     s_otdButton: "사이드바 버튼 표시",
     s_otdButtonDesc: "날씨 카드 아래에 '작년 오늘' 버튼을 표시합니다",
-    s_otdDot: "캘린더에 표시",
-    s_otdDotDesc: "과거 기록이 있는 날짜 셀에 작은 점을 표시합니다",
     s_otdEntry: "사이드바 항목 위치",
     s_otdEntryDesc: "항목을 끄거나 날씨 카드에 통합하거나 상단 헤더에 배치합니다.",
     s_otdEntryHeader: "헤더 아이콘",
@@ -871,8 +859,6 @@ export const LOCALE: Record<DisplayLanguage, LocaleStrings> = {
     s_otd: "Ce jour-là",
     s_otdButton: "Bouton dans la barre latérale",
     s_otdButtonDesc: "Afficher un bouton Ce jour-là sous la carte météo",
-    s_otdDot: "Marqueurs sur le calendrier",
-    s_otdDotDesc: "Afficher un petit point sur les dates ayant des souvenirs d'années passées",
     s_otdEntry: "Entrée barre latérale",
     s_otdEntryDesc: "Désactiver, fusionner dans la carte météo ou placer dans l'en-tête.",
     s_otdEntryHeader: "Icône d'en-tête",
@@ -1002,8 +988,6 @@ export const LOCALE: Record<DisplayLanguage, LocaleStrings> = {
     s_otd: "An diesem Tag",
     s_otdButton: "Seitenleisten-Schaltfläche",
     s_otdButtonDesc: "Schaltfläche „An diesem Tag“ unter der Wetterkarte anzeigen",
-    s_otdDot: "Markierungen im Kalender",
-    s_otdDotDesc: "Einen kleinen Punkt an Tagen mit Einträgen aus vergangenen Jahren anzeigen",
     s_otdEntry: "Seitenleisteneintrag",
     s_otdEntryDesc: "Deaktivieren, in die Wetterkarte integrieren oder im Header platzieren.",
     s_otdEntryHeader: "Header-Symbol",
@@ -1133,8 +1117,6 @@ export const LOCALE: Record<DisplayLanguage, LocaleStrings> = {
     s_otd: "Un día como hoy",
     s_otdButton: "Mostrar botón en la barra lateral",
     s_otdButtonDesc: "Muestra un botón de Un día como hoy bajo la tarjeta del tiempo",
-    s_otdDot: "Mostrar marcas en calendario",
-    s_otdDotDesc: "Muestra un pequeño punto en fechas con entradas de años pasados",
     s_otdEntry: "Entrada de barra lateral",
     s_otdEntryDesc: "Desactivar, fusionar con la tarjeta del tiempo o situar en el encabezado.",
     s_otdEntryHeader: "Icono de cabecera",
@@ -1264,8 +1246,6 @@ export const LOCALE: Record<DisplayLanguage, LocaleStrings> = {
     s_otd: "В этот день",
     s_otdButton: "Кнопка на боковой панели",
     s_otdButtonDesc: "Показывать кнопку «В этот день» под карточкой погоды",
-    s_otdDot: "Маркеры на календаре",
-    s_otdDotDesc: "Показывать маленькую точку на датах с записями за прошлые годы",
     s_otdEntry: "Элемент боковой панели",
     s_otdEntryDesc: "Отключить, объединить с карточкой погоды или поместить в заголовок.",
     s_otdEntryHeader: "Значок в заголовке",

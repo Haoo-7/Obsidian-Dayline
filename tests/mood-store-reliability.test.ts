@@ -92,21 +92,6 @@ describe('mood store reliability', () => {
     expect(files.get(`${primary}.bak`)).toBe('{broken');
   });
 
-  it('rejects a remote modification arriving while a local write is staged', async () => {
-    const { store, files, adapter } = fixture();
-    await store.set('a.md', 1, []);
-    const before = store.getMetadata();
-    const write = adapter.write;
-    adapter.write = async (path, value) => {
-      await write(path, value);
-      if (path === `${primary}.tmp`) files.set(primary, JSON.stringify(metadata({ 'remote.md': record(2) })));
-    };
-    await expect(store.set('a.md', -2, [])).rejects.toThrow(/conflict/i);
-    expect(store.getMetadata()).toEqual(before);
-    expect(Object.keys(JSON.parse(files.get(primary)!).entries)).toEqual(['remote.md']);
-    expect(files.has(`${primary}.tmp`)).toBe(false);
-  });
-
   it('does not publish or commit an in-flight write after a path change during staging', async () => {
     const { store, files, adapter } = fixture();
     await store.set('a.md', 1, []);
@@ -163,21 +148,92 @@ describe('mood store reliability', () => {
     expect(saved.futureMetadata).toEqual(remote.futureMetadata);
   });
 
-  it('rejects a local edit when the same record changed externally', async () => {
-    const { store, files } = fixture();
-    await store.set('a.md', 1, []);
-    const remote = JSON.parse(files.get(primary)!);
-    remote.entries['a.md'].score = 2;
-    files.set(primary, JSON.stringify(remote));
-    await expect(store.set('a.md', -2, [])).rejects.toThrow(/conflict/i);
-    expect(JSON.parse(files.get(primary)!).entries['a.md'].score).toBe(2);
-  });
-
   it.each(['removeToOrphan', 'deleteRecord'] as const)('keeps the latest queued edit when %s follows it', async (method) => {
     const { store } = fixture();
     await store.set('a.md', 1, []);
     await Promise.all([store.set('a.md', 2, []), store[method]('a.md')]);
     expect(store.getOrphans()['a.md'].record.score).toBe(2);
+  });
+
+  it('refreshes the merge base and notifies listeners when a staged write conflicts', async () => {
+    const { store, files, adapter } = fixture();
+    await store.set('a.md', 1, []);
+    const before = store.getMetadata();
+    const published: Array<[string, number | undefined]> = [];
+    store.subscribe((path, value) => published.push([path, value?.score]));
+    const write = adapter.write;
+    adapter.write = async (path, value) => {
+      await write(path, value);
+      if (path === `${primary}.tmp`) files.set(primary, JSON.stringify(metadata({ 'remote.md': record(2) })));
+    };
+    await expect(store.set('a.md', -2, [])).rejects.toThrow(/conflict/i);
+
+    expect(published).toEqual([['a.md', undefined], ['remote.md', 2]]);
+    expect(store.getMetadata().entries).toEqual({ 'remote.md': record(2) });
+    expect(store.getMetadata()).not.toEqual(before);
+    expect(Object.keys(JSON.parse(files.get(primary)!).entries)).toEqual(['remote.md']);
+    expect(files.has(`${primary}.tmp`)).toBe(false);
+
+    adapter.write = write;
+    await expect(store.set('a.md', -1, [])).resolves.toMatchObject({ score: -1 });
+    expect(Object.keys(JSON.parse(files.get(primary)!).entries).sort()).toEqual(['a.md', 'remote.md']);
+  });
+
+  it('lets an explicit set win over an externally changed record with an older update', async () => {
+    const { store, files } = fixture();
+    await store.set('a.md', 1, []);
+    const remote = JSON.parse(files.get(primary)!);
+    remote.entries['a.md'].score = 2;
+    files.set(primary, JSON.stringify(remote));
+
+    await expect(store.set('a.md', -2, [])).resolves.toMatchObject({ score: -2 });
+
+    expect(JSON.parse(files.get(primary)!).entries['a.md'].score).toBe(-2);
+    expect(store.get('a.md')?.score).toBe(-2);
+  });
+
+  it('keeps a strictly newer external record when set loses the last-write-wins race', async () => {
+    const { store, files } = fixture();
+    await store.set('a.md', 1, []);
+    const remote = JSON.parse(files.get(primary)!);
+    remote.entries['a.md'].score = 2;
+    remote.entries['a.md'].updatedAt = '2999-01-01T00:00:00.000Z';
+    files.set(primary, JSON.stringify(remote));
+
+    await expect(store.set('a.md', -2, [])).resolves.toMatchObject({ score: 2 });
+
+    expect(store.get('a.md')?.score).toBe(2);
+    expect(JSON.parse(files.get(primary)!).entries['a.md'].score).toBe(2);
+  });
+
+  it('drops a tombstone added externally for the key an explicit set overwrites', async () => {
+    const { store, files } = fixture();
+    await store.set('a.md', 1, []);
+    const remote = JSON.parse(files.get(primary)!);
+    remote.tombstones = { 'a.md': { deletedAt: '2026-09-01T00:00:00.000Z' } };
+    files.set(primary, JSON.stringify(remote));
+
+    await store.set('a.md', 2, []);
+
+    expect(store.getForIndex('a.md')?.score).toBe(2);
+    expect(JSON.parse(files.get(primary)!).tombstones['a.md']).toBeUndefined();
+  });
+
+  it('reloads externally changed metadata and notifies listeners', async () => {
+    const { store, files } = fixture();
+    await store.set('a.md', 1, []);
+    const remote = JSON.parse(files.get(primary)!);
+    remote.entries['a.md'].score = 2;
+    remote.entries['external.md'] = record(-1);
+    files.set(primary, JSON.stringify(remote));
+    const published: string[] = [];
+    store.subscribe((path) => published.push(path));
+
+    await store.reloadFromDisk();
+
+    expect(store.get('a.md')?.score).toBe(2);
+    expect(store.get('external.md')?.score).toBe(-1);
+    expect(published.sort()).toEqual(['a.md', 'external.md']);
   });
 
   it('checks competing restore destinations inside the queue', async () => {
@@ -235,6 +291,7 @@ describe('mood store reliability', () => {
     const { store, files, markdown, failFrontmatter } = fixture();
     markdown.add('note.md');
     await store.set('note.md', 1, []);
+    store.configure({ mirrorMoodToFrontmatter: true });
     failFrontmatter(true);
 
     await expect(store.deleteRecord('note.md')).resolves.toMatchObject({ score: 1 });

@@ -6,6 +6,8 @@ import { serializeMoodCsv, serializeMoodJson } from './mood-export';
 /** Current on-disk mood metadata contract. v1 remains readable and is migrated on load. */
 export const MOOD_SCHEMA_VERSION = 2 as const;
 export const LEGACY_MOOD_SCHEMA_VERSION = 1 as const;
+/** Delete tombstones older than this no longer block a note recreated at the same path. */
+export const MOOD_TOMBSTONE_TTL_MS = 180 * 24 * 60 * 60 * 1000;
 
 export interface MoodStoreSettings {
   moodMetadataPath?: string;
@@ -33,11 +35,30 @@ export interface MoodMirrorFailure {
 
 export interface MoodIntegrityReport {
   valid: boolean;
+  /** The file structure is usable; individual invalid records are skipped instead of invalidating the file. */
+  readable: boolean;
+  /** The file declares a schema newer than this plugin supports, so writes are disabled. */
+  futureSchema: boolean;
   invalidRecords: string[];
   invalidOrphans: string[];
   invalidMetadata: string[];
   missingFiles: string[];
   backupAvailable: boolean;
+  /** Human-readable problems collected while reading: skipped records, unknown schema, and similar. */
+  warnings: string[];
+}
+
+/** Thrown when the metadata file was written by a newer schema and must not be overwritten. */
+export class MoodMetadataReadOnlyError extends Error {
+  readonly path: string;
+  readonly schemaVersion: number | undefined;
+
+  constructor(path: string, schemaVersion?: number) {
+    super(`Mood metadata ${path} uses schema ${schemaVersion ?? 'unknown'}, which is newer than schema ${MOOD_SCHEMA_VERSION}; writing is disabled until Dayline is updated`);
+    this.name = 'MoodMetadataReadOnlyError';
+    this.path = path;
+    this.schemaVersion = schemaVersion;
+  }
 }
 
 type MoodListener = (path: string, record: MoodRecord | undefined) => void;
@@ -45,6 +66,13 @@ type MoodMirrorFailureListener = (failure: MoodMirrorFailure | undefined) => voi
 type StoreContext = { path: string; generation: number };
 type MoodTombstone = { deletedAt: string; [key: string]: unknown };
 type MoodMetadataWithTombstones = MoodMetadata & { tombstones?: Record<string, MoodTombstone> };
+type MoodMutateOptions = {
+  /** Explicit overwrite: conflicts for this key resolve to the newest `updatedAt` instead of throwing. */
+  overwritePath?: string;
+};
+type MoodMergeOptions = {
+  overwritePath?: string;
+};
 
 const DEFAULT_PATH = 'Calendar/journal-metadata.json';
 const BUILT_IN_LABEL_IDS = new Set(MOOD_LABELS.map((item) => item.id));
@@ -61,6 +89,45 @@ function emptyMetadata(): MoodMetadata {
 
 function isScore(value: unknown): value is MoodRecord['score'] {
   return value === -2 || value === -1 || value === 0 || value === 1 || value === 2;
+}
+
+/** Validate a score through the shared strict parser and throw a caller-actionable error. */
+function requireMoodScore(value: unknown, context: string): MoodRecord['score'] {
+  const score = parseMoodScore(value);
+  if (score === undefined) {
+    throw new Error(`Invalid mood score for ${context}: ${typeof value === 'string' ? JSON.stringify(value) : String(value)}`);
+  }
+  return score;
+}
+
+/**
+ * A tombstone is stale when the note was recreated after the deletion, when the
+ * deletion timestamp is unusable, or when it outlived the tombstone TTL.
+ */
+function isTombstoneStale(tombstone: MoodTombstone, fileCtime: number | undefined, now = Date.now(), maxAgeMs = MOOD_TOMBSTONE_TTL_MS): boolean {
+  const deletedAt = Date.parse(String(tombstone?.deletedAt ?? ''));
+  if (!Number.isFinite(deletedAt)) return true;
+  if (fileCtime !== undefined && Number.isFinite(fileCtime) && deletedAt < fileCtime) return true;
+  return now - deletedAt > maxAgeMs;
+}
+
+function fileCtimeOf(file: unknown): number | undefined {
+  const ctime = Number((file as { stat?: { ctime?: unknown } } | undefined)?.stat?.ctime);
+  return Number.isFinite(ctime) ? ctime : undefined;
+}
+
+/** Drop tombstones past the TTL. Mutates the freshly migrated metadata in place. */
+function pruneStaleTombstones(metadata: MoodMetadata, now: number, maxAgeMs = MOOD_TOMBSTONE_TTL_MS): MoodMetadata {
+  const tombstones = (metadata as MoodMetadataWithTombstones).tombstones;
+  if (!tombstones) return metadata;
+  for (const [path, tombstone] of Object.entries(tombstones)) {
+    if (isTombstoneStale(tombstone, undefined, now, maxAgeMs)) delete tombstones[path];
+  }
+  return metadata;
+}
+
+function isConflictError(error: unknown): boolean {
+  return error instanceof Error && /conflict/iu.test(error.message);
 }
 
 export function normalizeMoodLabels(value: unknown): string[] {
@@ -198,50 +265,67 @@ export function validateMoodMetadata(value: unknown): MoodIntegrityReport {
   const invalidRecords: string[] = [];
   const invalidOrphans: string[] = [];
   const invalidMetadata: string[] = [];
+  const warnings: string[] = [];
+  const finish = (readable: boolean, futureSchema: boolean): MoodIntegrityReport => ({
+    valid: readable && invalidRecords.length === 0 && invalidOrphans.length === 0 && invalidMetadata.length === 0,
+    readable,
+    futureSchema,
+    invalidRecords,
+    invalidOrphans,
+    invalidMetadata,
+    missingFiles: [],
+    backupAvailable: false,
+    warnings,
+  });
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     invalidMetadata.push('metadata');
-    return { valid: false, invalidRecords, invalidOrphans, invalidMetadata, missingFiles: [], backupAvailable: false };
+    return finish(false, false);
   }
 
   const raw = value as Record<string, unknown>;
-  if (raw.schemaVersion !== undefined && raw.schemaVersion !== 1 && raw.schemaVersion !== MOOD_SCHEMA_VERSION) invalidMetadata.push('schemaVersion');
+  const schemaVersion = raw.schemaVersion === undefined
+    ? MOOD_SCHEMA_VERSION
+    : Number(raw.schemaVersion);
+  if (!Number.isFinite(schemaVersion)) invalidMetadata.push('schemaVersion');
+  const futureSchema = Number.isFinite(schemaVersion) && schemaVersion > MOOD_SCHEMA_VERSION;
+  if (futureSchema) {
+    warnings.push(`Mood metadata schema ${schemaVersion} is newer than supported schema ${MOOD_SCHEMA_VERSION}; writes are disabled until the plugin is upgraded`);
+  } else if (Number.isFinite(schemaVersion) && schemaVersion !== LEGACY_MOOD_SCHEMA_VERSION && schemaVersion !== MOOD_SCHEMA_VERSION) {
+    warnings.push(`Unknown mood metadata schema ${schemaVersion}; normalized as schema ${MOOD_SCHEMA_VERSION}`);
+  }
   if (!raw.entries || typeof raw.entries !== 'object' || Array.isArray(raw.entries)) {
     invalidMetadata.push('entries');
   } else {
     const normalizedPaths = new Set<string>();
     for (const [path, record] of Object.entries(raw.entries)) {
       const normalizedPath = normalizeVaultPath(path);
-      if (!normalizedPath || normalizedPaths.has(normalizedPath)) invalidMetadata.push(`entry-path:${path}`);
-      normalizedPaths.add(normalizedPath);
-      if (!validMoodRecord(record)) invalidRecords.push(path);
+      const duplicate = normalizedPath ? normalizedPaths.has(normalizedPath) : false;
+      if (normalizedPath) normalizedPaths.add(normalizedPath);
+      if (!normalizedPath || duplicate || !validMoodRecord(record)) invalidRecords.push(path);
     }
   }
   if (raw.orphans !== undefined && (!raw.orphans || typeof raw.orphans !== 'object' || Array.isArray(raw.orphans))) {
     invalidMetadata.push('orphans');
   } else if (raw.orphans && typeof raw.orphans === 'object') {
-    for (const [path, value] of Object.entries(raw.orphans)) {
-      const orphan = value && typeof value === 'object' ? value as Record<string, unknown> : {};
+    for (const [path, orphanValue] of Object.entries(raw.orphans)) {
+      const orphan = orphanValue && typeof orphanValue === 'object' ? orphanValue as Record<string, unknown> : {};
       if (!normalizeVaultPath(path) || !validMoodRecord(orphan.record) || typeof orphan.orphanedAt !== 'string') invalidOrphans.push(path);
     }
   }
   if (raw.tombstones !== undefined && (!raw.tombstones || typeof raw.tombstones !== 'object' || Array.isArray(raw.tombstones))) {
     invalidMetadata.push('tombstones');
   } else if (raw.tombstones && typeof raw.tombstones === 'object') {
-    for (const [path, value] of Object.entries(raw.tombstones)) {
-      const tombstone = value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
+    for (const [path, tombstoneValue] of Object.entries(raw.tombstones)) {
+      const tombstone = tombstoneValue && typeof tombstoneValue === 'object' && !Array.isArray(tombstoneValue) ? tombstoneValue as Record<string, unknown> : {};
       if (!normalizeVaultPath(path) || typeof tombstone.deletedAt !== 'string' || !tombstone.deletedAt.trim()) {
         invalidMetadata.push(`tombstone:${path}`);
       }
     }
   }
-  return {
-    valid: invalidRecords.length === 0 && invalidOrphans.length === 0 && invalidMetadata.length === 0,
-    invalidRecords,
-    invalidOrphans,
-    invalidMetadata,
-    missingFiles: [],
-    backupAvailable: false,
-  };
+  for (const path of invalidRecords) warnings.push(`Skipped invalid mood record: ${path}`);
+  for (const path of invalidOrphans) warnings.push(`Skipped invalid mood orphan: ${path}`);
+  // A future schema stays readable on purpose: it is opened read-only so the newer file is never overwritten.
+  return finish(invalidMetadata.length === 0 || futureSchema, futureSchema);
 }
 
 function normalizeMetadata(value: unknown): MoodMetadata {
@@ -264,14 +348,45 @@ function sameValue(a: unknown, b: unknown): boolean {
     && keys.every((key) => Object.hasOwn(right, key) && sameValue(left[key], right[key]));
 }
 
+function recordUpdatedAt(value: unknown): number | undefined {
+  if (!value || typeof value !== 'object') return undefined;
+  const updatedAt = (value as { updatedAt?: unknown }).updatedAt;
+  if (typeof updatedAt !== 'string') return undefined;
+  const parsed = Date.parse(updatedAt);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+/** True only when the remote record carries a strictly newer, parseable `updatedAt`. */
+function isRemoteRecordNewer(local: unknown, remote: unknown): boolean {
+  const localAt = recordUpdatedAt(local);
+  const remoteAt = recordUpdatedAt(remote);
+  if (localAt === undefined || remoteAt === undefined) return false;
+  return remoteAt > localAt;
+}
+
 /** Apply local changes to the latest disk snapshot, rejecting overlapping edits. */
-function mergeMetadata(base: MoodMetadata, local: MoodMetadata, remote: MoodMetadata): MoodMetadata {
+function mergeMetadata(base: MoodMetadata, local: MoodMetadata, remote: MoodMetadata, options: MoodMergeOptions = {}): MoodMetadata {
+  for (const [path, record] of Object.entries(local.entries)) {
+    if (!isScore(record?.score)) throw new Error(`Invalid mood score for ${path}: ${String(record?.score)}`);
+  }
+  for (const [path, orphan] of Object.entries(local.orphans ?? {})) {
+    if (!isScore(orphan?.record?.score)) throw new Error(`Invalid mood score for ${path}: ${String(orphan?.record?.score)}`);
+  }
   const result = cloneUnknown(remote);
+  const overwritePath = options.overwritePath;
   const mergeMap = (before: Record<string, unknown>, after: Record<string, unknown>, disk: Record<string, unknown>, label: string) => {
     const merged = cloneUnknown(disk);
-    for (const key of new Set([...Object.keys(before), ...Object.keys(after)])) {
-      if (sameValue(before[key], after[key])) continue;
-      if (!sameValue(before[key], disk[key])) throw new Error(`Mood metadata conflict: ${label}${key}`);
+    const keys = new Set([...Object.keys(before), ...Object.keys(after)]);
+    if (overwritePath !== undefined) keys.add(overwritePath);
+    for (const key of keys) {
+      const isOverwriteKey = key === overwritePath;
+      if (!isOverwriteKey && sameValue(before[key], after[key])) continue;
+      if (isOverwriteKey) {
+        // Explicit overwrite: the newer record wins, everything else follows local intent.
+        if (isRemoteRecordNewer(after[key], disk[key])) continue;
+      } else if (!sameValue(before[key], disk[key])) {
+        throw new Error(`Mood metadata conflict: ${label}${key}`);
+      }
       if (Object.hasOwn(after, key)) Object.defineProperty(merged, key, { value: cloneUnknown(after[key]), enumerable: true, configurable: true, writable: true });
       else delete merged[key];
     }
@@ -299,6 +414,10 @@ export class MoodStore {
   private loaded = false;
   private loadError: Error | undefined;
   private recoveredFromBackup = false;
+  private readOnlyMode = false;
+  private readOnlySchemaVersion: number | undefined;
+  private warnings: string[] = [];
+  private mirrorMoodToFrontmatter = false;
   private primaryRaw: string | null = null;
   private generation = 0;
   private writeQueue: Promise<void> = Promise.resolve();
@@ -317,13 +436,27 @@ export class MoodStore {
       this.loaded = false;
       this.loadError = undefined;
       this.recoveredFromBackup = false;
+      this.readOnlyMode = false;
+      this.readOnlySchemaVersion = undefined;
+      this.warnings = [];
       this.mirrorFailures.clear();
     }
+    if (settings.mirrorMoodToFrontmatter !== undefined) this.mirrorMoodToFrontmatter = settings.mirrorMoodToFrontmatter;
     this.path = nextPath;
   }
 
   get metadataPath(): string {
     return this.path;
+  }
+
+  /** True while the metadata file uses a newer schema; every write is refused until the plugin is upgraded. */
+  get readOnly(): boolean {
+    return this.readOnlyMode;
+  }
+
+  /** Problems collected by the last read, such as invalid records that were skipped. */
+  getWarnings(): string[] {
+    return [...this.warnings];
   }
 
   async load(): Promise<void> {
@@ -335,6 +468,9 @@ export class MoodStore {
     this.loaded = false;
     this.loadError = undefined;
     this.recoveredFromBackup = false;
+    this.readOnlyMode = false;
+    this.readOnlySchemaVersion = undefined;
+    this.warnings = [];
     let raw: string | null = null;
     try {
       raw = await this.readPrimary(context.path);
@@ -346,9 +482,22 @@ export class MoodStore {
       }
       const parsed = raw === null ? emptyMetadata() : JSON.parse(raw);
       const validation = validateMoodMetadata(parsed);
-      if (!validation.valid) throw new Error(`Invalid mood metadata: ${formatValidation(validation)}`);
+      if (!validation.readable) throw new Error(`Invalid mood metadata: ${formatValidation(validation)}`);
       const migration = migrateMoodMetadata(parsed);
-      const serialized = JSON.stringify(migration.metadata, null, 2);
+      this.warnings = Array.from(new Set([...validation.warnings, ...migration.warnings]));
+      // Read-only mode must not rewrite the newer file, so only prune tombstones when the file is writable.
+      const metadata = validation.futureSchema
+        ? migration.metadata
+        : pruneStaleTombstones(migration.metadata, Date.now());
+      if (validation.futureSchema) {
+        this.readOnlyMode = true;
+        this.readOnlySchemaVersion = migration.fromVersion;
+        this.data = metadata;
+        this.primaryRaw = raw;
+        this.loaded = true;
+        return;
+      }
+      const serialized = JSON.stringify(metadata, null, 2);
       if (raw !== null && (migration.migrated || serialized !== JSON.stringify(parsed, null, 2))) {
         try {
           await this.writeJsonAtomically(context.path, serialized, () => this.verifyPrimary(context, raw));
@@ -360,7 +509,7 @@ export class MoodStore {
         }
       }
       this.assertContext(context);
-      this.data = migration.metadata;
+      this.data = metadata;
       this.primaryRaw = raw;
       this.loaded = true;
     } catch (error) {
@@ -372,6 +521,9 @@ export class MoodStore {
         this.loaded = true;
         this.recoveredFromBackup = true;
         this.primaryRaw = raw;
+        // Preserve the damaged primary before the backup content replaces it.
+        if (raw !== null) await this.saveCorruptCopy(context, raw);
+        this.assertContext(context);
         try {
           // Repair the primary file while keeping the known-good .bak intact.
           const content = JSON.stringify(restored, null, 2);
@@ -392,6 +544,16 @@ export class MoodStore {
       this.loaded = true;
       this.loadError = error instanceof Error ? error : new Error(String(error));
     }
+  }
+
+  /** Re-read the metadata file after an external change, refresh state, and notify listeners. */
+  async reloadFromDisk(): Promise<void> {
+    return this.enqueue(async (context) => {
+      const previous = this.data;
+      await this.loadState(context);
+      this.assertContext(context);
+      this.emitChanged(previous, this.data);
+    });
   }
 
   get(path: string): MoodRecord | undefined {
@@ -445,20 +607,21 @@ export class MoodStore {
     return this.attemptMirror(key, failure.operation, record);
   }
 
-  async set(path: string, score: MoodRecord['score'], labels: string[], settingsOrNote: MoodStoreSettings | string | null = {}, note?: string | null): Promise<MoodRecord> {
+  async set(path: string, score: unknown, labels: string[], settingsOrNote: MoodStoreSettings | string | null = {}, note?: string | null): Promise<MoodRecord> {
     const settings: MoodStoreSettings = settingsOrNote && typeof settingsOrNote === 'object' ? settingsOrNote : {};
     if (typeof settingsOrNote === 'string' || settingsOrNote === null) note = settingsOrNote;
     if (note === undefined && settingsOrNote && typeof settingsOrNote === 'object' && 'note' in settingsOrNote) {
       note = (settingsOrNote as MoodStoreSettings & { note?: string | null }).note;
     }
     const normalizedPath = normalizeVaultPath(path);
+    const parsedScore = requireMoodScore(score, normalizedPath);
     let record!: MoodRecord;
     await this.mutate((data) => {
       const previous = data.entries[normalizedPath];
       const now = new Date().toISOString();
       record = normalizeRecord({
         ...(previous ? cloneUnknown(previous) : {}),
-        score,
+        score: parsedScore,
         labels: normalizeMoodLabels(labels),
         ...(note === undefined ? (previous?.note === undefined ? {} : { note: previous.note }) : { note: note === null ? null : String(note) }),
         recordedAt: previous?.recordedAt ?? now,
@@ -468,10 +631,12 @@ export class MoodStore {
       data.customLabels = normalizeCustomLabels([...(data.customLabels ?? []), ...record.labels]);
       if (data.orphans) delete data.orphans[normalizedPath];
       delete (data as MoodMetadataWithTombstones).tombstones?.[normalizedPath];
-    });
-    this.emit(normalizedPath, record);
-    if (settings.mirrorMoodToFrontmatter) await this.attemptMirror(normalizedPath, 'write', record);
-    return record;
+    }, { overwritePath: normalizedPath });
+    // Last-writer-wins may have kept a newer external record; publish what is actually stored.
+    const effective = this.data.entries[normalizedPath] ?? record;
+    this.emit(normalizedPath, effective);
+    if (settings.mirrorMoodToFrontmatter || this.mirrorMoodToFrontmatter) await this.attemptMirror(normalizedPath, 'write', effective);
+    return effective;
   }
 
   async rename(oldPath: string, newPath: string): Promise<void> {
@@ -515,9 +680,18 @@ export class MoodStore {
   async deleteRecord(path: string, preserveRecovery = true, fallbackRecord?: MoodRecord): Promise<MoodRecord | undefined> {
     const key = normalizeVaultPath(path);
     let record: MoodRecord | undefined;
+    let fromFrontmatter = false;
     await this.mutate((data) => {
-      record = data.entries[key]
-        || (fallbackRecord && validMoodRecord(fallbackRecord) ? normalizeRecord(cloneUnknown(fallbackRecord)) : undefined);
+      const stored = data.entries[key];
+      if (stored) {
+        record = stored;
+      } else if (fallbackRecord) {
+        const candidate = normalizeRecord({ ...cloneUnknown(fallbackRecord), score: requireMoodScore(fallbackRecord.score, key) });
+        if (validMoodRecord(candidate)) {
+          record = candidate;
+          fromFrontmatter = true;
+        }
+      }
       if (preserveRecovery) {
         if (record) {
           data.orphans ??= {};
@@ -531,7 +705,8 @@ export class MoodStore {
       (data as MoodMetadataWithTombstones).tombstones![key] = { deletedAt: new Date().toISOString() };
     });
     this.emit(key, undefined);
-    await this.attemptMirror(key, 'delete');
+    // Only touch note frontmatter when the store owns it, or the mood came from frontmatter itself.
+    if (this.mirrorMoodToFrontmatter || fromFrontmatter) await this.attemptMirror(key, 'delete', record);
     return record;
   }
 
@@ -557,8 +732,9 @@ export class MoodStore {
       if (data.entries[destination] && !options.replace) {
         throw new Error(`Mood restore target already has a record: ${destination}`);
       }
-      record = source.record;
-      data.entries[destination] = source.record;
+      const restored = normalizeRecord({ ...cloneUnknown(source.record), score: requireMoodScore(source.record?.score, sourceKey) });
+      record = restored;
+      data.entries[destination] = restored;
       delete data.orphans?.[sourceKey];
       delete (data as MoodMetadataWithTombstones).tombstones?.[destination];
     });
@@ -566,13 +742,52 @@ export class MoodStore {
     return record;
   }
 
+  /**
+   * Drop the delete tombstone for `path` when it is stale, so a note recreated at
+   * the same path can expose its frontmatter mood again. `fileCtime` is the
+   * Obsidian `TFile.stat.ctime` in milliseconds; when omitted it is read from the
+   * vault. Returns true when a tombstone was removed.
+   */
+  async clearStaleTombstone(path: string, fileCtime?: number): Promise<boolean> {
+    const key = normalizeVaultPath(path);
+    const tombstone = (this.data as MoodMetadataWithTombstones).tombstones?.[key];
+    if (!tombstone) return false;
+    const ctime = fileCtime ?? this.vaultFileCtime(key);
+    if (!isTombstoneStale(tombstone, ctime)) return false;
+    await this.mutate((data) => {
+      delete (data as MoodMetadataWithTombstones).tombstones?.[key];
+    });
+    this.emit(key, this.data.entries[key]);
+    return true;
+  }
+
+  /** Remove delete tombstones older than `maxAgeMs`; returns how many were dropped. */
+  async pruneTombstones(maxAgeMs = MOOD_TOMBSTONE_TTL_MS): Promise<number> {
+    let removed = 0;
+    await this.mutate((data) => {
+      const tombstones = (data as MoodMetadataWithTombstones).tombstones;
+      if (!tombstones) return;
+      for (const [path, tombstone] of Object.entries(tombstones)) {
+        if (isTombstoneStale(tombstone, undefined, Date.now(), maxAgeMs)) {
+          delete tombstones[path];
+          removed++;
+        }
+      }
+    });
+    return removed;
+  }
+
   async importFrontmatter(filePaths: string[], metadataCache: any): Promise<number> {
     let imported = 0;
     await this.mutate((data) => {
+      const tombstones = (data as MoodMetadataWithTombstones).tombstones ?? {};
       for (const rawPath of filePaths) {
         const path = normalizeVaultPath(rawPath);
-        if (data.entries[path] || Object.hasOwn((data as MoodMetadataWithTombstones).tombstones ?? {}, path)) continue;
+        if (!path || data.entries[path]) continue;
         const file = this.app.vault.getAbstractFileByPath(path);
+        const tombstone = tombstones[path];
+        // A stale tombstone must not hide the mood of a note recreated at this path.
+        if (tombstone && !isTombstoneStale(tombstone, fileCtimeOf(file))) continue;
         const frontmatter = metadataCache.getFileCache(file)?.frontmatter ?? {};
         const score = parseMoodScore(frontmatter.mood);
         if (score === undefined) continue;
@@ -591,6 +806,7 @@ export class MoodStore {
           updatedAt: now,
         });
         data.customLabels = normalizeCustomLabels([...(data.customLabels ?? []), ...labels]);
+        if (tombstone) delete tombstones[path];
         imported++;
       }
     });
@@ -660,8 +876,10 @@ export class MoodStore {
     const invalidOrphans: string[] = [];
     const invalidMetadata: string[] = [];
     const missingFiles: string[] = [];
+    const warnings: string[] = [];
     let backupAvailable = false;
     let primaryExists = false;
+    let futureSchema = false;
     const pathsToCheck = new Set(Object.keys(this.data.entries));
     try {
       primaryExists = await this.adapter().exists(this.path);
@@ -671,6 +889,8 @@ export class MoodStore {
         invalidRecords.push(...result.invalidRecords);
         invalidOrphans.push(...result.invalidOrphans);
         invalidMetadata.push(...result.invalidMetadata);
+        warnings.push(...result.warnings);
+        futureSchema = result.futureSchema;
         if (raw?.entries && typeof raw.entries === 'object' && !Array.isArray(raw.entries)) {
           for (const [path, record] of Object.entries(raw.entries)) {
             if (validMoodRecord(record)) pathsToCheck.add(normalizeVaultPath(path));
@@ -703,11 +923,14 @@ export class MoodStore {
     }
     return {
       valid: invalidRecords.length === 0 && invalidOrphans.length === 0 && invalidMetadata.length === 0 && missingFiles.length === 0,
+      readable: invalidMetadata.length === 0 || futureSchema,
+      futureSchema,
       invalidRecords,
       invalidOrphans,
       invalidMetadata,
       missingFiles,
       backupAvailable,
+      warnings,
     };
   }
 
@@ -715,11 +938,12 @@ export class MoodStore {
     await this.writeQueue;
   }
 
-  private async mutate(mutator: (data: MoodMetadata) => void | MoodMetadata): Promise<void> {
+  private async mutate(mutator: (data: MoodMetadata) => void | MoodMetadata, options: MoodMutateOptions = {}): Promise<void> {
     return this.enqueue(async (context) => {
       if (!this.loaded) await this.loadState(context);
       this.assertContext(context);
       if (this.loadError) throw this.loadError;
+      if (this.readOnlyMode) throw this.readOnlyError();
       if (this.recoveredFromBackup) {
         await this.verifyPrimary(context, this.primaryRaw);
         const content = JSON.stringify(this.data, null, 2);
@@ -733,19 +957,92 @@ export class MoodStore {
       const result = mutator(cloned);
       const local = result && typeof result === 'object' && 'entries' in result ? result : cloned;
       if (sameValue(base, local)) return;
+      try {
+        const raw = await this.readPrimary(context.path);
+        this.assertContext(context);
+        if (raw === null && this.primaryRaw !== null) throw new Error('Mood metadata conflict: primary file was removed');
+        const parsed = raw === null ? emptyMetadata() : JSON.parse(raw);
+        const validation = validateMoodMetadata(parsed);
+        if (!validation.readable) throw new Error(`Invalid mood metadata: ${formatValidation(validation)}`);
+        if (validation.futureSchema) {
+          this.readOnlyMode = true;
+          this.readOnlySchemaVersion = undefined;
+          this.warnings = validation.warnings;
+          throw this.readOnlyError();
+        }
+        const remote = normalizeMetadata(parsed);
+        const next = mergeMetadata(base, local, remote, options);
+        if (!sameValue(next, remote)) {
+          const content = JSON.stringify(next, null, 2);
+          await this.writeJsonAtomically(context.path, content, () => this.verifyPrimary(context, raw));
+          this.assertContext(context);
+          this.primaryRaw = content;
+        }
+        this.data = next;
+      } catch (error) {
+        // A conflict leaves the merge base stale; refresh it so the next write can proceed.
+        if (isConflictError(error) || error instanceof MoodMetadataReadOnlyError) await this.refreshFromDisk(context);
+        throw error;
+      }
+    });
+  }
+
+  /** Re-read the disk snapshot without throwing, so conflict recovery cannot mask the original error. */
+  private async refreshFromDisk(context: StoreContext): Promise<void> {
+    try {
+      this.assertContext(context);
       const raw = await this.readPrimary(context.path);
       this.assertContext(context);
-      if (raw === null && this.primaryRaw !== null) throw new Error('Mood metadata conflict: primary file was removed');
-      const parsed = raw === null ? emptyMetadata() : JSON.parse(raw);
+      if (raw === null) return;
+      const parsed = JSON.parse(raw);
       const validation = validateMoodMetadata(parsed);
-      if (!validation.valid) throw new Error(`Invalid mood metadata: ${formatValidation(validation)}`);
-      const next = mergeMetadata(base, local, normalizeMetadata(parsed));
-      const content = JSON.stringify(next, null, 2);
-      await this.writeJsonAtomically(context.path, content, () => this.verifyPrimary(context, raw));
-      this.assertContext(context);
+      if (!validation.readable) return;
+      const migration = migrateMoodMetadata(parsed);
+      const next = validation.futureSchema
+        ? migration.metadata
+        : pruneStaleTombstones(migration.metadata, Date.now());
+      const previous = this.data;
+      this.readOnlyMode = validation.futureSchema;
+      this.readOnlySchemaVersion = validation.futureSchema ? migration.fromVersion : undefined;
+      this.warnings = Array.from(new Set([...validation.warnings, ...migration.warnings]));
       this.data = next;
-      this.primaryRaw = content;
-    });
+      this.primaryRaw = raw;
+      this.loaded = true;
+      this.loadError = undefined;
+      this.emitChanged(previous, next);
+    } catch (error) {
+      console.warn('[Dayline] Mood metadata conflict recovery could not refresh from disk:', error);
+    }
+  }
+
+  private readOnlyError(): MoodMetadataReadOnlyError {
+    return new MoodMetadataReadOnlyError(this.path, this.readOnlySchemaVersion);
+  }
+
+  private emitChanged(previous: MoodMetadata, next: MoodMetadata): void {
+    const keys = new Set<string>([
+      ...Object.keys(previous.entries ?? {}),
+      ...Object.keys(next.entries ?? {}),
+      ...Object.keys((previous as MoodMetadataWithTombstones).tombstones ?? {}),
+      ...Object.keys((next as MoodMetadataWithTombstones).tombstones ?? {}),
+    ]);
+    for (const key of keys) {
+      if (!sameValue(previous.entries?.[key], next.entries?.[key])) this.emit(key, next.entries?.[key]);
+    }
+  }
+
+  private async saveCorruptCopy(context: StoreContext, raw: string): Promise<void> {
+    const stamp = new Date().toISOString().replace(/[:.]/gu, '-');
+    const corruptPath = `${context.path}.corrupt-${stamp}`;
+    try {
+      await this.writeJson(corruptPath, raw);
+    } catch (error) {
+      console.warn(`[Dayline] Damaged mood metadata could not be preserved at ${corruptPath}:`, error);
+    }
+  }
+
+  private vaultFileCtime(path: string): number | undefined {
+    return fileCtimeOf(this.app.vault.getAbstractFileByPath(path));
   }
 
   private enqueue<T>(operation: (context: StoreContext) => Promise<T>): Promise<T> {
@@ -784,10 +1081,20 @@ export class MoodStore {
     });
   }
 
-  private async removeMoodFromFrontmatter(path: string): Promise<void> {
+  /**
+   * Remove mood keys from a note. When the store owns the field (`force`) every
+   * mood key is dropped; otherwise only a frontmatter mood matching the deleted
+   * record is removed, which leaves user-authored values untouched.
+   */
+  private async removeMoodFromFrontmatter(path: string, record?: MoodRecord, force = false): Promise<void> {
     const file = this.app.vault.getAbstractFileByPath(path);
     if (!file || !this.app.fileManager?.processFrontMatter) return;
     await this.app.fileManager.processFrontMatter(file, (frontmatter: Record<string, unknown>) => {
+      if (!force) {
+        const declared = parseMoodScore(frontmatter.mood);
+        if (declared === undefined) return;
+        if (record && declared !== parseMoodScore(record.score)) return;
+      }
       for (const key of Object.keys(frontmatter)) {
         if (MOOD_FRONTMATTER_KEYS.has(key.toLowerCase())) delete frontmatter[key];
       }
@@ -797,7 +1104,7 @@ export class MoodStore {
   private async attemptMirror(path: string, operation: MoodMirrorFailure['operation'], record?: MoodRecord): Promise<boolean> {
     try {
       if (operation === 'write' && record) await this.mirrorToFrontmatter(path, record);
-      else if (operation === 'delete') await this.removeMoodFromFrontmatter(path);
+      else if (operation === 'delete') await this.removeMoodFromFrontmatter(path, record, this.mirrorMoodToFrontmatter);
       if (this.mirrorFailures.delete(path)) this.emitMirrorFailure(undefined);
       return true;
     } catch (error) {
@@ -868,6 +1175,7 @@ export class MoodStore {
   }
 
   private async replaceMetadata(next: MoodMetadata, context: StoreContext): Promise<void> {
+    if (this.readOnlyMode) throw this.readOnlyError();
     // Explicit restore keeps the existing .bak as a recovery point.
     const raw = await this.readPrimary(context.path);
     await this.verifyPrimary(context, raw);

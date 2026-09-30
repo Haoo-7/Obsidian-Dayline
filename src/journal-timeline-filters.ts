@@ -87,8 +87,15 @@ export function journalEntryMatchesMediaFilter(entry: JournalEntry, filter: Jour
   return media.some((item) => item.kind === filter);
 }
 
+/**
+ * The index stores NFKC-normalized, lowercased, whitespace-collapsed text in
+ * `normalizedSearchText`, so it must be reused as-is instead of being normalized
+ * again on every keystroke. Only entries without that index fall back to the raw
+ * body/frontmatter text, which still needs normalization here.
+ */
 function fallbackSearchText(entry: JournalEntry): string {
-  return normalizeJournalText(entry.normalizedSearchText || entry.searchText || buildJournalSearchText({
+  if (entry.normalizedSearchText) return entry.normalizedSearchText;
+  return normalizeJournalText(entry.searchText || buildJournalSearchText({
     path: entry.path,
     title: entry.title,
     excerpt: entry.excerpt,
@@ -115,8 +122,12 @@ export function journalEntryMatchesFilter(entry: JournalEntry, filter: JournalFi
   if (filter.media && !journalEntryMatchesMediaFilter(entry, filter.media)) return false;
   if (filter.location && locationFilterKey(entry.location) !== filter.location) return false;
   if (filter.tag && !(entry.tags || []).some((tag) => normalizeJournalTag(tag) === normalizeJournalTag(filter.tag))) return false;
-  const query = normalizeJournalText(filter.query);
-  if (query && !fallbackSearchText(entry).includes(query)) return false;
+  // Normalizing collapses runs of whitespace, so one space is a safe separator.
+  const queryTerms = normalizeJournalText(filter.query).split(' ').filter(Boolean);
+  if (queryTerms.length > 0) {
+    const text = fallbackSearchText(entry);
+    if (!queryTerms.every((term) => text.includes(term))) return false;
+  }
   return true;
 }
 

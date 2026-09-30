@@ -1,6 +1,7 @@
 import type { JournalEntry } from './types';
 import { buildMoodReports, type MoodLabelTrendSummary, type MoodPeriodReport } from './mood-reports';
 import { resolveWeekStart } from './i18n';
+import { getTodayDate } from './date-utils';
 
 export interface JournalStats {
   currentStreak: number;
@@ -32,6 +33,13 @@ export interface JournalMoodTrendPoint {
   score?: number;
 }
 
+/** Settings that shape date bucketing, matching the plugin's settings object. */
+export interface JournalStatsSettings {
+  weekStart?: string;
+  /** IANA timezone from the weather settings; `auto` follows the host clock. */
+  weatherTimezone?: string;
+}
+
 function dateOnly(value: Date): string {
   return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`;
 }
@@ -40,10 +48,6 @@ function shiftDate(date: string, days: number): string {
   const value = new Date(`${date}T12:00:00`);
   value.setDate(value.getDate() + days);
   return dateOnly(value);
-}
-
-function daysInMonth(date: Date): number {
-  return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
 }
 
 function uniqueDates(entries: JournalEntry[]): string[] {
@@ -59,7 +63,12 @@ function periodKey(date: string, period: 'month' | 'quarter' | 'year'): string {
 }
 
 /** Build one mood slot for each natural day in the recent seven-day window. */
-export function buildRecentMoodTrend(entries: JournalEntry[], today = new Date(), days = 7): JournalMoodTrendPoint[] {
+export function buildRecentMoodTrend(
+  entries: JournalEntry[],
+  today = new Date(),
+  days = 7,
+  timezone = 'auto',
+): JournalMoodTrendPoint[] {
   const count = Math.max(0, Math.floor(days));
   const moodByDate = new Map<string, number>();
   const moodEntries = entries
@@ -69,7 +78,7 @@ export function buildRecentMoodTrend(entries: JournalEntry[], today = new Date()
       || String(a.mood?.updatedAt || '').localeCompare(String(b.mood?.updatedAt || ''))
       || a.path.localeCompare(b.path));
   for (const entry of moodEntries) moodByDate.set(entry.date, entry.mood!.score);
-  const start = shiftDate(dateOnly(today), -(count - 1));
+  const start = shiftDate(getTodayDate(timezone, today), -(count - 1));
   return Array.from({ length: count }, (_, index) => {
     const date = shiftDate(start, index);
     return { date, score: moodByDate.get(date) };
@@ -103,11 +112,18 @@ export function aggregateJournalPeriods(entries: JournalEntry[], period: 'month'
   }));
 }
 
-export function calculateJournalStats(entries: JournalEntry[], today = new Date(), settings: { weekStart?: string } = {}): JournalStats {
+export function calculateJournalStats(
+  entries: JournalEntry[],
+  today = new Date(),
+  settings: JournalStatsSettings = {},
+): JournalStats {
+  // "Today" must come from the configured timezone, not the host clock, so the
+  // streak and month figures agree with the dates the calendar and weather use.
+  const todayString = getTodayDate(settings.weatherTimezone || 'auto', today);
   const dates = uniqueDates(entries);
   const dateSet = new Set(dates);
   let currentStreak = 0;
-  let cursor = dateOnly(today);
+  let cursor = todayString;
   if (!dateSet.has(cursor)) cursor = shiftDate(cursor, -1);
   while (dateSet.has(cursor)) {
     currentStreak++;
@@ -123,10 +139,12 @@ export function calculateJournalStats(entries: JournalEntry[], today = new Date(
     previous = date;
   }
 
-  const monthPrefix = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
-  const todayString = dateOnly(today);
+  const monthPrefix = todayString.slice(0, 7);
   const recordedThisMonth = dates.filter((date) => date.startsWith(monthPrefix) && date <= todayString).length;
-  const monthCompletionRate = Math.round((recordedThisMonth / daysInMonth(today)) * 100);
+  // Divide by the days elapsed so far, not the whole month: writing on the 1st,
+  // 2nd, and 3rd is a complete month-to-date record, not 10%.
+  const elapsedDaysThisMonth = Number(todayString.slice(8, 10)) || 1;
+  const monthCompletionRate = Math.round((recordedThisMonth / elapsedDaysThisMonth) * 100);
   const moodDistribution: Record<string, number> = {};
   const labelCounts: Record<string, number> = {};
   for (const entry of entries) {

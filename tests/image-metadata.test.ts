@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MAX_HEIC_TIFF_SCAN_BYTES, parseImageExif } from '../src/image-metadata';
+import { MAX_HEIC_TIFF_SCAN_BYTES, formatExifForDisplay, parseImageExif } from '../src/image-metadata';
 
 function jpegWithTiff(tiff: Uint8Array): ArrayBuffer {
   const payload = new Uint8Array(6 + tiff.byteLength);
@@ -166,5 +166,293 @@ describe('image metadata parser hardening', () => {
     late.setUint16(0, 0x4949, false);
     late.setUint16(2, 42, true);
     expect(parseImageExif(oversized.buffer)).toBeNull();
+  });
+});
+
+/** Minimal little-endian TIFF whose IFD0 carries only the camera Make tag. */
+function tiffWithMake(make: string): Uint8Array {
+  const count = make.length + 1;
+  const tiff = new Uint8Array(Math.max(26, 18 + count));
+  const view = new DataView(tiff.buffer);
+  view.setUint16(0, 0x4949, false);
+  view.setUint16(2, 42, true);
+  view.setUint32(4, 8, true);
+  view.setUint16(8, 1, true);
+  view.setUint16(10, 0x010f, true);
+  view.setUint16(12, 2, true);
+  view.setUint32(14, count, true);
+  for (let index = 0; index < make.length; index++) tiff[18 + index] = make.charCodeAt(index);
+  return tiff;
+}
+
+function unsignedRationals(pairs: [number, number][]): Uint8Array {
+  const bytes = new Uint8Array(pairs.length * 8);
+  const view = new DataView(bytes.buffer);
+  pairs.forEach(([numerator, denominator], index) => {
+    view.setUint32(index * 8, numerator, true);
+    view.setUint32(index * 8 + 4, denominator, true);
+  });
+  return bytes;
+}
+
+/** TIFF with an EXIF GPS IFD. Omitting a Ref mirrors a camera without a fix. */
+function gpsTiff(spec: {
+  lat: [number, number][];
+  lon: [number, number][];
+  latRef?: string;
+  lonRef?: string;
+}): Uint8Array {
+  const entries: { tag: number; type: number; count: number; inline?: number; data?: Uint8Array }[] = [];
+  if (spec.latRef) entries.push({ tag: 1, type: 2, count: 2, inline: spec.latRef.charCodeAt(0) });
+  entries.push({ tag: 2, type: 5, count: 3, data: unsignedRationals(spec.lat) });
+  if (spec.lonRef) entries.push({ tag: 3, type: 2, count: 2, inline: spec.lonRef.charCodeAt(0) });
+  entries.push({ tag: 4, type: 5, count: 3, data: unsignedRationals(spec.lon) });
+
+  const gpsIfdOffset = 26;
+  const gpsIfdSize = 2 + entries.length * 12 + 4;
+  let dataOffset = gpsIfdOffset + gpsIfdSize;
+  const total = dataOffset + entries.reduce((sum, entry) => sum + (entry.data?.byteLength || 0), 0);
+  const bytes = new Uint8Array(total);
+  const view = new DataView(bytes.buffer);
+  view.setUint16(0, 0x4949, false);
+  view.setUint16(2, 42, true);
+  view.setUint32(4, 8, true);
+  view.setUint16(8, 1, true);
+  view.setUint16(10, 0x8825, true);
+  view.setUint16(12, 4, true);
+  view.setUint32(14, 1, true);
+  view.setUint32(18, gpsIfdOffset, true);
+  view.setUint32(22, 0, true);
+  view.setUint16(gpsIfdOffset, entries.length, true);
+  entries.forEach((entry, index) => {
+    const at = gpsIfdOffset + 2 + index * 12;
+    view.setUint16(at, entry.tag, true);
+    view.setUint16(at + 2, entry.type, true);
+    view.setUint32(at + 4, entry.count, true);
+    if (entry.data) {
+      view.setUint32(at + 8, dataOffset, true);
+      bytes.set(entry.data, dataOffset);
+      dataOffset += entry.data.byteLength;
+    } else {
+      bytes[at + 8] = entry.inline as number;
+    }
+  });
+  view.setUint32(gpsIfdOffset + 2 + entries.length * 12, 0, true);
+  return bytes;
+}
+
+function isobmffBox(type: string, payload: Uint8Array): Uint8Array {
+  const box = new Uint8Array(8 + payload.byteLength);
+  new DataView(box.buffer).setUint32(0, box.byteLength, false);
+  for (let index = 0; index < 4; index++) box[4 + index] = type.charCodeAt(index);
+  box.set(payload, 8);
+  return box;
+}
+
+function concatBytes(parts: Uint8Array[]): Uint8Array {
+  const total = parts.reduce((sum, part) => sum + part.byteLength, 0);
+  const bytes = new Uint8Array(total);
+  let offset = 0;
+  for (const part of parts) {
+    bytes.set(part, offset);
+    offset += part.byteLength;
+  }
+  return bytes;
+}
+
+/** `infe` (version 2) entry naming an `Exif` item. */
+function infeExif(itemId: number): Uint8Array {
+  const payload = new Uint8Array(13);
+  const view = new DataView(payload.buffer);
+  view.setUint8(0, 2);
+  view.setUint16(4, itemId);
+  view.setUint16(6, 0);
+  payload.set([0x45, 0x78, 0x69, 0x66], 8); // "Exif"
+  return isobmffBox('infe', payload);
+}
+
+/** `iinf` (version 0) listing the given `infe` entries. */
+function iinfWith(...entries: Uint8Array[]): Uint8Array {
+  const payload = new Uint8Array(6);
+  new DataView(payload.buffer).setUint16(4, entries.length, false);
+  return isobmffBox('iinf', concatBytes([payload, ...entries]));
+}
+
+/** `iloc` (version 0) with one extent using 4-byte offset/length fields. */
+function ilocWith(itemId: number, offset: number, length: number): Uint8Array {
+  const payload = new Uint8Array(22);
+  const view = new DataView(payload.buffer);
+  view.setUint8(0, 0); // version
+  view.setUint8(4, 0x44); // offset_size 4, length_size 4
+  view.setUint8(5, 0x00); // base_offset_size 0
+  view.setUint16(6, 1); // item_count
+  view.setUint16(8, itemId);
+  view.setUint16(10, 0); // data_reference_index
+  view.setUint16(12, 1); // extent_count
+  view.setUint32(14, offset);
+  view.setUint32(18, length);
+  return isobmffBox('iloc', payload);
+}
+
+/** `iloc` (version 1) with a construction_method field, as some writers emit. */
+function ilocV1With(itemId: number, offset: number, length: number): Uint8Array {
+  const payload = new Uint8Array(24);
+  const view = new DataView(payload.buffer);
+  view.setUint8(0, 1); // version 1
+  view.setUint8(4, 0x44); // offset_size 4, length_size 4
+  view.setUint8(5, 0x00); // base_offset_size 0, index_size 0
+  view.setUint16(6, 1); // item_count
+  view.setUint16(8, itemId);
+  view.setUint16(10, 0); // construction_method 0 (plain file offset)
+  view.setUint16(12, 0); // data_reference_index
+  view.setUint16(14, 1); // extent_count
+  view.setUint32(16, offset);
+  view.setUint32(20, length);
+  return isobmffBox('iloc', payload);
+}
+
+function heicFtyp(): Uint8Array {
+  return isobmffBox('ftyp', new Uint8Array([0x68, 0x65, 0x69, 0x63, 0, 0, 0, 0])); // "heic"
+}
+
+/**
+ * HEIC whose Exif item is declared through `iinf`/`iloc`. `exifHeader` is the
+ * 4-byte `exif_tiff_header_offset` field plus any padding before the TIFF block,
+ * and `decoy` precedes the real item inside `mdat` so a brute-force scan finds
+ * the wrong TIFF header first.
+ */
+function heicWithExifItem(options: {
+  tiff: Uint8Array;
+  tiffHeaderOffset?: number;
+  padding?: number;
+  decoy?: Uint8Array;
+  iloc?: (itemId: number, offset: number, length: number) => Uint8Array;
+}): ArrayBuffer {
+  const iloc = options.iloc || ilocWith;
+  const ftyp = heicFtyp();
+  // The extent offset depends on the meta box size, which does not depend on the
+  // 4-byte offset value itself, so one placeholder pass fixes the layout.
+  const metaSize = isobmffBox('meta', concatBytes([
+    new Uint8Array(4), // version/flags
+    iinfWith(infeExif(1)),
+    iloc(1, 0, 0),
+  ])).byteLength;
+  const decoy = options.decoy || new Uint8Array(0);
+  const exifBlock = new Uint8Array(4 + (options.padding || 0) + options.tiff.byteLength);
+  new DataView(exifBlock.buffer).setUint32(0, options.tiffHeaderOffset || 0, false);
+  exifBlock.set(options.tiff, 4 + (options.padding || 0));
+  const mdatPayload = concatBytes([decoy, exifBlock]);
+  const exifItemOffset = ftyp.byteLength + metaSize + 8 + decoy.byteLength;
+
+  const meta = isobmffBox('meta', concatBytes([
+    new Uint8Array(4),
+    iinfWith(infeExif(1)),
+    iloc(1, exifItemOffset, exifBlock.byteLength),
+  ]));
+  return concatBytes([ftyp, meta, isobmffBox('mdat', mdatPayload)]).buffer as ArrayBuffer;
+}
+
+describe('GPS rational hardening', () => {
+  type GpsRaw = { gpsLatDecimal?: number; gpsLonDecimal?: number };
+  const rawGps = (spec: Parameters<typeof gpsTiff>[0]): GpsRaw | null =>
+    parseImageExif(jpegWithTiff(gpsTiff(spec))) as GpsRaw | null;
+
+  it('returns NaN instead of the numerator when a rational denominator is zero', () => {
+    const raw = rawGps({
+      lat: [[0, 0], [0, 0], [0, 0]],
+      lon: [[0, 0], [0, 0], [0, 0]],
+      latRef: 'N',
+      lonRef: 'E',
+    });
+    expect(raw?.gpsLatDecimal).toBeUndefined();
+    expect(raw?.gpsLonDecimal).toBeUndefined();
+    expect(formatExifForDisplay(raw)).toBeNull();
+  });
+
+  it('discards GPS when a reference is missing or the coordinates are both zero', () => {
+    const missingRefs = rawGps({ lat: [[39, 1], [54, 1], [0, 1]], lon: [[116, 1], [24, 1], [0, 1]] });
+    expect(missingRefs?.gpsLatDecimal).toBeUndefined();
+    expect(missingRefs?.gpsLonDecimal).toBeUndefined();
+
+    const bothZero = rawGps({
+      lat: [[0, 1], [0, 1], [0, 1]],
+      lon: [[0, 1], [0, 1], [0, 1]],
+      latRef: 'N',
+      lonRef: 'E',
+    });
+    expect(bothZero?.gpsLatDecimal).toBeUndefined();
+    expect(bothZero?.gpsLonDecimal).toBeUndefined();
+    expect(formatExifForDisplay(bothZero)).toBeNull();
+  });
+
+  it('keeps a complete fix with both references present', () => {
+    const raw = rawGps({
+      lat: [[39, 1], [54, 1], [0, 1]],
+      lon: [[116, 1], [24, 1], [0, 1]],
+      latRef: 'N',
+      lonRef: 'E',
+    });
+    expect(formatExifForDisplay(raw)).toEqual([{ key: 'exif_gps', value: '39.9000, 116.4000' }]);
+  });
+});
+
+describe('shutter speed formatting', () => {
+  const shutter = (exposureTime: unknown): string | undefined => {
+    const fields = formatExifForDisplay({ exposureTime }) as Array<{ key: string; value: string }> | null;
+    return fields?.find((field) => field.key === 'exif_shutter')?.value;
+  };
+
+  it('shows a decimal shutter instead of a bogus 1/Ns fraction', () => {
+    expect(shutter(0.8)).toBe('0.8s');
+    expect(shutter(0.6)).toBe('0.6s');
+    expect(shutter(0.5)).toBe('0.5s');
+    expect(shutter(2)).toBe('2s');
+    expect(shutter(0.25)).toBe('1/4s');
+    expect(shutter(0.008)).toBe('1/125s');
+  });
+
+  it('omits zero, negative, and non-finite shutter values', () => {
+    expect(shutter(0)).toBeUndefined();
+    expect(shutter(-1)).toBeUndefined();
+    expect(shutter(Number.POSITIVE_INFINITY)).toBeUndefined();
+    expect(shutter(Number.NaN)).toBeUndefined();
+  });
+});
+
+describe('HEIC container scanning', () => {
+  it('rejects inputs shorter than the 12 bytes its header probe reads', () => {
+    for (let length = 0; length < 12; length++) {
+      const bytes = new Uint8Array(length);
+      expect(() => parseImageExif(bytes.buffer)).not.toThrow();
+      expect(parseImageExif(bytes.buffer)).toBeNull();
+    }
+  });
+
+  it('reads the Exif item through iinf/iloc instead of scanning mdat', () => {
+    const buffer = heicWithExifItem({
+      tiff: tiffWithMake('CAM'),
+      decoy: tiffWithMake('BAD'),
+    });
+    expect(parseImageExif(buffer)).toMatchObject({ make: 'CAM' });
+  });
+
+  it('honors the Exif item offset header and skips its 4-byte prefix', () => {
+    const tiff = tiffWithMake('CAM');
+    const buffer = heicWithExifItem({
+      tiff,
+      tiffHeaderOffset: 8,
+      padding: 8,
+      decoy: tiffWithMake('BAD'),
+    });
+    expect(parseImageExif(buffer)).toMatchObject({ make: 'CAM' });
+  });
+
+  it('reads a version 1 iloc with a construction_method field', () => {
+    const buffer = heicWithExifItem({
+      tiff: tiffWithMake('CAM'),
+      decoy: tiffWithMake('BAD'),
+      iloc: ilocV1With,
+    });
+    expect(parseImageExif(buffer)).toMatchObject({ make: 'CAM' });
   });
 });

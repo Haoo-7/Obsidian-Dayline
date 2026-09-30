@@ -12,7 +12,16 @@ const pluginSource = readFileSync(join(process.cwd(), 'src/plugin.ts'), 'utf8');
 const stylesSource = readFileSync(join(process.cwd(), 'styles.css'), 'utf8');
 const quickEntrySource = readFileSync(join(process.cwd(), 'src/mobile-quick-entry.ts'), 'utf8');
 
-function phoneCapabilities(overrides: Record<string, boolean> = {}) {
+type TestCapabilities = {
+  isMobile: boolean;
+  isMobileApp: boolean;
+  isPhone: boolean;
+  isTablet: boolean;
+  isDesktop: boolean;
+  isPhoneLayout?: boolean;
+};
+
+function phoneCapabilities(overrides: Partial<TestCapabilities> = {}): TestCapabilities {
   return {
     isMobile: true,
     isMobileApp: true,
@@ -77,7 +86,7 @@ describe('mobile Markdown quick entry', () => {
 
   it.each([
     ['desktop', { isMobile: false, isMobileApp: false, isPhone: false, isTablet: false, isDesktop: true }],
-    ['tablet app', { isMobile: true, isMobileApp: true, isPhone: false, isTablet: true, isDesktop: false }],
+    ['tablet app', { isMobile: true, isMobileApp: true, isPhone: false, isTablet: true, isPhoneLayout: false, isDesktop: false }],
     ['desktop mobile emulation', { isMobile: true, isMobileApp: false, isPhone: false, isTablet: false, isDesktop: false }],
   ])('does not install the action on %s', (_label, capabilities) => {
     const leaf = markdownLeaf();
@@ -86,6 +95,38 @@ describe('mobile Markdown quick entry', () => {
     controller.sync();
 
     expect(leaf.view.addAction).not.toHaveBeenCalled();
+  });
+
+  /* U-11: `Platform.isPhone` is stale on an iPad in a narrow split, so the
+     live phone-layout predicate must decide instead. */
+  it('installs the action when a tablet reports the live phone layout', () => {
+    const leaf = markdownLeaf();
+    const controller = createMobileMarkdownQuickEntry(pluginFor(leaf, phoneCapabilities({
+      isMobile: true,
+      isMobileApp: true,
+      isPhone: false,
+      isTablet: true,
+      isPhoneLayout: true,
+      isDesktop: false,
+    })));
+
+    controller.sync();
+
+    expect(leaf.view.addAction).toHaveBeenCalledTimes(1);
+    expect(leaf.action?.isConnected).toBe(true);
+  });
+
+  it('removes the action when a phone-sized host grows into the tablet layout', () => {
+    const leaf = markdownLeaf();
+    const capabilities = phoneCapabilities();
+    const controller = createMobileMarkdownQuickEntry(pluginFor(leaf, capabilities));
+    controller.sync();
+    expect(leaf.action?.isConnected).toBe(true);
+
+    capabilities.isPhoneLayout = false;
+    controller.sync();
+
+    expect(leaf.action?.isConnected).toBe(false);
   });
 
   it.each([

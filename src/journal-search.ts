@@ -25,6 +25,14 @@ function normalizeTag(value: unknown): string {
   return tag;
 }
 
+const FRONTMATTER = /^---\r?\n[\s\S]*?\r?\n---(?:\r?\n|$)/;
+const FENCED_BLOCK = /^\s*(```|~~~)[\s\S]*?^\s*\1\s*$/gm;
+
+/** Raw text a fallback tag scan may trust: no frontmatter, no code blocks. */
+function tagScanText(body: string): string {
+  return body.replace(FRONTMATTER, ' ').replace(FENCED_BLOCK, ' ');
+}
+
 function addTag(result: string[], seen: Set<string>, value: unknown): void {
   // YAML commonly stores tags as a comma-separated string. Split only the
   // delimiters used by frontmatter; spaces remain part of a tag value.
@@ -49,15 +57,25 @@ export function parseJournalTags(
     if (!/^tags?$/iu.test(key)) continue;
     for (const item of valuesFromTag(value)) addTag(result, seen, item);
   }
-  for (const item of metadataTags) {
-    if (typeof item === 'string') addTag(result, seen, item);
-    else addTag(result, seen, (item as Record<string, unknown>)?.tag);
+  // Obsidian's metadata cache already ignores code blocks, quoted color
+  // literals, and numeric references, so prefer it whenever it has any entries
+  // and never re-scan the raw body on top of it.
+  const cachedTags = Array.isArray(metadataTags) ? metadataTags : [];
+  if (cachedTags.length > 0) {
+    for (const item of cachedTags) {
+      if (typeof item === 'string') addTag(result, seen, item);
+      else addTag(result, seen, (item as Record<string, unknown>)?.tag);
+    }
+    return result;
   }
 
-  // Require a non-whitespace character after # so Markdown headings are not
-  // interpreted as tags. Punctuation delimiters are excluded from the value.
-  const tagPattern = /(^|[\s([{"'])#([^\s#.,!?;:)\]}]+)/gu;
-  for (const match of body.matchAll(tagPattern)) addTag(result, seen, match[2]);
+  // Fallback: read a cleaned body, exclude quotes as both boundary and value
+  // characters, and require a non-digit so `Issue #123` is not a tag.
+  const tagPattern = /(^|[\s([{])#([^\s#.,!?;:)\]}"']+)/gu;
+  for (const match of tagScanText(body).matchAll(tagPattern)) {
+    if (!/[^\d]/u.test(match[2])) continue;
+    addTag(result, seen, match[2]);
+  }
   return result;
 }
 

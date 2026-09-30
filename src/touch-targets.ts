@@ -21,8 +21,17 @@ export function hasTouchTargetSize(width: number, height: number, coarsePointer:
 export type BindOpenOnPointerOptions = {
   coarsePointer?: boolean;
   shouldOpen?: (target: EventTarget | null) => boolean;
+  /**
+   * Opt-in keyboard activation for hosts that expose themselves as buttons
+   * (`role="button"` + `tabindex`). Pointer-driven hosts leave this off so the
+   * pointer and keyboard paths never both fire for one interaction.
+   */
+  keyboard?: boolean;
   onOpen: (event: Event) => void;
 };
+
+/** Enter/Space activation keys for a `role="button"` host. */
+const KEYBOARD_ACTIVATION_KEYS = ['Enter', ' ', 'Spacebar'];
 
 /**
  * Desktop opens on pointerdown so the first click after sidebar focus loss is
@@ -35,6 +44,16 @@ export function bindOpenOnPointer(
 ): void {
   const shouldOpen = options.shouldOpen ?? (() => true);
   const { onOpen } = options;
+
+  if (options.keyboard) {
+    element.addEventListener('keydown', (event) => {
+      if (!KEYBOARD_ACTIVATION_KEYS.includes((event as unknown as KeyboardEvent).key)) return;
+      if (!shouldOpen(event.target)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      onOpen(event);
+    });
+  }
 
   if (options.coarsePointer) {
     let gesture: { pointerId: number; startX: number; startY: number; canceled: boolean } | null = null;

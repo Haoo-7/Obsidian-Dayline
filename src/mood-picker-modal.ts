@@ -7,6 +7,30 @@ import { bindMoodModalViewport } from './mood-modal-viewport';
 
 const BUILT_IN_LABEL_IDS = new Set(moodLabelsForScore(null).map((item) => item.id));
 
+/** How long a pending `onSave` may block closing before the modal recovers. */
+export const MOOD_SAVE_TIMEOUT_MS = 15000;
+
+/** Native date inputs emit one event per edited segment; wait for the value to settle. */
+export const MOOD_DATE_CHANGE_DEBOUNCE_MS = 200;
+
+const MOOD_DATE_VALUE = /^(\d{4})-(\d{2})-(\d{2})$/u;
+
+/**
+ * Native date inputs report an empty value until every segment is complete, and
+ * accept years no journal can have. Only a complete, plausible date may switch
+ * the picker.
+ */
+export function isValidMoodDateValue(value) {
+  const match = MOOD_DATE_VALUE.exec(String(value ?? '').trim());
+  if (!match) return false;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (year < 1900) return false;
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  return parsed.getUTCFullYear() === year && parsed.getUTCMonth() === month - 1 && parsed.getUTCDate() === day;
+}
+
 function normalizeCustomLabels(value) {
   return Array.from(new Set(
     (Array.isArray(value) ? value : [])
@@ -27,14 +51,6 @@ function createMoodDraft(initial, customLabels) {
   };
 }
 
-function draftFingerprint(draft) {
-  return JSON.stringify({
-    ...draft,
-    labels: [...draft.labels].sort(),
-    customLabels: [...draft.customLabels].sort(),
-  });
-}
-
 export class MoodPickerModal extends Modal {
   constructor(app, options = {}) {
     super(app);
@@ -45,11 +61,16 @@ export class MoodPickerModal extends Modal {
     this.onDateChange = options.onDateChange;
     this.allowDateSelection = options.allowDateSelection === true;
     this.date = options.date || extractDate(options.filePath);
-    this.restoreDraft(createMoodDraft(this.initial, options.customLabels));
-    const draft = this.snapshotDraft();
-    this.drafts = new Map([[this.filePath, { draft, baseline: draftFingerprint(draft) }]]);
+    this.restoreState(createMoodDraft(this.initial, options.customLabels));
     this.pendingOperation = null;
     this.closed = false;
+    this.dateInput = null;
+    this.dateChangeTimer = null;
+    this.saveTimer = null;
+    this.saveToken = null;
+    this.saveTimeoutMs = Number.isFinite(options.saveTimeoutMs) && options.saveTimeoutMs > 0
+      ? Number(options.saveTimeoutMs)
+      : MOOD_SAVE_TIMEOUT_MS;
   }
 
   onOpen() {
@@ -76,6 +97,11 @@ export class MoodPickerModal extends Modal {
   onClose() {
     this.closed = true;
     this.ownerWindow.clearTimeout(this.focusTimer);
+    this.ownerWindow.clearTimeout(this.dateChangeTimer);
+    this.dateChangeTimer = null;
+    this.ownerWindow.clearTimeout(this.saveTimer);
+    this.saveTimer = null;
+    this.saveToken = null;
     this.disposeViewport?.();
     this.disposeViewport = null;
     this.fluidControl?.destroy();
@@ -84,29 +110,15 @@ export class MoodPickerModal extends Modal {
     this.contentEl.removeEventListener('keydown', this.keyHandler);
     for (const type of this.lockedEvents || []) this.contentEl.removeEventListener(type, this.blockLockedInteraction, true);
     this.contentEl.empty();
-    this.drafts.clear();
   }
 
-  snapshotDraft() {
-    return {
-      score: this.score,
-      labels: Array.from(this.labels),
-      customLabels: [...this.customLabels],
-      note: this.note,
-      customText: this.customText,
-    };
-  }
-
-  restoreDraft(draft) {
-    this.score = draft.score;
-    this.labels = new Set(draft.labels);
-    this.customLabels = [...draft.customLabels];
-    this.note = draft.note;
-    this.customText = draft.customText;
-  }
-
-  cacheDraft() {
-    this.drafts.get(this.filePath).draft = this.snapshotDraft();
+  /** Load one date's stored mood into the editor state. */
+  restoreState(state) {
+    this.score = state.score;
+    this.labels = new Set(state.labels);
+    this.customLabels = [...state.customLabels];
+    this.note = state.note;
+    this.customText = state.customText;
   }
 
   isLocked() {
@@ -115,8 +127,11 @@ export class MoodPickerModal extends Modal {
 
   updateControls() {
     const locked = this.isLocked();
+    const switchingDate = this.pendingOperation === 'changing-date';
     for (const control of this.contentEl.querySelectorAll('button, input, textarea, select')) {
-      control.disabled = locked;
+      // Keep the date field itself usable while a switch is pending: disabling
+      // it blurs the field and interrupts the native picker mid-edit.
+      control.disabled = locked && !(switchingDate && control === this.dateInput);
     }
     const slider = this.contentEl.querySelector('[role="slider"]');
     if (slider) {
@@ -148,6 +163,11 @@ export class MoodPickerModal extends Modal {
 
   close() {
     if (this.closed || this.pendingOperation) return;
+    // Closing is one silent action. There is no draft queue and therefore
+    // nothing to confirm: unsaved edits are simply dropped, and `Save` is the
+    // only commit point. (The maintainer rejected the close-time prompt, and
+    // the dirty comparison behind it also missed the "changed the date but not
+    // the mood" case, so the whole mechanism was removed.)
     super.close();
     if (this.opener?.isConnected) this.opener.focus();
   }
@@ -156,6 +176,7 @@ export class MoodPickerModal extends Modal {
     this.ownerWindow.clearTimeout(this.focusTimer);
     this.fluidControl?.destroy();
     this.fluidControl = null;
+    this.dateInput = null;
     this.step = step;
     this.contentEl.empty();
     this.contentEl.scrollTop = 0;
@@ -234,7 +255,28 @@ export class MoodPickerModal extends Modal {
       },
     });
     label.htmlFor = input.id = `dayline-mood-date-${Date.now()}`;
-    input.addEventListener('change', () => { void this.changeDate(input.value, input); });
+    this.dateInput = input;
+    const schedule = () => this.scheduleDateChange(input);
+    input.addEventListener('change', schedule);
+    input.addEventListener('input', schedule);
+  }
+
+  /**
+   * Native date inputs fire an event for every edited segment. Switching on an
+   * incomplete or implausible value would rebuild the form mid-typing and can
+   * create a draft for the wrong date, so wait for a settled valid value.
+   */
+  scheduleDateChange(input) {
+    if (this.isLocked()) return;
+    this.ownerWindow.clearTimeout(this.dateChangeTimer);
+    this.dateChangeTimer = null;
+    const value = String(input?.value ?? '');
+    if (!isValidMoodDateValue(value) || value === this.date) return;
+    this.dateChangeTimer = this.ownerWindow.setTimeout(() => {
+      this.dateChangeTimer = null;
+      const target = input?.isConnected ? input : this.contentEl.querySelector('input[type="date"]');
+      void this.changeDate(value, target);
+    }, MOOD_DATE_CHANGE_DEBOUNCE_MS);
   }
 
   selectScore(score) {
@@ -247,11 +289,12 @@ export class MoodPickerModal extends Modal {
 
   async changeDate(date, input) {
     if (this.isLocked()) return;
+    this.ownerWindow.clearTimeout(this.dateChangeTimer);
+    this.dateChangeTimer = null;
     if (!date || date === this.date) {
       if (input) input.value = this.date || '';
       return;
     }
-    this.cacheDraft();
     const previousDate = this.date;
     this.pendingOperation = 'changing-date';
     this.ownerWindow.clearTimeout(this.focusTimer);
@@ -259,15 +302,13 @@ export class MoodPickerModal extends Modal {
     this.updateControls();
     try {
       const result = await this.onDateChange?.(date);
-      const filePath = result?.filePath || this.filePath;
-      if (!this.drafts.has(filePath)) {
-        const draft = createMoodDraft(result?.initial, result?.customLabels || this.customLabels);
-        this.drafts.set(filePath, { draft, baseline: draftFingerprint(draft) });
-      }
-      this.filePath = filePath;
+      this.filePath = result?.filePath || this.filePath;
       this.date = date;
       this.initial = result?.initial;
-      this.restoreDraft(this.drafts.get(filePath).draft);
+      // Switching the date loads that day's stored mood. Edits that were never
+      // saved are dropped here rather than kept per date: the maintainer removed
+      // the cross-date draft queue, so every date always shows what is stored.
+      this.restoreState(createMoodDraft(result?.initial, result?.customLabels || this.customLabels));
       this.saveFailed = false;
       this.pendingOperation = null;
       this.renderScale();
@@ -383,27 +424,48 @@ export class MoodPickerModal extends Modal {
       note: this.note.trim() || null,
       customLabels: [...this.customLabels],
     };
+    const token = {};
+    this.saveToken = token;
     this.pendingOperation = 'saving';
     this.saveFailed = false;
     this.ownerWindow.clearTimeout(this.focusTimer);
     this.clearError();
     this.updateControls();
+    // A hung `onSave` must not trap the user in the modal: recover the close
+    // affordance and offer a retry after the timeout.
+    const timer = this.ownerWindow.setTimeout(() => {
+      if (this.saveToken !== token) return;
+      this.saveToken = null;
+      this.saveTimer = null;
+      this.pendingOperation = null;
+      this.saveFailed = true;
+      this.showError('moodSaveTimeout');
+      this.updateControls();
+      saveButton?.focus();
+    }, this.saveTimeoutMs);
+    this.saveTimer = timer;
     try {
       await this.onSave?.(snapshot);
+      if (this.saveToken !== token) return;
       this.pendingOperation = null;
       this.note = snapshot.note ?? '';
       const noteInput = this.contentEl.querySelector('textarea');
       if (noteInput) noteInput.value = this.note;
-      const draft = this.snapshotDraft();
-      this.drafts.set(snapshot.filePath, { draft, baseline: draftFingerprint(draft) });
       this.updateControls();
       this.close();
     } catch (error) {
+      if (this.saveToken !== token) return;
       this.pendingOperation = null;
       this.saveFailed = true;
       this.showError('moodSaveFailed', error);
       this.updateControls();
       saveButton?.focus();
+    } finally {
+      if (this.saveToken === token) this.saveToken = null;
+      if (this.saveTimer === timer) {
+        this.ownerWindow.clearTimeout(timer);
+        this.saveTimer = null;
+      }
     }
   }
 

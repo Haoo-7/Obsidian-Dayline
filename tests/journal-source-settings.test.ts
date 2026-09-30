@@ -79,6 +79,21 @@ describe('journal source validation', () => {
   ])('rejects invalid source contracts without saving', (raw, key) => {
     expect(() => validateJournalSources(raw)).toThrow(key);
   });
+
+  it('requires an enabled daily source to use the configured daily folder', () => {
+    expect(validateJournalSources([{ path: 'Daily', type: 'daily' }], 'Daily')).toEqual([
+      { path: 'Daily', id: 'source-1', type: 'daily' },
+    ]);
+    expect(validateJournalSources([{ path: '/', type: 'daily' }], '/')).toEqual([
+      { path: '/', id: 'source-1', type: 'daily' },
+    ]);
+    expect(() => validateJournalSources([{ path: 'Daily', type: 'daily' }, { path: 'Imports' }], 'Daily')).not.toThrow();
+    expect(() => validateJournalSources([{ path: 'Journal', type: 'daily' }], 'Daily')).toThrow('sourceDailyMismatch');
+    // A disabled daily row is ignored, exactly as indexing ignores it.
+    expect(validateJournalSources([{ path: 'Journal', type: 'daily', enabled: false }], 'Daily')).toEqual([
+      { path: 'Journal', id: 'source-1', type: 'daily', enabled: false },
+    ]);
+  });
 });
 
 describe('journal source form', () => {
@@ -198,6 +213,17 @@ describe('journal source form', () => {
     editor.resetButton.click();
     expect(editor.sources).toEqual([]);
     expect(plugin.saveSettings).not.toHaveBeenCalled();
+  });
+
+  it('blocks Apply when the daily source disagrees with the daily folder', async () => {
+    const { editor, plugin } = setup([{ id: 'daily', path: 'Journal', type: 'daily' }]);
+    input(editor.fields.querySelector('input'), 'Daily');
+    await editor.apply();
+    expect(plugin.saveSettings).not.toHaveBeenCalled();
+    expect(editor.status.getAttribute('role')).toBe('alert');
+    // Matches both the raw key and the English string once i18n provides it.
+    expect(editor.status.textContent).toMatch(/sourceDailyMismatch|daily source folder/i);
+    expect(editor.status.textContent).toContain('Source 1');
   });
 
   it('removes only a draft row and chooses a noncolliding ID for legacy sources', async () => {

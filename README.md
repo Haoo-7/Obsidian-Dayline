@@ -100,7 +100,8 @@ Dayline 把一文件夹的 Markdown 每日笔记变成 Obsidian 里的可视化�
 | 设置 | 作用 |
 | --- | --- |
 | **启用天气** | 在日历侧边栏中显示日期天气信息。默认关闭。 |
-| **纬度** / **经度** | 所在地坐标，决定天气数据来源。 |
+| **纬度** / **经度** | 所在地坐标，决定天气数据来源。失焦或停止输入约 0.8 秒后才会保存；不合法或超出范围的输入会就地提示且不会保存。 |
+| **使用当前位置** | 只在你点击按钮时读取一次设备定位并填入坐标（保留 2 位小数，约 1 km 精度）。仅在 Obsidian 手机端显示，桌面端 Electron 通常没有可用的定位服务。 |
 | **位置名称** | 显示名称（可选，鼠标悬停时显示）。 |
 | **温度单位** | `摄氏 (°C)`（默认）或 `华氏 (°F)`。 |
 | **天气字段** | 选择天气卡片中显示的字段。体感和湿度默认开启；风速、降水、日出、日落和位置可单独开启。 |
@@ -120,7 +121,6 @@ Dayline 把一文件夹的 Markdown 每日笔记变成 Obsidian 里的可视化�
 | 设置 | 作用 |
 | --- | --- |
 | **侧边栏入口** | `关闭`、`合并进天气卡`（默认）或 `顶栏图标`。合并条带显示往年封面和日期，顶栏图标位于月份控件旁。 |
-| **日历上显示标记** | 在有往年记录的日期格子上显示小圆点标记。默认关闭。 |
 | **摘要模式** | 如何生成往年日记的文字预览：`自动提取正文`（默认）、`从 frontmatter 字段`、`自定义模板` 或 `不显示摘要`。 |
 | **Frontmatter 字段名** | 读取哪个 frontmatter 键。默认 `excerpt`，仅在 `从 frontmatter 字段` 模式下显示。 |
 | **模板** | 自定义摘要的模板字符串，支持 `{body}`、`{year}`、`{date}` 或任意 frontmatter 键。默认 `{body}`，仅在 `自定义模板` 模式下显示。 |
@@ -142,6 +142,8 @@ Dayline 把一文件夹的 Markdown 每日笔记变成 Obsidian 里的可视化�
 <summary><strong>天气、导入和日期识别</strong></summary>
 
 天气功能可选，使用 [Open-Meteo](https://open-meteo.com/) 且不需要 API Key。天气卡可显示当前条件；历史日期会在归档接口有覆盖时读取历史数据。
+
+**设备定位**：天气设置里的 `使用当前位置` 按钮只在你主动点击时读取一次设备定位并填入坐标（保留 2 位小数，约 1 km 精度），不会自动跟踪、不会在后台读取，也不用于其他用途。桌面端 Electron 通常没有可用的定位服务，因此该按钮只在 Obsidian 手机端（iOS/Android）显示，桌面端可手动输入坐标。填入的坐标会随天气请求发送到 [Open-Meteo](https://open-meteo.com/)。
 
 导入 Day One 或 Apple Journal 时，先使用 [Day One Importer](https://github.com/MarcDonald/obsidian-day-one-importer) 或 [Obsidian Importer](https://github.com/obsidianmd/obsidian-importer)，再把输出目录添加为 Journal source。Dayline 不解析 JSON/ZIP 导出，也不改写导入文件。
 

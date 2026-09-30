@@ -201,7 +201,10 @@
 .cal-icon-button:focus-visible {
   background: var(--background-modifier-hover);
   color: var(--text-normal);
-  outline: none;
+}
+.cal-icon-button:focus-visible {
+  outline: 2px solid var(--interactive-accent);
+  outline-offset: 2px;
 }
 .cal-icon-button.is-active {
   color: var(--text-accent);
@@ -226,7 +229,10 @@
 .cal-title-button:hover,
 .cal-title-button:focus-visible {
   color: var(--text-accent);
-  outline: none;
+}
+.cal-title-button:focus-visible {
+  outline: 2px solid var(--interactive-accent);
+  outline-offset: 2px;
 }
 .cal-jump-panel {
   display: flex;
@@ -867,18 +873,6 @@ button.cal-weather-refresh:hover {
   width: 16px;
   height: 16px;
 }
-.cal-otd-dot {
-  position: absolute;
-  bottom: 3px;
-  right: 3px;
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: var(--color-accent);
-  opacity: 0.5;
-  z-index: 3;
-  pointer-events: none;
-}
 /* --- On This Day Modal (photo wall) --- */
 .cal-otd-modal {
   position: fixed;
@@ -886,7 +880,10 @@ button.cal-weather-refresh:hover {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 9999;
+  /* Above the calendar and its overlays, below Obsidian's own top layers:
+     --layer-modal (50) sits under --layer-notice (60) and --layer-tooltip (70),
+     so a Notice raised while the wall is open stays readable. */
+  z-index: var(--layer-modal, 50);
   background: rgba(0,0,0,0.4);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
@@ -993,7 +990,10 @@ button.cal-weather-refresh:hover {
   min-width: 110px;
   text-align: center;
   font-family: inherit;
-  outline: none;
+}
+.cal-otd-date-input:focus-visible {
+  outline: 2px solid var(--interactive-accent);
+  outline-offset: 2px;
 }
 .cal-otd-date-input:hover {
   background: var(--background-modifier-hover);
@@ -1188,6 +1188,10 @@ button.cal-weather-refresh:hover {
 .cal-mood-button.mood-0 { --journal-mood-color: #55b6c9; }
 .cal-mood-button.mood--1 { --journal-mood-color: #4d6fb8; }
 .cal-mood-button.mood--2 { --journal-mood-color: #7652c7; }
+/* The mood marker is deliberately uniform: colour plus the hover `title` carry
+   the level. M-11 proposed a non-color size cue, but at 6-10px it was too subtle
+   to help anyone and it risked distorting the pip, so the maintainer reverted it.
+   Do not scale or re-shape this marker again without a design decision. */
 @media (pointer: coarse) {
   /* Touch-capable desktop hosts do not have a hover state to reveal an empty
      mood entry, so their pip is enlarged. Tablets are excluded: a tablet
@@ -1502,6 +1506,18 @@ button.cal-weather-refresh:hover {
 .dayline-mobile-mode-button { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; padding: 10px; border: 0; border-radius: 6px; color: var(--text-muted); background: transparent; }
 .dayline-mobile-mode-button.is-active { color: var(--text-accent); background: var(--background-modifier-hover); }
 .dayline-mobile-mode-button:focus-visible { outline: 2px solid var(--interactive-accent); outline-offset: 2px; }
+/* U-10: the return guidance is real text because a `title` never shows on a
+   touch device. Keep it secondary to the button it is attached to. */
+.dayline-mobile-return-hint {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-inline: 4px 8px;
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  font-weight: 400;
+  line-height: 1.3;
+  overflow-wrap: break-word;
+}
 
 /* --- Tablet layout ---
    Obsidian's tablet interface keeps desktop chrome (ribbon, sidebars, stacked

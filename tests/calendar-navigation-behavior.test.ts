@@ -4,6 +4,8 @@ import ts from 'typescript';
 import { JSDOM } from 'jsdom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { isCurrentCalendarMonth } from '../src/calendar-display';
+import { shouldShowHeaderOnThisDayEntry } from '../src/on-this-day-entry';
+import { bindOpenOnPointer, calendarCellTouchRouting } from '../src/touch-targets';
 import { isPathInFolder, joinVaultPath } from '../src/date-utils';
 
 // Execute the actual classes without loading the plugin's unrelated host services.
@@ -27,9 +29,10 @@ const CalendarView = loadClass('CalendarView', {
   getCalendarGridOffset: () => 0,
   getDisplayLanguage: () => 'en',
   LOCALE_TAGS: { en: 'en-US', zh: 'zh-CN', 'zh-tw': 'zh-TW' },
-  calendarCellTouchRouting: () => ({ showEntryCountControl: true }),
+  formatJournalDate: (date, settings) => `localized:${settings.language}:${date}`,
+  calendarCellTouchRouting,
   usesPhoneLayout: () => false,
-  bindOpenOnPointer: () => {},
+  bindOpenOnPointer,
   shouldOpenCalendarDateFromPointer: () => true,
   _daylineDate: () => '2026-09-09',
   formatDateParts: (year, month, day) => `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`,
@@ -38,6 +41,7 @@ const CalendarView = loadClass('CalendarView', {
   isCurrentCalendarMonth,
   isPathInFolder,
   joinVaultPath,
+  shouldShowHeaderOnThisDayEntry,
   Notice: class {},
 });
 const CreateNoteModal = loadClass('CreateNoteModal', {
@@ -213,7 +217,9 @@ describe('calendar navigation focus', () => {
   it('retains current focus through refresh and the delayed OTD repaint', async () => {
     const view = makeView();
     const dots = deferred();
-    view.plugin.settings.onThisDayDot = true;
+    // Only the header entry mode still rebuilds the past-year index after a
+    // refresh, so it is what paces the delayed repaint this test covers.
+    view.plugin.settings.onThisDayEntry = 'header';
     view._otdProvider = { invalidate() {}, ensureDateIndex: () => dots.promise, dateIndexSnapshot: new Set() };
     control(view, 'today').focus();
     await view.refresh();
@@ -307,6 +313,73 @@ describe('calendar localized labels', () => {
     modal.contentEl.querySelector('.mod-cta').click();
     expect(confirm).toHaveBeenCalledOnce();
     expect(source).toContain('new CreateNoteModal(this.app, this.plugin.settings, dateStr,');
+  });
+});
+
+describe('calendar day cell keyboard access', () => {
+  function keydown(element, key) {
+    element.dispatchEvent(new document.defaultView.KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+  }
+
+  function makeOpenableView() {
+    const view = makeView();
+    const file = new TestTFile();
+    Object.assign(file, { path: 'Daily/2026-08-05.md' });
+    view.app = { vault: { getAbstractFileByPath: (path) => (path === 'Daily/2026-08-05.md' ? file : null) } };
+    view.plugin.openJournalFile = vi.fn(async () => ({}));
+    view._syncActiveDate = vi.fn();
+    view._triggerWeatherAfterOpen = vi.fn();
+    view.render = vi.fn();
+    return { view, file };
+  }
+
+  it('exposes day cells as focusable buttons', () => {
+    const view = makeView();
+    const cell = control(view, 'day-2026-08-05');
+    expect(cell.getAttribute('role')).toBe('button');
+    expect(cell.getAttribute('tabindex')).toBe('0');
+  });
+
+  it.each(['Enter', ' '])('opens the journal from a day cell with %s', async (key) => {
+    const { view, file } = makeOpenableView();
+    keydown(control(view, 'day-2026-08-05'), key);
+    await flush();
+    expect(view.plugin.openJournalFile).toHaveBeenCalledWith(file);
+  });
+
+  it('keeps focus on the same day cell after a re-render', () => {
+    const view = makeView();
+    const cell = control(view, 'day-2026-08-05');
+    cell.focus();
+    expect(document.activeElement).toBe(cell);
+
+    view.render();
+
+    const rebuilt = control(view, 'day-2026-08-05');
+    expect(rebuilt).not.toBe(cell);
+    expect(document.activeElement).toBe(rebuilt);
+  });
+
+  it('uses the localized journal date in the cell label instead of the ISO date', () => {
+    const view = makeView();
+    view.plugin.settings.language = 'zh';
+    view.render();
+    const label = control(view, 'day-2026-08-05').getAttribute('aria-label');
+    expect(label).toBe('localized:zh:2026-08-05');
+  });
+
+  it('applies the month jump when Enter is pressed in the year input', async () => {
+    const view = makeView();
+    control(view, 'title').click();
+    control(view, 'jump-year').value = '2031';
+    control(view, 'jump-month').value = '3';
+
+    keydown(control(view, 'jump-year'), 'Enter');
+    await flush();
+
+    expect(view.displayMonth.getFullYear()).toBe(2031);
+    expect(view.displayMonth.getMonth()).toBe(3);
+    expect(focusedKey()).toBe('title');
   });
 });
 

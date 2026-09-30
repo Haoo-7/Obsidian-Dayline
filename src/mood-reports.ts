@@ -1,4 +1,5 @@
 import type { MoodRecord } from './types';
+import { parseMoodScore } from './mood';
 
 export interface MoodReportEntry {
   date: string;
@@ -89,6 +90,36 @@ function emptyScoreCounts(): Record<'-2' | '-1' | '0' | '1' | '2', number> {
   return { '-2': 0, '-1': 0, '0': 0, '1': 0, '2': 0 };
 }
 
+const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/u;
+
+/** Extract the calendar date carried by a note path such as `Daily/2026-04-01.md`. */
+function dateFromNotePath(path: unknown): string | undefined {
+  if (typeof path !== 'string') return undefined;
+  for (const part of path.split(/[\\/]/u)) {
+    const candidate = part.slice(0, 10);
+    if (DATE_PATTERN.test(candidate)) return candidate;
+  }
+  const match = /(\d{4}-\d{2}-\d{2})/u.exec(path);
+  return match?.[1];
+}
+
+/** Local calendar date of a timestamp, which keeps an evening entry in its own month. */
+function localDateFromTimestamp(value: unknown): string | undefined {
+  if (typeof value !== 'string' || !value.trim()) return undefined;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return undefined;
+  return `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, '0')}-${String(parsed.getDate()).padStart(2, '0')}`;
+}
+
+/** Resolve an entry date from the note date, never from the UTC form of `recordedAt`. */
+function entryDate(record: { date?: unknown; recordedAt?: unknown }, path?: unknown): string {
+  const explicit = record.date;
+  if (typeof explicit === 'string' && DATE_PATTERN.test(explicit.slice(0, 10))) return explicit.slice(0, 10);
+  const fromPath = dateFromNotePath(path);
+  if (fromPath) return fromPath;
+  return localDateFromTimestamp(record.recordedAt) ?? '';
+}
+
 function normalizeEntries(input: MoodReportEntry[] | Record<string, MoodRecord> | MoodRecord[]): MoodReportEntry[] {
   if (Array.isArray(input)) {
     return input.map((value, index) => {
@@ -97,37 +128,38 @@ function normalizeEntries(input: MoodReportEntry[] | Record<string, MoodRecord> 
         return { ...item, mood: item.mood || item.record };
       }
       const record = value as MoodRecord;
-      const date = String(record.date || record.recordedAt || '').slice(0, 10);
-      return { date, path: String(index), mood: record };
-    }).filter((item) => /^\d{4}-\d{2}-\d{2}$/u.test(item.date) && Boolean(item.mood));
+      const path = typeof record.path === 'string' ? record.path : String(index);
+      return { date: entryDate(record, path), path, mood: record };
+    }).filter((item) => DATE_PATTERN.test(item.date) && Boolean(item.mood));
   }
   return Object.entries(input || {}).map(([path, mood]) => ({
     path,
-    date: String((mood as MoodRecord & { date?: unknown }).date || mood.recordedAt || '').slice(0, 10),
+    date: entryDate(mood, path),
     mood,
-  })).filter((item) => /^\d{4}-\d{2}-\d{2}$/u.test(item.date));
+  })).filter((item) => DATE_PATTERN.test(item.date));
 }
 
 function makeReport(info: { key: string; startDate: string; endDate: string }, entries: MoodReportEntry[]): MoodPeriodReport {
   const scoreCounts = emptyScoreCounts();
   const labelCounts = new Map<string, number>();
   let total = 0;
+  let validCount = 0;
   let minScore: number | null = null;
   let maxScore: number | null = null;
   for (const entry of entries) {
-    const score = entry.mood?.score;
-    if (score === undefined || score === null) continue;
+    const score = parseMoodScore(entry.mood?.score);
+    if (score === undefined) continue;
+    validCount++;
     scoreCounts[String(score) as keyof typeof scoreCounts]++;
     total += score;
     minScore = minScore === null ? score : Math.min(minScore, score);
     maxScore = maxScore === null ? score : Math.max(maxScore, score);
     for (const label of entry.mood?.labels || []) labelCounts.set(label, (labelCounts.get(label) ?? 0) + 1);
   }
-  const recordCount = entries.filter((entry) => entry.mood).length;
   return {
     ...info,
-    recordCount,
-    averageScore: recordCount ? Math.round((total / recordCount) * 100) / 100 : null,
+    recordCount: validCount,
+    averageScore: validCount ? Math.round((total / validCount) * 100) / 100 : null,
     minScore,
     maxScore,
     scoreCounts,
@@ -170,14 +202,16 @@ export function summarizeMoodLabelTrends(input: MoodReportEntry[] | Record<strin
     if (options.to && entry.date > options.to) continue;
     const mood = entry.mood;
     if (!mood) continue;
+    const score = parseMoodScore(mood.score);
+    if (score === undefined) continue;
     const key = periodInfo(entry.date, period, options.weekStartsOn ?? 1).key;
     for (const label of mood.labels) {
       const current = totals.get(label) || { count: 0, score: 0, trend: new Map() };
       current.count++;
-      current.score += mood.score;
+      current.score += score;
       const point = current.trend.get(key) || { count: 0, score: 0 };
       point.count++;
-      point.score += mood.score;
+      point.score += score;
       current.trend.set(key, point);
       totals.set(label, current);
     }

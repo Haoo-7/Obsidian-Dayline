@@ -412,7 +412,7 @@ describe('FluidMoodControl interaction', () => {
     control.destroy();
   });
 
-  it('draws the canvas once per animation frame', () => {
+  function animatedFixture(initialScore: 0 | -1 | null = 0) {
     Object.defineProperty(document, 'hidden', { configurable: true, value: false });
     const frameCallbacks: FrameRequestCallback[] = [];
     vi.mocked(requestAnimationFrame).mockImplementation((callback) => {
@@ -429,12 +429,19 @@ describe('FluidMoodControl interaction', () => {
     const root = document.createElement('div');
     document.body.append(root);
     const control = new FluidMoodControl(root, {
-      initialScore: 0,
+      initialScore,
       accessibleLabel: 'Mood scale',
       emptyLabel: 'Choose',
       labelForScore: (score) => `Mood ${score}`,
       onCommit: vi.fn(),
     });
+    mockTrackRect(root, 0, 400);
+    return { root, control, frameCallbacks, context };
+  }
+
+  it('draws the canvas once per animation frame while the value is moving', () => {
+    const { root, control, frameCallbacks, context } = animatedFixture();
+    root.dispatchEvent(pointerEvent('pointerdown', 380));
     const clearRect = vi.mocked(context.clearRect);
     const beforeFrame = clearRect.mock.calls.length;
 
@@ -442,6 +449,79 @@ describe('FluidMoodControl interaction', () => {
 
     expect(clearRect.mock.calls.length - beforeFrame).toBe(1);
     control.destroy();
+  });
+
+  it('does not request animation frames while the value is idle', () => {
+    const { root, control, frameCallbacks } = animatedFixture();
+    expect(frameCallbacks).toHaveLength(0);
+
+    root.dispatchEvent(pointerEvent('pointerdown', 380));
+
+    expect(frameCallbacks.length).toBeGreaterThan(0);
+    control.destroy();
+  });
+
+  it('stops requesting frames once the eased value converges', () => {
+    const { root, control, frameCallbacks } = animatedFixture();
+    root.dispatchEvent(pointerEvent('pointerdown', 380));
+    root.dispatchEvent(pointerEvent('pointerup', 220));
+
+    let time = performance.now();
+    let frames = 0;
+    while (frameCallbacks.length > 0 && frames < 200) {
+      const callback = frameCallbacks.shift()!;
+      time += 16;
+      callback(time);
+      frames += 1;
+    }
+
+    expect(root.getAttribute('aria-valuenow')).toBe('0');
+    expect(frames).toBeLessThan(200);
+    expect(frameCallbacks).toHaveLength(0);
+    control.destroy();
+  });
+
+  it('measures the canvas once and reuses the cached size for later frames', () => {
+    const measure = vi.spyOn(HTMLCanvasElement.prototype, 'getBoundingClientRect').mockReturnValue({
+      left: 0, top: 0, right: 300, bottom: 200, width: 300, height: 200, x: 0, y: 0, toJSON: () => ({}),
+    });
+    const beforeConstruction = measure.mock.calls.length;
+    const { root, control, frameCallbacks } = animatedFixture();
+    const afterConstruction = measure.mock.calls.length;
+    expect(afterConstruction).toBe(beforeConstruction + 1);
+
+    root.dispatchEvent(pointerEvent('pointerdown', 380));
+    root.dispatchEvent(pointerEvent('pointerup', 220));
+    for (let index = 0; index < 6 && frameCallbacks.length > 0; index += 1) {
+      frameCallbacks.shift()?.(performance.now() + 16 * (index + 1));
+    }
+
+    expect(measure.mock.calls.length).toBe(afterConstruction);
+    control.destroy();
+  });
+
+  it('binds visibility changes to the control owner document for popout windows', () => {
+    const popout = document.implementation.createHTMLDocument('Dayline popout');
+    const root = popout.createElement('div');
+    popout.body.append(root);
+    const ownerAdd = vi.spyOn(popout, 'addEventListener');
+    const ownerRemove = vi.spyOn(popout, 'removeEventListener');
+    const globalAdd = vi.spyOn(document, 'addEventListener');
+
+    const control = new FluidMoodControl(root, {
+      initialScore: 0,
+      accessibleLabel: 'Mood scale',
+      emptyLabel: 'Choose',
+      labelForScore: (score) => `Mood ${score}`,
+      onCommit: vi.fn(),
+    });
+
+    const typesFor = (spy: { mock: { calls: unknown[][] } }) => spy.mock.calls.map((call) => call[0]);
+    expect(typesFor(ownerAdd)).toContain('visibilitychange');
+    expect(typesFor(globalAdd)).not.toContain('visibilitychange');
+
+    control.destroy();
+    expect(typesFor(ownerRemove)).toContain('visibilitychange');
   });
 
   it('tracks the pointer continuously and eases only the stored-score settle', () => {

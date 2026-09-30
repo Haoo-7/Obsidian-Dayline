@@ -7,6 +7,7 @@ vi.mock('obsidian', () => ({
 
 import {
   WeatherService,
+  WEATHER_REQUEST_TIMEOUT_MS,
   getWeatherRetryDelay,
   isRetryableWeatherFailure,
   requestWeatherWithRetry,
@@ -365,7 +366,8 @@ describe('weather retry and cache reliability', () => {
   });
 
   it('keeps old cache records compatible and avoids forecast-only fields in archive requests', async () => {
-    const archiveDaily = dailyPayload('2026-08-05');
+    const oldDate = '2021-08-05';
+    const archiveDaily = dailyPayload(oldDate);
     delete (archiveDaily as any).precipitation_probability_max;
     const request = vi.fn().mockResolvedValue({
       status: 200,
@@ -385,11 +387,135 @@ describe('weather retry and cache reliability', () => {
 
     const archivePlugin = makePlugin();
     const archiveService = new WeatherService(archivePlugin, { request, now: () => NOW });
-    const result = await archiveService.getSnapshot('2026-08-05');
+    const result = await archiveService.getSnapshot(oldDate);
     const url = request.mock.calls[0][0].url as string;
 
     expect(result).toMatchObject({ precipitationProbability: null, windSpeed: 18.7 });
+    expect(url).toContain('https://archive-api.open-meteo.com/v1/archive');
     expect(url).toContain('wind_speed_10m_max');
     expect(url).not.toContain('precipitation_probability_max');
+  });
+
+  it('aborts a hung weather request instead of leaving the card loading', async () => {
+    vi.useFakeTimers();
+    try {
+      const request = vi.fn().mockImplementation(() => new Promise(() => undefined));
+      const plugin = makePlugin();
+      const service = new WeatherService(plugin, {
+        request,
+        now: () => NOW,
+        maxAttempts: 1,
+        sleep: vi.fn().mockResolvedValue(undefined),
+      });
+
+      const pending = service.getSnapshot('2026-08-06');
+      let settled = false;
+      void pending.then(() => { settled = true; });
+      await vi.advanceTimersByTimeAsync(WEATHER_REQUEST_TIMEOUT_MS);
+      await Promise.resolve();
+
+      expect(settled).toBe(true);
+      await expect(pending).resolves.toBeNull();
+      expect(request).toHaveBeenCalledTimes(1);
+      expect(request.mock.calls[0][0]).not.toHaveProperty('timeout');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('does not refetch an archive snapshot for a historical date', async () => {
+    const historical = {
+      fetchedAt: '2021-03-05T09:00:00.000Z',
+      date: '2021-03-05',
+      latitude: 39.9042,
+      longitude: 116.4074,
+      units: 'metric',
+      temperature: 12,
+      weatherCode: 3,
+    };
+    const request = vi.fn();
+    const plugin = makePlugin({ weatherCache: { '2021-03-05': historical } });
+    const service = new WeatherService(plugin, { request, now: () => NOW });
+
+    await expect(service.getSnapshot('2021-03-05')).resolves.toMatchObject({ temperature: 12 });
+    expect(request).not.toHaveBeenCalled();
+    expect(service._shouldFetch(historical, 2)).toBe(false);
+  });
+
+  it('still refetches a stale snapshot for a recent date', async () => {
+    const recent = {
+      fetchedAt: new Date(NOW - 6 * 60 * 60 * 1000).toISOString(),
+      date: '2026-08-05',
+      latitude: 39.9042,
+      longitude: 116.4074,
+      units: 'metric',
+      temperature: 12,
+      weatherCode: 3,
+    };
+    const request = vi.fn().mockResolvedValue({ status: 200, json: { daily: dailyPayload('2026-08-05') } });
+    const plugin = makePlugin({ weatherCache: { '2026-08-05': recent } });
+    const service = new WeatherService(plugin, { request, now: () => NOW });
+
+    await service.getSnapshot('2026-08-05');
+
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(service._shouldFetch(recent, 2)).toBe(true);
+  });
+
+  it('keeps backfilled history when persisting a new day', async () => {
+    const plugin = makePlugin({
+      weatherCache: {
+        '2021-03-05': {
+          date: '2021-03-05',
+          fetchedAt: '2021-03-05T09:00:00.000Z',
+          latitude: 39.9042,
+          longitude: 116.4074,
+          units: 'metric',
+          temperature: 12,
+        },
+      },
+    });
+    const service = new WeatherService(plugin, { request: vi.fn(), now: () => NOW });
+
+    await service._persistSnapshot('2026-08-06', {
+      date: '2026-08-06',
+      latitude: 39.9042,
+      longitude: 116.4074,
+      units: 'metric',
+      temperature: 30,
+    });
+
+    expect(plugin.weatherCache['2021-03-05']).toMatchObject({ temperature: 12 });
+    expect(plugin.weatherCache['2026-08-06']).toMatchObject({ temperature: 30 });
+  });
+
+  it('requests recent past days from the forecast host, not the archive host', async () => {
+    const request = vi.fn().mockResolvedValue({ status: 200, json: { daily: dailyPayload('2026-08-05') } });
+    const plugin = makePlugin();
+    const service = new WeatherService(plugin, { request, now: () => NOW });
+
+    await service.getSnapshot('2026-08-05');
+
+    const url = request.mock.calls[0][0].url as string;
+    expect(url).toContain('https://api.open-meteo.com/v1/forecast');
+    expect(url).not.toContain('archive-api');
+    expect(url).toContain('start_date=2026-08-05');
+    expect(url).toContain('past_days=1');
+  });
+
+  it('routes settled history to the archive and the recent window to the forecast API', () => {
+    const plugin = makePlugin();
+    const service = new WeatherService(plugin, { request: vi.fn(), now: () => NOW });
+    const context = service._requestContext();
+    const build = (dateStr: string) => service._buildWeatherUrl(39.9042, 116.4074, dateStr, 'metric', context);
+    expect(context.today).toBe('2026-08-06');
+
+    expect(build('2026-08-02')).toContain('https://api.open-meteo.com/v1/forecast');
+    expect(build('2026-08-02')).toContain('past_days=4');
+    expect(build('2026-07-30')).toContain('https://api.open-meteo.com/v1/forecast');
+    expect(build('2026-07-29')).toContain('https://archive-api.open-meteo.com/v1/archive');
+    expect(build('2021-03-05')).not.toContain('past_days');
+    expect(build('2021-03-05')).not.toContain('precipitation_probability_max');
+    expect(build('2026-08-06')).not.toContain('past_days');
   });
 });

@@ -4,10 +4,15 @@ import { getTodayDate, joinVaultPath } from './date-utils';
 import { extractExcerpt, isGenericJournalTitle, renderExcerptTemplate } from './excerpt';
 import { onThisDayYearsAgo } from './on-this-day-entry';
 import { localize as _l } from './locale';
-import { t } from './i18n';
+import { getDisplayLanguage, t } from './i18n';
 
 const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'heic', 'heif', 'webp', 'gif', 'avif', 'tiff', 'tif', 'bmp'];
 const HEADING_LINE = /^[ \t]*#{1,6}[ \t]+\S/;
+
+/** MM-DD key for a month/day pair, the shape the journal index stores. */
+function mmddKey(month: number, day: number): string {
+  return `${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
 
 function isImageLink(link: unknown): boolean {
   const clean = String(link || '').split('|', 1)[0].split('?', 1)[0];
@@ -68,6 +73,8 @@ export class OnThisDayProvider {
   private dateIndex: Set<string> | null = null;
   private dateIndexYear: number | null = null;
   private readonly entryCache = new Map<string, any[]>();
+  /** The visible memory wall, so a second open reuses it instead of stacking. */
+  private _activeModal: OnThisDayModal | null = null;
 
   constructor(plugin: any) {
     this.plugin = plugin;
@@ -75,6 +82,23 @@ export class OnThisDayProvider {
 
   private currentYear(): number {
     return Number(daylineDate(this.plugin.settings).slice(0, 4));
+  }
+
+  /** A leap year has February 29; a common year has to borrow it for the 28th. */
+  private isLeapYear(year: number): boolean {
+    return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+  }
+
+  /**
+   * MM-DD keys whose memories belong to one calendar view date.
+   *
+   * A February 29 diary only exists in leap years, so a common-year February 28
+   * view also shows the February 29 memories instead of hiding them for three
+   * years out of four.
+   */
+  private viewKeys(mmdd: string): string[] {
+    if (mmdd !== '02-28' || this.isLeapYear(this.currentYear())) return [mmdd];
+    return [mmdd, '02-29'];
   }
 
   /** Build a set of all MM-DD values that have indexed journal entries. */
@@ -87,6 +111,9 @@ export class OnThisDayProvider {
       const year = Number(entry.date.slice(0, 4));
       if (Number.isFinite(year) && year < thisYear) index.add(entry.date.slice(5));
     }
+    // The calendar's dot marker reads this set directly, so a common-year
+    // February 28 must carry the February 29 memories it is going to show.
+    if (!this.isLeapYear(thisYear) && index.has('02-29')) index.add('02-28');
     this.dateIndex = index;
     this.dateIndexYear = thisYear;
   }
@@ -94,22 +121,26 @@ export class OnThisDayProvider {
   /** Quick check: does any year have a diary for this MM-DD? */
   async hasEntries(month: number, day: number): Promise<boolean> {
     await this.ensureDateIndex();
-    const key = `${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    return this.dateIndex?.has(key) ?? false;
+    return this.viewKeys(mmddKey(month, day)).some((key) => this.dateIndex?.has(key) ?? false);
   }
 
   /** Full entries for a given MM-DD (images + excerpts). */
   async getEntries(month: number, day: number): Promise<any[]> {
     await this.ensureDateIndex();
-    const key = `${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const key = mmddKey(month, day);
     if (this.entryCache.has(key)) return this.entryCache.get(key) || [];
 
+    const wanted = new Set(this.viewKeys(key));
+    const seen = new Set<string>();
     const entries: any[] = [];
     const thisYear = this.currentYear();
 
     for (const entry of this.plugin.journalIndex?.getEntries?.() || []) {
       const year = Number(entry.date.slice(0, 4));
-      if (!Number.isFinite(year) || year >= thisYear || entry.date.slice(5) !== key) continue;
+      if (!Number.isFinite(year) || year >= thisYear || !wanted.has(entry.date.slice(5))) continue;
+      const identity = `${entry.path || ''}|${entry.date}`;
+      if (seen.has(identity)) continue;
+      seen.add(identity);
 
       const images = (entry.attachments || []).filter(isImageLink);
       // Raw Markdown is what the excerpt and the title split need; older index
@@ -156,23 +187,65 @@ export class OnThisDayProvider {
 
   /** Refresh one MM-DD marker without rebuilding the complete date index. */
   refreshDateIndexFor(mmdd: string): void {
-    this.entryCache.delete(mmdd);
     if (!this.dateIndex) return;
     const thisYear = this.currentYear();
-    const hasHistoricalEntry = (this.plugin.journalIndex?.getEntries?.() || []).some((entry: any) => (
-      entry.date.slice(5) === mmdd && Number(entry.date.slice(0, 4)) < thisYear
-    ));
-    if (hasHistoricalEntry) this.dateIndex.add(mmdd);
-    else this.dateIndex.delete(mmdd);
+    // February 28 and February 29 share one view in a common year, so a change
+    // to either note has to recompute both markers.
+    const affected = mmdd === '02-28' || mmdd === '02-29' ? ['02-28', '02-29'] : [mmdd];
+    for (const key of affected) {
+      this.entryCache.delete(key);
+      const wanted = new Set(this.viewKeys(key));
+      const hasHistoricalEntry = (this.plugin.journalIndex?.getEntries?.() || []).some((entry: any) => (
+        wanted.has(entry.date.slice(5)) && Number(entry.date.slice(0, 4)) < thisYear
+      ));
+      if (hasHistoricalEntry) this.dateIndex.add(key);
+      else this.dateIndex.delete(key);
+    }
   }
 
   get dateIndexSnapshot(): Set<string> | null {
     return this.dateIndex;
   }
+
+  /** The panel this provider currently has on screen, if any. */
+  get activeModal(): OnThisDayModal | null {
+    return this._activeModal;
+  }
+
+  /** Close the panel this provider opened. Safe to call from a view teardown. */
+  closeModal(): void {
+    this._activeModal?.close();
+  }
 }
 /* ============================================================
    On This Day Modal
    ============================================================ */
+
+/** Elements Tab may reach inside the dialog, in document order. */
+const FOCUSABLE_SELECTOR = [
+  'a[href]',
+  'button:not([disabled])',
+  'input:not([disabled])',
+  'select:not([disabled])',
+  'textarea:not([disabled])',
+  '[tabindex]:not([tabindex="-1"])',
+].join(', ');
+
+/** Fields that own the arrow keys; the date navigator must not steal them. */
+const EDITABLE_SELECTOR = 'input, textarea, select, [contenteditable=""], [contenteditable="true"]';
+
+/**
+ * The panel currently on screen, if any. The plugin opens the memory wall from
+ * the calendar view, so at most one is visible; keeping a module-level handle
+ * lets `onunload` close it without reaching into the view that owns the
+ * provider.
+ */
+let activeOnThisDayModal: OnThisDayModal | null = null;
+
+/** Close the open "On This Day" panel, if any. Safe to call from `onunload`. */
+export function closeOnThisDayModal(): void {
+  activeOnThisDayModal?.close();
+}
 
 export class OnThisDayModal {
   constructor(app, plugin, provider, month, day, entries) {
@@ -182,13 +255,34 @@ export class OnThisDayModal {
     this.month = month;
     this.day = day;
     this.entries = entries || [];
+    this.lang = getDisplayLanguage(plugin?.settings || {});
     this._requestToken = 0;
     this._closed = false;
+    this._returnFocusTo = null;
     this._onKey = this._onKeyDown.bind(this);
   }
 
+  /** Resolve the display language, including a live `'system'` setting. */
+  _displayLanguage() {
+    return this.lang || getDisplayLanguage(this.plugin?.settings || {});
+  }
+
   open() {
-    const lang = this.plugin.settings.weatherLanguage;
+    // A second open while the wall is already up (double click, another date)
+    // reuses the visible panel instead of stacking a second copy of the dialog.
+    const existing = this.provider?._activeModal;
+    if (existing && existing !== this && !existing._closed) {
+      existing.showDate(this.month, this.day, this.entries);
+      return existing;
+    }
+    // A panel left over from a previous calendar view is stale; drop it first.
+    if (activeOnThisDayModal && activeOnThisDayModal !== this && !activeOnThisDayModal._closed) {
+      activeOnThisDayModal.close();
+    }
+
+    this._closed = false;
+    this.lang = getDisplayLanguage(this.plugin?.settings || {});
+    const lang = this.lang;
 
     // Backdrop
     this.backdrop = createDiv();
@@ -197,20 +291,27 @@ export class OnThisDayModal {
       if (e.target === this.backdrop) this.close();
     });
 
-    // Panel
+    // Panel: a real modal dialog. `aria-modal` tells a screen reader that the
+    // rest of the workspace is inert, and `tabindex="-1"` lets it take focus
+    // without joining the Tab order.
     const panel = createDiv();
     panel.className = 'cal-otd-panel';
+    panel.setAttribute('role', 'dialog');
+    panel.setAttribute('aria-modal', 'true');
+    panel.setAttribute('aria-label', _l(lang, 'otd_title'));
+    panel.setAttribute('tabindex', '-1');
     this.panel = panel;
 
     // --- Header: title + date nav + close ---
     const header = panel.createDiv({ cls: 'cal-otd-header' });
-    header.createDiv({ cls: 'cal-otd-header-title', text: _l(lang, 'otd_title') });
+    this.titleEl = header.createDiv({ cls: 'cal-otd-header-title', text: _l(lang, 'otd_title') });
 
     const nav = header.createDiv({ cls: 'cal-otd-date-nav' });
     const prevDayBtn = nav.createEl('button', {
       cls: 'cal-otd-nav-btn',
       attr: { type: 'button', 'aria-label': _l(lang, 'otd_prevDay'), title: _l(lang, 'otd_prevDay') },
     });
+    this.prevDayBtn = prevDayBtn;
     setIcon(prevDayBtn, 'chevron-left');
     prevDayBtn.addEventListener('click', (e) => { e.stopPropagation(); void this._navigateDate(-1); });
 
@@ -234,6 +335,7 @@ export class OnThisDayModal {
       cls: 'cal-otd-nav-btn',
       attr: { type: 'button', 'aria-label': _l(lang, 'otd_nextDay'), title: _l(lang, 'otd_nextDay') },
     });
+    this.nextDayBtn = nextDayBtn;
     setIcon(nextDayBtn, 'chevron-right');
     nextDayBtn.addEventListener('click', (e) => { e.stopPropagation(); void this._navigateDate(1); });
 
@@ -241,6 +343,7 @@ export class OnThisDayModal {
       cls: 'cal-otd-close',
       attr: { type: 'button', 'aria-label': _l(lang, 'otd_close'), title: _l(lang, 'otd_close') },
     });
+    this.closeBtn = closeBtn;
     setIcon(closeBtn, 'x');
     closeBtn.addEventListener('click', () => this.close());
 
@@ -255,7 +358,64 @@ export class OnThisDayModal {
 
     this.backdrop.appendChild(panel);
     document.body.appendChild(this.backdrop);
+
+    // Remember where focus came from so closing returns the reader to the
+    // control they opened the wall with.
+    const active = document.activeElement;
+    this._returnFocusTo = active && active !== document.body ? active : null;
+
+    if (this.provider) this.provider._activeModal = this;
+    activeOnThisDayModal = this;
     document.addEventListener('keydown', this._onKey);
+    this.focusPanel();
+    return this;
+  }
+
+  /**
+   * Point the visible panel at another date (a second open for the same
+   * provider) instead of building a second dialog on top of it.
+   */
+  showDate(month, day, entries) {
+    this._requestToken++;
+    this.month = month;
+    this.day = day;
+    this.entries = entries || [];
+    this.lang = getDisplayLanguage(this.plugin?.settings || {});
+    this._applyLanguage();
+    this._updateDateInput();
+    if (this.entries.length === 0) {
+      this._renderMessage(_l(this.lang, 'otd_noMemories'), 'history');
+    } else {
+      this._renderGrid();
+    }
+    this.focusPanel();
+    return this;
+  }
+
+  /** Move keyboard focus into the dialog, as a modal is expected to. */
+  focusPanel() {
+    if (!this.panel || typeof this.panel.focus !== 'function') return;
+    try {
+      this.panel.focus();
+    } catch { /* the panel was detached or cannot take focus */ }
+  }
+
+  /** Re-label the chrome after the display language changed. */
+  _applyLanguage() {
+    const lang = this._displayLanguage();
+    this.panel?.setAttribute('aria-label', _l(lang, 'otd_title'));
+    if (this.titleEl) this.titleEl.setText(_l(lang, 'otd_title'));
+    for (const [element, key] of [
+      [this.prevDayBtn, 'otd_prevDay'],
+      [this.nextDayBtn, 'otd_nextDay'],
+      [this.closeBtn, 'otd_close'],
+    ]) {
+      if (!element) continue;
+      const label = _l(lang, key);
+      element.setAttribute('aria-label', label);
+      element.setAttribute('title', label);
+    }
+    if (this.dateInput) this.dateInput.setAttribute('aria-label', _l(lang, 'otd_datePicker'));
   }
 
   /**
@@ -278,18 +438,86 @@ export class OnThisDayModal {
   }
 
   close() {
+    if (this._closed) return;
     this._closed = true;
     this._requestToken++;
     document.removeEventListener('keydown', this._onKey);
+    if (activeOnThisDayModal === this) activeOnThisDayModal = null;
+    if (this.provider && this.provider._activeModal === this) this.provider._activeModal = null;
     if (this.backdrop && this.backdrop.parentElement) {
       this.backdrop.parentElement.removeChild(this.backdrop);
     }
+    this._restoreFocus();
+  }
+
+  /** Alias for close(), used by teardown paths such as `onunload`. */
+  dispose() {
+    this.close();
+  }
+
+  /** Return focus to whatever opened the panel. */
+  _restoreFocus() {
+    const target = this._returnFocusTo;
+    this._returnFocusTo = null;
+    if (!target || !target.isConnected || typeof target.focus !== 'function') return;
+    try {
+      target.focus();
+    } catch { /* the trigger was removed with its view */ }
   }
 
   _onKeyDown(e) {
-    if (e.key === 'Escape') { this.close(); }
-    else if (e.key === 'ArrowLeft') { void this._navigateDate(-1); }
+    if (this._closed) return;
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      this.close();
+      return;
+    }
+    if (e.key === 'Tab') {
+      this._trapFocus(e);
+      return;
+    }
+    // The date input and any other field own the arrow keys: pressing ←/→ while
+    // typing must not also flip the day under the reader.
+    if (this._isEditableTarget(e.target)) return;
+    if (e.key === 'ArrowLeft') { void this._navigateDate(-1); }
     else if (e.key === 'ArrowRight') { void this._navigateDate(1); }
+  }
+
+  /** Does the key event come from a field that owns the arrow keys? */
+  _isEditableTarget(target) {
+    if (!target || target.nodeType !== 1) return false;
+    if (target.isContentEditable) return true;
+    try {
+      return typeof target.closest === 'function' && Boolean(target.closest(EDITABLE_SELECTOR));
+    } catch {
+      return false;
+    }
+  }
+
+  /** Keep Tab inside the dialog while it is modal. */
+  _trapFocus(event) {
+    if (!this.panel) return;
+    const focusable = Array.from(this.panel.querySelectorAll(FOCUSABLE_SELECTOR))
+      .filter((element) => !element.hasAttribute('disabled'));
+    if (focusable.length === 0) {
+      event.preventDefault();
+      this.focusPanel();
+      return;
+    }
+    const active = document.activeElement;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey) {
+      if (active === first || !this.panel.contains(active)) {
+        event.preventDefault();
+        last.focus();
+      }
+      return;
+    }
+    if (active === last || !this.panel.contains(active)) {
+      event.preventDefault();
+      first.focus();
+    }
   }
 
   async _navigateDate(delta) {
@@ -305,7 +533,7 @@ export class OnThisDayModal {
     this._updateDateInput();
 
     // Show loading
-    this._renderMessage(_l(this.plugin.settings.weatherLanguage, 'loading'));
+    this._renderMessage(_l(this._displayLanguage(), 'loading'));
 
     // Fetch
     const requestToken = ++this._requestToken;
@@ -313,7 +541,7 @@ export class OnThisDayModal {
       this.entries = await this.provider.getEntries(this.month, this.day);
       if (this._closed || requestToken !== this._requestToken) return;
       if (this.entries.length === 0) {
-        this._renderMessage(_l(this.plugin.settings.weatherLanguage, 'otd_noMemories'), 'history');
+        this._renderMessage(_l(this._displayLanguage(), 'otd_noMemories'), 'history');
       } else {
         this._renderGrid();
       }
@@ -335,7 +563,7 @@ export class OnThisDayModal {
 
   _renderGrid() {
     this.bodyEl.empty();
-    const lang = this.plugin.settings.weatherLanguage;
+    const lang = this._displayLanguage();
     const currentYear = Number(daylineDate(this.plugin.settings).slice(0, 4));
     const openLabel = _l(lang, 'otd_openNote');
 

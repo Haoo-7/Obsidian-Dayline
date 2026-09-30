@@ -149,4 +149,60 @@ describe('HEIC embed conversion guard', () => {
     await expect(cache.getThumbnail({ path: 'unsupported.heic', stat: { mtime: 1 } })).resolves.toBeNull();
     expect(reads).toBe(0);
   });
+
+  it('releases the libheif context after every conversion and reuses one decoder', async () => {
+    const counters = { alloc: 0, free: 0, decoders: 0 };
+    // Mirrors libheif-js: decode() frees the previous context on its next call,
+    // so only an explicit free can keep alloc/free balanced.
+    const libheif = {
+      heif_context_alloc: () => { counters.alloc += 1; return { id: counters.alloc }; },
+      heif_context_free: (context: unknown) => { if (context) counters.free += 1; },
+      HeifDecoder: class {
+        decoder: unknown = null;
+
+        constructor() { counters.decoders += 1; }
+
+        decode() {
+          if (this.decoder) libheif.heif_context_free(this.decoder);
+          this.decoder = libheif.heif_context_alloc();
+          return [];
+        }
+      },
+    };
+    const app = {
+      vault: { readBinary: async () => new ArrayBuffer(4) },
+      plugins: { plugins: { 'dayline-journal': { _libheifFactory: () => libheif } } },
+    };
+
+    const cache = new HeicCache(app);
+    await expect(cache.getThumbnail({ path: 'first.heic', stat: { mtime: 1, size: 4 } })).resolves.toBeNull();
+    await expect(cache.getThumbnail({ path: 'second.heic', stat: { mtime: 1, size: 4 } })).resolves.toBeNull();
+
+    expect(counters.alloc).toBe(2);
+    expect(counters.free).toBe(counters.alloc);
+    expect(counters.decoders).toBe(1);
+  });
+
+  it('retries the libheif factory after a failed instantiation', async () => {
+    let factoryCalls = 0;
+    const app = {
+      vault: { readBinary: async () => new ArrayBuffer(4) },
+      plugins: {
+        plugins: {
+          'dayline-journal': {
+            _libheifFactory: () => {
+              factoryCalls += 1;
+              if (factoryCalls === 1) return Promise.reject(new Error('wasm instantiation failed'));
+              return { HeifDecoder: class { decode() { return []; } } };
+            },
+          },
+        },
+      },
+    };
+
+    const cache = new HeicCache(app);
+    await expect(cache.getThumbnail({ path: 'retry-a.heic', stat: { mtime: 1, size: 4 } })).resolves.toBeNull();
+    await expect(cache.getThumbnail({ path: 'retry-b.heic', stat: { mtime: 1, size: 4 } })).resolves.toBeNull();
+    expect(factoryCalls).toBe(2);
+  });
 });

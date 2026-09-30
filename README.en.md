@@ -106,7 +106,8 @@ When the new plugin folder has no `data.json`, Dayline migrates settings from an
 | Setting | What it controls |
 | --- | --- |
 | **Enable weather** | Show weather info for dates in Dayline. Off by default. |
-| **Latitude** / **Longitude** | Your coordinates, which determine the weather data source. |
+| **Latitude** / **Longitude** | Your coordinates, which determine the weather data source. They save on blur or after about 0.8 s without typing; invalid or out-of-range input is reported inline and never saved. |
+| **Use current location** | Reads the device location once, only when you tap the button, and fills in the coordinates rounded to about 1 km. Shown on Obsidian mobile only, because desktop Electron usually has no location service. |
 | **Location name** | Display name (optional, shown in tooltip). |
 | **Temperature units** | `Celsius (°C)` (default) or `Fahrenheit (°F)`. |
 | **Weather fields** | Choose weather card fields. Feels-like and humidity are enabled by default; wind, precipitation, sunrise, sunset, and location are optional. |
@@ -126,7 +127,6 @@ When the new plugin folder has no `data.json`, Dayline migrates settings from an
 | Setting | What it controls |
 | --- | --- |
 | **Sidebar entry** | `Off`, `Merged into weather card` (default), or `Header icon`. The merged strip shows a past-year thumbnail and date; the header icon sits beside the month controls. |
-| **Show markers on calendar** | Display a small dot on dates with past-year entries. Off by default. |
 | **Excerpt mode** | How to generate text previews for past entries: `Auto-extract from note body` (default), `From frontmatter field`, `Custom template`, or `No excerpt`. |
 | **Frontmatter field name** | Which frontmatter key to read. Defaults to `excerpt`; shown only in `From frontmatter field` mode. |
 | **Template** | Template string for custom excerpt mode, supporting `{body}`, `{year}`, `{date}`, or any frontmatter key. Defaults to `{body}`; shown only in `Custom template` mode. |
@@ -148,6 +148,8 @@ When the new plugin folder has no `data.json`, Dayline migrates settings from an
 <summary><strong>Weather, imports, and date matching</strong></summary>
 
 Weather is optional and uses [Open-Meteo](https://open-meteo.com/) without an API key. The weather card can show current conditions, while historical dates use the archive endpoint when coverage is available.
+
+**Device location:** the weather setting's `Locate` button reads the device location once, only when you tap it, and stores the coordinates rounded to about 1 km (2 decimals). Dayline never tracks your position, never reads it in the background, and uses it for nothing else. Desktop Electron builds usually have no location service, so the button appears on Obsidian mobile (iOS/Android) only and desktop users enter coordinates manually. The stored coordinates are sent to [Open-Meteo](https://open-meteo.com/) with the weather request.
 
 For Day One or Apple Journal imports, first use [Day One Importer](https://github.com/MarcDonald/obsidian-day-one-importer) or [Obsidian Importer](https://github.com/obsidianmd/obsidian-importer), then add the output folder as a Journal source. Dayline does not parse JSON/ZIP exports or rewrite the imported files.
 

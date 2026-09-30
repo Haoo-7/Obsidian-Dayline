@@ -10,6 +10,32 @@ describe('excerpt utilities', () => {
     expect(renderExcerptTemplate('{mood+today} {body}', '2026-07-18', 2026, { 'mood+today': 'good' }, 'text')).toBe('good text');
   });
 
+  it('substitutes the body literally and never re-expands placeholders inside it', () => {
+    expect(renderExcerptTemplate('{year}: {body}', '2024-03-05', 2024, {}, 'price $& and $$'))
+      .toBe('2024: price $& and $$');
+    expect(renderExcerptTemplate('{body}', '2024-03-05', 2024, { title: 'T' }, 'see {title}'))
+      .toBe('see {title}');
+  });
+
+  it('strips callouts, comments, and frontmatter values containing ---', () => {
+    expect(extractExcerpt('---\ntitle: a---b\n---\nVisible body')).toBe('Visible body');
+
+    const excerpt = extractExcerpt(
+      '---\ntitle: a---b\n---\n> [!note] Callout title\nA %%hidden%% visible paragraph.\n<!-- hidden > comment -->\nLast line.',
+    );
+    expect(excerpt).not.toContain('a---b');
+    expect(excerpt).not.toContain('[!note]');
+    expect(excerpt).not.toContain('%%');
+    expect(excerpt).not.toContain('<!--');
+    expect(excerpt).not.toContain('hidden');
+    expect(excerpt).toContain('Callout title A visible paragraph.');
+    expect(excerpt).toContain('Last line.');
+  });
+
+  it('truncates on code points instead of splitting an emoji surrogate pair', () => {
+    expect(extractExcerpt('😀😀😀😀😀😀', 3)).toBe('😀😀😀...');
+  });
+
   it('removes code, tasks, navigation and prefers Freewrite text', () => {
     const content = `---\ntags: test\n---\n# Daily Note\n\`\`\`dataviewjs\ndv.list([])\n\`\`\`\n- [ ] hidden task\n## Freewrite\nA natural paragraph for the timeline.\n## Tasks\n- [x] another task`;
     expect(extractExcerpt(content)).toBe('A natural paragraph for the timeline.');

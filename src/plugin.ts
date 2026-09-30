@@ -4,7 +4,7 @@
  * Scans Calendar/Daily/ for notes with images, shows thumbnails in date cells.
  * Click a date to open that day's daily note.
  */
-const { Plugin, ItemView, TFile, Notice, Modal, Menu, setIcon, Platform } = require('obsidian');
+const { Plugin, ItemView, TFile, Notice, Modal, Menu, setIcon, Platform, normalizePath } = require('obsidian');
 const { PLUGIN_ID, LEGACY_PLUGIN_IDS } = require('./plugin-identity');
 const { JournalIndex, startJournalIndexLoad, waitForJournalIndexStartup } = require('./journal-index');
 const { subscribeJournalMetadataRefresh } = require('./journal-metadata-refresh');
@@ -12,7 +12,7 @@ const { MoodStore } = require('./mood-store');
 const { MoodPickerModal, MoodRecoveryModal } = require('./mood-picker-modal');
 const { saveMoodExport, serializeMoodCsv, serializeMoodJson } = require('./mood-export');
 const { JournalTimelineView, JOURNAL_TIMELINE_VIEW } = require('./journal-timeline-view');
-const { OnThisDayProvider, OnThisDayModal } = require('./on-this-day');
+const { OnThisDayProvider, OnThisDayModal, closeOnThisDayModal } = require('./on-this-day');
 const {
   normalizeOnThisDayEntryMode,
   onThisDayEntryDate,
@@ -41,6 +41,7 @@ const badgeRainSvg = require('../icons/badge-rain.svg?raw');
 const badgeSnowSvg = require('../icons/badge-snow.svg?raw');
 const badgeStormSvg = require('../icons/badge-storm.svg?raw');
 const { WeatherService, lookupWeatherCode, validateWeatherCoordinates, weatherBadgeIcon } = require('./weather-service');
+const { pruneWeatherCache, WEATHER_CACHE_MAX_ENTRIES } = require('./weather-cache');
 const { weatherConditionLabel } = require('./weather-conditions');
 const { buildWeatherCardParts, buildWeatherStatus, normalizeWeatherDisplayFields } = require('./weather-display');
 const { localize: _l } = require('./locale');
@@ -52,7 +53,7 @@ const { cachedMonthsReferencingMedia } = require('./calendar-media-refresh');
 const { MEDIA_EXTENSIONS, IMAGE_EXTENSIONS: MEDIA_IMAGE_EXTENSIONS, classifyMediaLink, createMediaAttachment, normalizeMediaLink } = require('./media-links');
 const { OverlayRegistry } = require('./overlay-registry');
 const { SerialTaskQueue } = require('./task-queue');
-const { formatCalendarMonth, getCalendarGridOffset, getCalendarWeekdays, getDisplayLanguage, LOCALE_TAGS, moodLabel, normalizeDisplayLanguageSetting, t } = require('./i18n');
+const { formatCalendarMonth, formatJournalDate, getCalendarGridOffset, getCalendarWeekdays, getDisplayLanguage, LOCALE_TAGS, moodLabel, normalizeDisplayLanguageSetting, t } = require('./i18n');
 const { getMoodColor } = require('./mood');
 const { shouldHandleCalendarMonthShortcut } = require('./calendar-keyboard');
 const { calendarEntryAffectsDisplay, calendarMediaAccessibilityLabel, calendarMoodMarker, calendarMoodMarkerClass, isCurrentCalendarMonth, shouldShowCalendarMood, shouldShowCalendarWeatherCard, shouldShowCalendarWeatherBadge, shouldShowCalendarWeatherLocation } = require('./calendar-display');
@@ -69,14 +70,22 @@ const {
   shouldOpenCalendarDateFromPointer,
 } = require('./media-interaction');
 const { calendarCellTouchRouting, bindOpenOnPointer } = require('./touch-targets');
+const { cssUrl } = require('./css-url');
 const {
+  DAYLINE_VIEW_TYPES,
   MOBILE_DAYLINE_VIEW,
   createSerialMobileDaylineModeController,
   getJournalOpenLeaf,
   getMobileDaylineLeaf,
   getMobileDaylineViewType,
+  getPreferredDaylineLeaf,
+  isAttachedWorkspaceLeaf,
+  isJournalHostLeaf,
+  isMainAreaLeaf,
   normalizeDaylineMobileMode,
   renderMobileDaylineModeControls,
+  resolveMobileJournalLeaf,
+  resolveMobileReturnLeaf,
 } = require('./dayline-mobile');
 const { collectMobileDiagnostics, formatMobileDiagnostics } = require('./mobile-diagnostics');
 
@@ -117,8 +126,10 @@ const DEFAULT_SETTINGS = {
   // --- EXIF metadata ---
   showExif: true,         // show EXIF metadata tooltip on image hover
   exifReverseGeocode: false, // never send GPS coordinates unless explicitly enabled
+  // Insert-time EXIF/GPS frontmatter persistence. Off by default: it writes to
+  // the user's notes, so it must be an explicit opt-in.
+  exifPersistMetadata: false,
   // --- On This Day settings ---
-  onThisDayDot: false,    // show accent dots on cells with past-year entries
   onThisDayEntry: 'merged', // 'off' | 'merged' | 'header'
   onThisDayButton: true,  // derived from onThisDayEntry !== 'off'; kept for downgrade
   onThisDayExcerptMode: 'auto',  // 'auto' | 'frontmatter' | 'template' | 'none'
@@ -131,6 +142,17 @@ const DEFAULT_SETTINGS = {
   reminderEnabled: false,
   reminderHour: 21,
 };
+
+/**
+ * Merge a locally tracked cache over the on-disk snapshot by key. Replacing the
+ * whole object would discard entries another device wrote through Obsidian Sync
+ * between this instance's last load and its next debounced write.
+ */
+function _mergeCacheByKey(diskValue, localValue) {
+  const disk = diskValue && typeof diskValue === 'object' ? diskValue : {};
+  const local = localValue && typeof localValue === 'object' ? localValue : {};
+  return { ...disk, ...local };
+}
 
 class DaylinePlugin extends Plugin {
   async onload() {
@@ -146,28 +168,39 @@ class DaylinePlugin extends Plugin {
     this._mobileTimelineFilter = {};
     this._mobileDaylineModeController = null;
     this._mobileReturnLeaf = null;
+    this._mobileJournalLeaf = null;
+    this._mobileDaylineLastViewTypeValue = null;
+    this._lastReminderDate = null;
     this._otdRequestToken = 0;
+    // Insert-time EXIF sync state: one run per note at a time, with a coalesced
+    // rerun when an event arrives while that run is still in flight.
+    this._exifPersistInFlight = new Map();
+    this._exifPersistPending = new Set();
     await this._migrateLegacyData();
     await this.loadSettings();
     this.capabilities = detectPlatformCapabilities({ Platform, app: this.app });
     this._mobileQuickEntry = createMobileMarkdownQuickEntry(this);
     this._recordMobileDiagnostic('plugin-loaded');
     this._applyCapabilityClasses();
+    // U-11: rotation and split-screen resizes change Obsidian's phone/tablet
+    // layout without a reload, so capabilities are re-probed from the live
+    // viewport instead of being frozen at load.
+    this._bindCapabilityRefresh();
 
     this.moodStore = new MoodStore(this.app, this.settings);
     await this.moodStore.load();
+    // M-01: a metadata file written by a newer plugin puts the store in
+    // read-only mode. Say so once, instead of failing every mood edit silently.
+    this._warnIfMoodStoreReadOnly();
     this.journalIndex = new JournalIndex(this.app, (path) => this.moodStore.getForIndex(path));
     // Desktop indexes eagerly, but only after Obsidian has restored layout and
-    // populated metadata embeds. Mobile remains lazy until Dayline is opened.
+    // populated metadata embeds. Mobile stays lazy until Dayline is opened, and
+    // waits for the same `resolved` state there (see ensureJournalIndexReady):
+    // restoring the layout can otherwise build the first index while
+    // metadataCache.getFileCache() still returns null, dropping frontmatter
+    // dates and embedded images.
     if (!this.capabilities.isMobile) {
-      this._desktopJournalIndexStartup = waitForJournalIndexStartup(this.app)
-        // A vault mutation may invalidate the first rebuild. ensureReady()
-        // retries until a complete rebuild has committed, while refresh()
-        // intentionally resolves after an invalidated attempt.
-        .then(() => this.journalIndex.ensureReady(this.settings));
-      this._desktopJournalIndexStartup.catch((error) => {
-        console.warn('[Dayline] Initial journal index refresh failed:', error?.message || error);
-      });
+      this._desktopJournalIndexStartup = this._startJournalIndexAfterMetadataResolved();
     }
     this._reminderTimer = window.setInterval(() => this._maybeRemind(), 60 * 1000);
 
@@ -225,56 +258,55 @@ class DaylinePlugin extends Plugin {
     this._syncDaylineRibbon();
 
     // Command to open the calendar (in case it gets closed)
-    this.addCommand({
-      id: 'open-calendar-sidebar',
-      name: t(this.settings, 'openCalendar'),
-      callback: () => this.activateView(),
-    });
+    // P-16: keep the returned command objects so a language change can refresh
+    // their names without a reload.
+    this._localizedCommands = {
+      openCalendar: this.addCommand({
+        id: 'open-calendar-sidebar',
+        name: t(this.settings, 'openCalendar'),
+        callback: () => this.activateView(),
+      }),
 
-    // Command to refresh weather for the active date
-    this.addCommand({
-      id: 'refresh-weather',
-      name: t(this.settings, 'refreshWeather'),
-      callback: () => {
-        const calendar = this.app.workspace.getLeavesOfType(VIEW_TYPE)[0]?.view;
-        if (calendar) {
-          calendar.refreshWeather().catch((err) => {
-            console.warn('[Dayline] Refresh weather failed:', err.message);
-          });
-        }
-      },
-    });
+      // Command to refresh weather for the active date
+      refreshWeather: this.addCommand({
+        id: 'refresh-weather',
+        name: t(this.settings, 'refreshWeather'),
+        callback: () => {
+          void this.refreshActiveWeather();
+        },
+      }),
 
-    // Command: Open On This Day modal
-    this.addCommand({
-      id: 'open-on-this-day',
-      name: t(this.settings, 'openOnThisDay'),
-      callback: () => {
-        const [, month, day] = _daylineDate(this.settings).split('-').map(Number);
-        this.openOnThisDay(month, day);
-      },
-    });
+      // Command: Open On This Day modal
+      openOnThisDay: this.addCommand({
+        id: 'open-on-this-day',
+        name: t(this.settings, 'openOnThisDay'),
+        callback: () => {
+          const [, month, day] = _daylineDate(this.settings).split('-').map(Number);
+          this.openOnThisDay(month, day);
+        },
+      }),
 
-    this.addCommand({
-      id: 'open-journal-timeline',
-      name: t(this.settings, 'openTimelineCommand'),
-      callback: () => this.activateTimeline(),
-    });
-    this.addCommand({
-      id: 'new-daily-note',
-      name: t(this.settings, 'newDailyCommand'),
-      callback: () => this.createDailyNoteForToday(),
-    });
-    this.addCommand({
-      id: 'record-current-mood',
-      name: t(this.settings, 'recordMoodCommand'),
-      callback: () => this.recordCurrentMood(),
-    });
-    this.addCommand({
-      id: 'copy-mobile-diagnostics',
-      name: t(this.settings, 'copyDiagnosticsCommand'),
-      callback: () => this._copyMobileDiagnostics(),
-    });
+      openTimelineCommand: this.addCommand({
+        id: 'open-journal-timeline',
+        name: t(this.settings, 'openTimelineCommand'),
+        callback: () => this.activateTimeline(),
+      }),
+      newDailyCommand: this.addCommand({
+        id: 'new-daily-note',
+        name: t(this.settings, 'newDailyCommand'),
+        callback: () => this.createDailyNoteForToday(),
+      }),
+      recordMoodCommand: this.addCommand({
+        id: 'record-current-mood',
+        name: t(this.settings, 'recordMoodCommand'),
+        callback: () => this.recordCurrentMood(),
+      }),
+      copyDiagnosticsCommand: this.addCommand({
+        id: 'copy-mobile-diagnostics',
+        name: t(this.settings, 'copyDiagnosticsCommand'),
+        callback: () => this._copyMobileDiagnostics(),
+      }),
+    };
 
     // Settings tab
     this.addSettingTab(new DaylineSettingsTab(this.app, this));
@@ -321,10 +353,15 @@ class DaylinePlugin extends Plugin {
         this._mobileQuickEntry?.sync();
       })
     );
-    this.registerEvent(this.app.vault.on('create', (file) => this._handleJournalCreateOrModify(file)));
-    this.registerEvent(this.app.vault.on('modify', (file) => this._handleJournalCreateOrModify(file)));
+    this.registerEvent(this.app.vault.on('create', (file) => this._handleJournalCreate(file)));
+    this.registerEvent(this.app.vault.on('modify', (file) => this._handleVaultModify(file)));
     this.registerEvent(this.app.vault.on('delete', (file) => this._handleJournalDelete(file)));
     this.registerEvent(this.app.vault.on('rename', (file, oldPath) => this._handleJournalRename(file, oldPath)));
+    // `changed` is the only event that carries the parsed embed list, so the
+    // insert-time EXIF sync hangs off it rather than off the raw vault events.
+    this.registerEvent(this.app.metadataCache.on('changed', (file, _data, cache) => {
+      void this._syncJournalEmbedExif(file, cache);
+    }));
     subscribeJournalMetadataRefresh({
       metadataCache: this.app.metadataCache,
       registerEvent: (eventRef) => this.registerEvent(eventRef),
@@ -343,12 +380,15 @@ class DaylinePlugin extends Plugin {
     window.clearInterval(this._reminderTimer);
     this._removeExifDismissHandlers();
     this._endExifHover();
-    await this._flushWeatherCache();
-    await this._flushGeocoderCache();
-    await this._journalWriteQueue?.flush();
-    await this.moodStore?.flush();
-    await this.viewVisibilityController?.unload();
+    // Synchronous teardown runs first. Obsidian does not await onunload, so a
+    // slow or failing flush must never postpone (or skip) the DOM cleanup, and a
+    // fast disable/enable must not let this instance's cleanup run after the
+    // next instance has applied its own classes and overlays.
     this._removeAllOverlays();
+    // J-08: the On This Day panel is a document-level overlay; it must not
+    // outlive the plugin instance that opened it.
+    closeOnThisDayModal?.();
+    this._unbindCapabilityRefresh();
     this._mobileQuickEntry?.dispose();
     this._mobileQuickEntry = null;
     this._removeCapabilityClasses();
@@ -356,12 +396,39 @@ class DaylinePlugin extends Plugin {
     this._exifTooltipEl?.remove();
     this._exifTooltipEl = null;
     document.getElementById('calendar-sidebar-styles')?.remove();
+    // Cache and queue flushes are best effort: each rejection is isolated and
+    // reported so one failed write cannot skip the others.
+    const flushes = [
+      () => this._flushWeatherCache(),
+      () => this._flushGeocoderCache(),
+      () => this._journalWriteQueue?.flush(),
+      () => this.moodStore?.flush(),
+      () => this.viewVisibilityController?.unload(),
+    ];
+    const results = await Promise.allSettled(flushes.map((flush) => Promise.resolve().then(flush)));
+    for (const result of results) {
+      if (result.status === 'rejected') {
+        console.warn('[Dayline] Unload flush failed:', result.reason?.message || result.reason);
+      }
+    }
   }
 
   _persistViewVisibility(kind, visible) {
     const key = kind === 'calendar' ? 'showCalendarView' : 'showTimelineView';
     this.settings[key] = visible;
     return this.saveSettings();
+  }
+
+  /**
+   * P-16: command names are captured by Obsidian at registration, so a language
+   * change used to need a reload. Re-resolve them from the current settings.
+   */
+  _refreshCommandNames() {
+    const commands = this._localizedCommands;
+    if (!commands) return;
+    for (const [key, command] of Object.entries(commands)) {
+      if (command && typeof command === 'object') command.name = t(this.settings, key);
+    }
   }
 
   _showDaylineMenu(event) {
@@ -454,6 +521,39 @@ class DaylinePlugin extends Plugin {
     root?.classList.remove('dayline-coarse-pointer', 'dayline-mobile', 'dayline-phone', 'dayline-tablet');
   }
 
+  /**
+   * Re-probe capabilities against the live viewport. Obsidian re-derives its
+   * phone/tablet layout from a media query on resize and `css-change`, so a
+   * rotated phone or a narrow iPad split must not keep the capabilities that
+   * were detected at load (U-11). The existing object is mutated in place so
+   * every service constructed with a reference to it stays current.
+   */
+  _refreshPlatformCapabilities() {
+    const next = detectPlatformCapabilities({ Platform, app: this.app });
+    if (this.capabilities && typeof this.capabilities === 'object') Object.assign(this.capabilities, next);
+    else this.capabilities = next;
+    this._applyCapabilityClasses();
+    this._mobileQuickEntry?.sync();
+    this._syncDaylineRibbon();
+    return this.capabilities;
+  }
+
+  _bindCapabilityRefresh() {
+    if (typeof window === 'undefined' || typeof window.addEventListener !== 'function') return;
+    this._unbindCapabilityRefresh();
+    this._capabilityRefreshHandler = () => this._refreshPlatformCapabilities();
+    window.addEventListener('resize', this._capabilityRefreshHandler);
+    window.addEventListener('css-change', this._capabilityRefreshHandler);
+  }
+
+  _unbindCapabilityRefresh() {
+    const handler = this._capabilityRefreshHandler;
+    if (!handler || typeof window === 'undefined') return;
+    window.removeEventListener('resize', handler);
+    window.removeEventListener('css-change', handler);
+    this._capabilityRefreshHandler = null;
+  }
+
   _installExifDismissHandlers() {
     if (typeof document === 'undefined') return;
     const pointer = (event) => {
@@ -487,7 +587,11 @@ class DaylinePlugin extends Plugin {
     // An empty config directory would build `undefined/plugins/...` style paths.
     if (!configDir) return;
     const dataPath = (pluginId) => `${configDir}/plugins/${pluginId}/data.json`;
-    const currentPath = dataPath(PLUGIN_ID);
+    // A manual install can live in a folder whose name differs from the plugin
+    // id (for example `dayline-main`), so the current data file is resolved from
+    // the running manifest instead of an assumed folder name.
+    const manifestDir = String(this.manifest?.dir || '').replace(/[\\/]+$/, '');
+    const currentPath = manifestDir ? normalizePath(`${manifestDir}/data.json`) : dataPath(PLUGIN_ID);
     try {
       if (await adapter.exists(currentPath)) return;
       for (const legacyId of LEGACY_PLUGIN_IDS) {
@@ -511,14 +615,35 @@ class DaylinePlugin extends Plugin {
     return opened;
   }
 
+  /**
+   * Wait for Obsidian to finish restoring the layout and resolving metadata
+   * before the first index build. A vault mutation may invalidate the first
+   * rebuild: ensureReady() retries until a complete rebuild has committed, while
+   * refresh() intentionally resolves after an invalidated attempt.
+   */
+  _startJournalIndexAfterMetadataResolved() {
+    const startup = waitForJournalIndexStartup(this.app).then(() => (
+      this.journalIndex?.ensureReady
+        ? this.journalIndex.ensureReady(this.settings)
+        : this.journalIndex?.refresh?.(this.settings)
+    ));
+    startup.catch((error) => {
+      console.warn('[Dayline] Initial journal index refresh failed:', error?.message || error);
+    });
+    return startup;
+  }
+
   async ensureJournalIndexReady() {
-    if (this._desktopJournalIndexStartup) return this._desktopJournalIndexStartup;
-    if (this.journalIndex?.ensureReady) return this.journalIndex.ensureReady(this.settings);
-    if (this.journalIndex && !this.journalIndex.isReady) return this.journalIndex.refresh(this.settings);
+    // Mobile skips the eager desktop start and builds lazily, but its first
+    // build must still await `resolved` for the same reason (J-13).
+    if (!this._desktopJournalIndexStartup) {
+      this._desktopJournalIndexStartup = this._startJournalIndexAfterMetadataResolved();
+    }
+    return this._desktopJournalIndexStartup;
   }
 
   _mobileDaylineViewTypes() {
-    return [VIEW_TYPE, JOURNAL_TIMELINE_VIEW, MOBILE_DAYLINE_VIEW];
+    return [...DAYLINE_VIEW_TYPES];
   }
 
   _mobileDaylineViewType(mode) {
@@ -527,6 +652,43 @@ class DaylinePlugin extends Plugin {
 
   _getMobileDaylineLeaf() {
     return getMobileDaylineLeaf(this.app.workspace, this._mobileDaylineViewTypes());
+  }
+
+  _getMobileLastLeaf() {
+    const lastViewType = this._mobileDaylineLastViewType();
+    const preferred = getPreferredDaylineLeaf(this.app.workspace, lastViewType);
+    if (preferred) return preferred;
+    const workspace = this.app.workspace;
+    const activeLeaf = workspace?.activeLeaf;
+    if (activeLeaf && this._mobileDaylineViewTypes().includes(activeLeaf?.view?.getViewType?.())) return activeLeaf;
+    return null;
+  }
+
+  _mobileDaylineLastViewType() {
+    if (typeof this._mobileDaylineLastViewTypeValue === 'string') return this._mobileDaylineLastViewTypeValue;
+    return null;
+  }
+
+  _getMobileJournalLeaf() {
+    const leaf = this._mobileJournalLeaf;
+    if (!leaf) return null;
+    // A remembered leaf can outlive a tab the user closed; opening a note into
+    // it would lose the note silently.
+    if (isJournalHostLeaf(leaf) && isAttachedWorkspaceLeaf(this.app.workspace, leaf) && isMainAreaLeaf(this.app.workspace, leaf)) {
+      return leaf;
+    }
+    this._mobileJournalLeaf = null;
+    return null;
+  }
+
+  _getMobileReturnLeaf() {
+    const leaf = this._mobileReturnLeaf;
+    if (!leaf) return null;
+    if (!isJournalHostLeaf(leaf) || !isAttachedWorkspaceLeaf(this.app.workspace, leaf)) {
+      this._mobileReturnLeaf = null;
+      return null;
+    }
+    return leaf;
   }
 
   _getMobileTimelineFilter() {
@@ -543,13 +705,28 @@ class DaylinePlugin extends Plugin {
         getLeaf: () => this._getMobileDaylineLeaf(),
         getViewType: (mode) => this._mobileDaylineViewType(mode),
         revealLeaf: (leaf) => this.app.workspace.revealLeaf?.(leaf),
-        onApplied: ({ mode }) => {
+        onApplied: ({ mode, viewType }) => {
           this._mobileDaylineLastMode = mode;
+          this._mobileDaylineLastViewTypeValue = viewType;
           this._syncDaylineRibbon();
         },
       });
     }
     return this._mobileDaylineModeController;
+  }
+
+  _openDaylineDrawerLeaf(preferredLeaf = null) {
+    const workspace = this.app.workspace;
+    if (preferredLeaf) return preferredLeaf;
+    const lastLeaf = this._getMobileLastLeaf();
+    if (lastLeaf) return lastLeaf;
+    try {
+      const rightLeaf = workspace?.getRightLeaf?.(false);
+      if (rightLeaf) return rightLeaf;
+    } catch {
+      // Older mobile hosts may not expose drawer routing; fall through.
+    }
+    return this._getMobileDaylineLeaf();
   }
 
   _requestMobileDaylineMode(mode, preferredLeaf = null, afterApply = null) {
@@ -573,12 +750,17 @@ class DaylinePlugin extends Plugin {
   }
 
   async _returnToMobileMarkdown() {
-    const leaf = this._mobileReturnLeaf;
-    if (!leaf || typeof leaf.setViewState !== 'function') return false;
+    const workspace = this.app.workspace;
+    // Never fall back to a Dayline leaf: setViewState('markdown') would replace
+    // the calendar with an empty note view. No real note target means there is
+    // nothing to return to.
+    const leaf = resolveMobileReturnLeaf(workspace, this._getMobileReturnLeaf());
+    if (!leaf || typeof leaf.openFile !== 'function') return false;
     try {
-      await leaf.setViewState({ type: 'markdown', active: true });
-      await this.app.workspace?.revealLeaf?.(leaf);
-      this.app.workspace?.setActiveLeaf?.(leaf, { focus: true });
+      // The target is already a Markdown leaf, so revealing it is enough;
+      // setViewState would reset the file it is showing.
+      await workspace?.revealLeaf?.(leaf);
+      workspace?.setActiveLeaf?.(leaf, { focus: true });
       return true;
     } catch (error) {
       console.warn('[Dayline] Failed to return to Markdown:', error?.message || error);
@@ -589,7 +771,11 @@ class DaylinePlugin extends Plugin {
   async _openMobileDayline(mode = 'calendar', preferredLeaf = null, afterApply = null) {
     if (!this.capabilities?.isMobile) return false;
     try {
-      await this._requestMobileDaylineMode(mode, preferredLeaf, afterApply);
+      // Dayline opens in the right drawer, so a note opened from a date can
+      // take over the main area and keep the tab count at one. Prefer the
+      // last Dayline leaf before falling back to a fresh right drawer leaf.
+      const leaf = this._openDaylineDrawerLeaf(preferredLeaf);
+      await this._requestMobileDaylineMode(mode, leaf, afterApply);
       return true;
     } catch (error) {
       this._recordMobileDiagnostic('mobile-view-open-failed');
@@ -612,10 +798,20 @@ class DaylinePlugin extends Plugin {
 
   async openJournalFile(file) {
     const workspace = this.app.workspace;
+    const phoneMode = this._usesPhoneDaylineMode();
     // Only the phone interface lacks tabs to reuse, so only there may this
     // create one. Tablets and desktop share the active or first Markdown leaf.
-    const leaf = getJournalOpenLeaf(workspace, this._usesPhoneDaylineMode());
+    // On phones Dayline lives in a right drawer, so the note must take a
+    // main-area leaf (an empty tab, or the leaf a previous note occupied) and
+    // never the Dayline drawer leaf, or the calendar would be replaced and a
+    // fresh drawer leaf would pile up on every later open.
+    const journalLeaf = phoneMode ? this._getMobileJournalLeaf() : null;
+    const leaf = phoneMode
+      ? resolveMobileJournalLeaf(workspace, journalLeaf)
+      : getJournalOpenLeaf(workspace, false);
     if (!leaf) throw new Error('No markdown leaf is available');
+    // Only main-area leaves may be remembered as the phone journal leaf.
+    if (phoneMode && !journalLeaf && isMainAreaLeaf(workspace, leaf)) this._mobileJournalLeaf = leaf;
     await leaf.openFile(file);
     await workspace.revealLeaf?.(leaf);
     workspace.setActiveLeaf?.(leaf, { focus: true });
@@ -669,12 +865,50 @@ class DaylinePlugin extends Plugin {
       if (value) frontmatter.title = value;
       else delete frontmatter.title;
     });
+    // P-17: the journal index subscription redraws the calendar and timeline
+    // for this change; rendering the views again here doubled the work.
     await this.journalIndex.refreshFile(file.path, this.settings);
-    this.refreshJournalViews();
+  }
+
+  /**
+   * Ensure the file behind a mood edit exists. A journal path that is exactly
+   * the configured daily note must go through createDailyNoteForDate: creating
+   * it empty here would bypass the Daily Notes template and Templater, and the
+   * blank file would later be opened as "today's note" (P-07).
+   */
+  async _ensureMoodJournalFile(path) {
+    const date = this._dailyNoteDateForPath(path);
+    if (date) return this.createDailyNoteForDate(date);
+    return this.ensureJournalFile(path, '');
+  }
+
+  /** The date when `path` is exactly the configured daily note for that date. */
+  _dailyNoteDateForPath(path) {
+    const folder = normalizeVaultPath(this.settings?.dailyFolder || '');
+    const name = String(path || '').split('/').pop()?.replace(/\.md$/i, '') || '';
+    if (!folder || !/^\d{4}-\d{2}-\d{2}$/.test(name)) return null;
+    return normalizeVaultPath(path) === joinVaultPath(folder, `${name}.md`) ? name : null;
+  }
+
+  /** M-01: a future `schemaVersion` puts the store in read-only mode. */
+  _moodStoreIsReadOnly() {
+    return this.moodStore?.readOnly === true;
+  }
+
+  /**
+   * Tell the user why mood editing is unavailable instead of letting every
+   * write fail with an unhandled rejection. Returns true when the caller must
+   * stop.
+   */
+  _warnIfMoodStoreReadOnly() {
+    if (!this._moodStoreIsReadOnly()) return false;
+    new Notice(t(this.settings, 'moodMetadataReadOnly'));
+    return true;
   }
 
   async openMoodPicker(path, options = {}) {
-    if (path && options.ensureFile !== false) await this.ensureJournalFile(path, '');
+    if (this._warnIfMoodStoreReadOnly()) return;
+    if (path && options.ensureFile !== false) await this._ensureMoodJournalFile(path);
     const entry = this.journalIndex.getEntries().find((item) => item.path === path);
     new MoodPickerModal(this.app, {
       filePath: path,
@@ -693,27 +927,29 @@ class DaylinePlugin extends Plugin {
       },
       onSave: async ({ filePath, score, labels, note }) => {
         const targetPath = filePath || path;
-        await this.ensureJournalFile(targetPath, '');
+        await this._ensureMoodJournalFile(targetPath);
         await this.moodStore.set(targetPath, score, labels, this.settings, note);
+        // P-17: the journal index subscription owns the redraw; forcing one
+        // here rendered the calendar a second time for the same edit.
         await this.journalIndex.refreshFile(targetPath, this.settings);
-        this.refreshJournalViews();
         new Notice(`${t(this.settings, 'moodSaved')}: ${targetPath}`);
       },
     }).open();
   }
 
   openMoodRecovery() {
+    if (this._warnIfMoodStoreReadOnly()) return;
     new MoodRecoveryModal(this.app, {
       store: this.moodStore,
       settings: this.settings,
       onChanged: async () => {
         await this.journalIndex.refresh(this.settings);
-        this.refreshJournalViews();
       },
     }).open();
   }
 
   async deleteMoodRecord(path) {
+    if (this._warnIfMoodStoreReadOnly()) return false;
     const label = t(this.settings, 'deleteMoodConfirm');
     if (typeof window !== 'undefined' && !window.confirm(`${label}\n${path}`)) return false;
     try {
@@ -721,7 +957,6 @@ class DaylinePlugin extends Plugin {
       const deleted = await this.moodStore.deleteRecord(path, true, visibleMood);
       if (!deleted) return false;
       await this.journalIndex.refresh(this.settings);
-      this.refreshJournalViews();
       new Notice(t(this.settings, 'moodDeleted'));
       return true;
     } catch (error) {
@@ -754,18 +989,61 @@ class DaylinePlugin extends Plugin {
   _maybeRemind() {
     if (!this.settings.reminderEnabled) return;
     const now = new Date();
-    const clock = getClockPartsInTimeZone(now, this.settings.weatherTimezone || 'auto');
-    if (clock.hour !== Number(this.settings.reminderHour ?? 21) || clock.minute !== 0) return;
     const date = _daylineDate(this.settings, now);
-    if (this.journalIndex.getEntries().some((entry) => entry.date === date)) return;
+    // The interval is throttled in the background, so it can land well after the
+    // configured minute. A per-day marker fires once and never twice.
+    if (this._lastReminderDate === date) return;
+    const clock = getClockPartsInTimeZone(now, this.settings.weatherTimezone || 'auto');
+    const reminderHour = Number(this.settings.reminderHour ?? 21);
+    if (!(clock.hour >= reminderHour)) return;
+    if (this._hasJournalEntryForDate(date)) return;
+    this._lastReminderDate = date;
     new Notice(t(this.settings, 'dailyReminder'));
   }
 
+  /**
+   * Whether the day's journal already exists. The phone index is built lazily,
+   * so an empty entry list only means it is not ready yet; fall back to the vault
+   * so a note the user did write is never reported as missing (P-06).
+   */
+  _hasJournalEntryForDate(date) {
+    if (this.journalIndex?.isReady && typeof this.journalIndex.getEntries === 'function') {
+      return this.journalIndex.getEntries().some((entry) => entry.date === date);
+    }
+    const path = joinVaultPath(this.settings.dailyFolder, `${date}.md`);
+    return Boolean(this.app?.vault?.getAbstractFileByPath?.(path));
+  }
+
+  /**
+   * Create the configured daily note for `dateStr`.
+   *
+   * Two callers can ask for the same date in the same tick (a mood save plus
+   * the click that opened the cell, for example). The check-then-create below
+   * used to make the loser throw "File already exists", so the in-flight
+   * creation is cached per path (P-13).
+   */
   async createDailyNoteForDate(dateStr) {
     const folder = normalizeVaultPath(this.settings.dailyFolder);
     const path = joinVaultPath(folder, `${dateStr}.md`);
     const existing = this.app.vault.getAbstractFileByPath(path);
     if (existing instanceof TFile) return existing;
+
+    if (!this._dailyNoteCreations) this._dailyNoteCreations = new Map();
+    const inFlight = this._dailyNoteCreations.get(path);
+    if (inFlight) return inFlight;
+
+    const creation = this._createDailyNoteFile(folder, path, dateStr);
+    // Registered synchronously, before the first await inside creation, so a
+    // second caller in the same tick resolves to the same promise.
+    this._dailyNoteCreations.set(path, creation);
+    try {
+      return await creation;
+    } finally {
+      if (this._dailyNoteCreations.get(path) === creation) this._dailyNoteCreations.delete(path);
+    }
+  }
+
+  async _createDailyNoteFile(folder, path, dateStr) {
     await this.ensureFolder(folder);
     const dnPlugin = this.app.internalPlugins?.getPluginById?.('daily-notes');
     const templatePath = dnPlugin?.instance?.options?.template;
@@ -779,11 +1057,24 @@ class DaylinePlugin extends Plugin {
           if (created instanceof TFile) return created;
         }
         const content = await this.app.vault.read(templateFile);
-        const resolved = content.replace(/\{\{date\}\}/g, dateStr).replace(/\{\{title\}\}/g, dateStr);
-        return this.app.vault.create(path, resolved);
+        return this._createVaultFile(path, _resolveDailyNoteTemplate(content, dateStr));
       }
     }
-    return this.app.vault.create(path, '');
+    return this._createVaultFile(path, '');
+  }
+
+  /**
+   * The file may have been created by another plugin while this call was in
+   * flight; re-query instead of surfacing its "already exists" error.
+   */
+  async _createVaultFile(path, content) {
+    try {
+      return await this.app.vault.create(path, content);
+    } catch (error) {
+      const created = this.app.vault.getAbstractFileByPath(path);
+      if (created instanceof TFile) return created;
+      throw error;
+    }
   }
 
   async ensureFolder(path) {
@@ -803,11 +1094,67 @@ class DaylinePlugin extends Plugin {
     return this.app.vault.create(path, content);
   }
 
+  /** Route a vault modify to the mood metadata store or the journal index. */
+  _handleVaultModify(file) {
+    if (this._isMoodMetadataFile(file)) {
+      this._reloadMoodMetadataFromDisk();
+      return;
+    }
+    this._handleJournalCreateOrModify(file);
+  }
+
+  _moodMetadataPath() {
+    const path = this.settings?.moodMetadataPath;
+    return typeof path === 'string' && path.length > 0 ? normalizeVaultPath(path) : '';
+  }
+
+  _isMoodMetadataFile(file) {
+    const target = this._moodMetadataPath();
+    if (!target || !file?.path) return false;
+    return normalizeVaultPath(file.path) === target;
+  }
+
+  /**
+   * Another device (or Obsidian Sync) rewrote the mood metadata JSON, so the
+   * in-memory store is stale. The store owns the reload entry point; call it
+   * defensively because older store builds may not expose it.
+   */
+  _reloadMoodMetadataFromDisk() {
+    const store = this.moodStore;
+    if (!store || typeof store.reloadFromDisk !== 'function') return;
+    Promise.resolve(store.reloadFromDisk())
+      .then(() => this.refreshJournalViews())
+      .catch((error) => console.warn('[Dayline] Mood metadata reload failed:', error?.message || error));
+  }
+
+  /**
+   * Shared vault-event fan-out. The journal index refresh for Markdown is owned
+   * by the `metadataCache.changed` subscription: doing it here as well rebuilt
+   * every entry twice per save (P-17).
+   */
   _handleJournalCreateOrModify(file) {
     this._notifyCalendarImageChange(file);
+  }
+
+  /**
+   * A note recreated at a path that was renamed or deleted used to keep its
+   * delete tombstone, which permanently hid a frontmatter mood on the new note
+   * (M-05). Only a create may clear it: the tombstone is stale exactly when it
+   * predates the new file's creation time.
+   */
+  _handleJournalCreate(file) {
+    this._handleJournalCreateOrModify(file);
     if (!(file instanceof TFile) || file.extension !== 'md') return;
-    this.journalIndex.refreshFile(file.path, this.settings)
-      .catch((error) => console.warn('[Dayline] Journal index refresh failed:', error?.message || error));
+    const path = file.path;
+    const ctime = file.stat?.ctime;
+    Promise.resolve(this.moodStore?.clearStaleTombstone?.(path, ctime))
+      .then((cleared) => {
+        // The mood only becomes visible after the store changed, which is later
+        // than the `changed` redraw that indexed the empty note.
+        if (cleared) return this.journalIndex.refreshFile(path, this.settings);
+        return undefined;
+      })
+      .catch((error) => console.warn('[Dayline] Clearing stale mood tombstone failed:', error?.message || error));
   }
 
   _handleJournalDelete(file) {
@@ -909,7 +1256,12 @@ class DaylinePlugin extends Plugin {
   openOnThisDay(month, day) {
     const calendarLeaf = this.app.workspace.getLeavesOfType(VIEW_TYPE)[0];
     const provider = calendarLeaf?.view?._otdProvider;
-    if (!provider) return;
+    if (!provider) {
+      // P-16: the command used to do nothing at all when no calendar view was
+      // open, which read as a broken command rather than a missing view.
+      new Notice(t(this.settings, 'calendarViewRequired'));
+      return;
+    }
     const token = ++this._otdRequestToken;
     provider.getEntries(month, day).then((entries) => {
       if (token !== this._otdRequestToken) return;
@@ -933,7 +1285,9 @@ class DaylinePlugin extends Plugin {
   _showExifTooltip(anchorEl, fields, loading, kind = 'image') {
     const tip = this._exifTooltipEl;
     if (!tip || !anchorEl?.isConnected) return;
-    const lang = this.settings.weatherLanguage;
+    // U-08: `t()` resolves a `'system'` language live, so the `_l` locale table
+    // must be resolved the same way or the interface mixes languages.
+    const lang = getDisplayLanguage(this.settings);
     tip.replaceChildren();
 
     const addText = (tag, className, value) => {
@@ -1005,8 +1359,159 @@ class DaylinePlugin extends Plugin {
     this._hideExifTooltip();
   }
 
+  /* ----- Insert-time EXIF/GPS persistence ----- */
+
+  /**
+   * Sync the EXIF record for every image embedded in a journal note. This is an
+   * insert-time feature: a record is written only when the image has no record
+   * yet, or when the version (mtime+size) recorded for it no longer matches the
+   * file. A current record is never rewritten — that is exactly what keeps the
+   * frontmatter write below from re-triggering `changed` and looping (P-10).
+   */
+  _syncJournalEmbedExif(file, cache = null) {
+    if (this.settings?.exifPersistMetadata !== true) return Promise.resolve();
+    if (!(file instanceof TFile) || file.extension !== 'md') return Promise.resolve();
+    const path = file.path;
+    if (!this._exifPersistInFlight) this._exifPersistInFlight = new Map();
+    if (!this._exifPersistPending) this._exifPersistPending = new Set();
+    if (this._exifPersistInFlight.has(path)) {
+      // Coalesce per note: a second event while a sync is in flight must not
+      // start a parallel write. It is re-checked once the current run settles,
+      // and that rerun writes nothing when every embed is already current.
+      this._exifPersistPending.add(path);
+      return this._exifPersistInFlight.get(path);
+    }
+    const sources = this.journalIndex?.resolveSources?.(this.settings) || [];
+    if (!sources.length || !sources.some((source) => isPathInFolder(path, source.path))) return Promise.resolve();
+
+    const run = this._runJournalEmbedExifSync(file, cache)
+      .catch((error) => {
+        console.warn('[Dayline] EXIF insert-time sync failed:', path, error?.message || error);
+      })
+      .then(() => {
+        if (this._exifPersistInFlight.get(path) === run) this._exifPersistInFlight.delete(path);
+        if (this._exifPersistPending.delete(path)) void this._syncJournalEmbedExif(file, null);
+      });
+    this._exifPersistInFlight.set(path, run);
+    return run;
+  }
+
+  async _runJournalEmbedExifSync(file, cache) {
+    const fileCache = cache || this.app.metadataCache.getFileCache(file);
+    const embeds = Array.isArray(fileCache?.embeds) ? fileCache.embeds : [];
+    for (const embed of embeds) {
+      const link = embed?.link;
+      if (!link) continue;
+      const target = this.app.metadataCache.getFirstLinkpathDest(link, file.path);
+      if (!(target instanceof TFile)) continue;
+      const extension = String(target.extension || '').toLowerCase();
+      if (!MEDIA_IMAGE_EXTENSIONS.includes(extension)) continue;
+      await this._getPersistedExifFields(target, file.path, link);
+    }
+  }
+
+  /** `{ mtime, size }` for a media file, or null when the adapter cannot stat it. */
+  async _statMediaVersion(file) {
+    const statPromise = this.app.vault?.adapter?.stat?.(file.path);
+    const stat = statPromise ? await statPromise.catch(() => null) : null;
+    return stat ? { mtime: Number(stat.mtime) || 0, size: Number(stat.size) || 0 } : null;
+  }
+
+  /**
+   * A persisted record is current while its stored version still matches the
+   * file on disk. Without a readable stat nothing can be proven changed, so the
+   * record is left alone rather than rewritten forever.
+   */
+  _exifRecordIsCurrent(record, version) {
+    if (!version) return true;
+    return Number(record?.mtime) === version.mtime && Number(record?.size) === version.size;
+  }
+
+  /**
+   * Resolve the stored place name for a GPS pair and append it as its own
+   * `exif_place` field. The `exif_gps` value is a coordinate string that used to
+   * be a shared array from metadataCache/exifCache, so it is never overwritten
+   * with a place name (W-02); only the caller's private copy is touched.
+   */
+  async _addExifPlace(fields) {
+    if (!this.settings.exifReverseGeocode || !this.geocoder) return;
+    const gps = fields.find((field) => field.key === 'exif_gps')?.value;
+    if (!gps) return;
+    const [latitude, longitude] = String(gps).split(',').map((value) => Number.parseFloat(value.trim()));
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return;
+    const place = await Promise.resolve(this.geocoder.lookup(latitude, longitude)).catch(() => null);
+    if (!place) return;
+    const existing = fields.find((field) => field.key === 'exif_place');
+    if (existing) existing.value = place;
+    else fields.push({ key: 'exif_place', value: place });
+  }
+
+  /**
+   * EXIF fields for one embedded image, always as private copies. A record that
+   * is still current is returned as a copy; otherwise the EXIF is read and the
+   * record plus top-level `latitude`/`longitude` are persisted.
+   */
+  async _getPersistedExifFields(file, notePath, imageLink, options = {}) {
+    const note = this.app.vault.getAbstractFileByPath(notePath);
+    const normalizedLink = normalizeMediaLink(imageLink);
+    const frontmatter = note instanceof TFile
+      ? this.app.metadataCache.getFileCache(note)?.frontmatter
+      : null;
+    const records = Array.isArray(frontmatter?._dayline_media_metadata)
+      ? frontmatter._dayline_media_metadata
+      : [];
+    const cached = records.find((record) => record
+      && (record.normalizedLink === normalizedLink || record.link === imageLink));
+    const version = await this._statMediaVersion(file);
+    if (Array.isArray(cached?.fields) && this._exifRecordIsCurrent(cached, version)) {
+      return cached.fields.map((field) => ({ ...field }));
+    }
+    const read = await this.exifCache.get(file);
+    if (!Array.isArray(read) || read.length === 0) return [];
+    const fields = read.map((field) => ({ ...field }));
+    if (options.reverseGeocode !== false) await this._addExifPlace(fields);
+    if (note instanceof TFile && options.persist !== false) {
+      // W-14: the write is awaited and its rejection handled here — no call site
+      // may fire-and-forget it with a bare `void`.
+      try {
+        await this._persistExifFields(note, normalizedLink, fields, version);
+      } catch (error) {
+        console.warn('[Dayline] EXIF frontmatter persist failed:', note.path, error?.message || error);
+      }
+    }
+    return fields;
+  }
+
+  async _persistExifFields(note, normalizedLink, fields, version = null) {
+    if (!(note instanceof TFile) || !Array.isArray(fields) || fields.length === 0) return;
+    // Only ever write copies: the caller's array may still alias the
+    // metadataCache frontmatter object or the shared exifCache entry.
+    const storedFields = fields.map((field) => ({ ...field }));
+    await this.app.fileManager.processFrontMatter(note, (frontmatter) => {
+      const records = Array.isArray(frontmatter._dayline_media_metadata)
+        ? frontmatter._dayline_media_metadata.filter((record) => record?.normalizedLink !== normalizedLink)
+        : [];
+      const record = { normalizedLink, fields: storedFields };
+      if (version) { record.mtime = version.mtime; record.size = version.size; }
+      frontmatter._dayline_media_metadata = [...records, record];
+      const gps = storedFields.find((field) => field.key === 'exif_gps')?.value;
+      if (gps && frontmatter.latitude == null && frontmatter.longitude == null) {
+        const [latitude, longitude] = String(gps).split(',').map((value) => Number.parseFloat(value.trim()));
+        if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
+          frontmatter.latitude = latitude;
+          frontmatter.longitude = longitude;
+        }
+      }
+    });
+  }
+
   async loadSettings() {
-    const data = await this.loadData() || {};
+    const raw = await this.loadData();
+    // U-07: a fresh install follows the system language instead of showing
+    // Chinese to an English-system user. Anyone with persisted settings keeps
+    // the value they stored.
+    const hasPersistedSettings = Boolean(raw) && typeof raw === 'object' && Object.keys(raw).length > 0;
+    const data = raw || {};
     // Extract weather cache separately so it doesn't get overwritten by saveSettings
     this.weatherCache = data.weatherCache || {};
     this.geocoderCache = data.geocoderCache && typeof data.geocoderCache === 'object' ? data.geocoderCache : {};
@@ -1016,7 +1521,7 @@ class DaylinePlugin extends Plugin {
     const legacyWeatherVisible = data.showCalendarWeather !== false;
     if (data.showCalendarWeatherCard === undefined) this.settings.showCalendarWeatherCard = legacyWeatherVisible;
     if (data.showCalendarWeatherBadge === undefined) this.settings.showCalendarWeatherBadge = legacyWeatherVisible;
-    this.settings.displayLanguage = normalizeDisplayLanguageSetting(data);
+    this.settings.displayLanguage = hasPersistedSettings ? normalizeDisplayLanguageSetting(data) : 'system';
     this.settings.weatherLanguage = getDisplayLanguage({
       displayLanguage: this.settings.displayLanguage,
       weatherLanguage: data.weatherLanguage,
@@ -1037,11 +1542,34 @@ class DaylinePlugin extends Plugin {
     settings.showCalendarView = settings.showCalendarView !== false;
     settings.showTimelineView = settings.showTimelineView === true;
     this.moodStore?.configure(settings);
+    // P-16: a display-language change must be reflected in the command palette
+    // without restarting Obsidian. Done before the write so a save failure
+    // cannot leave the names stale.
+    this._refreshCommandNames();
     await this._enqueueDataWrite((data) => {
       Object.assign(data, settings);
-      data.weatherCache = this.weatherCache || {};
-      data.geocoderCache = this.geocoderCache || {};
+      // Merge by key: another device may have written cache entries through
+      // Obsidian Sync since this instance loaded its copy.
+      data.weatherCache = _mergeCacheByKey(data.weatherCache, this.weatherCache);
+      data.geocoderCache = _mergeCacheByKey(data.geocoderCache, this.geocoderCache);
     });
+  }
+
+  /**
+   * Obsidian Sync (or another device) can rewrite data.json while this instance
+   * is idle. Re-read it before the next save, or this instance's in-memory
+   * settings and caches would overwrite the synced values.
+   */
+  async onExternalSettingsChange() {
+    try {
+      await this.loadSettings();
+      this.moodStore?.configure?.(this.settings);
+      this.refreshJournalViews();
+      this._refreshCommandNames();
+      this._syncDaylineRibbon();
+    } catch (error) {
+      console.warn('[Dayline] External settings reload failed:', error?.message || error);
+    }
   }
 
   /** Save weather cache without touching settings. Debounced to avoid excessive writes. */
@@ -1072,7 +1600,7 @@ class DaylinePlugin extends Plugin {
       this._weatherSaveTimer = null;
     }
     return this._enqueueDataWrite((data) => {
-      data.weatherCache = this.weatherCache || {};
+      data.weatherCache = _mergeCacheByKey(data.weatherCache, this.weatherCache);
     });
   }
 
@@ -1093,24 +1621,18 @@ class DaylinePlugin extends Plugin {
       this._geocoderSaveTimer = null;
     }
     return this._enqueueDataWrite((data) => {
-      data.geocoderCache = this.geocoderCache || {};
+      data.geocoderCache = _mergeCacheByKey(data.geocoderCache, this.geocoderCache);
     });
   }
 
-  /** Remove cache entries older than 90 days. */
+  /**
+   * Bound the weather cache by entry count. Weather is no longer written to
+   * frontmatter, so this cache is the only copy of backfilled history; the old
+   * 90-day `fetchedAt` sweep deleted it permanently (W-04).
+   */
   _cleanupWeatherCache() {
     if (!this.weatherCache) return;
-    const cutoff = Date.now() - 90 * 24 * 60 * 60 * 1000;
-    let removed = 0;
-    for (const [key, entry] of Object.entries(this.weatherCache)) {
-      if (entry && entry.fetchedAt) {
-        const timestamp = new Date(entry.fetchedAt).getTime();
-        if (!Number.isFinite(timestamp) || timestamp < cutoff) {
-          delete this.weatherCache[key];
-          removed++;
-        }
-      }
-    }
+    const removed = pruneWeatherCache(this.weatherCache, { maxEntries: WEATHER_CACHE_MAX_ENTRIES });
     if (removed > 0) {
       // Schedule cleanup persist (no urgency)
       window.clearTimeout(this._weatherCleanupTimer);
@@ -1121,6 +1643,23 @@ class DaylinePlugin extends Plugin {
     }
   }
 
+
+  /**
+   * Refresh weather for the active date. The command has no view when the
+   * calendar is closed, which used to make it fail silently (P-16).
+   */
+  async refreshActiveWeather() {
+    const calendar = this.app.workspace.getLeavesOfType(VIEW_TYPE)[0]?.view;
+    if (!calendar) {
+      new Notice(t(this.settings, 'calendarViewRequired'));
+      return;
+    }
+    try {
+      await calendar.refreshWeather();
+    } catch (error) {
+      console.warn('[Dayline] Refresh weather failed:', error?.message || error);
+    }
+  }
 
   async activateView() {
     if (this._usesPhoneDaylineMode()) return this._activateMobileMode('calendar');
@@ -1199,6 +1738,13 @@ class CalendarView extends ItemView {
     // Cache: "2026-7" → Map<"2026-07-15", embedLink[]>
     this.monthCache = new Map();
     this._refreshTimer = null;
+    // P-17: coalesced repaint. A burst of triggers (a date click plus the
+    // active-leaf-change it causes) must rebuild the grid once.
+    this._renderScheduled = false;
+    this._renderFrame = null;
+    this._renderTimer = null;
+    // P-20: repaint at midnight so the "today" highlight moves on its own.
+    this._midnightTimer = null;
     // Currently viewed date (YYYY-MM-DD), used for highlight
     this.activeDate = null;
     // Shared WeatherService from plugin (singleton)
@@ -1231,12 +1777,14 @@ class CalendarView extends ItemView {
     // Unified media metadata and cover cache (shared across calendar/timeline).
     this.mediaService = plugin.mediaService;
     // Track processed note-image elements (cleared when view is destroyed)
-    this._exifNoteImages = new WeakSet();
     this._exifNoteMediaControls = new WeakSet();
-    this._exifNoteDisposers = new Set();
+    // element → disposers. A Map (not a Set) so Live Preview rebuilds can
+    // release the entry for a detached node instead of accumulating closures
+    // that pin the node until the view closes (P-12).
+    this._exifNoteDisposers = new Map();
     // On This Day provider
     this._otdProvider = new OnThisDayProvider(plugin);
-    // Cache for quick dot-marker lookup: Set<"MM-DD">
+    // Set<"MM-DD"> of past-year memories, for the header button's badge
     this._otdDotCache = null;
     this._otdStripToken = 0;
     // Month-jump state is intentionally view-local.
@@ -1261,6 +1809,7 @@ class CalendarView extends ItemView {
       },
       groupLabel: t(this.plugin.settings, 'daylineViewGroupLabel'),
       returnLabel: t(this.plugin.settings, 'backToNote'),
+      returnHint: t(this.plugin.settings, 'backToNoteHint'),
       onSelect: (mode) => mode === 'timeline'
         ? this.plugin.activateTimeline()
         : this.plugin.activateView(),
@@ -1292,6 +1841,9 @@ class CalendarView extends ItemView {
       }
     };
     root.addEventListener('keydown', this._calendarKeydownHandler);
+    // P-20: the "today" highlight must move at midnight, not only on the next
+    // unrelated redraw.
+    this._scheduleMidnightRefresh();
     this._unsubscribeIndex = this.plugin.journalIndex?.subscribe?.((_, change) => {
       this._onJournalIndexChanged(change)
         .catch((error) => console.warn('[Dayline] Calendar index refresh failed:', error?.message || error));
@@ -1340,6 +1892,11 @@ class CalendarView extends ItemView {
     this._calendarKeydownHandler = null;
     this._unsubscribeIndex?.();
     this._unsubscribeIndex = null;
+    // J-08: the memory wall is owned by this view's provider, so closing the
+    // view closes the panel instead of leaving it floating over the workspace.
+    this._otdProvider?.closeModal?.();
+    this._clearMidnightRefresh();
+    this._cancelScheduledRender();
     window.clearTimeout(this._refreshTimer);
     window.clearTimeout(this._exifNoteTimer);
     this.plugin._endExifHover();
@@ -1364,6 +1921,58 @@ class CalendarView extends ItemView {
     root.removeClass('cal-mood-marker-bar');
   }
 
+  /**
+   * Coalesce every render trigger into one repaint per frame (P-17). Clicking a
+   * date fires `active-leaf-change` and the click handler together, which used
+   * to rebuild the whole grid twice.
+   */
+  _scheduleRender() {
+    if (this.closed || this._renderScheduled) return;
+    this._renderScheduled = true;
+    const run = () => {
+      this._renderScheduled = false;
+      this._renderFrame = null;
+      this._renderTimer = null;
+      if (!this.closed) this.render();
+    };
+    if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+      this._renderFrame = window.requestAnimationFrame(run);
+    } else if (typeof window !== 'undefined') {
+      this._renderTimer = window.setTimeout(run, 0);
+    } else {
+      run();
+    }
+  }
+
+  _cancelScheduledRender() {
+    if (this._renderFrame != null && typeof window !== 'undefined') window.cancelAnimationFrame?.(this._renderFrame);
+    if (this._renderTimer != null && typeof window !== 'undefined') window.clearTimeout(this._renderTimer);
+    this._renderFrame = null;
+    this._renderTimer = null;
+    this._renderScheduled = false;
+  }
+
+  /** Repaint shortly after the next local midnight so "today" stays correct. */
+  _scheduleMidnightRefresh() {
+    this._clearMidnightRefresh();
+    if (typeof window === 'undefined') return;
+    const now = new Date();
+    const nextMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 1, 0);
+    const delay = Math.max(1000, nextMidnight.getTime() - now.getTime());
+    this._midnightTimer = window.setTimeout(() => {
+      this._midnightTimer = null;
+      if (this.closed) return;
+      this.render();
+      this._scheduleMidnightRefresh();
+    }, delay);
+  }
+
+  _clearMidnightRefresh() {
+    if (this._midnightTimer == null) return;
+    if (typeof window !== 'undefined') window.clearTimeout(this._midnightTimer);
+    this._midnightTimer = null;
+  }
+
   _handleActiveLeafChange() {
     const previousMonth = this._monthKey(this.displayMonth);
     const activeView = this.app.workspace.activeLeaf?.view;
@@ -1375,13 +1984,14 @@ class CalendarView extends ItemView {
         this.displayMonth = this._monthStartForDate(this.activeDate) || this.displayMonth;
         this.monthCache.delete(nextMonth);
         this.buildMonthCache(this.displayMonth)
-          .then(() => { if (!this.closed) this.render(); })
+          .then(() => this._scheduleRender())
           .catch((error) => console.warn('[Dayline] Active-date month sync failed:', error?.message || error));
         return;
       }
     }
-    // Defer to avoid race with click handler calling openFile.
-    window.setTimeout(() => this.render(), 0);
+    // Defer so the click handler that is already opening the file coalesces
+    // into the same repaint instead of rendering the grid a second time.
+    this._scheduleRender();
   }
 
   /* ----- File change refresh (debounced) ----- */
@@ -1458,13 +2068,14 @@ class CalendarView extends ItemView {
   /* ----- Public refresh (called from plugin and index updates) ----- */
   async refresh() {
     this.monthCache.delete(this._monthKey(this.displayMonth));
-    if (this.exifCache) this.exifCache.invalidate();
+    // The shared EXIF cache is invalidated per changed file, not wholesale:
+    // clearing it here made every unrelated refresh re-read every image (P-17).
     if (this._otdProvider) this._otdProvider.invalidate();
     this._otdDotCache = null;
     await this.buildMonthCache(this.displayMonth);
     this.render();
-    // Rebuild OTD dot cache async
-    if (this._otdProvider && (this.plugin.settings.onThisDayDot || shouldShowHeaderOnThisDayEntry(this.plugin.settings))) {
+    // Rebuild the past-year index the header button's badge reads
+    if (this._otdProvider && shouldShowHeaderOnThisDayEntry(this.plugin.settings)) {
       this._otdProvider.ensureDateIndex().then(() => {
         this._otdDotCache = this._otdProvider.dateIndexSnapshot;
         this.render();
@@ -1699,16 +2310,29 @@ class CalendarView extends ItemView {
       const cover = dateEntry.cover || media[0];
       const isToday = dateStr === todayStr;
 
-      const cell = grid.createDiv({ cls: 'cal-day' });
+      // Day cells are buttons: keyboard and screen-reader users must be able to
+      // reach and activate the same open-journal path the pointer uses. The
+      // `data-calendar-focus` key lets `render()` put focus back on this exact
+      // date after the grid is rebuilt.
+      const cell = grid.createDiv({
+        cls: 'cal-day',
+        attr: {
+          role: 'button',
+          tabindex: '0',
+          'data-calendar-focus': `day-${dateStr}`,
+        },
+      });
       if (cover) cell.addClass('cal-has-image');
       else cell.addClass('cal-no-image');
       if (dateEntry.hasRecord) cell.addClass('cal-has-record');
       if (dateEntry.hasWeather) cell.addClass('cal-has-weather');
       const entryCountLabel = t(this.plugin.settings, dateEntry.entryCount === 1 ? 'calendarEntryCountOne' : 'calendarEntryCount', { count: dateEntry.entryCount });
+      // U-02: the raw ISO date is not what a screen reader should read out.
+      const localizedDate = formatJournalDate(dateStr, this.plugin.settings);
       cell.setAttribute('aria-label', [
         dateEntry.entryCount
-          ? t(this.plugin.settings, 'calendarEntriesOnDate', { date: dateStr, entries: entryCountLabel })
-          : dateStr,
+          ? t(this.plugin.settings, 'calendarEntriesOnDate', { date: localizedDate, entries: entryCountLabel })
+          : localizedDate,
         dateEntry.hasWeather ? t(this.plugin.settings, 'calendarWeatherAvailable') : '',
       ].filter(Boolean).join(', '));
       if (isToday) cell.addClass('cal-today');
@@ -1799,22 +2423,29 @@ class CalendarView extends ItemView {
       // Mood is stored outside Markdown. A frontmatter-only mood remains
       // visible through the index until the user explicitly imports it.
       const dailyPath = joinVaultPath(this.plugin.settings.dailyFolder, `${dateStr}.md`);
+      // P-14: read the mood from the same path the picker edits. With several
+      // configured sources the primary entry and today's daily note can differ,
+      // and the cell used to display one while editing the other.
+      const moodPath = dateEntry.primaryEntryPath || dateEntry.path || dailyPath;
       const mood = shouldShowCalendarMood(this.plugin.settings)
-        ? this.plugin.moodStore?.get(dailyPath)
+        ? this.plugin.moodStore?.get(moodPath)
           || dateEntry.mood
         : undefined;
-      const moodPath = dateEntry.primaryEntryPath || dateEntry.path || dailyPath;
       // Only offer the control where a mood is already recorded or the date has a
       // journal entry. Rendering an empty frame on every date littered the grid
       // with targets that claimed taps meant for the date itself.
       const hasMoodTarget = Boolean(mood) || Boolean(dateEntry.hasRecord);
       if (touchRouting.showMoodControl && shouldShowCalendarMood(this.plugin.settings) && hasMoodTarget) {
+        // The mood level is carried by color plus the hover `title`. A non-color
+        // visual cue (marker size) was tried for M-11 and reverted by the
+        // maintainer: at 6-10px it was too subtle to help anyone and it put the
+        // marker's shape at risk, so the pip is deliberately left uniform.
         const moodButton = cell.createEl('button', {
           cls: `cal-mood-button ${mood ? `mood-${mood.score}` : 'cal-mood-empty'}`,
           attr: {
             type: 'button',
-            'aria-label': `${t(this.plugin.settings, 'recordMood')}: ${dateStr}`,
-            title: mood ? moodLabel(this.plugin.settings, mood.score) : `${t(this.plugin.settings, 'recordMood')}: ${dateStr}`,
+            'aria-label': `${t(this.plugin.settings, 'recordMood')}: ${localizedDate}`,
+            title: mood ? moodLabel(this.plugin.settings, mood.score) : `${t(this.plugin.settings, 'recordMood')}: ${localizedDate}`,
           },
         });
         if (mood) moodButton.style.setProperty('--journal-mood-color', getMoodColor(mood.score));
@@ -1833,21 +2464,15 @@ class CalendarView extends ItemView {
         });
       }
 
-      // On This Day dot marker
-      if (this.plugin.settings.onThisDayDot && this._otdDotCache) {
-        const mmdd = `${String(month + 1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-        if (this._otdDotCache.has(mmdd) && dateStr !== todayStr) {
-          cell.createDiv({ cls: 'cal-otd-dot' });
-        }
-      }
-
       // Date number
       cell.createSpan({ cls: 'cal-day-num', text: String(d) });
 
+      const openDate = () => this._openNote(dateStr, dateEntry.primaryEntryPath || dateEntry.path);
       bindOpenOnPointer(cell, {
         coarsePointer: this.plugin.capabilities?.coarsePointer,
         shouldOpen: shouldOpenCalendarDateFromPointer,
-        onOpen: () => this._openNote(dateStr, dateEntry.primaryEntryPath || dateEntry.path),
+        keyboard: true,
+        onOpen: openDate,
       });
     }
   }
@@ -1889,12 +2514,23 @@ class CalendarView extends ItemView {
       attr: { type: 'button', 'data-calendar-focus': 'jump-apply', 'aria-label': t(this.plugin.settings, 'apply'), title: t(this.plugin.settings, 'apply') },
     });
     setIcon(apply, 'check');
-    apply.addEventListener('click', (event) => {
-      event.stopPropagation();
+    const applyJump = () => {
       apply.focus({ preventScroll: true });
       const nextYear = Math.max(1, Math.min(9999, Number.parseInt(yearInput.value, 10) || this.displayMonth.getFullYear()));
       const nextMonth = Math.max(0, Math.min(11, Number.parseInt(monthSelect.value, 10) || 0));
       void this._jumpToMonth(nextYear, nextMonth);
+    };
+    apply.addEventListener('click', (event) => {
+      event.stopPropagation();
+      applyJump();
+    });
+    // P-08: typing a year and pressing Enter must apply the jump; the number
+    // input has no implicit submit inside the panel.
+    yearInput.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter') return;
+      event.preventDefault();
+      event.stopPropagation();
+      applyJump();
     });
   }
 
@@ -1904,6 +2540,11 @@ class CalendarView extends ItemView {
   }
 
   _jumpToMonth(year, monthIndex) {
+    // P-20: build the target on a fixed base year and then set the real year.
+    // `new Date(year, ...)`/`Date.UTC(year, ...)` maps years 0-99 onto
+    // 1900-1999, which made a jump to year 42 render as 1942 while the grid
+    // offset (fixed in i18n's utcDateOf) used year 42. The panel keeps its
+    // 1-9999 range, so the construction has to be correct for every year.
     const targetMonth = new Date(0);
     targetMonth.setFullYear(year, monthIndex, 1);
     targetMonth.setHours(12, 0, 0, 0);
@@ -1921,44 +2562,6 @@ class CalendarView extends ItemView {
   _ensureExifTooltip() { this.plugin._ensureExifTooltip(); }
   _showExifTooltip(el, fields, loading, kind) { this.plugin._showExifTooltip(el, fields, loading, kind); }
   _hideExifTooltip() { this.plugin._hideExifTooltip(); }
-
-  /** Mouse entered a day cell with an image — start the hover timer. */
-  _onExifEnter(cell, imageLink, dateStr, sourcePath) {
-    if (!this.plugin.settings.showExif) return;
-    const hoverToken = this.plugin._beginExifHover();
-
-    this.plugin._exifHoverTimer = window.setTimeout(() => {
-      void (async () => {
-        try {
-          const notePath = sourcePath || joinVaultPath(this.plugin.settings.dailyFolder, `${dateStr}.md`);
-          const file = this.app.metadataCache.getFirstLinkpathDest(imageLink, notePath);
-          if (!(file instanceof TFile)) return;
-          if (!this.plugin._isCurrentExifHover(hoverToken)) return;
-          this.plugin._showExifTooltip(cell, null, true);
-          const fields = await this._getPersistedExifFields(file, notePath, imageLink);
-          if (!this.plugin._isCurrentExifHover(hoverToken)) return;
-          this.plugin._showExifTooltip(cell, fields, false);
-
-          // Reverse geocode GPS coordinates asynchronously
-          if (this.plugin.settings.exifReverseGeocode && fields && this.plugin.geocoder) {
-            const gpsField = fields.find(f => f.key === 'exif_gps');
-            if (gpsField) {
-              const parts = gpsField.value.split(',').map(s => parseFloat(s.trim()));
-              if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
-                const place = await this.plugin.geocoder.lookup(parts[0], parts[1]);
-                if (place && this.plugin._isCurrentExifHover(hoverToken)) {
-                  gpsField.value = place;
-                  this.plugin._showExifTooltip(cell, fields, false);
-                }
-              }
-            }
-          }
-        } catch {
-          this.plugin._hideExifTooltip();
-        }
-      })();
-    }, 500);
-  }
 
   _onMediaEnter(cell, attachment, immediate = false) {
     if (!this.plugin.settings.showExif || !attachment) return;
@@ -1985,49 +2588,6 @@ class CalendarView extends ItemView {
     this.plugin._endExifHover();
   }
 
-  async _getPersistedExifFields(file, notePath, imageLink) {
-    const note = this.app.vault.getAbstractFileByPath(notePath);
-    const normalizedLink = normalizeMediaLink(imageLink);
-    const frontmatter = note instanceof TFile
-      ? this.app.metadataCache.getFileCache(note)?.frontmatter
-      : null;
-    const records = Array.isArray(frontmatter?._dayline_media_metadata)
-      ? frontmatter._dayline_media_metadata
-      : [];
-    const cached = records.find((record) => record
-      && (record.normalizedLink === normalizedLink || record.link === imageLink));
-    const statPromise = this.app.vault?.adapter?.stat?.(file.path);
-    const stat = statPromise ? await statPromise.catch(() => null) : null;
-    const version = stat ? { mtime: Number(stat.mtime) || 0, size: Number(stat.size) || 0 } : null;
-    if (Array.isArray(cached?.fields)
-      && (!version || (Number(cached.mtime) === version.mtime && Number(cached.size) === version.size))) {
-      return cached.fields;
-    }
-    const fields = await this.exifCache.get(file);
-    if (note instanceof TFile && fields?.length) void this._persistExifFields(note, normalizedLink, fields, version);
-    return fields;
-  }
-
-  async _persistExifFields(note, normalizedLink, fields, version = null) {
-    if (!(note instanceof TFile) || !Array.isArray(fields) || fields.length === 0) return;
-    await this.app.fileManager.processFrontMatter(note, (frontmatter) => {
-      const records = Array.isArray(frontmatter._dayline_media_metadata)
-        ? frontmatter._dayline_media_metadata.filter((record) => record?.normalizedLink !== normalizedLink)
-        : [];
-      const record = { normalizedLink, fields };
-      if (version) { record.mtime = version.mtime; record.size = version.size; }
-      frontmatter._dayline_media_metadata = [...records, record];
-      const gps = fields.find((field) => field.key === 'exif_gps')?.value;
-      if (gps && frontmatter.latitude == null && frontmatter.longitude == null) {
-        const [latitude, longitude] = String(gps).split(',').map((value) => Number.parseFloat(value.trim()));
-        if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
-          frontmatter.latitude = latitude;
-          frontmatter.longitude = longitude;
-        }
-      }
-    });
-  }
-
   /* ----- Read cached weather from plugin data (no more YAML pollution) ----- */
   _readCachedWeather(dateStr, sourcePath) {
     const entry = this.weather.getCachedSnapshot(dateStr, sourcePath);
@@ -2044,6 +2604,9 @@ class CalendarView extends ItemView {
   /* ----- Render weather card below month header (idempotent) ----- */
   _renderWeatherCard(containerEl) {
     const s = this.plugin.settings;
+    // U-08: resolve the locale at call time so a `'system'` setting follows the
+    // OS language without a reload.
+    const lang = getDisplayLanguage(s);
     if (!s.weatherEnabled || !shouldShowCalendarWeatherCard(s)) {
       // Don't show anything when weather is disabled — avoid intrusive UI
       return;
@@ -2051,13 +2614,21 @@ class CalendarView extends ItemView {
 
     if (!validateWeatherCoordinates(s.weatherLatitude, s.weatherLongitude)) {
       const hint = containerEl.createDiv({ cls: 'cal-weather-setup' });
-      hint.setText(_l(s.weatherLanguage, 'setupHint'));
-      hint.setAttribute('aria-label', _l(s.weatherLanguage, 'setupAria'));
+      hint.setText(_l(lang, 'setupHint'));
+      hint.setAttribute('aria-label', _l(lang, 'setupAria'));
       return;
     }
 
     // Use activeDate or today for the card
     const cardDate = this.activeDate || _daylineDate(this.plugin.settings);
+
+    // `_renderCalendar` empties the container before calling this method, which
+    // detached the previously rendered card and made the revalidation branch
+    // below unreachable (P-09). Re-attach the preserved node first so a redraw
+    // revalidates the same-date card instead of rebuilding and refetching it.
+    if (this._weatherCardDate === cardDate && this._weatherCardEl && !this._weatherCardEl.isConnected) {
+      containerEl.appendChild(this._weatherCardEl);
+    }
 
     // Keep the connected card in place, but still ask WeatherService to
     // revalidate this date. Its cache/TTL and in-flight map make fresh checks
@@ -2101,13 +2672,13 @@ class CalendarView extends ItemView {
     infoEl.createDiv({ cls: 'cal-weather-detail' });
     infoEl.createDiv({ cls: 'cal-weather-extra' });
     infoEl.createDiv({ cls: 'cal-weather-status' });
-    tempEl.setText(_l(s.weatherLanguage, 'loading'));
-    if (locationEl) locationEl.setText(`${_l(s.weatherLanguage, 'weatherLocation')}: ${s.weatherLocationName || `${parseFloat(s.weatherLatitude).toFixed(2)}, ${parseFloat(s.weatherLongitude).toFixed(2)}`}`);
+    tempEl.setText(_l(lang, 'loading'));
+    if (locationEl) locationEl.setText(`${_l(lang, 'weatherLocation')}: ${s.weatherLocationName || `${parseFloat(s.weatherLatitude).toFixed(2)}, ${parseFloat(s.weatherLongitude).toFixed(2)}`}`);
 
     // Native Obsidian refresh icon button
     const refreshBtn = main.createEl('button', {
       cls: 'cal-weather-refresh',
-      attr: { 'aria-label': _l(s.weatherLanguage, 'refresh'), title: _l(s.weatherLanguage, 'refresh') },
+      attr: { 'aria-label': _l(lang, 'refresh'), title: _l(lang, 'refresh') },
     });
     setIcon(refreshBtn, 'refresh-cw');
     refreshBtn.addEventListener('click', (e) => {
@@ -2150,7 +2721,7 @@ class CalendarView extends ItemView {
   _renderOnThisDayHeader(headerActions) {
     if (!shouldShowHeaderOnThisDayEntry(this.plugin.settings)) return;
     const dateStr = this._onThisDayTargetDate();
-    const lang = this.plugin.settings.weatherLanguage;
+    const lang = getDisplayLanguage(this.plugin.settings);
     const label = _l(lang, 'otd_title');
     const btn = headerActions.createEl('button', {
       cls: 'cal-icon-button cal-otd-header-button',
@@ -2194,7 +2765,7 @@ class CalendarView extends ItemView {
     if (!preview) return;
 
     const host = resolveWeatherOnThisDayHost(containerEl) || createStandaloneOnThisDayHost(containerEl);
-    const lang = this.plugin.settings.weatherLanguage;
+    const lang = getDisplayLanguage(this.plugin.settings);
     // "How long ago" is measured from today, the same basis the provider uses to
     // pick which years are past. The browsed date only supplies the month/day:
     // deriving the year from `dateStr` made a memory from the year already on
@@ -2217,7 +2788,9 @@ class CalendarView extends ItemView {
       const notePath = preview.imageNotePath || joinVaultPath(this.plugin.settings.dailyFolder, `${preview.imageDateStr || dateStr}.md`);
       this.plugin.thumbnailService?.load(preview.image, notePath)
         .then((result) => {
-          if (result && photo.isConnected) photo.style.backgroundImage = `url(${result.url})`;
+          // J-06: quote and escape the resource path; vault names routinely
+          // contain parentheses and spaces, which unquoted `url(...)` drops.
+          if (result && photo.isConnected) photo.style.backgroundImage = cssUrl(result.url);
         })
         .catch((error) => console.warn('[Dayline] On This Day thumbnail load failed:', error?.message || error));
     } else if (photo) {
@@ -2264,7 +2837,7 @@ class CalendarView extends ItemView {
   _updateWeatherCardUI() {
     const card = this._weatherCardEl;
     if (!card || !card.isConnected) return;
-    const lang = this.plugin.settings.weatherLanguage;
+    const lang = getDisplayLanguage(this.plugin.settings);
 
     card.removeClass('cal-weather-loading');
     card.removeClass('cal-weather-error');
@@ -2389,26 +2962,41 @@ class CalendarView extends ItemView {
     }
 
     const renderToken = this._fetchToken;
+    // P-15: a redraw or navigation while this request is in flight must not let
+    // the result (or the error) paint onto whichever date is now on screen.
+    const isCurrent = () => renderToken === this._fetchToken && this._weatherCardDate === dateStr;
+    const abandonLoadingState = () => {
+      // The newer render owns the card, but this view must never be left
+      // claiming a refresh is still running.
+      if (!btnEl) this._weatherLoading = false;
+    };
     try {
       const snap = await this.weather.forceRefresh(dateStr);
-      if (renderToken !== this._fetchToken || this._weatherCardDate !== dateStr) return;
+      if (!isCurrent()) {
+        abandonLoadingState();
+        return;
+      }
       this._weatherSnapshot = snap;
       this._weatherError = !snap;
       this._weatherLoading = false;
       this._updateWeatherCardUI();
       this.render();
-      const lang = this.plugin.settings.weatherLanguage;
+      const lang = getDisplayLanguage(this.plugin.settings);
       if (snap) {
         new Notice(_l(lang, 'weatherUpdated', dateStr));
       } else {
         new Notice(_l(lang, 'noDataFor', dateStr));
       }
     } catch (err) {
-      this._weatherError = true;
-      this._weatherLoading = false;
-      this._updateWeatherCardUI();
-      const lang = this.plugin.settings.weatherLanguage;
-      new Notice(_l(lang, 'refreshFailed', err.message || t(this.plugin.settings, 'unknownError')));
+      if (isCurrent()) {
+        this._weatherError = true;
+        this._weatherLoading = false;
+        this._updateWeatherCardUI();
+        const lang = getDisplayLanguage(this.plugin.settings);
+        new Notice(_l(lang, 'refreshFailed', err.message || t(this.plugin.settings, 'unknownError')));
+      } else {
+        abandonLoadingState();
+      }
     } finally {
       // Always restore button state
       if (wasLoading && btnEl) {
@@ -2483,7 +3071,9 @@ class CalendarView extends ItemView {
     const openFileInLeaf = (f) => {
       this.plugin.openJournalFile(f).then((leaf) => {
         this._syncActiveDate(leaf);
-        this.render();
+        // P-17: opening the file also fires `active-leaf-change`; both triggers
+        // coalesce into a single grid rebuild.
+        this._scheduleRender();
         this._triggerWeatherAfterOpen(dateStr);
       }).catch((error) => {
         console.warn('[Dayline] Open note failed:', error?.message || error);
@@ -2642,7 +3232,11 @@ class CalendarView extends ItemView {
 
     // Then watch for new ones
     const observer = new MutationObserver((mutations) => {
+      let removedElement = false;
       for (const m of mutations) {
+        for (const node of m.removedNodes) {
+          if (node.nodeType === 1) removedElement = true;
+        }
         for (const node of m.addedNodes) {
           if (node.nodeType === 1) {
             if (node.tagName === 'IMG') this._processImageEls([node]);
@@ -2655,17 +3249,42 @@ class CalendarView extends ItemView {
           }
         }
       }
+      // Release instrumentation for nodes Live Preview detached. A node that was
+      // merely moved is connected again by the time this microtask runs, so it
+      // keeps its listeners (and is not re-instrumented twice).
+      if (removedElement) this._releaseDetachedNoteMedia();
     });
 
     observer.observe(container, { childList: true, subtree: true });
     this._exifObservers.set(leaf, observer);
   }
 
+  _noteMediaDisposers() {
+    if (!(this._exifNoteDisposers instanceof Map)) this._exifNoteDisposers = new Map();
+    return this._exifNoteDisposers;
+  }
+
+  /** Drop one element's listeners/controls, restoring the attributes we changed. */
+  _releaseNoteMediaEntry(el) {
+    if (!(this._exifNoteDisposers instanceof Map)) return;
+    const disposers = this._exifNoteDisposers.get(el);
+    if (!disposers) return;
+    this._exifNoteDisposers.delete(el);
+    for (const dispose of disposers) dispose();
+  }
+
+  /** Release instrumentation for every tracked element no longer in the DOM. */
+  _releaseDetachedNoteMedia() {
+    if (!(this._exifNoteDisposers instanceof Map)) return;
+    for (const el of Array.from(this._exifNoteDisposers.keys())) {
+      if (!el.isConnected) this._releaseNoteMediaEntry(el);
+    }
+  }
+
   _processImageEls(images) {
     if (this.closed) return;
     for (const img of images) {
-      if (this._exifNoteImages.has(img)) continue;
-      this._exifNoteImages.add(img);
+      if (this._noteMediaDisposers().has(img)) continue;
       this._bindNoteMediaHover(img, {
         onEnter: (e) => this._onNoteImageEnter(e, img),
         onLeave: () => this._onExifLeave(img),
@@ -2682,7 +3301,7 @@ class CalendarView extends ItemView {
   _processEmbedEls(embeds) {
     if (this.closed) return;
     for (const el of embeds) {
-      if (this._exifNoteImages.has(el)) continue;
+      if (this._noteMediaDisposers().has(el)) continue;
       // Media Extended and Obsidian both render embeds through this outer
       // element. Resolve the owning Markdown leaf instead of activeLeaf so
       // split panes never borrow another note's relative path.
@@ -2691,7 +3310,6 @@ class CalendarView extends ItemView {
       const classified = classifyMediaLink(normalizedSrc);
       const ext = classified.extension;
       if (!ext || !MEDIA_EXTENSIONS.includes(ext)) continue;
-      this._exifNoteImages.add(el);
       this._bindNoteMediaHover(el, {
         onEnter: (e) => MEDIA_IMAGE_EXTENSIONS.includes(ext)
           ? this._onNoteImageEnter(e, el)
@@ -2722,7 +3340,12 @@ class CalendarView extends ItemView {
     try {
       const notePath = this._notePathForElement(el);
       const file = this.app.metadataCache.getFirstLinkpathDest(src, notePath);
-      if (!(file instanceof TFile)) return;
+      if (!(file instanceof TFile)) {
+        // P-11: nothing to convert, so the "converting" loader must not stay
+        // behind claiming a conversion is still in flight.
+        loader.remove();
+        return;
+      }
 
       const thumb = await this.plugin.heicCache.getThumbnail(file);
       if (this.closed) {
@@ -2744,7 +3367,6 @@ class CalendarView extends ItemView {
       const img = loader.createEl('img', { cls: 'cal-heic-preview-image' });
       img.src = thumb.dataUrl;
       img.setAttribute('data-cal-exif', '1');
-      this._exifNoteImages.add(img);
       this._bindNoteMediaHover(img, {
         onEnter: (e) => this._onNoteImageEnter(e, img),
         onLeave: () => this._onExifLeave(img),
@@ -2805,7 +3427,11 @@ class CalendarView extends ItemView {
   }
 
   _bindNoteMediaHover(el, { onEnter, onLeave, onFocus }) {
-    if (!this._exifNoteDisposers) this._exifNoteDisposers = new Set();
+    const disposers = this._noteMediaDisposers();
+    // Live Preview can rebuild the same node instance; release the previous
+    // listeners first so they never stack (and so the previous attributes are
+    // the ones captured below).
+    this._releaseNoteMediaEntry(el);
     const hadTabIndex = el.hasAttribute('tabindex');
     const previousTabIndex = hadTabIndex ? el.getAttribute('tabindex') : null;
     const hadAriaLabel = el.hasAttribute('aria-label');
@@ -2818,7 +3444,7 @@ class CalendarView extends ItemView {
     el.addEventListener('mouseenter', enter);
     el.addEventListener('mouseleave', leave);
     el.addEventListener('focusin', focus);
-    this._exifNoteDisposers.add(() => {
+    disposers.set(el, [() => {
       el.removeEventListener('mouseenter', enter);
       el.removeEventListener('mouseleave', leave);
       el.removeEventListener('focusin', focus);
@@ -2826,15 +3452,18 @@ class CalendarView extends ItemView {
       else el.removeAttribute('tabindex');
       if (hadAriaLabel) el.setAttribute('aria-label', previousAriaLabel);
       else el.removeAttribute('aria-label');
-    });
+    }]);
   }
 
   _disposeNoteMediaInstrumentation() {
-    const disposers = Array.from(this._exifNoteDisposers || []);
-    this._exifNoteDisposers = new Set();
-    this._exifNoteImages = new WeakSet();
+    const entries = this._exifNoteDisposers instanceof Map
+      ? Array.from(this._exifNoteDisposers.values())
+      : [];
+    this._exifNoteDisposers = new Map();
     this._exifNoteMediaControls = new WeakSet();
-    for (const dispose of disposers) dispose();
+    for (const disposers of entries) {
+      for (const dispose of disposers) dispose();
+    }
   }
 
   _addNoteMediaInfoControl(el, open) {
@@ -2863,12 +3492,17 @@ class CalendarView extends ItemView {
     button.addEventListener('click', onClick);
     parent.insertBefore(button, reference.nextSibling);
     this._exifNoteMediaControls.add(owner);
-    if (!this._exifNoteDisposers) this._exifNoteDisposers = new Set();
-    this._exifNoteDisposers.add(() => {
+    // The control belongs to the media element that produced it, so releasing
+    // that element also removes the button it injected.
+    const disposers = this._noteMediaDisposers();
+    const dispose = () => {
       button.removeEventListener('pointerdown', onPointerDown);
       button.removeEventListener('click', onClick);
       button.remove();
-    });
+    };
+    const existing = disposers.get(el);
+    if (existing) existing.push(dispose);
+    else disposers.set(el, [dispose]);
   }
 
   _notePathForElement(el) {
@@ -2994,7 +3628,11 @@ class CalendarView extends ItemView {
     if (snap && typeof snap.icon === 'string' && !snap.icon.endsWith('.svg') && snap.weatherCode != null) {
       snap.icon = lookupWeatherCode(snap.weatherCode).icon;
     }
-    const isStale = snap && typeof snap === 'object' ? this.weather._shouldFetch(snap, this.plugin.settings.weatherTtlHours || 2) : true;
+    // W-04: the overlay knows which date it is for, so a historical date with a
+    // final archive snapshot is not refetched on the short TTL.
+    const isStale = snap && typeof snap === 'object'
+      ? this.weather._shouldFetch(snap, this.plugin.settings.weatherTtlHours || 2, dateStr)
+      : true;
 
     // If no valid snapshot, trigger a background fetch
     if (!snap || isStale) {
@@ -3051,7 +3689,7 @@ class CalendarView extends ItemView {
     const tempEl = infoEl.createDiv({ cls: 'cal-overlay-temp' });
     const detailEl = infoEl.createDiv({ cls: 'cal-overlay-detail' });
 
-    const lang = this.plugin.settings.weatherLanguage;
+    const lang = getDisplayLanguage(this.plugin.settings);
     const unitSym = this._unitSymbol(snap.units);
     const labelKey = snap.temperatureLabel === 'Now' ? 'now' : 'high';
     tempEl.setText(`${_l(lang, labelKey)} ${snap.temperature ?? '?'}${unitSym}`);
@@ -3113,7 +3751,7 @@ class CalendarView extends ItemView {
       const detailEl = overlayEl.querySelector('.cal-overlay-detail');
       const iconEl = overlayEl.querySelector('.cal-overlay-icon');
       const unitSym = this._unitSymbol(snap.units);
-      const lang = this.plugin.settings.weatherLanguage;
+      const lang = getDisplayLanguage(this.plugin.settings);
       const labelKey = snap.temperatureLabel === 'Now' ? 'now' : 'high';
       if (tempEl) tempEl.textContent = `${_l(lang, labelKey)} ${snap.temperature ?? '?'}${unitSym}`;
       if (iconEl) {
@@ -3210,13 +3848,13 @@ class CalendarView extends ItemView {
         .filter((date) => date < _daylineDate(this.plugin.settings)),
     )).sort();
     const missingDates = dateStrs.filter((date) => !this.weather.hasCachedSnapshot(date));
+    const lang = getDisplayLanguage(this.plugin.settings);
 
     if (missingDates.length === 0) {
-      new Notice(_l(this.plugin.settings.weatherLanguage, 's_backfillAllDone'));
+      new Notice(_l(lang, 's_backfillAllDone'));
       return;
     }
 
-    const lang = this.plugin.settings.weatherLanguage;
     new Notice(_l(lang, 's_backfillStarted', missingDates.length));
     await this.weather.bulkBackfill(missingDates, (done, total) => {
       if (done % 5 === 0 || done === total) {
@@ -3306,6 +3944,32 @@ class CreateNoteModal extends Modal {
    ============================================================ */
 function _daylineDate(settings, date = new Date()) {
   return getTodayDate(settings?.weatherTimezone || 'auto', date);
+}
+
+/**
+ * Substitute the Daily Notes tokens Dayline supports: `{{date}}`, `{{title}}`,
+ * `{{time}}`, and the formatted `{{date:FORMAT}}` / `{{time:FORMAT}}` variants.
+ * Obsidian bundles moment as `window.moment`, so the format strings behave
+ * exactly like the core Daily Notes plugin's. Unknown tokens are left alone.
+ */
+function _resolveDailyNoteTemplate(content, dateStr) {
+  const source = String(content ?? '');
+  const title = String(dateStr ?? '');
+  const moment = typeof window !== 'undefined' ? window.moment : undefined;
+  const supportsMoment = typeof moment === 'function';
+  const day = supportsMoment ? moment(title, 'YYYY-MM-DD', true) : null;
+  const now = supportsMoment ? moment() : null;
+  const usable = (value) => Boolean(value && typeof value.format === 'function' && value.isValid?.() !== false);
+  return source.replace(/\{\{(date|time|title)(?::([^}]*))?\}\}/g, (match, name, format) => {
+    if (name === 'title') return title;
+    if (name === 'date') {
+      if (usable(day)) return day.format(format || 'YYYY-MM-DD');
+      return format ? match : title;
+    }
+    // `time` is "now": the note is being created at this moment.
+    if (usable(now)) return now.format(format || 'HH:mm');
+    return format ? match : '';
+  });
 }
 
 /* ============================================================

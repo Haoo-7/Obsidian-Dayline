@@ -9,6 +9,12 @@ export const VIDEO_COVER_TIMEOUT_MS = 8_000;
 export const VIDEO_COVER_MAX_EDGE = 1_024;
 export const AUDIO_ARTWORK_MAX_BYTES = 8 * 1024 * 1024;
 
+/**
+ * Blob covers parked by LRU eviction. They are only revoked at teardown or once
+ * this many have piled up, because a mounted view node may still display one.
+ */
+export const MEDIA_DEFERRED_REVOKE_LIMIT = 256;
+
 const SAFE_ARTWORK_MIME_TYPES = new Set([
   'image/avif',
   'image/gif',
@@ -44,14 +50,24 @@ export interface MediaServiceOptions {
   capabilities?: PlatformCapabilities;
 }
 
-function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+/**
+ * Host that owns the timer. Obsidian popout windows need their own `window`,
+ * while headless test hosts only have `globalThis`.
+ */
+function timerHost(): typeof globalThis {
+  return (typeof window !== 'undefined' ? window : globalThis) as typeof globalThis;
+}
+
+/** Reject a promise that does not settle within `timeoutMs`. */
+export function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label = 'media operation'): Promise<T> {
   return new Promise<T>((resolve, reject) => {
-    const timer = window.setTimeout(() => reject(new Error(`media operation timed out after ${timeoutMs}ms`)), timeoutMs);
+    const host = timerHost();
+    const timer = host.setTimeout(() => reject(new Error(`${label} timed out after ${timeoutMs}ms`)), timeoutMs);
     promise.then(
-      (value) => { window.clearTimeout(timer); resolve(value); },
+      (value) => { host.clearTimeout(timer); resolve(value); },
       // Rejections are forwarded as Error instances; a non-Error reason would
       // otherwise surface to callers as a bare value.
-      (error) => { window.clearTimeout(timer); reject(toMediaError(error)); },
+      (error) => { host.clearTimeout(timer); reject(toMediaError(error)); },
     );
   });
 }
@@ -245,6 +261,8 @@ export class MediaService {
   private readonly metadataPending = new Map<string, Promise<MediaMetadata | null>>();
   private readonly coverCache = new Map<string, CoverResult | null>();
   private readonly coverPending = new Map<string, Promise<CoverResult | null>>();
+  /** Blob URLs evicted from the LRU that a mounted view node may still show. */
+  private readonly deferredCoverUrls = new Set<string>();
   private disposed = false;
 
   constructor(app: any, heicCache?: any, options: MediaServiceOptions = {}) {
@@ -479,7 +497,9 @@ export class MediaService {
       const result = await promise;
       if (this.coverPending.get(key) === promise) {
         this.touch(this.coverCache, key, result, MEDIA_CACHE_LIMIT, (evicted) => {
-          this.revokeCoverResult(evicted);
+          // Eviction only drops the cache slot: a mounted node may still be
+          // displaying that blob URL, so revocation waits for teardown.
+          this.deferCoverRevocation(evicted);
         });
       } else {
         // Invalidation or disposal can clear the pending entry while an
@@ -621,6 +641,7 @@ export class MediaService {
   invalidate(path?: string): void {
     if (!path) {
       this.clearMap(this.coverCache);
+      this.revokeDeferredCovers();
       this.metadataCache.clear();
       this.coverPending.clear();
       this.metadataPending.clear();
@@ -647,6 +668,29 @@ export class MediaService {
     if (value?.url.startsWith('blob:')) URL.revokeObjectURL(value.url);
   }
 
+  /**
+   * Park an evicted blob URL instead of revoking it right away: the calendar or
+   * timeline may still have it mounted, and revoking turns that image into a
+   * broken one. Parked URLs are released at teardown, or oldest-first once the
+   * park exceeds `MEDIA_DEFERRED_REVOKE_LIMIT` so a long session stays bounded.
+   */
+  private deferCoverRevocation(value: CoverResult | null | undefined): void {
+    const url = value?.url;
+    if (!url || !url.startsWith('blob:') || this.deferredCoverUrls.has(url)) return;
+    this.deferredCoverUrls.add(url);
+    while (this.deferredCoverUrls.size > MEDIA_DEFERRED_REVOKE_LIMIT) {
+      const oldest = this.deferredCoverUrls.values().next().value;
+      if (oldest === undefined) break;
+      this.deferredCoverUrls.delete(oldest);
+      URL.revokeObjectURL(oldest);
+    }
+  }
+
+  private revokeDeferredCovers(): void {
+    for (const url of this.deferredCoverUrls) URL.revokeObjectURL(url);
+    this.deferredCoverUrls.clear();
+  }
+
   private route(feature: keyof PlatformCapabilities['routes']): CapabilityRoute {
     return this.capabilities?.routes?.[feature] || 'full';
   }
@@ -659,6 +703,7 @@ export class MediaService {
   dispose(): void {
     this.disposed = true;
     this.clearMap(this.coverCache);
+    this.revokeDeferredCovers();
     this.metadataCache.clear();
     this.coverPending.clear();
     this.metadataPending.clear();

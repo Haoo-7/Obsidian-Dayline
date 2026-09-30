@@ -29,7 +29,7 @@ vi.mock('obsidian', () => ({
 }));
 
 import { TFile } from 'obsidian';
-import { OnThisDayModal, OnThisDayProvider } from '../src/on-this-day';
+import { closeOnThisDayModal, OnThisDayModal, OnThisDayProvider } from '../src/on-this-day';
 
 const styles = readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
 const CURRENT_YEAR = new Date().getUTCFullYear();
@@ -77,6 +77,19 @@ function ruleBody(source: string, selector: string): string {
   const match = new RegExp(`^${escaped} \\{`, 'm').exec(source);
   expect(match, `missing rule: ${selector}`).not.toBeNull();
   const start = match.index;
+  const end = source.indexOf('}', start);
+  return source.slice(start, end);
+}
+
+/** Last declaration of one selector, which is the one that wins the cascade. */
+function lastRuleBody(source: string, selector: string): string {
+  const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const pattern = new RegExp(`^${escaped} \\{`, 'gm');
+  let last: RegExpExecArray | null = null;
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(source)) !== null) last = match;
+  expect(last, `missing rule: ${selector}`).not.toBeNull();
+  const start = (last as RegExpExecArray).index;
   const end = source.indexOf('}', start);
   return source.slice(start, end);
 }
@@ -262,6 +275,148 @@ describe('On This Day card: title zone vs body zone', () => {
   });
 });
 
+describe('On This Day panel: dialog semantics, focus, and the singleton', () => {
+  beforeAll(() => {
+    const dom = new JSDOM('<!doctype html><html><body></body></html>', { pretendToBeVisual: true });
+    Object.assign(globalThis, {
+      window: dom.window,
+      document: dom.window.document,
+      Node: dom.window.Node,
+      HTMLElement: dom.window.HTMLElement,
+      Event: dom.window.Event,
+      KeyboardEvent: dom.window.KeyboardEvent,
+    });
+    installObsidianDomShim(dom.window);
+  });
+
+  afterEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  async function openPanel(settings: Record<string, unknown> = {}) {
+    const provider = createProvider([SPLICED_ENTRY], settings);
+    const entries = await provider.getEntries(7, 18);
+    const plugin = createPlugin();
+    const modal = new OnThisDayModal({}, plugin, provider, 7, 18, entries);
+    modal.open();
+    return { provider, plugin, modal, entries };
+  }
+
+  function panel(): HTMLElement {
+    return document.querySelector('.cal-otd-panel') as HTMLElement;
+  }
+
+  function press(key: string, target: EventTarget = document, init: KeyboardEventInit = {}) {
+    target.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, ...init }));
+  }
+
+  it('is a modal dialog that takes focus when it opens', async () => {
+    await openPanel();
+
+    expect(panel().getAttribute('role')).toBe('dialog');
+    expect(panel().getAttribute('aria-modal')).toBe('true');
+    expect(panel().getAttribute('aria-label')).toBe('去年今日');
+    expect(panel().getAttribute('tabindex')).toBe('-1');
+    expect(document.activeElement).toBe(panel());
+  });
+
+  it('returns focus to the control that opened it', async () => {
+    const trigger = document.createElement('button');
+    document.body.appendChild(trigger);
+    trigger.focus();
+
+    const { modal } = await openPanel();
+    expect(document.activeElement).toBe(panel());
+
+    modal.close();
+    expect(document.activeElement).toBe(trigger);
+  });
+
+  it('lets the date input own the arrow keys instead of flipping the day', async () => {
+    await openPanel();
+    const input = document.querySelector('.cal-otd-date-input') as HTMLInputElement;
+    const before = input.value;
+    input.focus();
+
+    press('ArrowLeft', input);
+    expect(input.value).toBe(before);
+    expect(document.activeElement).toBe(input);
+
+    // Escape still closes the dialog from inside a field.
+    press('Escape', input);
+    expect(document.querySelector('.cal-otd-modal')).toBeNull();
+  });
+
+  it('traps Tab inside the dialog', async () => {
+    await openPanel();
+    // Same focusable surface the dialog traps: nav buttons, the date input, the
+    // close button, and the memory cards.
+    const focusable = Array.from(
+      panel().querySelectorAll('button, input, [tabindex]:not([tabindex="-1"])'),
+    ) as HTMLElement[];
+    expect(focusable.length).toBeGreaterThan(1);
+
+    focusable[focusable.length - 1].focus();
+    press('Tab');
+    expect(document.activeElement).toBe(focusable[0]);
+
+    focusable[0].focus();
+    press('Tab', document, { shiftKey: true });
+    expect(document.activeElement).toBe(focusable[focusable.length - 1]);
+  });
+
+  it('reuses the visible panel instead of stacking a second dialog', async () => {
+    const provider = createProvider([SPLICED_ENTRY]);
+    const plugin = createPlugin();
+    const entries = await provider.getEntries(7, 18);
+    const first = new OnThisDayModal({}, plugin, provider, 7, 18, entries);
+    first.open();
+
+    const second = new OnThisDayModal({}, plugin, provider, 7, 19, []);
+    const reused = second.open();
+
+    expect(reused).toBe(first);
+    expect(document.querySelectorAll('.cal-otd-modal')).toHaveLength(1);
+    expect((document.querySelector('.cal-otd-date-input') as HTMLInputElement).value)
+      .toBe(`${CURRENT_YEAR}-07-19`);
+    expect(document.activeElement).toBe(panel());
+  });
+
+  it('closes the open panel from the provider and from the unload helper', async () => {
+    const { provider, modal } = await openPanel();
+    expect(provider.activeModal).toBe(modal);
+
+    provider.closeModal();
+    expect(document.querySelector('.cal-otd-modal')).toBeNull();
+    expect(provider.activeModal).toBeNull();
+
+    const second = await openPanel();
+    closeOnThisDayModal();
+    expect(document.querySelector('.cal-otd-modal')).toBeNull();
+
+    second.modal.dispose();
+    expect(document.querySelector('.cal-otd-modal')).toBeNull();
+  });
+
+  it('resolves the panel chrome through the system display language at open time', async () => {
+    vi.stubGlobal('navigator', { language: 'ru' });
+    try {
+      const provider = createProvider([SPLICED_ENTRY]);
+      const entries = await provider.getEntries(7, 18);
+      const plugin = createPlugin();
+      plugin.settings.displayLanguage = 'system';
+      plugin.settings.weatherLanguage = 'system';
+
+      new OnThisDayModal({}, plugin, provider, 7, 18, entries).open();
+
+      expect(document.querySelector('.cal-otd-header-title')?.textContent).toBe('В этот день');
+      expect(document.querySelector('.cal-otd-nav-btn')?.getAttribute('aria-label')).toBe('Предыдущий день');
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+});
+
 describe('On This Day card CSS contract', () => {
   it('separates the panel title bar from the memory wall', () => {
     expect(ruleBody(styles, '.cal-otd-header')).toContain('border-bottom: 1px solid var(--background-modifier-border)');
@@ -301,5 +456,35 @@ describe('On This Day card CSS contract', () => {
     expect(ruleBody(styles, '.cal-otd-panel')).toContain('animation: cal-otd-panel-in 200ms');
     expect(modalSection).toContain('@media (prefers-reduced-motion: reduce)');
     expect(modalSection).toContain('.cal-otd-panel { animation: none; }');
+  });
+
+  it('stacks the memory wall under Obsidian notices instead of at z-index 9999', () => {
+    const modalRule = ruleBody(styles, '.cal-otd-modal');
+    expect(modalRule).not.toContain('z-index: 9999');
+
+    const zIndex = /z-index:\s*(?:var\([^,]+,\s*)?(\d+)/.exec(modalRule);
+    expect(zIndex, 'missing numeric z-index fallback').not.toBeNull();
+    const value = Number((zIndex as RegExpExecArray)[1]);
+    // Above the calendar's own overlays and Obsidian's side dock (--layer-sidedock,
+    // 10) but below Obsidian's notice layer (--layer-notice, 60).
+    expect(value).toBeGreaterThan(10);
+    expect(value).toBeLessThan(60);
+  });
+
+  it('keeps a visible focus ring on the header controls and the date input', () => {
+    for (const selector of [
+      '.cal-icon-button:focus-visible',
+      '.cal-title-button:focus-visible',
+      '.cal-otd-date-input:focus-visible',
+    ]) {
+      const rule = lastRuleBody(styles, selector);
+      expect(rule, selector).toContain('outline: 2px solid var(--interactive-accent)');
+      expect(rule, selector).toContain('outline-offset: 2px');
+    }
+
+    // No later declaration may cancel the ring again.
+    expect(styles).not.toMatch(/\.cal-icon-button:focus-visible[^{]*\{[^}]*outline:\s*none/);
+    expect(styles).not.toMatch(/\.cal-title-button:focus-visible[^{]*\{[^}]*outline:\s*none/);
+    expect(ruleBody(styles, '.cal-otd-date-input')).not.toContain('outline: none');
   });
 });

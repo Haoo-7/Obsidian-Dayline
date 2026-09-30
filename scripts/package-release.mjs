@@ -9,10 +9,14 @@
  * What goes in the archive:
  * - The required release set defined by `verify-release-contents.mjs`:
  *   `main.js`, `manifest.json`, `styles.css`.
- * - The assets the current product loads from the plugin folder at runtime:
- *   `THIRD_PARTY_NOTICES.md`, and every weather SVG under `icons/`.
- *   (The HEIC decoder is bundled into `main.js`; it is no longer a separate
- *   asset, because Obsidian's installer only downloads the required set.)
+ * - `THIRD_PARTY_NOTICES.md`.
+ * - The `icons/` asset set. No runtime code reads the directory any more: the
+ *   weather scene SVGs are inlined as data URIs and the calendar badge SVGs are
+ *   imported as raw markup, both into `main.js`. The directory is still copied
+ *   unchanged so the packaged tree keeps shipping the same source assets.
+ *   (The HEIC decoder is bundled into `main.js` as well; it is no longer a
+ *   separate asset, because Obsidian's installer only downloads the required
+ *   set.)
  *
  * The contents rules are not duplicated here. `verifyRootReleaseFiles` proves the
  * staged tree is complete and non-empty before zipping, and `verifyReleaseEntries`
