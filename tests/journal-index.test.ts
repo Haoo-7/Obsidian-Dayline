@@ -142,6 +142,31 @@ describe('journal index', () => {
     ]);
   });
 
+  it('marks only a frontmatter title as explicit, so generic wording stays distinguishable', async () => {
+    const files = [
+      {
+        path: 'Calendar/Daily/2026-07-20.md',
+        name: '2026-07-20.md',
+        frontmatter: { title: 'Freewrite' },
+        content: 'Body',
+      },
+      {
+        path: 'Calendar/Daily/2026-07-21.md',
+        name: '2026-07-21.md',
+        frontmatter: {},
+        content: '# Freewrite\nBody',
+      },
+    ];
+    const index = new JournalIndex(makeApp(files), () => undefined);
+    await index.refresh({ dailyFolder: 'Calendar/Daily' });
+
+    const byPath = new Map(index.getEntries().map((entry) => [entry.path, entry]));
+    // The timeline's inline editor writes frontmatter, so that title is the user's.
+    expect(byPath.get('Calendar/Daily/2026-07-20.md')).toMatchObject({ title: 'Freewrite', explicitTitle: true });
+    // A heading can be template filler, so it stays inferable and filtered.
+    expect(byPath.get('Calendar/Daily/2026-07-21.md')).toMatchObject({ title: 'Freewrite', explicitTitle: false });
+  });
+
   it('maps external aliases, excludes undated files, and records diagnostics', async () => {
     const files = [
       {

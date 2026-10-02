@@ -208,14 +208,16 @@ function titleFromContent(
   content: string,
   frontmatter: Record<string, unknown>,
   headings?: CachedHeading[],
-): string {
+): { title: string; explicitTitle: boolean } {
   const explicit = firstString(readField(frontmatter, 'title'));
-  if (explicit) return explicit;
+  // Only a frontmatter title is a statement of intent: it is what the timeline's
+  // inline title editor writes. A heading or filename can be template filler.
+  if (explicit) return { title: explicit, explicitTitle: true };
   // Obsidian's metadata cache only reports real headings, so a level-1 entry
   // here is authoritative and never comes from a fenced code block.
   if (Array.isArray(headings)) {
     const cached = firstString(headings.find((item) => Number(item?.level) === 1)?.heading);
-    if (cached) return cached;
+    if (cached) return { title: cached, explicitTitle: false };
   }
   // Without a cache, strip frontmatter and fenced code blocks first so a
   // `# install deps` shell comment is not taken for the note title.
@@ -223,7 +225,7 @@ function titleFromContent(
     .replace(TITLE_FRONTMATTER, '')
     .replace(TITLE_FENCED_BLOCK, ' ');
   const heading = /^#\s+(.+)$/m.exec(body)?.[1]?.trim();
-  return heading || fileName.replace(/\.md$/i, '');
+  return { title: heading || fileName.replace(/\.md$/i, ''), explicitTitle: false };
 }
 
 function sourceForPath(path: string, sources: JournalSource[]): JournalSource | undefined {
@@ -532,7 +534,7 @@ export class JournalIndex {
     const storedMood = this.getMood(path);
     const mood = storedMood === undefined ? moodFromFrontmatter(frontmatter) : storedMood ?? undefined;
     const tags = parseJournalTags(frontmatter, content, Array.isArray(cache?.tags) ? cache.tags : []);
-    const title = titleFromContent(
+    const { title, explicitTitle } = titleFromContent(
       file.name,
       content,
       frontmatter,
@@ -559,6 +561,7 @@ export class JournalIndex {
       path,
       date: resolved.date,
       title,
+      explicitTitle,
       excerpt,
       // Preserve the historical raw Markdown body for On This Day templates.
       searchText: content,

@@ -115,6 +115,13 @@ export interface JournalEntry {
   path: string;
   date: string;
   title: string;
+  /**
+   * True when `title` came from a frontmatter `title` the user wrote (the inline
+   * title editor writes one). Such a title is a deliberate choice, so display
+   * code must not treat it as template filler even when it reads like a generic
+   * heading such as `Freewrite` or `Daily note`.
+   */
+  explicitTitle?: boolean;
   excerpt: string;
   sourceId: string;
   sourcePath: string;

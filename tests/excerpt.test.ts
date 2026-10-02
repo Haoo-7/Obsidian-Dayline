@@ -40,6 +40,9 @@ describe('excerpt utilities', () => {
     const content = `---\ntags: test\n---\n# Daily Note\n\`\`\`dataviewjs\ndv.list([])\n\`\`\`\n- [ ] hidden task\n## Freewrite\nA natural paragraph for the timeline.\n## Tasks\n- [x] another task`;
     expect(extractExcerpt(content)).toBe('A natural paragraph for the timeline.');
     expect(isGenericJournalTitle('Daily Note', '2026-07-18')).toBe(true);
+    // Still template filler when inferred; an explicit frontmatter title of the
+    // same text is shown, which is why the callers pass that flag separately.
+    expect(isGenericJournalTitle('Freewrite', '2026-07-18')).toBe(true);
     expect(isGenericJournalTitle('A real title', '2026-07-18')).toBe(false);
   });
 

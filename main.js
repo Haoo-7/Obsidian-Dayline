@@ -779,14 +779,14 @@ function normalizeLocation(frontmatter) {
 }
 function titleFromContent(fileName, content, frontmatter, headings) {
   const explicit = firstString(readField(frontmatter, "title"));
-  if (explicit) return explicit;
+  if (explicit) return { title: explicit, explicitTitle: true };
   if (Array.isArray(headings)) {
     const cached = firstString(headings.find((item) => Number(item?.level) === 1)?.heading);
-    if (cached) return cached;
+    if (cached) return { title: cached, explicitTitle: false };
   }
   const body = content.replace(TITLE_FRONTMATTER, "").replace(TITLE_FENCED_BLOCK, " ");
   const heading = /^#\s+(.+)$/m.exec(body)?.[1]?.trim();
-  return heading || fileName.replace(/\.md$/i, "");
+  return { title: heading || fileName.replace(/\.md$/i, ""), explicitTitle: false };
 }
 function sourceForPath(path, sources) {
   const normalizedPath2 = normalizeVaultPath(path);
@@ -1054,7 +1054,7 @@ var init_journal_index = __esm({
         const storedMood = this.getMood(path);
         const mood = storedMood === void 0 ? moodFromFrontmatter(frontmatter) : storedMood ?? void 0;
         const tags = parseJournalTags(frontmatter, content, Array.isArray(cache?.tags) ? cache.tags : []);
-        const title = titleFromContent(
+        const { title, explicitTitle } = titleFromContent(
           file.name,
           content,
           frontmatter,
@@ -1081,6 +1081,7 @@ var init_journal_index = __esm({
           path,
           date: resolved.date,
           title,
+          explicitTitle,
           excerpt,
           // Preserve the historical raw Markdown body for On This Day templates.
           searchText: content,
@@ -6805,6 +6806,11 @@ function shouldShowTimelineMoodTrend(settings = {}) {
 function shouldShowTimelineTitles(settings = {}) {
   return settings.showTimelineTitles !== false;
 }
+function displayedTimelineTitle(entry, isGeneric) {
+  if (!entry.title) return "";
+  if (entry.explicitTitle) return entry.title;
+  return isGeneric(entry.title, entry.date) ? "" : entry.title;
+}
 var init_journal_timeline_display = __esm({
   "src/journal-timeline-display.ts"() {
     "use strict";
@@ -7958,7 +7964,7 @@ var init_journal_timeline_view = __esm({
         dateColumn.createSpan({ cls: "journal-timeline-entry-weekday", text: dateParts.weekday });
         dateColumn.createSpan({ cls: "journal-timeline-entry-day", text: dateParts.day });
         const body = card.createDiv({ cls: "journal-timeline-entry-body" });
-        const title = entry.title && !isGenericJournalTitle(entry.title, entry.date) ? entry.title : "";
+        const title = displayedTimelineTitle(entry, isGenericJournalTitle);
         const titleEditor = shouldShowTimelineTitles(this.plugin.settings) ? body.createEl("h3", {
           cls: `journal-timeline-entry-title${title ? "" : " is-placeholder"}`,
           text: title || t(this.plugin.settings, "untitledJournalTitle"),
@@ -9535,13 +9541,13 @@ function daylineDate(settings, date = /* @__PURE__ */ new Date()) {
 function headingTextOf(line) {
   return line.replace(/^[ \t]*#{1,6}[ \t]+/, "").replace(/[ \t]+$/, "").trim();
 }
-function splitTitleFromBody(content, indexTitle, date) {
+function splitTitleFromBody(content, indexTitle, date, explicitTitle = false) {
   const lines = (typeof content === "string" ? content : "").split("\n");
   const headingIndex = lines.findIndex((line) => HEADING_LINE.test(line));
   const headingText = headingIndex === -1 ? "" : headingTextOf(lines[headingIndex]);
   const headingLeads = headingIndex !== -1 && lines.slice(0, headingIndex).every((line) => line.trim() === "");
   const candidate = (typeof indexTitle === "string" ? indexTitle.trim() : "") || headingText;
-  const title = candidate && !isGenericJournalTitle(candidate, typeof date === "string" ? date : "") ? candidate : null;
+  const title = candidate && (explicitTitle || !isGenericJournalTitle(candidate, typeof date === "string" ? date : "")) ? candidate : null;
   const dropHeading = headingIndex !== -1 && (headingLeads || title !== null && headingText === title);
   const body = dropHeading ? lines.filter((_line, index) => index !== headingIndex).join("\n") : lines.join("\n");
   return { title, body };
@@ -9624,7 +9630,12 @@ var init_on_this_day = __esm({
           if (seen.has(identity)) continue;
           seen.add(identity);
           const images = (entry.attachments || []).filter(isImageLink);
-          const { title, body } = splitTitleFromBody(entry.searchText ?? entry.excerpt ?? "", entry.title, entry.date);
+          const { title, body } = splitTitleFromBody(
+            entry.searchText ?? entry.excerpt ?? "",
+            entry.title,
+            entry.date,
+            entry.explicitTitle === true
+          );
           let excerpt = null;
           const mode = this.plugin.settings.onThisDayExcerptMode;
           if (mode === "frontmatter") {

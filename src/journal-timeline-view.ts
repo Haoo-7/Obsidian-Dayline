@@ -5,7 +5,7 @@ import { buildRecentMoodTrend, calculateJournalStats } from './journal-stats';
 import { formatJournalDate, getDisplayLanguage, LOCALE_TAGS, moodLabel, t } from './i18n';
 import { isGenericJournalTitle } from './excerpt';
 import { createMediaAttachment } from './media-links';
-import { shouldShowTimelineMoodTrend, shouldShowTimelineTitles } from './journal-timeline-display';
+import { displayedTimelineTitle, shouldShowTimelineMoodTrend, shouldShowTimelineTitles } from './journal-timeline-display';
 import {
   buildJournalLocationOptions,
   buildJournalTagOptions,
@@ -666,7 +666,10 @@ export class JournalTimelineView extends ItemView {
     dateColumn.createSpan({ cls: 'journal-timeline-entry-weekday', text: dateParts.weekday });
     dateColumn.createSpan({ cls: 'journal-timeline-entry-day', text: dateParts.day });
     const body = card.createDiv({ cls: 'journal-timeline-entry-body' });
-    const title = entry.title && !isGenericJournalTitle(entry.title, entry.date) ? entry.title : '';
+    // A frontmatter title is a deliberate choice by the user (the inline editor
+    // writes one), so only inferred titles are screened against template filler
+    // — otherwise typing `Freewrite` looked like the title was never saved.
+    const title = displayedTimelineTitle(entry, isGenericJournalTitle);
     const titleEditor = shouldShowTimelineTitles(this.plugin.settings) ? body.createEl('h3', {
       cls: `journal-timeline-entry-title${title ? '' : ' is-placeholder'}`,
       text: title || t(this.plugin.settings, 'untitledJournalTitle'),

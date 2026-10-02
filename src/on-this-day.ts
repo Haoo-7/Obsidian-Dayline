@@ -43,12 +43,14 @@ function headingTextOf(line: string): string {
  *
  * A date-only or placeholder title (`2025-07-18`, `Daily note`) carries no
  * information for a memory card, so it resolves to `null` and the card renders
- * its body without a title row.
+ * its body without a title row. A title the user wrote into frontmatter is not
+ * placeholder text, however generic it reads, so `explicitTitle` keeps it.
  */
 export function splitTitleFromBody(
   content: unknown,
   indexTitle: unknown,
   date: unknown,
+  explicitTitle = false,
 ): { title: string | null; body: string } {
   const lines = (typeof content === 'string' ? content : '').split('\n');
   const headingIndex = lines.findIndex((line) => HEADING_LINE.test(line));
@@ -56,7 +58,7 @@ export function splitTitleFromBody(
   const headingLeads = headingIndex !== -1 && lines.slice(0, headingIndex).every((line) => line.trim() === '');
 
   const candidate = (typeof indexTitle === 'string' ? indexTitle.trim() : '') || headingText;
-  const title = candidate && !isGenericJournalTitle(candidate, typeof date === 'string' ? date : '')
+  const title = candidate && (explicitTitle || !isGenericJournalTitle(candidate, typeof date === 'string' ? date : ''))
     ? candidate
     : null;
 
@@ -145,7 +147,12 @@ export class OnThisDayProvider {
       const images = (entry.attachments || []).filter(isImageLink);
       // Raw Markdown is what the excerpt and the title split need; older index
       // shapes only carry the pre-cleaned `excerpt`.
-      const { title, body } = splitTitleFromBody(entry.searchText ?? entry.excerpt ?? '', entry.title, entry.date);
+      const { title, body } = splitTitleFromBody(
+        entry.searchText ?? entry.excerpt ?? '',
+        entry.title,
+        entry.date,
+        entry.explicitTitle === true,
+      );
 
       let excerpt: string | null = null;
       const mode = this.plugin.settings.onThisDayExcerptMode;

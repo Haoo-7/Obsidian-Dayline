@@ -135,6 +135,12 @@ describe('splitTitleFromBody', () => {
   it('hides a date-only or placeholder title', () => {
     expect(splitTitleFromBody('Body only.\n', '2025-07-18', '2025-07-18').title).toBeNull();
     expect(splitTitleFromBody('Body only.\n', 'Daily note', '2025-07-18').title).toBeNull();
+    expect(splitTitleFromBody('Body only.\n', 'Freewrite', '2025-07-18').title).toBeNull();
+  });
+
+  it('keeps a generic-looking title the user wrote into frontmatter', () => {
+    expect(splitTitleFromBody('Body only.\n', 'Freewrite', '2025-07-18', true).title).toBe('Freewrite');
+    expect(splitTitleFromBody('Body only.\n', 'Daily note', '2025-07-18', true).title).toBe('Daily note');
   });
 
   it('falls back to the opening heading when the index has no title', () => {
