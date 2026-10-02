@@ -1,5 +1,35 @@
 # Changelog
 
+## 2.8.1 (2026-10-02)
+
+A one-bug patch: a title that happens to read like journal-template filler was silently replaced by the empty placeholder, so the title looked unsaved.
+
+### Fixed
+- **A title you type is always shown.** The timeline's inline title editor writes frontmatter `title`, but a title that matched the generic list — `freewrite`, `daily note`, `journal entry`, `entry`, `untitled` — was treated as template filler and replaced by the "Title" placeholder, so typing `Freewrite` looked like the title had never been saved; any other wording displayed normally. That list exists to hide daily-template headings, not a deliberate choice, so only an inferred title (the note's first `# Heading`, or its filename) is screened against it now. A frontmatter title is what the user wrote and always renders, and On This Day's title split follows the same rule, so a memory card keeps such a title too. The list itself is unchanged, so template headings are still hidden as before.
+
+### Verification
+- `npm run typecheck`, `npm test` (69 files / 779 tests), `npm run build`, `npm run build:tablet`, `npm run package:release`, `npm run verify:release:zip` and `git diff --check` all pass.
+- Obsidian Sandbox: the new build was deployed and reloaded with no `dev:errors`. A demo note whose frontmatter is `title: Freewrite` rendered its card title as `Freewrite` instead of the placeholder, while the empty notes beside it — whose titles fall back to their filename dates — kept the placeholder.
+
+### Notes
+- Sandbox only: it is a tablet-like desktop window, so the timeline title area was not exercised on a real phone, and the fix's mobile behaviour stays a residual risk.
+- Titles are read through the journal index, so the fix applies wherever `explicitTitle` travels: the timeline card and the On This Day card and modal.
+
+---
+
+一个只有一处修复的补丁版：看起来像日记模板填充文字的标题会被悄悄换成空占位符，于是标题像是没保存上。
+
+### 修复
+- **你输入的标题一定会显示。** 时间线的行内标题编辑器写的是 frontmatter `title`，但命中通用词表的标题会被当成模板填充文字，替换成"标题"占位符——所以输入 `Freewrite` 看起来像根本没保存，而换任何别的字词都正常。这张词表（`freewrite`、`daily note`、`journal entry`、`entry`、`untitled`）是为了隐藏日记模板自带的标题，而不是否定用户的明确选择，因此现在只对推断出来的标题（笔记的第一个 `# 标题`，或文件名）做过滤。frontmatter 标题是用户写下的内容，一律照常显示；「往年今日」的标题拆分遵循同一规则，回忆卡片里的这类标题也会保留。词表本身没有改动，模板标题依旧被隐藏。
+
+### 验证
+- `npm run typecheck`、`npm test`（69 个文件 / 779 项测试）、`npm run build`、`npm run build:tablet`、`npm run package:release`、`npm run verify:release:zip`、`git diff --check` 全部通过。
+- Obsidian Sandbox：新构建已部署并重载，`dev:errors` 无错误。frontmatter 为 `title: Freewrite` 的示例笔记，卡片标题渲染为 `Freewrite` 而不再是占位符；它旁边那些空笔记（标题回退到文件名日期）仍显示占位符。
+
+### 备注
+- 仅 Sandbox 证据：那是接近平板形态的桌面窗口，标题区未在真机上验证，移动端表现仍属残留风险。
+- 标题统一经日记索引读取，因此修复覆盖所有携带 `explicitTitle` 的界面：时间线卡片，以及「往年今日」卡片与弹窗。
+
 ## 2.8.0 (2026-10-01)
 
 The 2026-09-29 review round lands in full, and the calendar's past-year dot marker is removed. The marker was read as "this day has been written" often enough — by users and by the maintainer — that keeping it was worse than dropping it; the reasoning is recorded under **Removed**.
