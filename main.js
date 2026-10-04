@@ -3336,6 +3336,8 @@ var init_i18n = __esm({
         showCalendarEntryCountDesc: "\u540C\u4E00\u5929\u6709\u591A\u7BC7\u8BB0\u5F55\u65F6\u663E\u793A\u989D\u5916\u7BC7\u6570\uFF0C\u70B9\u51FB\u89D2\u6807\u6253\u5F00\u4E3B\u65E5\u8BB0\u3002",
         showCalendarMood: "\u663E\u793A\u65E5\u5386\u5FC3\u60C5\u6807\u8BB0",
         showCalendarMoodDesc: "\u5728\u65E5\u671F\u683C\u663E\u793A\u5FC3\u60C5\u989C\u8272\u6807\u8BB0\uFF1B\u5173\u95ED\u540E\u4E0D\u4F1A\u5220\u9664\u5FC3\u60C5\u8BB0\u5F55\u3002",
+        showCalendarWrittenMarker: "\u7528\u989C\u8272\u586B\u6EE1\u5DF2\u5199\u65E5\u671F",
+        showCalendarWrittenMarkerDesc: "\u6709\u65E5\u8BB0\u4F46\u6CA1\u6709\u7167\u7247\u7684\u65E5\u671F\u4F1A\u7528\u4E3B\u9898\u8272\u586B\u6EE1\u6574\u4E2A\u683C\u5B50\u3002",
         showCalendarWeatherBadge: "\u663E\u793A\u65E5\u671F\u5929\u6C14\u56FE\u6807",
         showCalendarWeatherBadgeDesc: "\u663E\u793A\u65E5\u671F\u683C\u53F3\u4E0A\u89D2\u5929\u6C14\u56FE\u6807\uFF1B\u5173\u95ED\u540E\u4E0D\u5F71\u54CD\u9876\u90E8\u5929\u6C14\u5361\u7247\u3002",
         showCalendarWeatherCard: "\u663E\u793A\u65E5\u5386\u5929\u6C14\u5361\u7247",
@@ -3640,6 +3642,8 @@ var init_i18n = __esm({
         showCalendarEntryCountDesc: "\u540C\u4E00\u5929\u6709\u591A\u7BC7\u8A18\u9304\u6642\u986F\u793A\u984D\u5916\u7BC7\u6578\uFF0C\u9EDE\u64CA\u89D2\u6A19\u958B\u555F\u4E3B\u65E5\u8A18\u3002",
         showCalendarMood: "\u986F\u793A\u65E5\u66C6\u5FC3\u60C5\u6A19\u8A18",
         showCalendarMoodDesc: "\u5728\u65E5\u671F\u683C\u986F\u793A\u5FC3\u60C5\u984F\u8272\u6A19\u8A18\uFF1B\u95DC\u9589\u5F8C\u4E0D\u6703\u522A\u9664\u5FC3\u60C5\u8A18\u9304\u3002",
+        showCalendarWrittenMarker: "\u7528\u984F\u8272\u586B\u6EFF\u5DF2\u5BEB\u65E5\u671F",
+        showCalendarWrittenMarkerDesc: "\u6709\u65E5\u8A18\u4F46\u6C92\u6709\u7167\u7247\u7684\u65E5\u671F\u6703\u7528\u4E3B\u984C\u8272\u586B\u6EFF\u6574\u500B\u683C\u5B50\u3002",
         showCalendarWeatherBadge: "\u986F\u793A\u65E5\u671F\u5929\u6C23\u5716\u793A",
         showCalendarWeatherBadgeDesc: "\u986F\u793A\u65E5\u671F\u683C\u53F3\u4E0A\u89D2\u5929\u6C23\u5716\u793A\uFF1B\u95DC\u9589\u5F8C\u4E0D\u5F71\u97FF\u9802\u90E8\u5929\u6C23\u5361\u7247\u3002",
         showCalendarWeatherCard: "\u986F\u793A\u65E5\u66C6\u5929\u6C23\u5361\u7247",
@@ -3944,6 +3948,8 @@ var init_i18n = __esm({
         showCalendarEntryCountDesc: "Show additional entries for a date; clicking it opens the primary daily note.",
         showCalendarMood: "Show mood markers on calendar",
         showCalendarMoodDesc: "Show mood colors on date cells without deleting mood records when disabled.",
+        showCalendarWrittenMarker: "Fill written days on calendar",
+        showCalendarWrittenMarkerDesc: "Days with a journal entry but no photo fill their cell with the accent color.",
         showCalendarWeatherBadge: "Show date weather icons",
         showCalendarWeatherBadgeDesc: "Show weather icons in the top-right of date cells; the weather card is unaffected.",
         showCalendarWeatherCard: "Show the calendar weather card",
@@ -4248,6 +4254,8 @@ var init_i18n = __esm({
         showCalendarEntryCountDesc: "\u540C\u4E00\u65E5\u306B\u8907\u6570\u306E\u65E5\u8A18\u304C\u3042\u308B\u5834\u5408\u306B\u4EF6\u6570\u3092\u8868\u793A\u3057\u3001\u30AF\u30EA\u30C3\u30AF\u3067\u30E1\u30A4\u30F3\u306E\u65E5\u8A18\u3092\u958B\u304D\u307E\u3059\u3002",
         showCalendarMood: "\u30AB\u30EC\u30F3\u30C0\u30FC\u306B\u6C17\u5206\u306E\u5370\u3092\u8868\u793A",
         showCalendarMoodDesc: "\u65E5\u4ED8\u30BB\u30EB\u306B\u6C17\u5206\u306E\u8272\u3092\u8868\u793A\u3057\u307E\u3059\uFF08\u7121\u52B9\u306B\u3057\u3066\u3082\u8A18\u9332\u306F\u524A\u9664\u3055\u308C\u307E\u305B\u3093\uFF09\u3002",
+        showCalendarWrittenMarker: "\u66F8\u3044\u305F\u65E5\u3092\u8272\u3067\u5857\u308A\u3064\u3076\u3059",
+        showCalendarWrittenMarkerDesc: "\u65E5\u8A18\u304C\u3042\u308A\u5199\u771F\u306E\u306A\u3044\u65E5\u306F\u30A2\u30AF\u30BB\u30F3\u30C8\u8272\u3067\u30BB\u30EB\u3092\u5857\u308A\u3064\u3076\u3057\u307E\u3059\u3002",
         showCalendarWeatherBadge: "\u65E5\u4ED8\u30BB\u30EB\u306E\u5929\u6C17\u30A2\u30A4\u30B3\u30F3\u3092\u8868\u793A",
         showCalendarWeatherBadgeDesc: "\u65E5\u4ED8\u30BB\u30EB\u306E\u53F3\u4E0A\u306B\u5929\u6C17\u30A2\u30A4\u30B3\u30F3\u3092\u8868\u793A\u3057\u307E\u3059\uFF08\u5929\u6C17\u30AB\u30FC\u30C9\u306B\u306F\u5F71\u97FF\u3057\u307E\u305B\u3093\uFF09\u3002",
         showCalendarWeatherCard: "\u5929\u6C17\u30AB\u30FC\u30C9\u3092\u8868\u793A",
@@ -4552,6 +4560,8 @@ var init_i18n = __esm({
         showCalendarEntryCountDesc: "\uAC19\uC740 \uB0A0\uC5D0 \uC5EC\uB7EC \uC800\uB110\uC774 \uC788\uC744 \uB54C \uAC1C\uC218\uB97C \uD45C\uC2DC\uD558\uBA70, \uD074\uB9AD \uC2DC \uAE30\uBCF8 \uB370\uC77C\uB9AC \uB178\uD2B8\uB97C \uC5FD\uB2C8\uB2E4.",
         showCalendarMood: "\uCE98\uB9B0\uB354\uC5D0 \uAE30\uBD84 \uD45C\uC2DC",
         showCalendarMoodDesc: "\uB0A0\uC9DC \uCE78\uC5D0 \uAE30\uBD84 \uC0C9\uC0C1\uC744 \uD45C\uC2DC\uD569\uB2C8\uB2E4 (\uBE44\uD65C\uC131\uD654\uD574\uB3C4 \uAE30\uB85D\uC740 \uC0AD\uC81C\uB418\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4).",
+        showCalendarWrittenMarker: "\uC4F4 \uB0A0\uC744 \uC0C9\uC73C\uB85C \uCC44\uC6B0\uAE30",
+        showCalendarWrittenMarkerDesc: "\uC77C\uAE30\uAC00 \uC788\uACE0 \uC0AC\uC9C4\uC774 \uC5C6\uB294 \uB0A0\uC740 \uAC15\uC870\uC0C9\uC73C\uB85C \uCE78\uC744 \uCC44\uC6C1\uB2C8\uB2E4.",
         showCalendarWeatherBadge: "\uB0A0\uC9DC \uCE78 \uB0A0\uC528 \uC544\uC774\uCF58 \uD45C\uC2DC",
         showCalendarWeatherBadgeDesc: "\uB0A0\uC9DC \uCE78 \uC624\uB978\uCABD \uC0C1\uB2E8\uC5D0 \uB0A0\uC528 \uC544\uC774\uCF58\uC744 \uD45C\uC2DC\uD569\uB2C8\uB2E4 (\uB0A0\uC528 \uCE74\uB4DC\uC5D0\uB294 \uC601\uD5A5 \uC5C6\uC74C).",
         showCalendarWeatherCard: "\uCE98\uB9B0\uB354 \uB0A0\uC528 \uCE74\uB4DC \uD45C\uC2DC",
@@ -4856,6 +4866,8 @@ var init_i18n = __esm({
         showCalendarEntryCountDesc: "Affiche le nombre d'entr\xE9es suppl\xE9mentaires d'un jour ; cliquer ouvre la note quotidienne principale.",
         showCalendarMood: "Afficher les marqueurs d'humeur sur le calendrier",
         showCalendarMoodDesc: "Affiche les couleurs de l'humeur sur les cellules sans supprimer les enregistrements lorsque d\xE9sactiv\xE9.",
+        showCalendarWrittenMarker: "Remplir les jours \xE9crits sur le calendrier",
+        showCalendarWrittenMarkerDesc: "Les jours avec une note mais sans photo remplissent leur case avec la couleur d'accent.",
         showCalendarWeatherBadge: "Afficher les ic\xF4nes m\xE9t\xE9o sur les dates",
         showCalendarWeatherBadgeDesc: "Affiche l'ic\xF4ne m\xE9t\xE9o en haut \xE0 droite des cellules ; la carte m\xE9t\xE9o reste inchang\xE9e.",
         showCalendarWeatherCard: "Afficher la carte m\xE9t\xE9o du calendrier",
@@ -5160,6 +5172,8 @@ var init_i18n = __esm({
         showCalendarEntryCountDesc: "Zeigt zus\xE4tzliche Eintr\xE4ge am selben Tag an; Klick \xF6ffnet die Haupt-Tagesnotiz.",
         showCalendarMood: "Stimmungsmarkierungen im Kalender anzeigen",
         showCalendarMoodDesc: "Zeigt Farbpunkte/-balken f\xFCr Stimmungen in Kalenderzellen. Eintr\xE4ge bleiben beim Deaktivieren erhalten.",
+        showCalendarWrittenMarker: "Geschriebene Tage f\xFCllen",
+        showCalendarWrittenMarkerDesc: "Tage mit einem Eintrag ohne Foto f\xFCllen ihre Zelle mit der Akzentfarbe.",
         showCalendarWeatherBadge: "Wettersymbole in Datumszellen anzeigen",
         showCalendarWeatherBadgeDesc: "Zeigt ein Wettersymbol oben rechts in den Zellen; beeinflusst nicht die Wetterkarte.",
         showCalendarWeatherCard: "Wetterkarte im Kalender anzeigen",
@@ -5464,6 +5478,8 @@ var init_i18n = __esm({
         showCalendarEntryCountDesc: "Muestra el recuento de entradas adicionales el mismo d\xEDa; al hacer clic se abre la nota diaria principal.",
         showCalendarMood: "Mostrar indicadores de \xE1nimo en calendario",
         showCalendarMoodDesc: "Muestra puntos o barras de color en las celdas sin borrar los registros al desactivar.",
+        showCalendarWrittenMarker: "Rellenar los d\xEDas escritos",
+        showCalendarWrittenMarkerDesc: "Los d\xEDas con entrada pero sin foto rellenan su casilla con el color de acento.",
         showCalendarWeatherBadge: "Mostrar icono del tiempo en celdas",
         showCalendarWeatherBadgeDesc: "Muestra el icono del tiempo en la esquina superior derecha de las celdas.",
         showCalendarWeatherCard: "Mostrar tarjeta del tiempo en calendario",
@@ -5768,6 +5784,8 @@ var init_i18n = __esm({
         showCalendarEntryCountDesc: "\u041E\u0442\u043E\u0431\u0440\u0430\u0436\u0430\u0435\u0442 \u0447\u0438\u0441\u043B\u043E \u0434\u043E\u043F\u043E\u043B\u043D\u0438\u0442\u0435\u043B\u044C\u043D\u044B\u0445 \u0437\u0430\u043F\u0438\u0441\u0435\u0439; \u043D\u0430\u0436\u0430\u0442\u0438\u0435 \u043E\u0442\u043A\u0440\u044B\u0432\u0430\u0435\u0442 \u043E\u0441\u043D\u043E\u0432\u043D\u0443\u044E \u0435\u0436\u0435\u0434\u043D\u0435\u0432\u043D\u0443\u044E \u0437\u0430\u043C\u0435\u0442\u043A\u0443.",
         showCalendarMood: "\u041F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u0442\u044C \u0438\u043D\u0434\u0438\u043A\u0430\u0442\u043E\u0440\u044B \u043D\u0430\u0441\u0442\u0440\u043E\u0435\u043D\u0438\u044F \u0432 \u043A\u0430\u043B\u0435\u043D\u0434\u0430\u0440\u0435",
         showCalendarMoodDesc: "\u041E\u0442\u043E\u0431\u0440\u0430\u0436\u0430\u0435\u0442 \u0446\u0432\u0435\u0442 \u043D\u0430\u0441\u0442\u0440\u043E\u0435\u043D\u0438\u044F \u0432 \u044F\u0447\u0435\u0439\u043A\u0430\u0445 \u043A\u0430\u043B\u0435\u043D\u0434\u0430\u0440\u044F (\u043D\u0435 \u0443\u0434\u0430\u043B\u044F\u0435\u0442 \u0437\u0430\u043F\u0438\u0441\u0438 \u043F\u0440\u0438 \u043E\u0442\u043A\u043B\u044E\u0447\u0435\u043D\u0438\u0438).",
+        showCalendarWrittenMarker: "\u0417\u0430\u043F\u043E\u043B\u043D\u044F\u0442\u044C \u043D\u0430\u043F\u0438\u0441\u0430\u043D\u043D\u044B\u0435 \u0434\u043D\u0438",
+        showCalendarWrittenMarkerDesc: "\u0414\u043D\u0438 \u0441 \u0437\u0430\u043F\u0438\u0441\u044C\u044E \u0431\u0435\u0437 \u0444\u043E\u0442\u043E\u0433\u0440\u0430\u0444\u0438\u0438 \u0437\u0430\u043F\u043E\u043B\u043D\u044F\u044E\u0442 \u044F\u0447\u0435\u0439\u043A\u0443 \u0430\u043A\u0446\u0435\u043D\u0442\u043D\u044B\u043C \u0446\u0432\u0435\u0442\u043E\u043C.",
         showCalendarWeatherBadge: "\u041F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u0442\u044C \u0437\u043D\u0430\u0447\u043A\u0438 \u043F\u043E\u0433\u043E\u0434\u044B \u0432 \u044F\u0447\u0435\u0439\u043A\u0430\u0445",
         showCalendarWeatherBadgeDesc: "\u041E\u0442\u043E\u0431\u0440\u0430\u0436\u0430\u0435\u0442 \u0437\u043D\u0430\u0447\u043E\u043A \u043F\u043E\u0433\u043E\u0434\u044B \u0432 \u0432\u0435\u0440\u0445\u043D\u0435\u043C \u043F\u0440\u0430\u0432\u043E\u043C \u0443\u0433\u043B\u0443 \u044F\u0447\u0435\u0435\u043A; \u043A\u0430\u0440\u0442\u043E\u0447\u043A\u0430 \u043F\u043E\u0433\u043E\u0434\u044B \u043D\u0435 \u0437\u0430\u0442\u0440\u0430\u0433\u0438\u0432\u0430\u0435\u0442\u0441\u044F.",
         showCalendarWeatherCard: "\u041F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u0442\u044C \u043A\u0430\u0440\u0442\u043E\u0447\u043A\u0443 \u043F\u043E\u0433\u043E\u0434\u044B \u0432 \u043A\u0430\u043B\u0435\u043D\u0434\u0430\u0440\u0435",
@@ -10303,7 +10321,8 @@ __export(calendar_display_exports, {
   shouldShowCalendarWeather: () => shouldShowCalendarWeather,
   shouldShowCalendarWeatherBadge: () => shouldShowCalendarWeatherBadge,
   shouldShowCalendarWeatherCard: () => shouldShowCalendarWeatherCard,
-  shouldShowCalendarWeatherLocation: () => shouldShowCalendarWeatherLocation
+  shouldShowCalendarWeatherLocation: () => shouldShowCalendarWeatherLocation,
+  shouldShowCalendarWrittenMarker: () => shouldShowCalendarWrittenMarker
 });
 function calendarEntryAffectsDisplay(previous, entry) {
   if (!previous || !entry) return previous !== entry;
@@ -10325,6 +10344,9 @@ function calendarMediaAccessibilityLabel(dateStr, mediaLabel, focused) {
 }
 function shouldShowCalendarMood(settings = {}) {
   return settings.showCalendarMood !== false;
+}
+function shouldShowCalendarWrittenMarker(settings = {}) {
+  return settings.showCalendarWrittenMarker !== false;
 }
 function calendarMoodMarker(settings = {}) {
   return settings.calendarMoodMarker === "bar" ? "bar" : "dot";
@@ -11017,6 +11039,11 @@ var init_settings_tab = __esm({
           this.plugin.settings.showCalendarMood = value;
           if (!await this._saveSettings()) return;
           this.display();
+          await this._refreshViews();
+        }));
+        new import_obsidian5.Setting(containerEl).setName(t(this.plugin.settings, "showCalendarWrittenMarker")).setDesc(t(this.plugin.settings, "showCalendarWrittenMarkerDesc")).addToggle((toggle) => toggle.setValue(shouldShowCalendarWrittenMarker(this.plugin.settings)).onChange(async (value) => {
+          this.plugin.settings.showCalendarWrittenMarker = value;
+          if (!await this._saveSettings()) return;
           await this._refreshViews();
         }));
         if (shouldShowCalendarMoodStyle(this.plugin.settings)) {
@@ -32438,7 +32465,7 @@ var { SerialTaskQueue: SerialTaskQueue2 } = (init_task_queue(), __toCommonJS(tas
 var { formatCalendarMonth: formatCalendarMonth2, formatJournalDate: formatJournalDate2, getCalendarGridOffset: getCalendarGridOffset2, getCalendarWeekdays: getCalendarWeekdays2, getDisplayLanguage: getDisplayLanguage2, LOCALE_TAGS: LOCALE_TAGS2, moodLabel: moodLabel2, normalizeDisplayLanguageSetting: normalizeDisplayLanguageSetting2, t: t2 } = (init_i18n(), __toCommonJS(i18n_exports));
 var { getMoodColor: getMoodColor2 } = (init_mood(), __toCommonJS(mood_exports));
 var { shouldHandleCalendarMonthShortcut: shouldHandleCalendarMonthShortcut2 } = (init_calendar_keyboard(), __toCommonJS(calendar_keyboard_exports));
-var { calendarEntryAffectsDisplay: calendarEntryAffectsDisplay2, calendarMediaAccessibilityLabel: calendarMediaAccessibilityLabel2, calendarMoodMarker: calendarMoodMarker2, calendarMoodMarkerClass: calendarMoodMarkerClass2, isCurrentCalendarMonth: isCurrentCalendarMonth2, shouldShowCalendarMood: shouldShowCalendarMood2, shouldShowCalendarWeatherCard: shouldShowCalendarWeatherCard2, shouldShowCalendarWeatherBadge: shouldShowCalendarWeatherBadge2, shouldShowCalendarWeatherLocation: shouldShowCalendarWeatherLocation2 } = (init_calendar_display(), __toCommonJS(calendar_display_exports));
+var { calendarEntryAffectsDisplay: calendarEntryAffectsDisplay2, calendarMediaAccessibilityLabel: calendarMediaAccessibilityLabel2, calendarMoodMarker: calendarMoodMarker2, calendarMoodMarkerClass: calendarMoodMarkerClass2, isCurrentCalendarMonth: isCurrentCalendarMonth2, shouldShowCalendarMood: shouldShowCalendarMood2, shouldShowCalendarWeatherCard: shouldShowCalendarWeatherCard2, shouldShowCalendarWeatherBadge: shouldShowCalendarWeatherBadge2, shouldShowCalendarWeatherLocation: shouldShowCalendarWeatherLocation2, shouldShowCalendarWrittenMarker: shouldShowCalendarWrittenMarker2 } = (init_calendar_display(), __toCommonJS(calendar_display_exports));
 var { ViewVisibilityController: ViewVisibilityController2, normalizeViewVisibilitySettings: normalizeViewVisibilitySettings2 } = (init_view_visibility_controller(), __toCommonJS(view_visibility_controller_exports));
 var { hasExistingImage: hasExistingImage2 } = (init_heic_embed(), __toCommonJS(heic_embed_exports));
 var { loadHeicCodec: loadHeicCodec2 } = (init_heic_codec(), __toCommonJS(heic_codec_exports));
@@ -32500,6 +32527,8 @@ var DEFAULT_SETTINGS = {
   showCalendarWeatherBadge: true,
   showCalendarWeatherLocation: false,
   showCalendarEntryCount: true,
+  // Day One-style written marker: journaled dates without a photo fill their cell.
+  showCalendarWrittenMarker: true,
   weatherDisplayFields: ["feels", "humidity"],
   showCalendarView: true,
   showTimelineView: false,
@@ -34303,6 +34332,7 @@ var CalendarView = class extends ItemView2 {
       if (cover) cell.addClass("cal-has-image");
       else cell.addClass("cal-no-image");
       if (dateEntry.hasRecord) cell.addClass("cal-has-record");
+      if (dateEntry.hasRecord && !cover && shouldShowCalendarWrittenMarker2(this.plugin.settings)) cell.addClass("cal-written");
       if (dateEntry.hasWeather) cell.addClass("cal-has-weather");
       const entryCountLabel = t2(this.plugin.settings, dateEntry.entryCount === 1 ? "calendarEntryCountOne" : "calendarEntryCount", { count: dateEntry.entryCount });
       const localizedDate = formatJournalDate2(dateStr, this.plugin.settings);

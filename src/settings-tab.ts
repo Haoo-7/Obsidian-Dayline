@@ -6,7 +6,7 @@ import { localize as _l } from './locale';
 import compactWordmarkSvg from '../assets/dayline-wordmark-compact.svg';
 import daylineLogoSvg from '../assets/dayline-logo.svg';
 import { renderSettingsBrand } from './settings-brand';
-import { calendarMoodMarker, shouldShowCalendarMoodStyle } from './calendar-display';
+import { calendarMoodMarker, shouldShowCalendarMoodStyle, shouldShowCalendarWrittenMarker } from './calendar-display';
 import { shouldShowTimelineMoodTrend, shouldShowTimelineTitles } from './journal-timeline-display';
 import { JournalSourceSettingsEditor } from './journal-source-settings';
 import { normalizeOnThisDayEntryMode } from './on-this-day-entry';
@@ -455,6 +455,17 @@ export class DaylineSettingsTab extends PluginSettingTab {
           this.plugin.settings.showCalendarMood = value;
           if (!(await this._saveSettings())) return;
           this.display();
+          await this._refreshViews();
+        }));
+
+    new Setting(containerEl)
+      .setName(t(this.plugin.settings, 'showCalendarWrittenMarker'))
+      .setDesc(t(this.plugin.settings, 'showCalendarWrittenMarkerDesc'))
+      .addToggle((toggle) => toggle
+        .setValue(shouldShowCalendarWrittenMarker(this.plugin.settings))
+        .onChange(async (value) => {
+          this.plugin.settings.showCalendarWrittenMarker = value;
+          if (!(await this._saveSettings())) return;
           await this._refreshViews();
         }));
 

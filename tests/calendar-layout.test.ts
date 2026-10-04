@@ -99,7 +99,7 @@ describe('calendar compact cell layout', () => {
     // The four dark-surface selectors have to stay in agreement, or one context regresses.
     expect(styles).toContain('.theme-dark .cal-weather-badge,');
     expect(styles).toContain('.cal-day.cal-has-image .cal-weather-badge,');
-    expect(styles).toContain('.cal-today .cal-weather-badge {');
+    expect(styles).toContain('.cal-day.cal-written .cal-weather-badge {');
     // Photo cells keep the halo; flat known-colour surfaces do not need it.
     expect(cssRule(styles, '.cal-day.cal-has-image .cal-weather-badge {'))
       .toContain('drop-shadow');

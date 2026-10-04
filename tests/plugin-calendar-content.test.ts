@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import ts from 'typescript';
 import { JSDOM } from 'jsdom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { calendarMoodMarkerClass, isCurrentCalendarMonth, shouldShowCalendarMood } from '../src/calendar-display';
+import { calendarMoodMarkerClass, isCurrentCalendarMonth, shouldShowCalendarMood, shouldShowCalendarWrittenMarker } from '../src/calendar-display';
 import { formatDateParts, joinVaultPath } from '../src/date-utils';
 import {
   formatCalendarMonth,
@@ -68,6 +68,7 @@ const CalendarView = loadClass('CalendarView', {
   formatDateParts,
   joinVaultPath,
   shouldShowCalendarMood,
+  shouldShowCalendarWrittenMarker,
   calendarMoodMarkerClass,
   calendarMediaAccessibilityLabel: () => '',
   isCurrentCalendarMonth,
@@ -325,5 +326,51 @@ describe('HEIC embed loader cleanup (P-11)', () => {
 
     expect(embed.querySelector('.cal-heic-preview')).toBeNull();
     expect(view.plugin.heicCache.getThumbnail).not.toHaveBeenCalled();
+  });
+});
+
+describe('calendar written-day marker (Day One style)', () => {
+  const writtenEntry = {
+    date: '2026-08-05',
+    entries: [],
+    entryCount: 1,
+    sourceIds: [],
+    hasRecord: true,
+    hasWeather: false,
+    path: 'Daily/2026-08-05.md',
+    primaryEntryPath: undefined,
+    mood: undefined,
+    media: [],
+    images: [],
+    cover: undefined,
+  };
+  const photoEntry = { ...writtenEntry, date: '2026-08-06', path: 'Daily/2026-08-06.md', cover: { link: 'photo.jpg', normalizedLink: 'photo.jpg', sourcePath: 'Daily/2026-08-06.md', kind: 'image' } };
+
+  function makeWrittenView(settingsOverrides = {}, augustEntries = [writtenEntry]) {
+    const settings = baseSettings({ showCalendarMood: false, ...settingsOverrides });
+    const view = makeView({ settings });
+    view.monthCache.set('2026-7', new Map(augustEntries.map((entry) => [entry.date, entry])));
+    view.render();
+    return view;
+  }
+
+  it('fills a journaled date without a photo with the accent marker', () => {
+    const view = makeWrittenView();
+    expect(view.contentEl.querySelector('.cal-day[data-calendar-focus="day-2026-08-05"]').classList.contains('cal-written')).toBe(true);
+  });
+
+  it('leaves photo dates to the image and unwritten dates empty', () => {
+    const view = makeWrittenView({}, [writtenEntry, photoEntry]);
+    const photoCell = view.contentEl.querySelector('.cal-day[data-calendar-focus="day-2026-08-06"]');
+    expect(photoCell.classList.contains('cal-written')).toBe(false);
+    expect(photoCell.classList.contains('cal-has-image')).toBe(true);
+    const emptyCell = view.contentEl.querySelector('.cal-day[data-calendar-focus="day-2026-08-07"]');
+    expect(emptyCell.classList.contains('cal-written')).toBe(false);
+    expect(emptyCell.classList.contains('cal-no-image')).toBe(true);
+  });
+
+  it('does not mark written days when the setting is off', () => {
+    const view = makeWrittenView({ showCalendarWrittenMarker: false });
+    expect(view.contentEl.querySelector('.cal-day[data-calendar-focus="day-2026-08-05"]').classList.contains('cal-written')).toBe(false);
   });
 });

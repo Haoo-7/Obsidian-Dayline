@@ -37,6 +37,7 @@ const CalendarView = loadClass('CalendarView', {
   _daylineDate: () => '2026-09-09',
   formatDateParts: (year, month, day) => `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`,
   shouldShowCalendarMood: () => false,
+  shouldShowCalendarWrittenMarker: () => false,
   calendarMoodMarkerClass: () => 'cal-mood-marker-dot',
   isCurrentCalendarMonth,
   isPathInFolder,

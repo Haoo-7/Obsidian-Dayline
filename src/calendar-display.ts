@@ -11,6 +11,8 @@ export interface CalendarDisplaySettings {
    * union to plain `string` and make `CalendarMoodMarker` decorative.
    */
   calendarMoodMarker?: CalendarMoodMarker | (string & {});
+  /** Day One-style marker: journaled dates without a photo fill their cell. */
+  showCalendarWrittenMarker?: boolean;
   showCalendarWeatherCard?: boolean;
   showCalendarWeatherBadge?: boolean;
   showCalendarWeatherLocation?: boolean;
@@ -48,6 +50,11 @@ export function calendarMediaAccessibilityLabel(dateStr: string, mediaLabel: str
 /** Missing fields remain visible so older plugin data keeps its current UI. */
 export function shouldShowCalendarMood(settings: CalendarDisplaySettings = {}): boolean {
   return settings.showCalendarMood !== false;
+}
+
+/** Written days default to the Day One-style accent fill; opt out per settings. */
+export function shouldShowCalendarWrittenMarker(settings: CalendarDisplaySettings = {}): boolean {
+  return settings.showCalendarWrittenMarker !== false;
 }
 
 /** Older settings without this field keep the corner color-dot marker. */

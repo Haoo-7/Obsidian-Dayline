@@ -11,6 +11,7 @@ import {
   shouldShowCalendarWeatherBadge,
   shouldShowCalendarWeatherCard,
   shouldShowCalendarWeatherLocation,
+  shouldShowCalendarWrittenMarker,
 } from '../src/calendar-display';
 
 describe('calendar display settings', () => {
@@ -55,12 +56,18 @@ describe('calendar display settings', () => {
   it('keeps both displays visible for legacy settings without the new fields', () => {
     expect(shouldShowCalendarMood({})).toBe(true);
     expect(shouldShowCalendarWeather({})).toBe(true);
+    expect(shouldShowCalendarWrittenMarker({})).toBe(true);
   });
 
   it('hides only the selected calendar display', () => {
     expect(shouldShowCalendarMood({ showCalendarMood: false, showCalendarWeather: true })).toBe(false);
     expect(shouldShowCalendarWeather({ showCalendarMood: true, showCalendarWeather: false })).toBe(false);
     expect(shouldShowCalendarMood({ showCalendarMood: true, showCalendarWeather: false })).toBe(true);
+  });
+
+  it('fills written days with the accent color unless the marker is disabled', () => {
+    expect(shouldShowCalendarWrittenMarker({ showCalendarWrittenMarker: true })).toBe(true);
+    expect(shouldShowCalendarWrittenMarker({ showCalendarWrittenMarker: false })).toBe(false);
   });
 
   it('defaults the calendar mood marker to a corner dot and accepts a bottom bar', () => {

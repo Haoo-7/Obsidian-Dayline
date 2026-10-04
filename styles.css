@@ -389,17 +389,27 @@
   text-shadow: none;
 }
 .cal-today {
-  /* Full accent fill */
-  background: var(--color-accent) !important;
-}
-.cal-today.cal-has-image .cal-day-overlay {
-  background: rgba(0, 0, 0, 0.55);
-}
-.cal-today .cal-day-num {
-  color: #fff;
+  /* Day One-style ring: the accent fill now marks *written* days, so today is
+     an outline; a written today fills like any other written day and the ring
+     keeps it recognisable. */
+  box-shadow: inset 0 0 0 2px var(--color-accent);
 }
 .cal-today:hover {
-  box-shadow: 0 0 0 2px var(--interactive-accent-hover);
+  box-shadow: inset 0 0 0 2px var(--color-accent), 0 0 0 2px var(--interactive-accent-hover);
+}
+/* Day One-style written marker: a journaled date without a photo fills its
+   cell with the accent colour so a month of writing reads at a glance; photo
+   dates already fill with the image itself. */
+.cal-day.cal-written {
+  background: var(--color-accent);
+}
+.cal-day.cal-written .cal-day-num {
+  color: #fff;
+  text-shadow: none;
+}
+.cal-day.cal-written .cal-entry-count {
+  color: #fff;
+  text-shadow: none;
 }
 /* Active (currently viewed date) — accent border only, transparent bg */
 .cal-active:not(.cal-today) {
@@ -620,13 +630,13 @@ button.cal-weather-refresh:hover {
 
 /* A dark surface needs light ink. Three cases, and they are the common ones, not edge
    cases: a plain cell in a dark theme (#333333), a photo cell (the day's image under a
-   35% black overlay — median sampled luminance 0.15), and today (a full accent fill,
-   luminance 0.20). The dark-ink set sits at 1.1–2.7:1 on all three, so it is replaced.
-   With the bright set every condition clears 4.9:1 on #333333 and 6.9:1 against the
-   halo below. */
+   35% black overlay — median sampled luminance 0.15), and a written cell (a full accent
+   fill, luminance 0.20). The dark-ink set sits at 1.1–2.7:1 on all three, so it is
+   replaced. With the bright set every condition clears 4.9:1 on #333333 and 6.9:1
+   against the halo below. */
 .theme-dark .cal-weather-badge,
 .cal-day.cal-has-image .cal-weather-badge,
-.cal-today .cal-weather-badge {
+.cal-day.cal-written .cal-weather-badge {
   --cal-wx-sun: #FBBF24;
   --cal-wx-cloud-sun: #94A3B8;
   --cal-wx-cloud: #94A3B8;

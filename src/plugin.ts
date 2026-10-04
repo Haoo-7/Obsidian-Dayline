@@ -56,7 +56,7 @@ const { SerialTaskQueue } = require('./task-queue');
 const { formatCalendarMonth, formatJournalDate, getCalendarGridOffset, getCalendarWeekdays, getDisplayLanguage, LOCALE_TAGS, moodLabel, normalizeDisplayLanguageSetting, t } = require('./i18n');
 const { getMoodColor } = require('./mood');
 const { shouldHandleCalendarMonthShortcut } = require('./calendar-keyboard');
-const { calendarEntryAffectsDisplay, calendarMediaAccessibilityLabel, calendarMoodMarker, calendarMoodMarkerClass, isCurrentCalendarMonth, shouldShowCalendarMood, shouldShowCalendarWeatherCard, shouldShowCalendarWeatherBadge, shouldShowCalendarWeatherLocation } = require('./calendar-display');
+const { calendarEntryAffectsDisplay, calendarMediaAccessibilityLabel, calendarMoodMarker, calendarMoodMarkerClass, isCurrentCalendarMonth, shouldShowCalendarMood, shouldShowCalendarWeatherCard, shouldShowCalendarWeatherBadge, shouldShowCalendarWeatherLocation, shouldShowCalendarWrittenMarker } = require('./calendar-display');
 const { ViewVisibilityController, normalizeViewVisibilitySettings } = require('./view-visibility-controller');
 const { hasExistingImage } = require('./heic-embed');
 const { loadHeicCodec } = require('./heic-codec');
@@ -115,6 +115,8 @@ const DEFAULT_SETTINGS = {
   showCalendarWeatherBadge: true,
   showCalendarWeatherLocation: false,
   showCalendarEntryCount: true,
+  // Day One-style written marker: journaled dates without a photo fill their cell.
+  showCalendarWrittenMarker: true,
   weatherDisplayFields: ['feels', 'humidity'],
   showCalendarView: true,
   showTimelineView: false,
@@ -2293,6 +2295,10 @@ class CalendarView extends ItemView {
       if (cover) cell.addClass('cal-has-image');
       else cell.addClass('cal-no-image');
       if (dateEntry.hasRecord) cell.addClass('cal-has-record');
+      // Day One-style written marker: a journaled date without a photo fills
+      // the whole cell with the accent colour; photo dates already fill with
+      // the image itself.
+      if (dateEntry.hasRecord && !cover && shouldShowCalendarWrittenMarker(this.plugin.settings)) cell.addClass('cal-written');
       if (dateEntry.hasWeather) cell.addClass('cal-has-weather');
       const entryCountLabel = t(this.plugin.settings, dateEntry.entryCount === 1 ? 'calendarEntryCountOne' : 'calendarEntryCount', { count: dateEntry.entryCount });
       // U-02: the raw ISO date is not what a screen reader should read out.

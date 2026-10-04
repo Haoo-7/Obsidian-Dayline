@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import ts from 'typescript';
 import { JSDOM } from 'jsdom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { calendarMoodMarkerClass, isCurrentCalendarMonth, shouldShowCalendarMood } from '../src/calendar-display';
+import { calendarMoodMarkerClass, isCurrentCalendarMonth, shouldShowCalendarMood, shouldShowCalendarWrittenMarker } from '../src/calendar-display';
 import { formatDateParts, joinVaultPath } from '../src/date-utils';
 import {
   formatCalendarMonth,
@@ -85,6 +85,7 @@ const CalendarView = loadClass('CalendarView', {
   formatDateParts,
   joinVaultPath,
   shouldShowCalendarMood,
+  shouldShowCalendarWrittenMarker,
   calendarMoodMarkerClass,
   calendarMediaAccessibilityLabel: () => '',
   isCurrentCalendarMonth,
