@@ -23,14 +23,9 @@ export type MobileDaylineModeControlsOptions = {
   labels: MobileDaylineModeLabels;
   /** Accessible name for the control group; callers pass a localized string. */
   groupLabel?: string;
-  /** Accessible name for the "return to the note" button. */
-  returnLabel?: string;
-  /** Tooltip explaining where the return button goes. */
-  returnHint?: string;
   onSelect: (mode: DaylineMobileMode) => void | Promise<void>;
   onError?: (error: unknown, mode: DaylineMobileMode) => void;
   setIcon?: (element: any, icon: string) => void;
-  onReturn?: () => void | Promise<void>;
 };
 
 export type MobileDaylineTransition = {
@@ -38,9 +33,6 @@ export type MobileDaylineTransition = {
   mode: DaylineMobileMode;
   viewType: string;
 };
-
-/** Unique ids for the visible return hint so aria-describedby stays unambiguous. */
-let mobileReturnHintSequence = 0;
 
 export type MobileDaylineModeControllerOptions = {
   getLeaf: () => any;
@@ -254,24 +246,6 @@ export function resolveMobileJournalLeaf(workspace: any, recorded: any): any {
   return getJournalOpenLeaf(workspace, true, reusable);
 }
 
-/**
- * Resolve the leaf "return to note" should reveal. It never falls back to a
- * Dayline leaf: turning the calendar into an empty Markdown view is worse than
- * reporting that there is nothing to return to.
- */
-export function resolveMobileReturnLeaf(workspace: any, candidate: any): any {
-  if (candidate && isDaylineLeaf(candidate)) return null;
-  if (candidate
-    && isJournalHostLeaf(candidate)
-    && isAttachedWorkspaceLeaf(workspace, candidate)
-    && isMainAreaLeaf(workspace, candidate)) {
-    return candidate;
-  }
-  const existing = (workspace?.getLeavesOfType?.('markdown') || [])
-    .find((leaf: any) => !isDaylineLeaf(leaf) && isMainAreaLeaf(workspace, leaf));
-  return existing || null;
-}
-
 /** Open notes beside Dayline, never by replacing its tab or using a split. */
 export function getMobileMarkdownLeaf(workspace: any): any {
   return getJournalOpenLeaf(workspace, true);
@@ -311,30 +285,6 @@ export function renderMobileDaylineModeControls(parent: any, options: MobileDayl
           console.warn('[Dayline] Could not report mobile mode switch failure:', reportError);
         }
       });
-    });
-  }
-  if (options?.onReturn) {
-    const returnLabel = options?.returnLabel || 'Back to note';
-    const returnHint = typeof options?.returnHint === 'string' && options.returnHint.length > 0
-      ? options.returnHint
-      : returnLabel;
-    // A `title` is invisible on a touch device, so the hint becomes real text
-    // next to the button and the button points at it with aria-describedby.
-    const hintId = `dayline-mobile-return-hint-${mobileReturnHintSequence++}`;
-    const button = controls.createEl('button', {
-      cls: 'dayline-mobile-mode-button dayline-mobile-return-button',
-      attr: { type: 'button', 'aria-label': returnLabel, title: returnLabel, 'aria-describedby': hintId },
-    });
-    options?.setIcon?.(button, 'arrow-left');
-    const hint = controls.createEl('span', {
-      cls: 'dayline-mobile-return-hint',
-      text: returnHint,
-      attr: { id: hintId },
-    });
-    button.addEventListener('click', () => {
-      // The guidance did its job once the user took the action.
-      hint?.remove?.();
-      Promise.resolve(options.onReturn?.()).catch((error) => console.warn('[Dayline] Mobile note return failed:', error));
     });
   }
   return controls;

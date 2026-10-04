@@ -1573,13 +1573,19 @@ function mergeMetadata(base, local, remote, options = {}) {
   }
   const result = cloneUnknown(remote);
   const overwritePath = options.overwritePath;
-  const mergeMap = (before, after, disk, label) => {
+  const remoteTombstones = remote.tombstones ?? {};
+  const mergeMap = (before, after, disk, label, missingOnDiskIsStale) => {
     const merged = cloneUnknown(disk);
     const keys = /* @__PURE__ */ new Set([...Object.keys(before), ...Object.keys(after)]);
     if (overwritePath !== void 0) keys.add(overwritePath);
     for (const key of keys) {
       const isOverwriteKey = key === overwritePath;
-      if (!isOverwriteKey && sameValue(before[key], after[key])) continue;
+      if (!isOverwriteKey && sameValue(before[key], after[key])) {
+        if (missingOnDiskIsStale?.(key) && !Object.hasOwn(disk, key) && before[key] !== void 0) {
+          Object.defineProperty(merged, key, { value: cloneUnknown(before[key]), enumerable: true, configurable: true, writable: true });
+        }
+        continue;
+      }
       if (isOverwriteKey) {
         if (isRemoteRecordNewer(after[key], disk[key])) continue;
       } else if (!sameValue(before[key], disk[key])) {
@@ -1590,7 +1596,13 @@ function mergeMetadata(base, local, remote, options = {}) {
     }
     return merged;
   };
-  result.entries = mergeMap(base.entries, local.entries, remote.entries, "entries/");
+  result.entries = mergeMap(
+    base.entries,
+    local.entries,
+    remote.entries,
+    "entries/",
+    (key) => !Object.hasOwn(remoteTombstones, key)
+  );
   result.orphans = mergeMap(base.orphans ?? {}, local.orphans ?? {}, remote.orphans ?? {}, "orphans/");
   result.tombstones = mergeMap(
     base.tombstones ?? {},
@@ -1598,7 +1610,7 @@ function mergeMetadata(base, local, remote, options = {}) {
     remote.tombstones ?? {},
     "tombstones/"
   );
-  result.customLabels = normalizeCustomLabels([...remote.customLabels ?? [], ...local.customLabels ?? []]);
+  result.customLabels = normalizeCustomLabels([...remote.customLabels ?? [], ...base.customLabels ?? [], ...local.customLabels ?? []]);
   return result;
 }
 function formatValidation(result) {
@@ -1717,7 +1729,7 @@ var init_mood_store = __esm({
           const serialized = JSON.stringify(metadata, null, 2);
           if (raw !== null && (migration.migrated || serialized !== JSON.stringify(parsed, null, 2))) {
             try {
-              await this.writeJsonAtomically(context.path, serialized, () => this.verifyPrimary(context, raw));
+              await this.writeJsonWithBackup(context.path, serialized, () => this.verifyPrimary(context, raw));
               raw = serialized;
             } catch (error) {
               this.assertContext(context);
@@ -1765,8 +1777,41 @@ var init_mood_store = __esm({
           const previous = this.data;
           await this.loadState(context);
           this.assertContext(context);
+          await this.reconcileRevertedRecords(context, previous);
+          this.assertContext(context);
           this.emitChanged(previous, this.data);
         });
+      }
+      /**
+       * Restore records that the freshly read disk file lost relative to the
+       * previous in-memory state, and persist the union. A sync engine replacing
+       * the metadata with an older copy used to hide those records until the next
+       * write re-seeded them; healing the file here keeps both devices converging
+       * instead of overwriting each other. Tombstones are deliberately not
+       * reconciled: a recreated note must stay able to expose a fresh record even
+       * while this session still holds the old deletion.
+       */
+      async reconcileRevertedRecords(context, previous) {
+        if (this.readOnlyMode || this.loadError) return;
+        const tombstones = this.data.tombstones ?? {};
+        const lost = {};
+        for (const [key, record] of Object.entries(previous.entries ?? {})) {
+          if (!this.data.entries[key] && !tombstones[key]) lost[key] = record;
+        }
+        if (Object.keys(lost).length === 0) return;
+        const next = {
+          ...cloneUnknown(this.data),
+          entries: { ...cloneUnknown(this.data.entries), ...cloneUnknown(lost) }
+        };
+        next.customLabels = normalizeCustomLabels([...next.customLabels ?? [], ...customLabelsFrom(lost, {})]);
+        this.data = next;
+        const content = JSON.stringify(next, null, 2);
+        try {
+          await this.writeJsonWithBackup(context.path, content, () => this.verifyPrimary(context, this.primaryRaw));
+          this.primaryRaw = content;
+        } catch (error) {
+          console.warn("[Dayline] Mood metadata reconciliation could not be persisted:", error);
+        }
       }
       get(path) {
         return this.data.entries[normalizeVaultPath(path)];
@@ -1936,6 +1981,32 @@ var init_mood_store = __esm({
         return record;
       }
       /**
+       * Restore an orphaned mood when a note reappears at the orphaned path. Sync
+       * engines replace files as delete + recreate, which moved the mood to the
+       * recovery list and hid it until the user restored it by hand. A live record
+       * at the destination always wins, and a file whose creation predates the
+       * orphaning is not a recreation, so the orphan is kept in both cases.
+       * `fileCtime` is the Obsidian `TFile.stat.ctime` in milliseconds; when
+       * omitted it is read from the vault. Returns true when a record was restored.
+       */
+      async autoRecoverOrphan(path, fileCtime) {
+        const key = normalizeVaultPath(path);
+        const ctime = fileCtime ?? this.vaultFileCtime(key);
+        let restored;
+        await this.mutate((data) => {
+          const source = data.orphans?.[key];
+          if (!source || data.entries[key]) return;
+          const orphanedAt = Date.parse(String(source.orphanedAt ?? ""));
+          if (ctime !== void 0 && Number.isFinite(orphanedAt) && orphanedAt >= ctime) return;
+          restored = normalizeRecord({ ...cloneUnknown(source.record), score: requireMoodScore(source.record?.score, key) });
+          data.entries[key] = restored;
+          delete data.orphans?.[key];
+          delete data.tombstones?.[key];
+        }, { overwritePath: key });
+        if (restored) this.emit(key, restored);
+        return restored !== void 0;
+      }
+      /**
        * Drop the delete tombstone for `path` when it is stale, so a note recreated at
        * the same path can expose its frontmatter mood again. `fileCtime` is the
        * Obsidian `TFile.stat.ctime` in milliseconds; when omitted it is read from the
@@ -2004,7 +2075,7 @@ var init_mood_store = __esm({
         if (this.loadError) throw this.loadError;
         const destination = safeVaultPath(destinationPath);
         if (destination === this.path) throw new Error("Export destination must differ from the metadata path");
-        await this.writeJsonAtomically(destination, `${JSON.stringify(this.data, null, 2)}
+        await this.writeJsonWithBackup(destination, `${JSON.stringify(this.data, null, 2)}
 `);
         return destination;
       }
@@ -2013,7 +2084,7 @@ var init_mood_store = __esm({
         if (this.loadError) throw this.loadError;
         const destination = safeVaultPath(destinationPath);
         if (destination === this.path) throw new Error("Export destination must differ from the metadata path");
-        await this.writeJsonAtomically(destination, serializeMoodCsv(this.data));
+        await this.writeJsonWithBackup(destination, serializeMoodCsv(this.data));
         return destination;
       }
       async exportJson(destinationPath = `${this.path}.moods.json`) {
@@ -2021,7 +2092,7 @@ var init_mood_store = __esm({
         if (this.loadError) throw this.loadError;
         const destination = safeVaultPath(destinationPath);
         if (destination === this.path) throw new Error("Export destination must differ from the metadata path");
-        await this.writeJsonAtomically(destination, serializeMoodJson(this.data));
+        await this.writeJsonWithBackup(destination, serializeMoodJson(this.data));
         return destination;
       }
       /**
@@ -2152,7 +2223,7 @@ var init_mood_store = __esm({
             const next = mergeMetadata(base, local, remote, options);
             if (!sameValue(next, remote)) {
               const content = JSON.stringify(next, null, 2);
-              await this.writeJsonAtomically(context.path, content, () => this.verifyPrimary(context, raw));
+              await this.writeJsonWithBackup(context.path, content, () => this.verifyPrimary(context, raw));
               this.assertContext(context);
               this.primaryRaw = content;
             }
@@ -2302,31 +2373,39 @@ var init_mood_store = __esm({
         await this.ensureParent(path);
         await this.adapter().write(path, content);
       }
-      async writeJsonAtomically(path, content, beforeCommit) {
+      /**
+       * Stage `content` in a `.tmp` sibling, keep the previous primary as the
+       * `.bak` recovery point, then replace the primary in place. The primary path
+       * therefore never goes missing: an earlier revision renamed the primary to
+       * `.bak` before moving the temp file into place, which file sync engines
+       * observed as a deletion and propagated to every other device. The in-place
+       * commit trades that deletion window for a torn-write window, which the
+       * corrupt-primary recovery path already handles.
+       */
+      async writeJsonWithBackup(path, content, beforeCommit) {
         await this.ensureParent(path);
         const temp = `${path}.tmp`;
         const backup = `${path}.bak`;
         const adapter = this.adapter();
-        let movedPrimary = false;
         try {
           await adapter.write(temp, content);
           await beforeCommit?.();
           if (await adapter.exists(path)) {
             if (await adapter.exists(backup)) await adapter.remove(backup);
-            await adapter.rename(path, backup);
-            movedPrimary = true;
+            if (typeof adapter.copy === "function") await adapter.copy(path, backup);
+            else await adapter.write(backup, await adapter.read(path));
           }
-          await adapter.rename(temp, path);
+          await adapter.write(path, content);
         } catch (error) {
-          try {
-            if (movedPrimary && !await adapter.exists(path) && await adapter.exists(backup)) await adapter.rename(backup, path);
-          } catch {
-          }
           try {
             if (await adapter.exists(temp)) await adapter.remove(temp);
           } catch {
           }
           throw error;
+        }
+        try {
+          if (await adapter.exists(temp)) await adapter.remove(temp);
+        } catch {
         }
       }
       async replaceMetadata(next, context) {
@@ -3059,8 +3138,6 @@ var init_i18n = __esm({
         anxious: "\u7126\u8651",
         apply: "\u5E94\u7528",
         back: "\u8FD4\u56DE",
-        backToNote: "\u8FD4\u56DE\u7B14\u8BB0",
-        backToNoteHint: "\u4ECE\u53F3\u4FA7\u6ED1\u51FA\u9762\u677F\u540E\uFF0C\u53EF\u8F7B\u70B9\u8FD9\u91CC\u56DE\u5230\u521A\u624D\u67E5\u770B\u7684\u7B14\u8BB0",
         calendarDisplay: "\u65E5\u5386\u663E\u793A",
         calendarEntriesOnDate: "{date}\uFF1A{entries}",
         calendarEntryCount: "{count} \u6761\u65E5\u8BB0",
@@ -3365,8 +3442,6 @@ var init_i18n = __esm({
         anxious: "\u7126\u616E",
         apply: "\u5957\u7528",
         back: "\u8FD4\u56DE",
-        backToNote: "\u8FD4\u56DE\u7B46\u8A18",
-        backToNoteHint: "\u5F9E\u53F3\u5074\u6ED1\u51FA\u9762\u677F\u5F8C\uFF0C\u53EF\u4EE5\u8F15\u89F8\u9019\u88E1\u56DE\u5230\u525B\u624D\u6AA2\u8996\u7684\u7B46\u8A18",
         calendarDisplay: "\u65E5\u66C6\u986F\u793A",
         calendarEntriesOnDate: "{date}\uFF1A{entries}",
         calendarEntryCount: "{count} \u5247\u65E5\u8A18",
@@ -3671,8 +3746,6 @@ var init_i18n = __esm({
         anxious: "Anxious",
         apply: "Apply",
         back: "Back",
-        backToNote: "Back to note",
-        backToNoteHint: "After swiping the panel in from the right, tap here to return to the note you were reading",
         calendarDisplay: "Calendar display",
         calendarEntriesOnDate: "{date}: {entries}",
         calendarEntryCount: "{count} entries",
@@ -3977,8 +4050,6 @@ var init_i18n = __esm({
         anxious: "\u4E0D\u5B89",
         apply: "\u9069\u7528",
         back: "\u623B\u308B",
-        backToNote: "\u30CE\u30FC\u30C8\u306B\u623B\u308B",
-        backToNoteHint: "\u53F3\u304B\u3089\u30D1\u30CD\u30EB\u3092\u30B9\u30EF\u30A4\u30D7\u3057\u305F\u5F8C\u3001\u3053\u3053\u3092\u30BF\u30C3\u30D7\u3057\u3066\u8AAD\u3093\u3067\u3044\u305F\u30CE\u30FC\u30C8\u306B\u623B\u308C\u307E\u3059",
         calendarDisplay: "\u30AB\u30EC\u30F3\u30C0\u30FC\u8868\u793A",
         calendarEntriesOnDate: "{date}\uFF1A{entries}",
         calendarEntryCount: "{count} \u4EF6\u306E\u65E5\u8A18",
@@ -4283,8 +4354,6 @@ var init_i18n = __esm({
         anxious: "\uBD88\uC548\uD568",
         apply: "\uC801\uC6A9",
         back: "\uB4A4\uB85C",
-        backToNote: "\uB178\uD2B8\uB85C \uB3CC\uC544\uAC00\uAE30",
-        backToNoteHint: "\uC624\uB978\uCABD\uC5D0\uC11C \uD328\uB110\uC744 \uBC00\uC5B4\uB0B8 \uB4A4 \uC5EC\uAE30\uB97C \uB20C\uB7EC \uBCF4\uB358 \uB178\uD2B8\uB85C \uB3CC\uC544\uAC00\uC138\uC694",
         calendarDisplay: "\uCE98\uB9B0\uB354 \uD45C\uC2DC",
         calendarEntriesOnDate: "{date}: {entries}",
         calendarEntryCount: "{count}\uAC1C\uC758 \uC800\uB110",
@@ -4589,8 +4658,6 @@ var init_i18n = __esm({
         anxious: "Anxieux",
         apply: "Appliquer",
         back: "Retour",
-        backToNote: "Retour \xE0 la note",
-        backToNoteHint: "Apr\xE8s avoir fait glisser le panneau depuis la droite, touchez ici pour revenir \xE0 la note lue",
         calendarDisplay: "Affichage du calendrier",
         calendarEntriesOnDate: "{date} : {entries}",
         calendarEntryCount: "{count} entr\xE9es",
@@ -4895,8 +4962,6 @@ var init_i18n = __esm({
         anxious: "\xC4ngstlich",
         apply: "Anwenden",
         back: "Zur\xFCck",
-        backToNote: "Zur\xFCck zur Notiz",
-        backToNoteHint: "Nach dem Hereinwischen des Bereichs von rechts hier tippen, um zur gelesenen Notiz zur\xFCckzukehren",
         calendarDisplay: "Kalenderanzeige",
         calendarEntriesOnDate: "{date}: {entries}",
         calendarEntryCount: "{count} Journaleintr\xE4ge",
@@ -5201,8 +5266,6 @@ var init_i18n = __esm({
         anxious: "Ansioso",
         apply: "Aplicar",
         back: "Atr\xE1s",
-        backToNote: "Volver a la nota",
-        backToNoteHint: "Tras deslizar el panel desde la derecha, toca aqu\xED para volver a la nota que le\xEDas",
         calendarDisplay: "Visualizaci\xF3n del calendario",
         calendarEntriesOnDate: "{date}: {entries}",
         calendarEntryCount: "{count} entradas",
@@ -5507,8 +5570,6 @@ var init_i18n = __esm({
         anxious: "\u0422\u0440\u0435\u0432\u043E\u0433\u0430",
         apply: "\u041F\u0440\u0438\u043C\u0435\u043D\u0438\u0442\u044C",
         back: "\u041D\u0430\u0437\u0430\u0434",
-        backToNote: "\u0412\u0435\u0440\u043D\u0443\u0442\u044C\u0441\u044F \u043A \u0437\u0430\u043C\u0435\u0442\u043A\u0435",
-        backToNoteHint: "\u041F\u0440\u043E\u0432\u0435\u0434\u0438\u0442\u0435 \u043F\u0430\u043D\u0435\u043B\u044C \u0441\u043F\u0440\u0430\u0432\u0430 \u0438 \u043D\u0430\u0436\u043C\u0438\u0442\u0435 \u0437\u0434\u0435\u0441\u044C, \u0447\u0442\u043E\u0431\u044B \u0432\u0435\u0440\u043D\u0443\u0442\u044C\u0441\u044F \u043A \u0447\u0438\u0442\u0430\u0435\u043C\u043E\u0439 \u0437\u0430\u043C\u0435\u0442\u043A\u0435",
         calendarDisplay: "\u041E\u0442\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0435 \u043A\u0430\u043B\u0435\u043D\u0434\u0430\u0440\u044F",
         calendarEntriesOnDate: "{date}: {entries}",
         calendarEntryCount: "{count} \u0437\u0430\u043F\u0438\u0441\u0435\u0439",
@@ -6856,7 +6917,6 @@ __export(dayline_mobile_exports, {
   normalizeDaylineMobileMode: () => normalizeDaylineMobileMode,
   renderMobileDaylineModeControls: () => renderMobileDaylineModeControls,
   resolveMobileJournalLeaf: () => resolveMobileJournalLeaf,
-  resolveMobileReturnLeaf: () => resolveMobileReturnLeaf,
   setMobileDaylineLeafView: () => setMobileDaylineLeafView
 });
 function normalizeDaylineMobileMode(value) {
@@ -6997,14 +7057,6 @@ function resolveMobileJournalLeaf(workspace, recorded) {
   const reusable = recorded && isJournalHostLeaf(recorded) && isAttachedWorkspaceLeaf(workspace, recorded) && isMainAreaLeaf(workspace, recorded) ? recorded : null;
   return getJournalOpenLeaf(workspace, true, reusable);
 }
-function resolveMobileReturnLeaf(workspace, candidate) {
-  if (candidate && isDaylineLeaf(candidate)) return null;
-  if (candidate && isJournalHostLeaf(candidate) && isAttachedWorkspaceLeaf(workspace, candidate) && isMainAreaLeaf(workspace, candidate)) {
-    return candidate;
-  }
-  const existing = (workspace?.getLeavesOfType?.("markdown") || []).find((leaf) => !isDaylineLeaf(leaf) && isMainAreaLeaf(workspace, leaf));
-  return existing || null;
-}
 function getMobileMarkdownLeaf(workspace) {
   return getJournalOpenLeaf(workspace, true);
 }
@@ -7042,28 +7094,9 @@ function renderMobileDaylineModeControls(parent, options) {
       });
     });
   }
-  if (options?.onReturn) {
-    const returnLabel = options?.returnLabel || "Back to note";
-    const returnHint = typeof options?.returnHint === "string" && options.returnHint.length > 0 ? options.returnHint : returnLabel;
-    const hintId = `dayline-mobile-return-hint-${mobileReturnHintSequence++}`;
-    const button = controls.createEl("button", {
-      cls: "dayline-mobile-mode-button dayline-mobile-return-button",
-      attr: { type: "button", "aria-label": returnLabel, title: returnLabel, "aria-describedby": hintId }
-    });
-    options?.setIcon?.(button, "arrow-left");
-    const hint = controls.createEl("span", {
-      cls: "dayline-mobile-return-hint",
-      text: returnHint,
-      attr: { id: hintId }
-    });
-    button.addEventListener("click", () => {
-      hint?.remove?.();
-      Promise.resolve(options.onReturn?.()).catch((error) => console.warn("[Dayline] Mobile note return failed:", error));
-    });
-  }
   return controls;
 }
-var MOBILE_DAYLINE_VIEW, DAYLINE_VIEW_TYPES, mobileReturnHintSequence;
+var MOBILE_DAYLINE_VIEW, DAYLINE_VIEW_TYPES;
 var init_dayline_mobile = __esm({
   "src/dayline-mobile.ts"() {
     "use strict";
@@ -7073,7 +7106,6 @@ var init_dayline_mobile = __esm({
       "journal-timeline-view",
       MOBILE_DAYLINE_VIEW
     ];
-    mobileReturnHintSequence = 0;
   }
 });
 
@@ -7169,7 +7201,7 @@ function calendarCellTouchRouting(coarsePointer, phoneLayout = coarsePointer) {
     return {
       primary: "date-open",
       secondary: "external-surface",
-      showMoodControl: false,
+      showMoodControl: true,
       showEntryCountControl: false,
       showMediaInfoControl: false,
       focusMediaBackground: false
@@ -7403,11 +7435,8 @@ var init_journal_timeline_view = __esm({
             timeline: t(this.plugin.settings, "timelineTitle")
           },
           groupLabel: t(this.plugin.settings, "daylineViewGroupLabel"),
-          returnLabel: t(this.plugin.settings, "backToNote"),
-          returnHint: t(this.plugin.settings, "backToNoteHint"),
           onSelect: (mode) => mode === "calendar" ? this.plugin.activateView() : this.plugin.activateTimeline(),
-          setIcon: import_obsidian2.setIcon,
-          onReturn: () => this.plugin._returnToMobileMarkdown()
+          setIcon: import_obsidian2.setIcon
         });
       }
       _getMobileTimelineFilter() {
@@ -32437,8 +32466,7 @@ var {
   isMainAreaLeaf: isMainAreaLeaf2,
   normalizeDaylineMobileMode: normalizeDaylineMobileMode2,
   renderMobileDaylineModeControls: renderMobileDaylineModeControls2,
-  resolveMobileJournalLeaf: resolveMobileJournalLeaf2,
-  resolveMobileReturnLeaf: resolveMobileReturnLeaf2
+  resolveMobileJournalLeaf: resolveMobileJournalLeaf2
 } = (init_dayline_mobile(), __toCommonJS(dayline_mobile_exports));
 var { collectMobileDiagnostics: collectMobileDiagnostics2, formatMobileDiagnostics: formatMobileDiagnostics2 } = (init_mobile_diagnostics(), __toCommonJS(mobile_diagnostics_exports));
 var VIEW_TYPE2 = "calendar-sidebar-view";
@@ -32523,7 +32551,6 @@ var DaylinePlugin = class extends Plugin {
     this._mobileDiagnosticEvents = [];
     this._mobileTimelineFilter = {};
     this._mobileDaylineModeController = null;
-    this._mobileReturnLeaf = null;
     this._mobileJournalLeaf = null;
     this._mobileDaylineLastViewTypeValue = null;
     this._lastReminderDate = null;
@@ -32926,15 +32953,6 @@ var DaylinePlugin = class extends Plugin {
     this._mobileJournalLeaf = null;
     return null;
   }
-  _getMobileReturnLeaf() {
-    const leaf = this._mobileReturnLeaf;
-    if (!leaf) return null;
-    if (!isJournalHostLeaf2(leaf) || !isAttachedWorkspaceLeaf2(this.app.workspace, leaf)) {
-      this._mobileReturnLeaf = null;
-      return null;
-    }
-    return leaf;
-  }
   _getMobileTimelineFilter() {
     return { ...this._mobileTimelineFilter || {} };
   }
@@ -32979,24 +32997,9 @@ var DaylinePlugin = class extends Plugin {
     return true;
   }
   async _activateMobileMode(mode, afterApply = null) {
-    const active = this.app.workspace?.activeLeaf;
-    if (active?.view?.getViewType?.() === "markdown") this._mobileReturnLeaf = active;
     const normalized = normalizeDaylineMobileMode2(mode);
     this._recordMobileDiagnostic(`mode-request:${normalized}`);
     return this._openMobileDayline(normalized, null, afterApply);
-  }
-  async _returnToMobileMarkdown() {
-    const workspace = this.app.workspace;
-    const leaf = resolveMobileReturnLeaf2(workspace, this._getMobileReturnLeaf());
-    if (!leaf || typeof leaf.openFile !== "function") return false;
-    try {
-      await workspace?.revealLeaf?.(leaf);
-      workspace?.setActiveLeaf?.(leaf, { focus: true });
-      return true;
-    } catch (error) {
-      console.warn("[Dayline] Failed to return to Markdown:", error?.message || error);
-      return false;
-    }
   }
   async _openMobileDayline(mode = "calendar", preferredLeaf = null, afterApply = null) {
     if (!this.capabilities?.isMobile) return false;
@@ -33323,10 +33326,10 @@ ${path}`)) return false;
     if (!(file instanceof TFile3) || file.extension !== "md") return;
     const path = file.path;
     const ctime = file.stat?.ctime;
-    Promise.resolve(this.moodStore?.clearStaleTombstone?.(path, ctime)).then((cleared) => {
-      if (cleared) return this.journalIndex.refreshFile(path, this.settings);
+    Promise.resolve(this.moodStore?.clearStaleTombstone?.(path, ctime)).then((cleared) => Promise.resolve(this.moodStore?.autoRecoverOrphan?.(path, ctime)).then((recovered) => recovered || cleared)).then((changed) => {
+      if (changed) return this.journalIndex.refreshFile(path, this.settings);
       return void 0;
-    }).catch((error) => console.warn("[Dayline] Clearing stale mood tombstone failed:", error?.message || error));
+    }).catch((error) => console.warn("[Dayline] Mood recovery after note create failed:", error?.message || error));
   }
   _handleJournalDelete(file) {
     this._notifyCalendarImageChange(file);
@@ -33865,11 +33868,8 @@ var CalendarView = class extends ItemView2 {
         timeline: t2(this.plugin.settings, "timelineTitle")
       },
       groupLabel: t2(this.plugin.settings, "daylineViewGroupLabel"),
-      returnLabel: t2(this.plugin.settings, "backToNote"),
-      returnHint: t2(this.plugin.settings, "backToNoteHint"),
       onSelect: (mode) => mode === "timeline" ? this.plugin.activateTimeline() : this.plugin.activateView(),
-      setIcon: setIcon5,
-      onReturn: () => this.plugin._returnToMobileMarkdown()
+      setIcon: setIcon5
     });
   }
   /* ----- Lifecycle ----- */

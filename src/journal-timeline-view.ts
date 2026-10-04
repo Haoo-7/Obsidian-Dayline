@@ -90,13 +90,10 @@ export class JournalTimelineView extends ItemView {
         timeline: t(this.plugin.settings, 'timelineTitle'),
       },
       groupLabel: t(this.plugin.settings, 'daylineViewGroupLabel'),
-      returnLabel: t(this.plugin.settings, 'backToNote'),
-      returnHint: t(this.plugin.settings, 'backToNoteHint'),
       onSelect: (mode) => mode === 'calendar'
         ? this.plugin.activateView()
         : this.plugin.activateTimeline(),
       setIcon,
-      onReturn: () => this.plugin._returnToMobileMarkdown(),
     });
   }
 

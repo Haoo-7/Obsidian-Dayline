@@ -118,8 +118,6 @@ describe('nine-language display support', () => {
 
   it('provides the strings the notices, commands, and accessible labels ask for', () => {
     const keys = [
-      'backToNote',
-      'backToNoteHint',
       'calendarLeafCreateFailed',
       'calendarViewRequired',
       'coordinateMustBeNumeric',
@@ -159,7 +157,6 @@ describe('nine-language display support', () => {
         expect(value.length, `${language}/${key}`).toBeGreaterThan(0);
       }
     }
-    expect(t({ displayLanguage: 'zh' }, 'backToNote')).toBe('返回笔记');
     expect(t({ displayLanguage: 'ja' }, 'copyDiagnosticsCommand')).toBe('Dayline モバイル診断情報をコピー');
     expect(t({ displayLanguage: 'ru' }, 'unknownError')).toBe('неизвестная ошибка');
     expect(t({ displayLanguage: 'de' }, 'weatherIconAlt')).toBe('Wetter');
@@ -179,7 +176,7 @@ describe('nine-language key parity and count plurals', () => {
 
   it('keeps one identical key set and English-compatible placeholders in every language', () => {
     const englishKeys = Object.keys(STRINGS.en).sort();
-    expect(englishKeys).toHaveLength(304);
+    expect(englishKeys).toHaveLength(302);
 
     for (const language of SUPPORTED_DISPLAY_LANGUAGES) {
       expect(Object.keys(STRINGS[language]).sort(), language).toEqual(englishKeys);

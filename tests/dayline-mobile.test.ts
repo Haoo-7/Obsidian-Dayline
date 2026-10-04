@@ -23,7 +23,6 @@ import {
   normalizeDaylineMobileMode,
   renderMobileDaylineModeControls,
   resolveMobileJournalLeaf,
-  resolveMobileReturnLeaf,
   setMobileDaylineLeafView,
 } from '../src/dayline-mobile';
 
@@ -529,96 +528,6 @@ describe('mobile Dayline routing', () => {
     expect(workspace.getLeaf).not.toHaveBeenCalled();
   });
 
-  /* P-02: returning must never turn the calendar leaf into an empty Markdown view. */
-  it('never converts a Dayline leaf into an empty Markdown view when returning', () => {
-    const mainRoot = { id: 'main' };
-    const drawer = {
-      view: { getViewType: () => CALENDAR_VIEW },
-      getRoot: () => ({ id: 'right-drawer' }),
-      setViewState: vi.fn(),
-    };
-    const workspace = { rootSplit: mainRoot, activeLeaf: drawer, getLeavesOfType: vi.fn(() => []) };
-
-    expect(resolveMobileReturnLeaf(workspace, drawer)).toBeNull();
-    expect(drawer.setViewState).not.toHaveBeenCalled();
-  });
-
-  it('reveals the recorded Markdown leaf without resetting its view state', () => {
-    const mainRoot = { id: 'main' };
-    const note = {
-      id: 'note',
-      parent: {},
-      view: { getViewType: () => 'markdown' },
-      getRoot: () => mainRoot,
-      setViewState: vi.fn(),
-      openFile: vi.fn(),
-    };
-    const workspace = { rootSplit: mainRoot, getLeavesOfType: vi.fn((type: string) => type === 'markdown' ? [note] : []) };
-
-    expect(resolveMobileReturnLeaf(workspace, note)).toBe(note);
-    expect(note.setViewState).not.toHaveBeenCalled();
-  });
-
-  it('returns false from return-to-note when the only leaf is Dayline\'s', async () => {
-    const mainRoot = { id: 'main' };
-    const drawer = {
-      view: { getViewType: () => CALENDAR_VIEW },
-      getRoot: () => ({ id: 'right-drawer' }),
-      openFile: vi.fn(),
-      setViewState: vi.fn(),
-    };
-    const revealLeaf = vi.fn();
-    const setActiveLeaf = vi.fn();
-    const plugin = createPlugin();
-    plugin._mobileReturnLeaf = null;
-    plugin._mobileJournalLeaf = null;
-    plugin.app = {
-      workspace: {
-        rootSplit: mainRoot,
-        activeLeaf: drawer,
-        getLeavesOfType: vi.fn(() => []),
-        revealLeaf,
-        setActiveLeaf,
-      },
-    };
-
-    await expect(plugin._returnToMobileMarkdown()).resolves.toBe(false);
-    expect(drawer.setViewState).not.toHaveBeenCalled();
-    expect(revealLeaf).not.toHaveBeenCalled();
-    expect(setActiveLeaf).not.toHaveBeenCalled();
-  });
-
-  it('reveals the recorded Markdown leaf on return-to-note', async () => {
-    const mainRoot = { id: 'main' };
-    const note = {
-      id: 'note',
-      parent: {},
-      view: { getViewType: () => 'markdown' },
-      getRoot: () => mainRoot,
-      setViewState: vi.fn(),
-      openFile: vi.fn(),
-    };
-    const revealLeaf = vi.fn(async () => undefined);
-    const setActiveLeaf = vi.fn();
-    const plugin = createPlugin();
-    plugin._mobileReturnLeaf = note;
-    plugin._mobileJournalLeaf = null;
-    plugin.app = {
-      workspace: {
-        rootSplit: mainRoot,
-        activeLeaf: { view: { getViewType: () => CALENDAR_VIEW }, getRoot: () => ({ id: 'drawer' }) },
-        getLeavesOfType: vi.fn((type: string) => type === 'markdown' ? [note] : []),
-        revealLeaf,
-        setActiveLeaf,
-      },
-    };
-
-    await expect(plugin._returnToMobileMarkdown()).resolves.toBe(true);
-    expect(revealLeaf).toHaveBeenCalledWith(note);
-    expect(setActiveLeaf).toHaveBeenCalledWith(note, { focus: true });
-    expect(note.setViewState).not.toHaveBeenCalled();
-  });
-
   /* P-03: a remembered journal leaf that was closed is never reused. */
   it('drops a recorded journal leaf that is no longer attached', () => {
     const created = { id: 'new-note', view: { getViewType: () => 'empty' } };
@@ -789,8 +698,8 @@ describe('mobile Dayline routing', () => {
     expect(builds).toEqual([true]);
   });
 
-  /* U-10: the return hint must be visible text, not a hover-only tooltip. */
-  it('exposes the return-to-note hint as visible text linked with aria-describedby', () => {
+  /* The phone mode controls are swipe-first: only the two mode buttons render. */
+  it('renders only the calendar and timeline mode buttons', () => {
     const created: any[] = [];
     const parent = {
       createDiv: vi.fn(() => ({
@@ -807,22 +716,13 @@ describe('mobile Dayline routing', () => {
       activeMode: 'calendar',
       labels: { calendar: 'Calendar', timeline: 'Timeline' },
       onSelect: () => undefined,
-      onReturn: () => undefined,
-      returnLabel: 'Back to note',
-      returnHint: 'Reopen the note you were reading',
     });
 
-    const button = created.find((element) => String(element.options?.cls).includes('dayline-mobile-return-button'));
-    const hint = created.find((element) => element.options?.cls === 'dayline-mobile-return-hint');
-    expect(button).toBeDefined();
-    expect(hint).toBeDefined();
-    expect(hint.options.text).toBe('Reopen the note you were reading');
-    expect(button.options.attr.title).toBe('Back to note');
-    expect(button.options.attr['aria-describedby']).toBe(hint.options.attr.id);
-    expect(hint.options.attr.id).toBeTruthy();
-
-    button.handlers.click();
-    expect(hint.remove).toHaveBeenCalledTimes(1);
+    const buttons = created.filter((element) => element.tag === 'button');
+    expect(buttons).toHaveLength(2);
+    expect(buttons.map((button) => button.options.attr['aria-label'])).toEqual(['Calendar', 'Timeline']);
+    expect(created.find((element) => String(element.options?.cls ?? '').includes('dayline-mobile-return-button'))).toBeUndefined();
+    expect(created.find((element) => element.options?.cls === 'dayline-mobile-return-hint')).toBeUndefined();
   });
 
   /* P-06: a not-yet-ready index must not claim the user has not written today. */

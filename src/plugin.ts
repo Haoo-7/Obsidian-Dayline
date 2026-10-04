@@ -85,7 +85,6 @@ const {
   normalizeDaylineMobileMode,
   renderMobileDaylineModeControls,
   resolveMobileJournalLeaf,
-  resolveMobileReturnLeaf,
 } = require('./dayline-mobile');
 const { collectMobileDiagnostics, formatMobileDiagnostics } = require('./mobile-diagnostics');
 
@@ -167,7 +166,6 @@ class DaylinePlugin extends Plugin {
     this._mobileDiagnosticEvents = [];
     this._mobileTimelineFilter = {};
     this._mobileDaylineModeController = null;
-    this._mobileReturnLeaf = null;
     this._mobileJournalLeaf = null;
     this._mobileDaylineLastViewTypeValue = null;
     this._lastReminderDate = null;
@@ -681,16 +679,6 @@ class DaylinePlugin extends Plugin {
     return null;
   }
 
-  _getMobileReturnLeaf() {
-    const leaf = this._mobileReturnLeaf;
-    if (!leaf) return null;
-    if (!isJournalHostLeaf(leaf) || !isAttachedWorkspaceLeaf(this.app.workspace, leaf)) {
-      this._mobileReturnLeaf = null;
-      return null;
-    }
-    return leaf;
-  }
-
   _getMobileTimelineFilter() {
     return { ...(this._mobileTimelineFilter || {}) };
   }
@@ -742,30 +730,9 @@ class DaylinePlugin extends Plugin {
   }
 
   async _activateMobileMode(mode, afterApply = null) {
-    const active = this.app.workspace?.activeLeaf;
-    if (active?.view?.getViewType?.() === 'markdown') this._mobileReturnLeaf = active;
     const normalized = normalizeDaylineMobileMode(mode);
     this._recordMobileDiagnostic(`mode-request:${normalized}`);
     return this._openMobileDayline(normalized, null, afterApply);
-  }
-
-  async _returnToMobileMarkdown() {
-    const workspace = this.app.workspace;
-    // Never fall back to a Dayline leaf: setViewState('markdown') would replace
-    // the calendar with an empty note view. No real note target means there is
-    // nothing to return to.
-    const leaf = resolveMobileReturnLeaf(workspace, this._getMobileReturnLeaf());
-    if (!leaf || typeof leaf.openFile !== 'function') return false;
-    try {
-      // The target is already a Markdown leaf, so revealing it is enough;
-      // setViewState would reset the file it is showing.
-      await workspace?.revealLeaf?.(leaf);
-      workspace?.setActiveLeaf?.(leaf, { focus: true });
-      return true;
-    } catch (error) {
-      console.warn('[Dayline] Failed to return to Markdown:', error?.message || error);
-      return false;
-    }
   }
 
   async _openMobileDayline(mode = 'calendar', preferredLeaf = null, afterApply = null) {
@@ -1812,13 +1779,10 @@ class CalendarView extends ItemView {
         timeline: t(this.plugin.settings, 'timelineTitle'),
       },
       groupLabel: t(this.plugin.settings, 'daylineViewGroupLabel'),
-      returnLabel: t(this.plugin.settings, 'backToNote'),
-      returnHint: t(this.plugin.settings, 'backToNoteHint'),
       onSelect: (mode) => mode === 'timeline'
         ? this.plugin.activateTimeline()
         : this.plugin.activateView(),
       setIcon,
-      onReturn: () => this.plugin._returnToMobileMarkdown(),
     });
   }
 
