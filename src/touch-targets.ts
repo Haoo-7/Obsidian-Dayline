@@ -126,13 +126,16 @@ export function isCalendarTapGesture(
 
 export function calendarCellTouchRouting(coarsePointer: boolean, phoneLayout = coarsePointer): CalendarCellTouchRouting {
   // Phone layouts keep one large date surface so scrolling never competes with
-  // nested controls. Tablets have room for the in-cell mood/media affordances,
-  // and touch-capable desktop hosts (notably Windows) need them too.
+  // nested controls. The mood pip is the one in-cell exception: it claims its
+  // own press (stopPropagation) so it never starts the date gesture, and hiding
+  // it left the month grid on a phone without any mood marker at all. Entry
+  // count and media controls stay external, and touch-capable desktop hosts
+  // (notably Windows) keep the full in-cell set.
   if (coarsePointer && phoneLayout) {
     return {
       primary: 'date-open',
       secondary: 'external-surface',
-      showMoodControl: false,
+      showMoodControl: true,
       showEntryCountControl: false,
       showMediaInfoControl: false,
       focusMediaBackground: false,

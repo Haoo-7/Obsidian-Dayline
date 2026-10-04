@@ -12,6 +12,7 @@ function makeApp() {
     async exists(path: string) { return files.has(path); },
     async read(path: string) { if (!files.has(path)) throw new Error('missing'); return files.get(path)!; },
     async write(path: string, value: string) { files.set(path, value); },
+    async copy(from: string, to: string) { if (!files.has(from)) throw new Error('missing copy source'); files.set(to, files.get(from)!); },
     async rename(from: string, to: string) { files.set(to, files.get(from)!); files.delete(from); },
     async remove(path: string) { files.delete(path); },
     async mkdir() {},
@@ -237,6 +238,71 @@ describe('mood score validation', () => {
       .rejects.toThrow(/invalid mood score/i);
     expect(fixture.files.has(primary)).toBe(false);
     expect(store.getForIndex('note.md')).toBeUndefined();
+  });
+});
+
+describe('mood orphan auto-recovery', () => {
+  const orphanedMetadata = (orphanedAt: string, tombstoned = true) => ({
+    schemaVersion: MOOD_SCHEMA_VERSION,
+    entries: {},
+    orphans: { 'note.md': { record: { score: 1, labels: ['calm'], recordedAt: '2026-09-01', updatedAt: '2026-09-01' }, orphanedAt } },
+    customLabels: [],
+    tombstones: tombstoned ? { 'note.md': { deletedAt: orphanedAt } } : {},
+  });
+
+  it('restores an orphaned mood when the note file is recreated after the orphaning', async () => {
+    const fixture = makeApp();
+    fixture.markdown.set('note.md', note('note.md', Date.parse('2026-09-10T00:00:00.000Z')));
+    fixture.files.set(primary, JSON.stringify(orphanedMetadata('2026-09-05T00:00:00.000Z')));
+    const store = new MoodStore(fixture.app);
+    await store.load();
+
+    await expect(store.autoRecoverOrphan('note.md')).resolves.toBe(true);
+
+    expect(store.get('note.md')?.score).toBe(1);
+    expect(store.getOrphans()?.['note.md']).toBeUndefined();
+    const saved = JSON.parse(fixture.files.get(primary)!);
+    expect(saved.entries['note.md'].score).toBe(1);
+    expect(saved.tombstones['note.md']).toBeUndefined();
+  });
+
+  it('keeps the orphan when the recreated file predates the orphaning', async () => {
+    const fixture = makeApp();
+    fixture.markdown.set('note.md', note('note.md', Date.parse('2026-09-01T00:00:00.000Z')));
+    fixture.files.set(primary, JSON.stringify(orphanedMetadata('2026-09-05T00:00:00.000Z')));
+    const store = new MoodStore(fixture.app);
+    await store.load();
+
+    await expect(store.autoRecoverOrphan('note.md')).resolves.toBe(false);
+
+    expect(store.get('note.md')).toBeUndefined();
+    expect(store.getOrphans()?.['note.md']).toBeTruthy();
+  });
+
+  it('keeps the orphan when the path already has a live record', async () => {
+    const fixture = makeApp();
+    fixture.markdown.set('note.md', note('note.md', Date.parse('2026-09-10T00:00:00.000Z')));
+    fixture.files.set(primary, JSON.stringify({
+      ...orphanedMetadata('2026-09-05T00:00:00.000Z'),
+      entries: { 'note.md': { score: 2, labels: [], recordedAt: '2026-09-09', updatedAt: '2026-09-09' } },
+    }));
+    const store = new MoodStore(fixture.app);
+    await store.load();
+
+    await expect(store.autoRecoverOrphan('note.md')).resolves.toBe(false);
+
+    expect(store.get('note.md')?.score).toBe(2);
+    expect(store.getOrphans()?.['note.md']).toBeTruthy();
+  });
+
+  it('reports no recovery when the path was never orphaned', async () => {
+    const fixture = makeApp();
+    fixture.markdown.set('note.md', note('note.md', Date.now()));
+    const store = new MoodStore(fixture.app);
+    await store.load();
+
+    await expect(store.autoRecoverOrphan('note.md')).resolves.toBe(false);
+    expect(fixture.files.has(primary)).toBe(false);
   });
 });
 

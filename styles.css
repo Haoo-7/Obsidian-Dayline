@@ -1576,13 +1576,15 @@ body.dayline-tablet .journal-timeline-entry.has-thumbnail {
   grid-template-columns: 30px minmax(0, 1fr) 104px;
 }
 
-/* Tablets render the in-cell mood control too, but their calendar cell is only
-   ~48px. The coarse-pointer sizing below is tuned for roomy touch *desktops*,
-   where a 28px pip and a 0.78-opacity empty frame are fine; on a tablet that
-   pip swallows most of the cell and steals taps aimed at the date. Let the
-   compact base sizing apply instead, and keep the empty state faint but
-   visible, since a tablet has no hover to reveal it. */
-body.dayline-tablet .cal-sidebar .cal-mood-empty {
+/* Tablets and phones render the in-cell mood control too, but their calendar
+   cell is only ~48px. The coarse-pointer sizing below is tuned for roomy touch
+   *desktops*, where a 28px pip and a 0.78-opacity empty frame are fine; on a
+   tablet or phone that pip swallows most of the cell and steals taps aimed at
+   the date. Let the compact base sizing apply instead, and keep the empty
+   state faint but visible, since neither form factor has a hover to reveal
+   it. */
+body.dayline-tablet .cal-sidebar .cal-mood-empty,
+body.dayline-phone .cal-sidebar .cal-mood-empty {
   opacity: 0.5;
 }
 

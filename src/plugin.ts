@@ -1147,14 +1147,18 @@ class DaylinePlugin extends Plugin {
     if (!(file instanceof TFile) || file.extension !== 'md') return;
     const path = file.path;
     const ctime = file.stat?.ctime;
+    // A sync engine that replaces a note emits delete then create: the delete
+    // moved the mood to the recovery list, so the create puts it back instead
+    // of hiding it until the user restores it by hand.
     Promise.resolve(this.moodStore?.clearStaleTombstone?.(path, ctime))
-      .then((cleared) => {
+      .then((cleared) => Promise.resolve(this.moodStore?.autoRecoverOrphan?.(path, ctime)).then((recovered) => recovered || cleared))
+      .then((changed) => {
         // The mood only becomes visible after the store changed, which is later
         // than the `changed` redraw that indexed the empty note.
-        if (cleared) return this.journalIndex.refreshFile(path, this.settings);
+        if (changed) return this.journalIndex.refreshFile(path, this.settings);
         return undefined;
       })
-      .catch((error) => console.warn('[Dayline] Clearing stale mood tombstone failed:', error?.message || error));
+      .catch((error) => console.warn('[Dayline] Mood recovery after note create failed:', error?.message || error));
   }
 
   _handleJournalDelete(file) {

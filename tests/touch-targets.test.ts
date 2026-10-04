@@ -27,10 +27,12 @@ describe('touch targets', () => {
     const coarse = calendarCellTouchRouting(true);
     const windowsTouch = calendarCellTouchRouting(true, false);
     const desktop = calendarCellTouchRouting(false);
+    // Phones keep the single date surface for scrolling but render the mood
+    // pip: it claims its own press, so it never starts the date gesture.
     expect(coarse).toMatchObject({
       primary: 'date-open',
       secondary: 'external-surface',
-      showMoodControl: false,
+      showMoodControl: true,
       showEntryCountControl: false,
       showMediaInfoControl: false,
       focusMediaBackground: false,

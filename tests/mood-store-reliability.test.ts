@@ -15,6 +15,11 @@ function fixture() {
     async exists(path: string) { return files.has(path); },
     async read(path: string) { if (!files.has(path)) throw new Error('missing'); return files.get(path)!; },
     async write(path: string, value: string) { if (failWrites) throw new Error('disk failure'); files.set(path, value); },
+    async copy(from: string, to: string) {
+      if (!files.has(from)) throw new Error('missing copy source');
+      if (failWrites) throw new Error('disk failure');
+      files.set(to, files.get(from)!);
+    },
     async rename(from: string, to: string) {
       if (!files.has(from)) throw new Error('missing rename source');
       files.set(to, files.get(from)!);
@@ -49,18 +54,35 @@ describe('mood store reliability', () => {
     expect(files.has(primary)).toBe(false);
   });
 
-  it('rolls back a failed final rename without publishing the edit', async () => {
+  it('keeps the previous primary and does not publish when the commit write fails', async () => {
     const { store, files, adapter } = fixture();
     await store.set('a.md', 1, []);
-    const rename = adapter.rename;
-    adapter.rename = async (from, to) => {
-      if (from === `${primary}.tmp`) throw new Error('commit failure');
-      await rename(from, to);
+    const write = adapter.write;
+    adapter.write = async (path, value) => {
+      if (path === primary) throw new Error('commit failure');
+      return write(path, value);
     };
     await expect(store.set('a.md', -2, [])).rejects.toThrow('commit failure');
     expect(store.get('a.md')?.score).toBe(1);
     expect(JSON.parse(files.get(primary)!).entries['a.md'].score).toBe(1);
     expect(files.has(`${primary}.tmp`)).toBe(false);
+    // The staged backup still holds the previous content as the recovery point.
+    expect(JSON.parse(files.get(`${primary}.bak`)!).entries['a.md'].score).toBe(1);
+  });
+
+  it('replaces the primary in place so file sync never observes it missing', async () => {
+    const { store, files, adapter } = fixture();
+    await store.set('a.md', 1, []);
+    let primaryExistedAtCommit = false;
+    const write = adapter.write;
+    adapter.write = async (path, value) => {
+      if (path === primary) primaryExistedAtCommit = files.has(primary);
+      return write(path, value);
+    };
+    await store.set('b.md', 0, []);
+    expect(primaryExistedAtCommit).toBe(true);
+    expect(files.has(`${primary}.tmp`)).toBe(false);
+    expect(JSON.parse(files.get(`${primary}.bak`)!).entries['a.md'].score).toBe(1);
   });
 
   it('does not replace a valid primary with an older backup when migration cannot write', async () => {
@@ -146,6 +168,71 @@ describe('mood store reliability', () => {
     const saved = JSON.parse(files.get(primary)!);
     expect(saved.entries['remote.md']).toEqual(remote.entries['remote.md']);
     expect(saved.futureMetadata).toEqual(remote.futureMetadata);
+  });
+
+  it('re-seeds records that a stale synced copy lost instead of overwriting them', async () => {
+    const { store, files } = fixture();
+    await store.set('a.md', 1, []);
+    await store.set('b.md', 2, []);
+    const stale = JSON.parse(files.get(primary)!);
+    delete stale.entries['a.md'];
+    files.set(primary, JSON.stringify(stale));
+
+    await store.set('c.md', 0, []);
+
+    const saved = JSON.parse(files.get(primary)!);
+    expect(saved.entries['a.md'].score).toBe(1);
+    expect(saved.entries['b.md'].score).toBe(2);
+    expect(saved.entries['c.md'].score).toBe(0);
+  });
+
+  it('respects an external tombstone instead of re-seeding a deleted record', async () => {
+    const { store, files } = fixture();
+    await store.set('a.md', 1, []);
+    await store.set('b.md', 2, []);
+    const deleted = JSON.parse(files.get(primary)!);
+    delete deleted.entries['a.md'];
+    deleted.tombstones = { 'a.md': { deletedAt: '2026-09-08T00:00:00.000Z' } };
+    files.set(primary, JSON.stringify(deleted));
+
+    await store.set('c.md', 0, []);
+
+    const saved = JSON.parse(files.get(primary)!);
+    expect(saved.entries['a.md']).toBeUndefined();
+    expect(saved.tombstones['a.md']).toEqual({ deletedAt: '2026-09-08T00:00:00.000Z' });
+    expect(saved.entries['c.md'].score).toBe(0);
+  });
+
+  it('restores records a stale synced copy dropped when reloading from disk', async () => {
+    const { store, files } = fixture();
+    await store.set('a.md', 1, []);
+    await store.set('b.md', 2, []);
+    const stale = JSON.parse(files.get(primary)!);
+    delete stale.entries['a.md'];
+    files.set(primary, JSON.stringify(stale));
+
+    await store.reloadFromDisk();
+
+    expect(store.get('a.md')?.score).toBe(1);
+    expect(store.get('b.md')?.score).toBe(2);
+    const healed = JSON.parse(files.get(primary)!);
+    expect(healed.entries['a.md'].score).toBe(1);
+    expect(healed.entries['b.md'].score).toBe(2);
+  });
+
+  it('does not resurrect a record the synced copy deleted with a tombstone', async () => {
+    const { store, files } = fixture();
+    await store.set('a.md', 1, []);
+    const deleted = JSON.parse(files.get(primary)!);
+    delete deleted.entries['a.md'];
+    deleted.tombstones = { 'a.md': { deletedAt: new Date().toISOString() } };
+    files.set(primary, JSON.stringify(deleted));
+
+    await store.reloadFromDisk();
+
+    expect(store.get('a.md')).toBeUndefined();
+    expect(store.getForIndex('a.md')).toBeNull();
+    expect(JSON.parse(files.get(primary)!).entries['a.md']).toBeUndefined();
   });
 
   it.each(['removeToOrphan', 'deleteRecord'] as const)('keeps the latest queued edit when %s follows it', async (method) => {

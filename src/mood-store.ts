@@ -374,13 +374,24 @@ function mergeMetadata(base: MoodMetadata, local: MoodMetadata, remote: MoodMeta
   }
   const result = cloneUnknown(remote);
   const overwritePath = options.overwritePath;
-  const mergeMap = (before: Record<string, unknown>, after: Record<string, unknown>, disk: Record<string, unknown>, label: string) => {
+  // A file sync engine replaces the metadata at file granularity, so the disk
+  // snapshot can be an older copy. Every real deletion leaves a tombstone, so
+  // a record that only exists in the merge base and has no tombstone on disk
+  // was lost by a stale synced copy, not deleted: re-seed it from the base so
+  // this write heals the file instead of overwriting it.
+  const remoteTombstones = (remote as MoodMetadataWithTombstones).tombstones ?? {};
+  const mergeMap = (before: Record<string, unknown>, after: Record<string, unknown>, disk: Record<string, unknown>, label: string, missingOnDiskIsStale?: (key: string) => boolean) => {
     const merged = cloneUnknown(disk);
     const keys = new Set([...Object.keys(before), ...Object.keys(after)]);
     if (overwritePath !== undefined) keys.add(overwritePath);
     for (const key of keys) {
       const isOverwriteKey = key === overwritePath;
-      if (!isOverwriteKey && sameValue(before[key], after[key])) continue;
+      if (!isOverwriteKey && sameValue(before[key], after[key])) {
+        if (missingOnDiskIsStale?.(key) && !Object.hasOwn(disk, key) && before[key] !== undefined) {
+          Object.defineProperty(merged, key, { value: cloneUnknown(before[key]), enumerable: true, configurable: true, writable: true });
+        }
+        continue;
+      }
       if (isOverwriteKey) {
         // Explicit overwrite: the newer record wins, everything else follows local intent.
         if (isRemoteRecordNewer(after[key], disk[key])) continue;
@@ -392,7 +403,13 @@ function mergeMetadata(base: MoodMetadata, local: MoodMetadata, remote: MoodMeta
     }
     return merged;
   };
-  result.entries = mergeMap(base.entries, local.entries, remote.entries, 'entries/') as MoodMetadata['entries'];
+  result.entries = mergeMap(
+    base.entries,
+    local.entries,
+    remote.entries,
+    'entries/',
+    (key) => !Object.hasOwn(remoteTombstones, key),
+  ) as MoodMetadata['entries'];
   result.orphans = mergeMap(base.orphans ?? {}, local.orphans ?? {}, remote.orphans ?? {}, 'orphans/') as MoodMetadata['orphans'];
   (result as MoodMetadataWithTombstones).tombstones = mergeMap(
     (base as MoodMetadataWithTombstones).tombstones ?? {},
@@ -400,7 +417,7 @@ function mergeMetadata(base: MoodMetadata, local: MoodMetadata, remote: MoodMeta
     (remote as MoodMetadataWithTombstones).tombstones ?? {},
     'tombstones/',
   ) as Record<string, MoodTombstone>;
-  result.customLabels = normalizeCustomLabels([...(remote.customLabels ?? []), ...(local.customLabels ?? [])]);
+  result.customLabels = normalizeCustomLabels([...(remote.customLabels ?? []), ...(base.customLabels ?? []), ...(local.customLabels ?? [])]);
   return result;
 }
 
@@ -500,7 +517,7 @@ export class MoodStore {
       const serialized = JSON.stringify(metadata, null, 2);
       if (raw !== null && (migration.migrated || serialized !== JSON.stringify(parsed, null, 2))) {
         try {
-          await this.writeJsonAtomically(context.path, serialized, () => this.verifyPrimary(context, raw));
+          await this.writeJsonWithBackup(context.path, serialized, () => this.verifyPrimary(context, raw));
           raw = serialized;
         } catch (error) {
           this.assertContext(context);
@@ -552,8 +569,43 @@ export class MoodStore {
       const previous = this.data;
       await this.loadState(context);
       this.assertContext(context);
+      await this.reconcileRevertedRecords(context, previous);
+      this.assertContext(context);
       this.emitChanged(previous, this.data);
     });
+  }
+
+  /**
+   * Restore records that the freshly read disk file lost relative to the
+   * previous in-memory state, and persist the union. A sync engine replacing
+   * the metadata with an older copy used to hide those records until the next
+   * write re-seeded them; healing the file here keeps both devices converging
+   * instead of overwriting each other. Tombstones are deliberately not
+   * reconciled: a recreated note must stay able to expose a fresh record even
+   * while this session still holds the old deletion.
+   */
+  private async reconcileRevertedRecords(context: StoreContext, previous: MoodMetadata): Promise<void> {
+    if (this.readOnlyMode || this.loadError) return;
+    const tombstones = (this.data as MoodMetadataWithTombstones).tombstones ?? {};
+    const lost: Record<string, MoodRecord> = {};
+    for (const [key, record] of Object.entries(previous.entries ?? {})) {
+      if (!this.data.entries[key] && !tombstones[key]) lost[key] = record;
+    }
+    if (Object.keys(lost).length === 0) return;
+    const next: MoodMetadata = {
+      ...cloneUnknown(this.data),
+      entries: { ...cloneUnknown(this.data.entries), ...cloneUnknown(lost) },
+    };
+    next.customLabels = normalizeCustomLabels([...(next.customLabels ?? []), ...customLabelsFrom(lost, {})]);
+    this.data = next;
+    const content = JSON.stringify(next, null, 2);
+    try {
+      await this.writeJsonWithBackup(context.path, content, () => this.verifyPrimary(context, this.primaryRaw));
+      this.primaryRaw = content;
+    } catch (error) {
+      // Memory already keeps the union; the next queued write re-seeds the same records.
+      console.warn('[Dayline] Mood metadata reconciliation could not be persisted:', error);
+    }
   }
 
   get(path: string): MoodRecord | undefined {
@@ -743,6 +795,34 @@ export class MoodStore {
   }
 
   /**
+   * Restore an orphaned mood when a note reappears at the orphaned path. Sync
+   * engines replace files as delete + recreate, which moved the mood to the
+   * recovery list and hid it until the user restored it by hand. A live record
+   * at the destination always wins, and a file whose creation predates the
+   * orphaning is not a recreation, so the orphan is kept in both cases.
+   * `fileCtime` is the Obsidian `TFile.stat.ctime` in milliseconds; when
+   * omitted it is read from the vault. Returns true when a record was restored.
+   */
+  async autoRecoverOrphan(path: string, fileCtime?: number): Promise<boolean> {
+    const key = normalizeVaultPath(path);
+    const ctime = fileCtime ?? this.vaultFileCtime(key);
+    let restored: MoodRecord | undefined;
+    await this.mutate((data) => {
+      const source = data.orphans?.[key];
+      if (!source || data.entries[key]) return;
+      const orphanedAt = Date.parse(String(source.orphanedAt ?? ''));
+      // A file whose creation predates the orphaning is not a recreation.
+      if (ctime !== undefined && Number.isFinite(orphanedAt) && orphanedAt >= ctime) return;
+      restored = normalizeRecord({ ...cloneUnknown(source.record), score: requireMoodScore(source.record?.score, key) });
+      data.entries[key] = restored;
+      delete data.orphans?.[key];
+      delete (data as MoodMetadataWithTombstones).tombstones?.[key];
+    }, { overwritePath: key });
+    if (restored) this.emit(key, restored);
+    return restored !== undefined;
+  }
+
+  /**
    * Drop the delete tombstone for `path` when it is stale, so a note recreated at
    * the same path can expose its frontmatter mood again. `fileCtime` is the
    * Obsidian `TFile.stat.ctime` in milliseconds; when omitted it is read from the
@@ -819,7 +899,7 @@ export class MoodStore {
     if (this.loadError) throw this.loadError;
     const destination = safeVaultPath(destinationPath);
     if (destination === this.path) throw new Error('Export destination must differ from the metadata path');
-    await this.writeJsonAtomically(destination, `${JSON.stringify(this.data, null, 2)}\n`);
+    await this.writeJsonWithBackup(destination, `${JSON.stringify(this.data, null, 2)}\n`);
     return destination;
   }
 
@@ -828,7 +908,7 @@ export class MoodStore {
     if (this.loadError) throw this.loadError;
     const destination = safeVaultPath(destinationPath);
     if (destination === this.path) throw new Error('Export destination must differ from the metadata path');
-    await this.writeJsonAtomically(destination, serializeMoodCsv(this.data));
+    await this.writeJsonWithBackup(destination, serializeMoodCsv(this.data));
     return destination;
   }
 
@@ -837,7 +917,7 @@ export class MoodStore {
     if (this.loadError) throw this.loadError;
     const destination = safeVaultPath(destinationPath);
     if (destination === this.path) throw new Error('Export destination must differ from the metadata path');
-    await this.writeJsonAtomically(destination, serializeMoodJson(this.data));
+    await this.writeJsonWithBackup(destination, serializeMoodJson(this.data));
     return destination;
   }
 
@@ -974,7 +1054,7 @@ export class MoodStore {
         const next = mergeMetadata(base, local, remote, options);
         if (!sameValue(next, remote)) {
           const content = JSON.stringify(next, null, 2);
-          await this.writeJsonAtomically(context.path, content, () => this.verifyPrimary(context, raw));
+          await this.writeJsonWithBackup(context.path, content, () => this.verifyPrimary(context, raw));
           this.assertContext(context);
           this.primaryRaw = content;
         }
@@ -1144,33 +1224,41 @@ export class MoodStore {
     await this.adapter().write(path, content);
   }
 
-  private async writeJsonAtomically(path: string, content: string, beforeCommit?: () => Promise<void>): Promise<void> {
+  /**
+   * Stage `content` in a `.tmp` sibling, keep the previous primary as the
+   * `.bak` recovery point, then replace the primary in place. The primary path
+   * therefore never goes missing: an earlier revision renamed the primary to
+   * `.bak` before moving the temp file into place, which file sync engines
+   * observed as a deletion and propagated to every other device. The in-place
+   * commit trades that deletion window for a torn-write window, which the
+   * corrupt-primary recovery path already handles.
+   */
+  private async writeJsonWithBackup(path: string, content: string, beforeCommit?: () => Promise<void>): Promise<void> {
     await this.ensureParent(path);
     const temp = `${path}.tmp`;
     const backup = `${path}.bak`;
     const adapter = this.adapter();
-    let movedPrimary = false;
     try {
       await adapter.write(temp, content);
       await beforeCommit?.();
       if (await adapter.exists(path)) {
         if (await adapter.exists(backup)) await adapter.remove(backup);
-        await adapter.rename(path, backup);
-        movedPrimary = true;
+        if (typeof adapter.copy === 'function') await adapter.copy(path, backup);
+        else await adapter.write(backup, await adapter.read(path));
       }
-      await adapter.rename(temp, path);
+      await adapter.write(path, content);
     } catch (error) {
-      try {
-        if (movedPrimary && !(await adapter.exists(path)) && await adapter.exists(backup)) await adapter.rename(backup, path);
-      } catch {
-        // Preserve the original error while leaving the backup for recovery.
-      }
       try {
         if (await adapter.exists(temp)) await adapter.remove(temp);
       } catch {
         // Preserve the original error if a temporary file cannot be cleaned up.
       }
       throw error;
+    }
+    try {
+      if (await adapter.exists(temp)) await adapter.remove(temp);
+    } catch {
+      // A leftover temp file is ignored while the primary is valid; never fail the write for it.
     }
   }
 

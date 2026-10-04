@@ -78,7 +78,7 @@ describe('tablet vs phone layout routing', () => {
     expect(openSource).toContain('await workspace.revealLeaf?.(leaf);');
   });
 
-  it('shows in-cell calendar controls on tablets but keeps the phone cell single-surface', () => {
+  it('shows in-cell calendar controls on tablets and the mood pip on phones', () => {
     // A tablet is a coarse pointer but not a phone, so it gets the full cell UI.
     const tablet = calendarCellTouchRouting(true, false);
     expect(tablet.showMoodControl).toBe(true);
@@ -86,9 +86,12 @@ describe('tablet vs phone layout routing', () => {
     expect(tablet.showMediaInfoControl).toBe(true);
     expect(tablet.secondary).toBe('in-cell');
 
+    // A phone keeps one date surface for scrolling, but the mood pip stays:
+    // hiding it left the phone month grid without any mood marker.
     const phone = calendarCellTouchRouting(true, true);
-    expect(phone.showMoodControl).toBe(false);
+    expect(phone.showMoodControl).toBe(true);
     expect(phone.showEntryCountControl).toBe(false);
+    expect(phone.showMediaInfoControl).toBe(false);
     expect(phone.secondary).toBe('external-surface');
 
     // The render call must pass the phone-layout decision, not raw isMobile.

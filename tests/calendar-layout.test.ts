@@ -144,6 +144,12 @@ describe('calendar compact cell layout', () => {
     expect(styles).toContain('body.dayline-tablet .cal-sidebar .cal-mood-empty');
   });
 
+  it('keeps the phone mood pip compact but the empty state visible', () => {
+    // Phones render the in-cell pip too; their cell is as small as a tablet's
+    // and has no hover, so the empty frame must stay faintly visible.
+    expect(styles).toContain('body.dayline-phone .cal-sidebar .cal-mood-empty');
+  });
+
   it('stacks the weather row above the on-this-day strip', () => {
     const card = cssRule(styles, '.cal-weather-card {');
     const main = cssRule(styles, '.cal-weather-main {');

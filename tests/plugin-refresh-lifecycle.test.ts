@@ -307,6 +307,48 @@ describe('stale mood tombstones (M-05)', () => {
 });
 
 /* ------------------------------------------------------------------------ *
+ * A sync engine that replaces a note fires delete (mood -> orphans) then
+ * create; the create must put the mood back instead of hiding it in the
+ * recovery list until the user restores it by hand.
+ * ------------------------------------------------------------------------ */
+
+describe('mood orphan auto-recovery on note create', () => {
+  it('restores the orphaned mood and republishes the entry after a sync-style replace', async () => {
+    const plugin = makePlugin();
+    const autoRecoverOrphan = vi.fn(async () => true);
+    plugin.moodStore = {
+      clearStaleTombstone: vi.fn(async () => false),
+      autoRecoverOrphan,
+    };
+    plugin.journalIndex = { refreshFile: vi.fn(async () => undefined) };
+    const file = new HarnessTFile('Daily/2026-08-05.md');
+    file.stat = { ctime: 12345 };
+
+    plugin._handleJournalCreate(file);
+    await flush();
+
+    expect(autoRecoverOrphan).toHaveBeenCalledWith('Daily/2026-08-05.md', 12345);
+    expect(plugin.journalIndex.refreshFile).toHaveBeenCalledWith('Daily/2026-08-05.md', plugin.settings);
+  });
+
+  it('does not republish when neither the tombstone nor an orphan changed', async () => {
+    const plugin = makePlugin();
+    plugin.moodStore = {
+      clearStaleTombstone: vi.fn(async () => false),
+      autoRecoverOrphan: vi.fn(async () => false),
+    };
+    plugin.journalIndex = { refreshFile: vi.fn(async () => undefined) };
+    const file = new HarnessTFile('Daily/2026-08-05.md');
+    file.stat = { ctime: 12345 };
+
+    plugin._handleJournalCreate(file);
+    await flush();
+
+    expect(plugin.journalIndex.refreshFile).not.toHaveBeenCalled();
+  });
+});
+
+/* ------------------------------------------------------------------------ *
  * W-04: the weather cache is the only copy of backfilled history
  * ------------------------------------------------------------------------ */
 
