@@ -1,5 +1,57 @@
 # Changelog
 
+## 2.9.0 (2026-10-04)
+
+Three things: a journaled date now fills its whole calendar cell with the accent color, mood marks survive file sync and finally appear on phones, and the phone cell row lost one control.
+
+### Added
+- **Written days fill with the accent color** (`showCalendarWrittenMarker`, on by default). A journaled date without a photo fills its entire cell with the theme accent, so a month of writing reads at a glance; photo dates already fill with the image itself. The toggle sits in the calendar display group and is localized in all nine languages. Today changes from an accent fill to an accent ring for the same reason: the fill now means *written*, so an unwritten today must not claim otherwise.
+- **The calendar mood pip on phones.** The phone layout suppressed every in-cell control, which left a phone's month grid with no mood marker at all. The pip claims its own press, so it never starts the date gesture; entry count and media controls stay outside the cell. It keeps the compact tablet sizing — a roomy touch-desktop pip would swallow most of a 48px cell — and the empty state stays faintly visible, since neither a phone nor a tablet has hover to reveal it.
+
+### Fixed
+- **Mood marks survive file sync.** The metadata file was committed by writing a temporary file and renaming it over the original, which a sync engine can observe as the primary file going missing and propagate as a deletion to other devices. Commits now happen in place behind a `.bak` copy.
+- **A stale synced copy heals instead of overwriting.** Every real deletion leaves a tombstone, so a record that exists in the merge base, is unchanged locally and is simply absent on disk was lost to an older synced file rather than deleted: the next write re-seeds it, and a reconcile pass on load does the same, so two devices converge instead of clobbering each other. Tombstones are deliberately excluded — a recreated note must stay able to expose a fresh record even while this session still holds the old deletion.
+- **An orphaned mood returns when its note does.** Sync engines replace files as delete + recreate, which moved the mood to the recovery list and hid it until the user restored it by hand; it now restores itself once the file reappears at the same path. A live record at the destination always wins, and a file created before the orphaning is not a recreation.
+
+### Removed
+- **The phone return-to-note arrow.** Phone navigation is swipe-first — the panel and the note are one swipe apart — so the arrow, its always-visible hint, the return-leaf plumbing and the nine-language strings came out; the cell row is one control shorter.
+
+### Verification
+- `npm run typecheck`, `npm test` (69 files / 791 tests), `npm run build`, `npm run build:tablet`, `npm run package:release`, `npm run verify:release`, `npm run verify:release:zip` and `git diff --check` all pass.
+- Obsidian Sandbox: 2.9.0 deployed byte-identical (`main.js` `6201135f…`, `manifest.json` `aa896e07…`, `styles.css` `cc4eb753…`), reloaded with no `dev:errors`. The loaded manifest reports `2.9.0` and `showCalendarWrittenMarker` is a boolean `true`. In the live DOM, September 2026 renders 7 `.cal-written` cells with the accent background and white day numbers, while today in October — unwritten — carries the inset accent ring and no fill.
+- `data.json` was rewritten during the run by a weather-cache fetch of 2026-10-04 and nothing else; restored from its byte-identical backup. `Calendar/journal-metadata.json` is unchanged.
+
+### Notes
+- Sandbox only: it is a tablet-like desktop window, so the phone mood pip, the compact sizing, and the swipe-first row without the arrow were not exercised on a real device, and the sync fixes need two devices behind a real sync engine. All four stay residual risks.
+- The fill ships on by default, so an existing install changes appearance the moment it updates: written days fill, today becomes a ring.
+
+---
+
+三件事：写了日记的日期会用主题色填满整个日历格子，心情标记扛得住文件同步并终于在手机上出现，手机端的格子行少掉一个控件。
+
+### 新增
+- **已写日期用主题色填满**（`showCalendarWrittenMarker`，默认开启）。有日记但没有照片的日期用主题强调色填满整个格子，一个月的书写量一眼可读；有照片的日期本来就用照片填满。开关在日历显示设置组里，九种语言都已翻译。今天也因此从填充改成描边：填充现在表示"已写"，没写的今天不能谎称写了。
+- **手机端显示日历心情小圆点。** 手机布局此前屏蔽了所有格子内控件，结果手机的月视图压根没有心情标记。小圆点自己接管按压，不会触发起日期手势；条目数和媒体控件仍然放在格子外。它沿用平板的紧凑尺寸——桌面那种大圆点在 48px 的格子里会占掉大半、还会抢掉想点日期的手势——并且因为手机和平板都没有 hover，空状态保持隐约可见。
+
+### 修复
+- **心情标记不再被同步吃掉。** 元数据原先是"写临时文件再 rename 覆盖"提交的，同步引擎可能把主文件短暂缺失当成删除，并传播到其他设备。现在改为原地提交，并留一份 `.bak`。
+- **过期的同步副本会自愈，而不是覆盖。** 真正的删除都会留下 tombstone，所以"合并基准里有、本地没改、磁盘上却不见了"的记录是被旧副本冲掉，而不是被删除：下一次写入会重新补回，加载时也多了一次对账做同样的事，两台设备因此收敛而不是互相抹掉。tombstone 故意不对账——本次会话仍持有旧删除时，重建的笔记依然要能带出一条新记录。
+- **笔记回来，孤儿心情也回来。** 同步引擎用"删除 + 重建"替换文件，这会把心情挪进恢复列表、藏起来等用户手动恢复；现在文件在同一位置重新出现就自动恢复。目标位置已有有效记录时以它为准，创建时间早于孤儿化时刻的文件不算重建。
+
+### 移除
+- **手机端的"返回笔记"箭头。** 手机导航以滑动为主——面板与笔记之间就一次滑动——按钮、常驻提示、return-leaf 相关代码和九种语言的文案一起去掉，格子行少一个控件。
+
+### 验证
+- `npm run typecheck`、`npm test`（69 个文件 / 791 项测试）、`npm run build`、`npm run build:tablet`、`npm run package:release`、`npm run verify:release`、`npm run verify:release:zip`、`git diff --check` 全部通过。
+- Obsidian Sandbox：2.9.0 已逐字节部署（`main.js` `6201135f…`、`manifest.json` `aa896e07…`、`styles.css` `cc4eb753…`），插件重载后 `dev:errors` 无错误。运行中的 manifest 报 `2.9.0`，`showCalendarWrittenMarker` 是布尔 `true`。真实 DOM 里九月 2026 渲染出 7 个 `.cal-written` 格子，主题色背景配白色数字；十月没写的今天只有内嵌强调色圆环、没有填充。
+- 运行期间 `data.json` 被改写，内容仅为新增 2026-10-04 的天气缓存，别无改动；已用逐字节备份还原。`Calendar/journal-metadata.json` 未变。
+
+### 备注
+- 仅有 Sandbox 证据：那是接近平板形态的桌面窗口，手机心情小圆点、紧凑尺寸、去掉箭头后的滑动路径都没在真机上走过；同步相关的修复需要两台设备加真实同步引擎。这四项都还是残留风险。
+- 填充默认开启，所以老版本用户一更新，日历外观立刻变化：已写的填满，今天变成描边。
+
+---
+
 ## 2.8.1 (2026-10-02)
 
 A one-bug patch: a title that happens to read like journal-template filler was silently replaced by the empty placeholder, so the title looked unsaved.
