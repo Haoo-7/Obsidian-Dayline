@@ -146,6 +146,42 @@ describe('platform capability routing', () => {
     expect(grown.isTabletLayout).toBe(true);
   });
 
+  it('does not trust Chromium touch-point counts on non-touch Windows desktops', () => {
+    // Chromium on Windows reports maxTouchPoints = 10 on machines with no touch
+    // hardware at all; the pointer media queries are the authoritative signal.
+    const result = detectPlatformCapabilities(browser({
+      Platform: { isMobile: false, isDesktop: true },
+      navigator: { maxTouchPoints: 10, deviceMemory: 8, hardwareConcurrency: 8 },
+      matchMedia: (query: string) => ({ matches: query.includes('pointer: fine') }),
+    }));
+    expect(result.coarsePointer).toBe(false);
+  });
+
+  it('keeps touch-capable desktops coarse via the any-pointer query', () => {
+    const result = detectPlatformCapabilities(browser({
+      Platform: { isMobile: false, isDesktop: true },
+      navigator: { maxTouchPoints: 10, deviceMemory: 8, hardwareConcurrency: 8 },
+      matchMedia: (query: string) => ({ matches: query.includes('any-pointer: coarse') }),
+    }));
+    expect(result.coarsePointer).toBe(true);
+  });
+
+  it('keeps touch points only as a fallback when no pointer media query exists', () => {
+    const legacyTouchHost = detectPlatformCapabilities(browser({
+      Platform: { isMobile: false, isDesktop: true },
+      navigator: { maxTouchPoints: 5, deviceMemory: 8, hardwareConcurrency: 8 },
+      matchMedia: undefined,
+    }));
+    expect(legacyTouchHost.coarsePointer).toBe(true);
+
+    const legacyPointerHost = detectPlatformCapabilities(browser({
+      Platform: { isMobile: false, isDesktop: true },
+      navigator: { maxTouchPoints: 0, deviceMemory: 8, hardwareConcurrency: 8 },
+      matchMedia: undefined,
+    }));
+    expect(legacyPointerHost.coarsePointer).toBe(false);
+  });
+
   it('falls back to the Platform flag when no media query exists', () => {
     const result = detectPlatformCapabilities(browser({
       Platform: { isMobile: true, isMobileApp: true, isPhone: false, isTablet: true, isIosApp: true },

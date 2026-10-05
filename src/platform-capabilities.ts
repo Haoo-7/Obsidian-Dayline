@@ -103,9 +103,14 @@ export function detectPlatformCapabilities(input: DetectionInput = {}): Platform
   const isTabletLayout = isMobile && !isPhoneLayout;
   const isIos = Boolean(platform.isIosApp || platform.isIos || platform.isIOS);
   const isAndroid = Boolean(platform.isAndroidApp || platform.isAndroid);
+  // Chromium on Windows reports a non-zero maxTouchPoints on machines without
+  // any touch hardware, so touch points only corroborate: the pointer media
+  // queries (or Obsidian's mobile flag) decide coarse-pointer routing.
+  const finePointer = Boolean(mediaQuery?.('(pointer: fine)')?.matches);
   const coarsePointer = Boolean(
     mediaQuery?.('(pointer: coarse)')?.matches
-      || Number(nav?.maxTouchPoints) > 0
+      || mediaQuery?.('(any-pointer: coarse)')?.matches
+      || (Number(nav?.maxTouchPoints) > 0 && !finePointer)
       || isMobile,
   );
   const dom = Boolean(doc?.createElement);
