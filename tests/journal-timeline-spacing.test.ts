@@ -65,3 +65,12 @@ describe('journal timeline title spacing', () => {
     expect(title).not.toContain('min-height');
   });
 });
+
+describe('journal timeline same-day grouping', () => {
+  it('hides the separator inside a day group without shifting the vertical rhythm', () => {
+    const rule = cssRule(styles, '.journal-timeline-entry.has-same-day-next {');
+    // Transparent, not `border-bottom: 0`: the 1px row stays reserved, so
+    // grouped cards keep the rhythm of separated days.
+    expect(rule).toContain('border-bottom-color: transparent;');
+  });
+});

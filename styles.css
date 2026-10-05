@@ -1405,6 +1405,11 @@ button.cal-weather-refresh:hover {
 .journal-timeline-list { display: grid; grid-template-columns: minmax(0, 1fr); width: 100%; min-width: 0; gap: 8px; }
 .journal-timeline-entry { position: relative; display: grid; grid-template-columns: 30px minmax(0, 1fr); width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box; overflow: hidden; gap: 10px; padding: 12px 0; border: 0; border-bottom: 1px solid var(--background-modifier-border); border-radius: 0; cursor: pointer; background: transparent; transition: background-color 120ms ease; }
 .journal-timeline-entry.has-thumbnail { grid-template-columns: 30px minmax(0, 1fr) 88px; }
+/* Adjacent cards sharing a journal date form one day group: the earlier card
+   drops its separator, and the view omits the repeated weekday/day glyph on
+   the later card. Transparent — not `border-bottom: 0` — keeps the 1px row
+   reserved so grouped cards sit at the same rhythm as separated days. */
+.journal-timeline-entry.has-same-day-next { border-bottom-color: transparent; }
 .journal-timeline-entry.mood-score-2 { --journal-entry-mood: #ee6a54; }
 .journal-timeline-entry.mood-score-1 { --journal-entry-mood: #f0b34f; }
 .journal-timeline-entry.mood-score-0 { --journal-entry-mood: #55b6c9; }

@@ -5,7 +5,7 @@ import { buildRecentMoodTrend, calculateJournalStats } from './journal-stats';
 import { formatJournalDate, getDisplayLanguage, LOCALE_TAGS, moodLabel, t } from './i18n';
 import { isGenericJournalTitle } from './excerpt';
 import { createMediaAttachment } from './media-links';
-import { displayedTimelineTitle, shouldShowTimelineMoodTrend, shouldShowTimelineTitles } from './journal-timeline-display';
+import { displayedTimelineTitle, shouldShowTimelineMoodTrend, shouldShowTimelineTitles, timelineDayGroups } from './journal-timeline-display';
 import {
   buildJournalLocationOptions,
   buildJournalTagOptions,
@@ -587,7 +587,12 @@ export class JournalTimelineView extends ItemView {
     const positionNewNode = (node) => {
       if (beforeEdit) list.insertBefore(node, edit.card);
     };
-    for (const entry of entries.slice(0, this.visibleEntryLimit)) {
+    const pageEntries = entries.slice(0, this.visibleEntryLimit);
+    // Groups read from the full filtered list, not the rendered page, so a
+    // day is never split by the "show more" boundary.
+    const dayGroups = timelineDayGroups(entries);
+    for (let index = 0; index < pageEntries.length; index += 1) {
+      const entry = pageEntries[index];
       const key = entry.date.slice(0, 7);
       if (key !== month) {
         month = key;
@@ -599,7 +604,7 @@ export class JournalTimelineView extends ItemView {
         this.moveTitleEditCard(list);
         beforeEdit = false;
       } else {
-        this.renderEntry(list, entry, this.renderToken);
+        this.renderEntry(list, entry, this.renderToken, dayGroups[index]);
         positionNewNode(list.lastElementChild);
       }
     }
@@ -642,7 +647,7 @@ export class JournalTimelineView extends ItemView {
     }
   }
 
-  renderEntry(list, entry, token) {
+  renderEntry(list, entry, token, dayGroup = {}) {
     const media = displayableJournalMedia(entry);
     const imageLinks = entry.attachments.filter((link) => this.plugin.thumbnailService?.isImageLink(link));
     const frontmatterCover = entry.cover ? createMediaAttachment(entry.cover, entry.path) : null;
@@ -659,9 +664,14 @@ export class JournalTimelineView extends ItemView {
     card.dataset.path = entry.path;
     card.setAttribute('aria-label', `${entry.date}, ${formatJournalDate(entry.date, this.plugin.settings)}${entry.title ? `: ${entry.title}` : ''}`);
     const dateColumn = card.createDiv({ cls: 'journal-timeline-entry-date-column' });
-    const dateParts = timelineDateParts(entry.date, this.plugin.settings);
-    dateColumn.createSpan({ cls: 'journal-timeline-entry-weekday', text: dateParts.weekday });
-    dateColumn.createSpan({ cls: 'journal-timeline-entry-day', text: dateParts.day });
+    // A card continuing the same journal date omits the repeated weekday/day
+    // glyph; the group's first card is the only one that carries it.
+    if (!dayGroup.sameDayAsPrevious) {
+      const dateParts = timelineDateParts(entry.date, this.plugin.settings);
+      dateColumn.createSpan({ cls: 'journal-timeline-entry-weekday', text: dateParts.weekday });
+      dateColumn.createSpan({ cls: 'journal-timeline-entry-day', text: dateParts.day });
+    }
+    if (dayGroup.sameDayAsNext) card.addClass('has-same-day-next');
     const body = card.createDiv({ cls: 'journal-timeline-entry-body' });
     // A frontmatter title is a deliberate choice by the user (the inline editor
     // writes one), so only inferred titles are screened against template filler

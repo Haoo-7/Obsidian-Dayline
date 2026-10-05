@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { feelingLabel } from '../src/i18n';
 import { isGenericJournalTitle } from '../src/excerpt';
 import { shouldOpenTimelineEntryFromKey, shouldOpenTimelineEntryFromPointer } from '../src/journal-timeline-interaction';
-import { displayedTimelineTitle, shouldShowTimelineMoodTrend, shouldShowTimelineTitles } from '../src/journal-timeline-display';
+import { displayedTimelineTitle, shouldShowTimelineMoodTrend, shouldShowTimelineTitles, timelineDayGroups } from '../src/journal-timeline-display';
 
 describe('timeline interaction boundaries', () => {
   it('does not open an entry from Enter or Space inside interactive descendants', () => {
@@ -38,6 +38,35 @@ describe('timeline mood trend display', () => {
     expect(shouldShowTimelineTitles({})).toBe(true);
     expect(shouldShowTimelineTitles({ showTimelineTitles: true })).toBe(true);
     expect(shouldShowTimelineTitles({ showTimelineTitles: false })).toBe(false);
+  });
+});
+
+describe('timeline day grouping', () => {
+  it('marks a run of adjacent same-date entries so only the first card repeats the date', () => {
+    // Two notes written on the same day used to render as two unrelated days:
+    // a separator between them and a repeated weekday/day glyph on each card.
+    const groups = timelineDayGroups([
+      { date: '2026-10-04' },
+      { date: '2026-10-04' },
+      { date: '2026-10-04' },
+      { date: '2026-10-05' },
+    ]);
+    expect(groups).toEqual([
+      { sameDayAsPrevious: false, sameDayAsNext: true },
+      { sameDayAsPrevious: true, sameDayAsNext: true },
+      { sameDayAsPrevious: true, sameDayAsNext: false },
+      { sameDayAsPrevious: false, sameDayAsNext: false },
+    ]);
+  });
+
+  it('groups by adjacency, so a repeated date after another day stands alone', () => {
+    const groups = timelineDayGroups([
+      { date: '2026-10-04' },
+      { date: '2026-10-05' },
+      { date: '2026-10-04' },
+    ]);
+    expect(groups.map((group) => group.sameDayAsPrevious)).toEqual([false, false, false]);
+    expect(groups.map((group) => group.sameDayAsNext)).toEqual([false, false, false]);
   });
 });
 
