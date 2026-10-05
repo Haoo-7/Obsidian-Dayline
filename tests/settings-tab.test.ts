@@ -74,6 +74,7 @@ import {
   addExifPersistMetadataSetting,
   commitJournalSourceSettings,
   createSettingsLocalizer,
+  fillDisplayLanguageDropdown,
   normalizeMoodMetadataPath,
   parseCoordinateSettingValue,
   shouldShowCalendarMoodStyle,
@@ -85,7 +86,7 @@ import {
   shouldShowWeatherSettings,
 } from '../src/settings-tab';
 import {
-  DISPLAY_LANGUAGE_LABEL_KEYS,
+  DISPLAY_LANGUAGE_ENDONYMS,
   DISPLAY_LANGUAGE_OPTIONS,
   SUPPORTED_DISPLAY_LANGUAGES,
   t,
@@ -93,39 +94,55 @@ import {
 import { shouldShowTimelineMoodTrend, shouldShowTimelineTitles } from '../src/journal-timeline-display';
 
 describe('display language setting', () => {
-  it('offers system plus every supported language with a localized label', () => {
-    expect(DISPLAY_LANGUAGE_OPTIONS).toEqual(['system', ...SUPPORTED_DISPLAY_LANGUAGES]);
-    for (const option of DISPLAY_LANGUAGE_OPTIONS) {
-      const labelKey = DISPLAY_LANGUAGE_LABEL_KEYS[option];
-      expect(labelKey, `label key for ${option}`).toBeTruthy();
-      for (const language of SUPPORTED_DISPLAY_LANGUAGES) {
-        const label = t({ displayLanguage: language }, labelKey);
-        expect(label, `${language} label for ${option}`).not.toBe('');
-        expect(label, `${language} label for ${option}`).not.toBe(labelKey);
-      }
-    }
+  function fakeDropdown() {
+    const dd: any = { options: [] as Array<[string, string]> };
+    dd.addOption = (value: string, label: string) => { dd.options.push([value, label]); return dd; };
+    return dd;
+  }
+
+  it('names every language in its own script so an unfamiliar UI is escapable', () => {
+    expect(DISPLAY_LANGUAGE_ENDONYMS).toEqual({
+      en: 'English',
+      zh: '简体中文',
+      'zh-tw': '繁體中文',
+      ja: '日本語',
+      ko: '한국어',
+      fr: 'Français',
+      de: 'Deutsch',
+      es: 'Español',
+      ru: 'Русский',
+    });
   });
 
-  it('lists each language once per locale without duplicate labels', () => {
-    for (const language of SUPPORTED_DISPLAY_LANGUAGES) {
-      const labels = DISPLAY_LANGUAGE_OPTIONS.map((option) => t({ displayLanguage: language }, DISPLAY_LANGUAGE_LABEL_KEYS[option]));
-      expect(new Set(labels).size, `${language} labels`).toBe(DISPLAY_LANGUAGE_OPTIONS.length);
-    }
+  it('renders system localized and every language as its endonym', () => {
+    // A Russian UI must still list 简体中文 as 简体中文 — the translated
+    // Упрощенный китайский used to leave no readable path back to Chinese.
+    const dd = fakeDropdown();
+    fillDisplayLanguageDropdown(dd, { displayLanguage: 'ru' });
+    expect(dd.options).toEqual([
+      ['system', 'Система'],
+      ['en', 'English'],
+      ['zh', '简体中文'],
+      ['zh-tw', '繁體中文'],
+      ['ja', '日本語'],
+      ['ko', '한국어'],
+      ['fr', 'Français'],
+      ['de', 'Deutsch'],
+      ['es', 'Español'],
+      ['ru', 'Русский'],
+    ]);
   });
 
-  it('keeps language names recognizable across translations', () => {
-    expect(t({ displayLanguage: 'en' }, DISPLAY_LANGUAGE_LABEL_KEYS.ja)).toBe('Japanese');
-    expect(t({ displayLanguage: 'ja' }, DISPLAY_LANGUAGE_LABEL_KEYS.ja)).toBe('日本語');
-    expect(t({ displayLanguage: 'ja' }, DISPLAY_LANGUAGE_LABEL_KEYS.zh)).toBe('中国語（簡体字）');
-    expect(t({ displayLanguage: 'ko' }, DISPLAY_LANGUAGE_LABEL_KEYS.zh)).toBe('중국어 간체');
-    expect(t({ displayLanguage: 'zh' }, DISPLAY_LANGUAGE_LABEL_KEYS['zh-tw'])).toBe('繁体中文');
-    expect(t({ displayLanguage: 'zh-tw' }, DISPLAY_LANGUAGE_LABEL_KEYS['zh-tw'])).toBe('繁體中文');
-    expect(t({ displayLanguage: 'ru' }, DISPLAY_LANGUAGE_LABEL_KEYS.system)).toBe('Система');
-    // Non-Latin language names stay in their own script in every non-English locale.
-    for (const language of SUPPORTED_DISPLAY_LANGUAGES.filter((item) => item !== 'en')) {
-      expect(t({ displayLanguage: language }, DISPLAY_LANGUAGE_LABEL_KEYS.ja), language).toBe('日本語');
-      expect(t({ displayLanguage: language }, DISPLAY_LANGUAGE_LABEL_KEYS.ko), language).toBe('한국어');
-      expect(t({ displayLanguage: language }, DISPLAY_LANGUAGE_LABEL_KEYS.ru), language).toBe('Русский');
+  it('renders the same endonyms and no duplicate labels under every UI language', () => {
+    for (const uiLanguage of SUPPORTED_DISPLAY_LANGUAGES) {
+      const dd = fakeDropdown();
+      fillDisplayLanguageDropdown(dd, { displayLanguage: uiLanguage });
+      expect(dd.options[0][0], `${uiLanguage} UI keeps system first`).toBe('system');
+      expect(t({ displayLanguage: uiLanguage }, 'system'), `${uiLanguage} system label`).not.toBe('');
+      expect(dd.options.slice(1).map(([, label]: [string, string]) => label), `${uiLanguage} UI`)
+        .toEqual(Object.values(DISPLAY_LANGUAGE_ENDONYMS));
+      const labels = dd.options.map(([, label]: [string, string]) => label);
+      expect(new Set(labels).size, `${uiLanguage} labels`).toBe(labels.length);
     }
   });
 });

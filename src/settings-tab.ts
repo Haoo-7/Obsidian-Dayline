@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { Notice, PluginSettingTab, Setting, SuggestModal, TFolder } from 'obsidian';
-import { DISPLAY_LANGUAGE_LABEL_KEYS, DISPLAY_LANGUAGE_OPTIONS, getDisplayLanguage, t } from './i18n';
+import { DISPLAY_LANGUAGE_ENDONYMS, DISPLAY_LANGUAGE_OPTIONS, getDisplayLanguage, t } from './i18n';
 import { applyDeviceLocation, geolocationFailureKey, requestCurrentCoordinates } from './geolocation';
 import { localize as _l } from './locale';
 import compactWordmarkSvg from '../assets/dayline-wordmark-compact.svg';
@@ -85,6 +85,20 @@ export function createSettingsLocalizer(
   settings: { displayLanguage?: string; weatherLanguage?: string },
 ): (key: string, ...args: unknown[]) => string {
   return (key, ...args) => _l(getDisplayLanguage(settings), key, ...args);
+}
+
+/**
+ * Fill the display-language dropdown. `system` is the one locale-aware option
+ * (an instruction, not a language name); every language is listed as an
+ * endonym from `DISPLAY_LANGUAGE_ENDONYMS`, so an unfamiliar UI language is
+ * always escapable.
+ */
+export function fillDisplayLanguageDropdown(dd, settings) {
+  for (const option of DISPLAY_LANGUAGE_OPTIONS) {
+    dd.addOption(option, option === 'system'
+      ? t(settings, 'system')
+      : DISPLAY_LANGUAGE_ENDONYMS[option]);
+  }
 }
 
 export async function commitJournalSourceSettings(plugin, save = () => plugin.saveSettings()) {
@@ -359,9 +373,7 @@ export class DaylineSettingsTab extends PluginSettingTab {
       .setName(t(this.plugin.settings, 'language'))
       .setDesc(t(this.plugin.settings, 'languageDesc'))
       .addDropdown((dd) => {
-        for (const option of DISPLAY_LANGUAGE_OPTIONS) {
-          dd.addOption(option, t(this.plugin.settings, DISPLAY_LANGUAGE_LABEL_KEYS[option]));
-        }
+        fillDisplayLanguageDropdown(dd, this.plugin.settings);
         return dd
           .setValue(this.plugin.settings.displayLanguage)
           .onChange(async (value) => {

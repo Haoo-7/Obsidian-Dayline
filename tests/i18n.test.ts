@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   DEFAULT_DISPLAY_LANGUAGE,
-  DISPLAY_LANGUAGE_LABEL_KEYS,
+  DISPLAY_LANGUAGE_ENDONYMS,
   DISPLAY_LANGUAGE_OPTIONS,
   formatCalendarMonth,
   formatJournalDate,
@@ -57,7 +57,7 @@ describe('nine-language display support', () => {
     expect(SUPPORTED_DISPLAY_LANGUAGES).toEqual(['en', 'zh', 'zh-tw', 'ja', 'ko', 'fr', 'de', 'es', 'ru']);
     expect(DISPLAY_LANGUAGE_OPTIONS).toEqual(['system', ...SUPPORTED_DISPLAY_LANGUAGES]);
     expect(new Set(DISPLAY_LANGUAGE_OPTIONS).size).toBe(DISPLAY_LANGUAGE_OPTIONS.length);
-    expect(Object.keys(DISPLAY_LANGUAGE_LABEL_KEYS).sort()).toEqual([...DISPLAY_LANGUAGE_OPTIONS].sort());
+    expect(Object.keys(DISPLAY_LANGUAGE_ENDONYMS).sort()).toEqual([...SUPPORTED_DISPLAY_LANGUAGES].sort());
     expect(DEFAULT_DISPLAY_LANGUAGE).toBe('en');
   });
 
@@ -176,7 +176,7 @@ describe('nine-language key parity and count plurals', () => {
 
   it('keeps one identical key set and English-compatible placeholders in every language', () => {
     const englishKeys = Object.keys(STRINGS.en).sort();
-    expect(englishKeys).toHaveLength(304);
+    expect(englishKeys).toHaveLength(295);
 
     for (const language of SUPPORTED_DISPLAY_LANGUAGES) {
       expect(Object.keys(STRINGS[language]).sort(), language).toEqual(englishKeys);
