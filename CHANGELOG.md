@@ -1,5 +1,41 @@
 # Changelog
 
+## 2.9.1 (2026-10-05)
+
+Three fixes: editor placeholder images stop claiming media info controls, Windows desktops without touch hardware stop being treated as touch devices, and the language dropdown becomes readable no matter which UI language you landed in.
+
+### Fixed
+- **Editor placeholder images no longer get media info controls.** Live Preview scatters CodeMirror placeholder widgets (`img.cm-widgetBuffer`) through the editor, and the note-media scan instrumented every `<img>` it found — each line's placeholder carried an `aria-label`, a tabindex, hover listeners, and, on touch devices, a visible info button that flashed as lines activated. The scan now skips placeholder widgets and requires a real image source, the same extension validation the embed path already had; real `![[…]]` images keep hover EXIF and the touch button.
+- **Windows desktops without touch hardware are no longer treated as touch devices.** Chromium on Windows reports `maxTouchPoints = 10` on machines with no touchscreen, and that alone flipped the plugin into its touch behavior — oversized targets and always-visible media info buttons. Touch now requires a coarse-pointer media query (primary or any pointer) or Obsidian's own mobile flag; touch-point counts only corroborate when no pointer query exists.
+- **Every display language is listed under its own name.** The language dropdown translated language names into the active UI language, so a user facing an unfamiliar UI — Russian showing "Упрощенный китайский" — had no readable way back. Each language now appears as its endonym (English, 简体中文, 繁體中文, 日本語, 한국어, Français, Deutsch, Español, Русский) in every UI language; only the "system" entry stays localized, because it is an instruction rather than a language name.
+
+### Verification
+- `npm run typecheck`, `npm test` (69 files / 796 tests), `npm run build`, `npm run build:tablet`, `npm run package:release`, `npm run verify:release`, `npm run verify:release:zip` and `git diff --check` all pass.
+- Obsidian Sandbox: deployed byte-identical and reloaded with no `dev:errors`. Before the fix, 91 of 91 `img.cm-widgetBuffer` placeholders in the live DOM carried the media `aria-label`; after, 46 of 46 are clean while a real `![[007.png]]` embed keeps its instrumentation. The language dropdown rendered from the running build lists endonyms under the Chinese, Russian, and Traditional Chinese UIs alike — `Система` stays localized, every language entry is its own name.
+- `data.json` was rewritten once by a weather-cache fetch and nothing else; restored from its byte-identical backup. `Calendar/journal-metadata.json` is unchanged.
+
+### Notes
+- Sandbox only: it is a Mac desktop window with a fine pointer and `maxTouchPoints = 0`, so the Windows `coarsePointer` fix is proven by unit tests that simulate Chromium's reported values, not by a real Windows machine, and the touch info button flow was not exercised on a real phone. Both stay residual risks.
+
+---
+
+三处修复：编辑器占位图片不再冒领媒体信息按钮，没有触屏硬件的 Windows 桌面不再被当成触屏设备，语言下拉不管落在哪种界面语言里都读得懂。
+
+### 修复
+- **编辑器占位图片不再冒领媒体信息控件。** Live Preview 会在编辑器里散布 CodeMirror 占位 widget（`img.cm-widgetBuffer`），而笔记媒体扫描见 `<img>` 就处理——每一行的占位符都带着 `aria-label`、tabindex、悬停监听，触屏设备上还会出现随行激活闪现的可见 info 按钮。现在扫描跳过占位 widget，并要求真实的图片 src，与 embed 路已有的扩展名校验对齐；真正的 `![[…]]` 图片保留悬停 EXIF 和触屏按钮。
+- **没有触屏硬件的 Windows 桌面不再被当成触屏设备。** Windows 上的 Chromium 在无触屏的机器上也报 `maxTouchPoints = 10`，仅这一条就把插件切进触屏行为——放大的点击目标和常驻的媒体信息按钮。现在触屏判定要求 coarse 指针媒体查询（主指针或任意指针）命中，或 Obsidian 自己的移动端标志；触点数只在指针查询完全不可用时作为回退。
+- **每种语言都用它自己的名字列出。** 语言下拉会把语言名翻译成当前界面语言，面对陌生界面的人（俄语界面显示"Упрощенный китайский"）找不到回去的路。现在每种语言在所有界面语言下都以本族语名出现（English、简体中文、繁體中文、日本語、한국어、Français、Deutsch、Español、Русский）；只有"系统"一项保持本地化，因为它是指令而不是语言名。
+
+### 验证
+- `npm run typecheck`、`npm test`（69 个文件 / 796 项测试）、`npm run build`、`npm run build:tablet`、`npm run package:release`、`npm run verify:release`、`npm run verify:release:zip`、`git diff --check` 全部通过。
+- Obsidian Sandbox：逐字节部署，重载后 `dev:errors` 无错误。修复前真实 DOM 里 91 个 `img.cm-widgetBuffer` 占位符全部带着媒体 `aria-label`；修复后 46 个全部干净，而真实的 `![[007.png]]` 嵌入保留完整仪表。用运行中的构建渲染语言下拉，中文、俄语、繁中三种界面下列出的都是本族语名——`Система` 保持本地化，语言项全部用自己的名字。
+- 运行期间 `data.json` 被改写过一次，内容仅为天气缓存抓取，别无改动；已用逐字节备份还原。`Calendar/journal-metadata.json` 未变。
+
+### 备注
+- 仅有 Sandbox 证据：那是 Mac 桌面窗口，精确指针、`maxTouchPoints = 0`，所以 Windows 的 `coarsePointer` 修复由模拟 Chromium 上报值的单元测试证明，而不是真实 Windows 机器；触屏 info 按钮流程也没有在真手机上走过。这两项都还是残留风险。
+
+---
+
 ## 2.9.0 (2026-10-04)
 
 Three things: a journaled date now fills its whole calendar cell with the accent color, mood marks survive file sync and finally appear on phones, and the phone cell row lost one control.

@@ -2955,7 +2955,7 @@ var init_fluid_mood_control = __esm({
 var i18n_exports = {};
 __export(i18n_exports, {
   DEFAULT_DISPLAY_LANGUAGE: () => DEFAULT_DISPLAY_LANGUAGE,
-  DISPLAY_LANGUAGE_LABEL_KEYS: () => DISPLAY_LANGUAGE_LABEL_KEYS,
+  DISPLAY_LANGUAGE_ENDONYMS: () => DISPLAY_LANGUAGE_ENDONYMS,
   DISPLAY_LANGUAGE_OPTIONS: () => DISPLAY_LANGUAGE_OPTIONS,
   LOCALE_TAGS: () => LOCALE_TAGS,
   STRINGS: () => STRINGS,
@@ -3109,7 +3109,7 @@ function getCalendarWeekdays(settings = {}) {
   const start = resolveWeekStart(settings);
   return sundayFirst.slice(start).concat(sundayFirst.slice(0, start));
 }
-var SUPPORTED_DISPLAY_LANGUAGES, DEFAULT_DISPLAY_LANGUAGE, STRINGS, DISPLAY_LANGUAGE_OPTIONS, DISPLAY_LANGUAGE_LABEL_KEYS, LOCALE_TAGS, PLURAL_KEY_SUFFIX;
+var SUPPORTED_DISPLAY_LANGUAGES, DEFAULT_DISPLAY_LANGUAGE, STRINGS, DISPLAY_LANGUAGE_OPTIONS, DISPLAY_LANGUAGE_ENDONYMS, LOCALE_TAGS, PLURAL_KEY_SUFFIX;
 var init_i18n = __esm({
   "src/i18n.ts"() {
     "use strict";
@@ -3155,7 +3155,6 @@ var init_i18n = __esm({
         calendarWeatherAvailable: "\u6709\u5929\u6C14\u8BB0\u5F55",
         calm: "\u5E73\u9759",
         cancel: "\u53D6\u6D88",
-        chinese: "\u4E2D\u6587\uFF08\u7B80\u4F53\uFF09",
         chooseFeelings: "\u9009\u62E9\u6240\u6709\u7B26\u5408\u7684\u6807\u7B7E",
         chooseLevel: "\u9009\u62E9\u4E00\u4E2A\u5F3A\u5EA6",
         clearFilters: "\u6E05\u9664\u7B5B\u9009",
@@ -3189,7 +3188,6 @@ var init_i18n = __esm({
         editJournalTitle: "\u7F16\u8F91\u65E5\u8BB0\u6807\u9898",
         editMood: "\u7F16\u8F91\u5FC3\u60C5\u8BB0\u5F55",
         energized: "\u7CBE\u529B\u5145\u6C9B",
-        english: "English",
         entries: "\u6761\u76EE",
         exportMetadataCommand: "\u5BFC\u51FA\u5FC3\u60C5\u5143\u6570\u636E JSON",
         exportMoodCsvCommand: "\u5BFC\u51FA\u5FC3\u60C5 CSV",
@@ -3198,10 +3196,8 @@ var init_i18n = __esm({
         favoritesOnly: "\u4EC5\u6536\u85CF",
         filters: "\u7B5B\u9009",
         focused: "\u4E13\u6CE8",
-        french: "Fran\xE7ais",
         fromDate: "\u5F00\u59CB\u65E5\u671F",
         frustrated: "\u6CAE\u4E27",
-        german: "Deutsch",
         good: "\u8F83\u597D",
         grateful: "\u611F\u6FC0",
         heicConversionFailed: "HEIC \u8F6C\u6362\u5931\u8D25",
@@ -3213,7 +3209,6 @@ var init_i18n = __esm({
         inspired: "\u53D7\u5230\u9F13\u821E",
         integrityCommand: "\u68C0\u67E5\u5FC3\u60C5\u5143\u6570\u636E\u5B8C\u6574\u6027",
         invalidJournalSources: "\u65E5\u8BB0\u6765\u6E90\u5FC5\u987B\u662F\u6709\u6548\u7684 JSON \u6570\u7EC4\u3002",
-        japanese: "\u65E5\u672C\u8A9E",
         journalIndexLoadFailed: "\u65E5\u8BB0\u52A0\u8F7D\u5931\u8D25\uFF1A{error}",
         journalIndexLoading: "\u6B63\u5728\u52A0\u8F7D\u65E5\u8BB0\u2026",
         journalLocation: "\u65E5\u8BB0\u4F4D\u7F6E",
@@ -3224,7 +3219,6 @@ var init_i18n = __esm({
         journalToolsDesc: "\u6253\u5F00\u65F6\u95F4\u7EBF\u6216\u68C0\u6D4B\u5916\u90E8\u5BFC\u5165\u76EE\u5F55\u3002",
         joyful: "\u559C\u60A6",
         jumpToMonth: "\u8DF3\u8F6C\u5230\u6708\u4EFD",
-        korean: "\uD55C\uAD6D\uC5B4",
         language: "\u663E\u793A\u8BED\u8A00",
         languageDesc: "\u7EDF\u4E00\u63A7\u5236\u63D2\u4EF6\u754C\u9762\u3001\u63D0\u793A\u3001\u6807\u7B7E\u548C\u8F85\u52A9\u6587\u672C",
         locationFilter: "\u4F4D\u7F6E",
@@ -3316,7 +3310,6 @@ var init_i18n = __esm({
         restoreMetadataCommand: "\u6062\u590D\u5FC3\u60C5\u5143\u6570\u636E\u5907\u4EFD",
         restoreMood: "\u6062\u590D",
         retry: "\u91CD\u8BD5",
-        russian: "\u0420\u0443\u0441\u0441\u043A\u0438\u0439",
         s_exifPersist: "\u4FDD\u5B58\u7167\u7247\u4F4D\u7F6E\u5230\u7B14\u8BB0",
         s_exifPersistDesc: "\u4FDD\u5B58\u65B0\u589E\u7167\u7247\u7684 EXIF GPS \u5230\u65E5\u8BB0\u5C5E\u6027\uFF0C\u5E76\u5199\u5165\u7EAC\u5EA6/\u7ECF\u5EA6",
         sad: "\u96BE\u8FC7",
@@ -3379,7 +3372,6 @@ var init_i18n = __esm({
         sourceSaved: "\u6765\u6E90\u5DF2\u4FDD\u5B58",
         sourceType: "\u7C7B\u578B",
         sourceUnsaved: "\u6709\u672A\u5E94\u7528\u7684\u66F4\u6539",
-        spanish: "Espa\xF1ol",
         system: "\u7CFB\u7EDF",
         tagFilter: "\u6807\u7B7E",
         thisMonth: "\u672C\u6708\u5B8C\u6210",
@@ -3390,7 +3382,6 @@ var init_i18n = __esm({
         tired: "\u75B2\u60EB",
         toDate: "\u7ED3\u675F\u65E5\u671F",
         today: "\u4ECA\u5929",
-        traditionalChinese: "\u7E41\u4F53\u4E2D\u6587",
         unknownError: "\u672A\u77E5\u9519\u8BEF",
         unsavedTitle: "\u672A\u4FDD\u5B58\u7684\u6807\u9898",
         untitledJournalTitle: "\u6807\u9898",
@@ -3461,7 +3452,6 @@ var init_i18n = __esm({
         calendarWeatherAvailable: "\u6709\u5929\u6C23\u8A18\u9304",
         calm: "\u5E73\u975C",
         cancel: "\u53D6\u6D88",
-        chinese: "\u7C21\u9AD4\u4E2D\u6587",
         chooseFeelings: "\u9078\u64C7\u6240\u6709\u7B26\u5408\u7684\u6A19\u7C64",
         chooseLevel: "\u9078\u64C7\u4E00\u500B\u5F37\u5EA6",
         clearFilters: "\u6E05\u9664\u7BE9\u9078",
@@ -3495,7 +3485,6 @@ var init_i18n = __esm({
         editJournalTitle: "\u7DE8\u8F2F\u65E5\u8A18\u6A19\u984C",
         editMood: "\u7DE8\u8F2F\u5FC3\u60C5\u8A18\u9304",
         energized: "\u7CBE\u529B\u5145\u6C9B",
-        english: "English",
         entries: "\u689D\u76EE",
         exportMetadataCommand: "\u532F\u51FA\u5FC3\u60C5\u4E2D\u7E7C\u8CC7\u6599 JSON",
         exportMoodCsvCommand: "\u532F\u51FA\u5FC3\u60C5 CSV",
@@ -3504,10 +3493,8 @@ var init_i18n = __esm({
         favoritesOnly: "\u50C5\u6536\u85CF",
         filters: "\u7BE9\u9078",
         focused: "\u5C08\u6CE8",
-        french: "Fran\xE7ais",
         fromDate: "\u958B\u59CB\u65E5\u671F",
         frustrated: "\u6CAE\u55AA",
-        german: "Deutsch",
         good: "\u8F03\u597D",
         grateful: "\u611F\u6FC0",
         heicConversionFailed: "HEIC \u8F49\u63DB\u5931\u6557",
@@ -3519,7 +3506,6 @@ var init_i18n = __esm({
         inspired: "\u53D7\u5230\u9F13\u821E",
         integrityCommand: "\u6AA2\u67E5\u5FC3\u60C5\u4E2D\u7E7C\u8CC7\u6599\u5B8C\u6574\u6027",
         invalidJournalSources: "\u65E5\u8A18\u4F86\u6E90\u5FC5\u9808\u662F\u6709\u6548\u7684 JSON \u9663\u5217\u3002",
-        japanese: "\u65E5\u672C\u8A9E",
         journalIndexLoadFailed: "\u65E5\u8A18\u8F09\u5165\u5931\u6557\uFF1A{error}",
         journalIndexLoading: "\u6B63\u5728\u8F09\u5165\u65E5\u8A18\u2026",
         journalLocation: "\u65E5\u8A18\u4F4D\u7F6E",
@@ -3530,7 +3516,6 @@ var init_i18n = __esm({
         journalToolsDesc: "\u958B\u555F\u6642\u9593\u8EF8\u6216\u5075\u6E2C\u5916\u90E8\u532F\u5165\u76EE\u9304\u3002",
         joyful: "\u559C\u6085",
         jumpToMonth: "\u8DF3\u8F49\u81F3\u6708\u4EFD",
-        korean: "\uD55C\uAD6D\uC5B4",
         language: "\u986F\u793A\u8A9E\u8A00",
         languageDesc: "\u7D71\u4E00\u63A7\u5236\u5916\u639B\u7A0B\u5F0F\u4ECB\u9762\u3001\u63D0\u793A\u3001\u6A19\u7C64\u548C\u8F14\u52A9\u6587\u5B57",
         locationFilter: "\u4F4D\u7F6E",
@@ -3622,7 +3607,6 @@ var init_i18n = __esm({
         restoreMetadataCommand: "\u5FA9\u539F\u5FC3\u60C5\u4E2D\u7E7C\u8CC7\u6599\u5099\u4EFD",
         restoreMood: "\u5FA9\u539F",
         retry: "\u91CD\u8A66",
-        russian: "\u0420\u0443\u0441\u0441\u043A\u0438\u0439",
         s_exifPersist: "\u5132\u5B58\u7167\u7247\u4F4D\u7F6E\u5230\u7B46\u8A18",
         s_exifPersistDesc: "\u5132\u5B58\u65B0\u589E\u7167\u7247\u7684 EXIF GPS \u5230\u65E5\u8A18\u5C6C\u6027\uFF0C\u4E26\u5BEB\u5165\u7DEF\u5EA6/\u7D93\u5EA6",
         sad: "\u96E3\u904E",
@@ -3685,7 +3669,6 @@ var init_i18n = __esm({
         sourceSaved: "\u4F86\u6E90\u5DF2\u5132\u5B58",
         sourceType: "\u985E\u578B",
         sourceUnsaved: "\u6709\u672A\u5957\u7528\u7684\u8B8A\u66F4",
-        spanish: "Espa\xF1ol",
         system: "\u7CFB\u7D71",
         tagFilter: "\u6A19\u7C64",
         thisMonth: "\u672C\u6708\u5B8C\u6210",
@@ -3696,7 +3679,6 @@ var init_i18n = __esm({
         tired: "\u75B2\u618A",
         toDate: "\u7D50\u675F\u65E5\u671F",
         today: "\u4ECA\u5929",
-        traditionalChinese: "\u7E41\u9AD4\u4E2D\u6587",
         unknownError: "\u672A\u77E5\u932F\u8AA4",
         unsavedTitle: "\u672A\u5132\u5B58\u7684\u6A19\u984C",
         untitledJournalTitle: "\u6A19\u984C",
@@ -3767,7 +3749,6 @@ var init_i18n = __esm({
         calendarWeatherAvailable: "Weather available",
         calm: "Calm",
         cancel: "Cancel",
-        chinese: "Simplified Chinese",
         chooseFeelings: "Choose any that fit",
         chooseLevel: "Choose a level",
         clearFilters: "Clear filters",
@@ -3801,7 +3782,6 @@ var init_i18n = __esm({
         editJournalTitle: "Edit journal title",
         editMood: "Edit mood record",
         energized: "Energized",
-        english: "English",
         entries: "entries",
         exportMetadataCommand: "Export mood metadata JSON",
         exportMoodCsvCommand: "Export moods as CSV",
@@ -3810,10 +3790,8 @@ var init_i18n = __esm({
         favoritesOnly: "Favorites only",
         filters: "Filters",
         focused: "Focused",
-        french: "French",
         fromDate: "From date",
         frustrated: "Frustrated",
-        german: "German",
         good: "Good",
         grateful: "Grateful",
         heicConversionFailed: "HEIC conversion failed",
@@ -3825,7 +3803,6 @@ var init_i18n = __esm({
         inspired: "Inspired",
         integrityCommand: "Check mood metadata integrity",
         invalidJournalSources: "Journal sources must be a valid JSON array.",
-        japanese: "Japanese",
         journalIndexLoadFailed: "Could not load the journal: {error}",
         journalIndexLoading: "Loading journal\u2026",
         journalLocation: "Journal location",
@@ -3836,7 +3813,6 @@ var init_i18n = __esm({
         journalToolsDesc: "Open the timeline or inspect external import directories.",
         joyful: "Joyful",
         jumpToMonth: "Jump to month",
-        korean: "Korean",
         language: "Display language",
         languageDesc: "Controls plugin views, notices, labels, and accessible text",
         locationFilter: "Location",
@@ -3928,7 +3904,6 @@ var init_i18n = __esm({
         restoreMetadataCommand: "Restore mood metadata backup",
         restoreMood: "Restore",
         retry: "Retry",
-        russian: "Russian",
         s_exifPersist: "Save photo location to note",
         s_exifPersistDesc: "Save EXIF GPS from newly added images into the journal note's frontmatter and set latitude/longitude",
         sad: "Sad",
@@ -3991,7 +3966,6 @@ var init_i18n = __esm({
         sourceSaved: "Sources saved",
         sourceType: "Type",
         sourceUnsaved: "Unapplied changes",
-        spanish: "Spanish",
         system: "System",
         tagFilter: "Tag",
         thisMonth: "This month",
@@ -4002,7 +3976,6 @@ var init_i18n = __esm({
         tired: "Tired",
         toDate: "To date",
         today: "Today",
-        traditionalChinese: "Traditional Chinese",
         unknownError: "unknown error",
         unsavedTitle: "Unsaved title",
         untitledJournalTitle: "Title",
@@ -4073,7 +4046,6 @@ var init_i18n = __esm({
         calendarWeatherAvailable: "\u5929\u6C17\u306E\u8A18\u9332\u3042\u308A",
         calm: "\u7A4F\u3084\u304B",
         cancel: "\u30AD\u30E3\u30F3\u30BB\u30EB",
-        chinese: "\u4E2D\u56FD\u8A9E\uFF08\u7C21\u4F53\u5B57\uFF09",
         chooseFeelings: "\u5F53\u3066\u306F\u307E\u308B\u3082\u306E\u3092\u9078\u629E",
         chooseLevel: "\u30EC\u30D9\u30EB\u3092\u9078\u629E",
         clearFilters: "\u30D5\u30A3\u30EB\u30BF\u30FC\u3092\u30AF\u30EA\u30A2",
@@ -4107,7 +4079,6 @@ var init_i18n = __esm({
         editJournalTitle: "\u65E5\u8A18\u306E\u30BF\u30A4\u30C8\u30EB\u3092\u7DE8\u96C6",
         editMood: "\u6C17\u5206\u306E\u8A18\u9332\u3092\u7DE8\u96C6",
         energized: "\u610F\u6B32\u7684",
-        english: "English",
         entries: "\u4EF6",
         exportMetadataCommand: "\u6C17\u5206\u30E1\u30BF\u30C7\u30FC\u30BFJSON\u3092\u30A8\u30AF\u30B9\u30DD\u30FC\u30C8",
         exportMoodCsvCommand: "\u6C17\u5206\u30C7\u30FC\u30BF\u3092CSV\u3067\u30A8\u30AF\u30B9\u30DD\u30FC\u30C8",
@@ -4116,10 +4087,8 @@ var init_i18n = __esm({
         favoritesOnly: "\u304A\u6C17\u306B\u5165\u308A\u306E\u307F",
         filters: "\u30D5\u30A3\u30EB\u30BF\u30FC",
         focused: "\u96C6\u4E2D",
-        french: "Fran\xE7ais",
         fromDate: "\u958B\u59CB\u65E5",
         frustrated: "\u6094\u3057\u3044",
-        german: "Deutsch",
         good: "\u826F\u3044",
         grateful: "\u611F\u8B1D",
         heicConversionFailed: "HEIC\u306E\u5909\u63DB\u306B\u5931\u6557\u3057\u307E\u3057\u305F",
@@ -4131,7 +4100,6 @@ var init_i18n = __esm({
         inspired: "\u523A\u6FC0\u3092\u53D7\u3051\u305F",
         integrityCommand: "\u6C17\u5206\u30E1\u30BF\u30C7\u30FC\u30BF\u306E\u6574\u5408\u6027\u3092\u78BA\u8A8D",
         invalidJournalSources: "\u65E5\u8A18\u30BD\u30FC\u30B9\u306F\u6709\u52B9\u306AJSON\u914D\u5217\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059\u3002",
-        japanese: "\u65E5\u672C\u8A9E",
         journalIndexLoadFailed: "\u65E5\u8A18\u306E\u8AAD\u307F\u8FBC\u307F\u306B\u5931\u6557\u3057\u307E\u3057\u305F\uFF1A{error}",
         journalIndexLoading: "\u65E5\u8A18\u3092\u8AAD\u307F\u8FBC\u307F\u4E2D\u2026",
         journalLocation: "\u8A18\u9332\u5834\u6240",
@@ -4142,7 +4110,6 @@ var init_i18n = __esm({
         journalToolsDesc: "\u30BF\u30A4\u30E0\u30E9\u30A4\u30F3\u3092\u958B\u304F\u3001\u307E\u305F\u306F\u5916\u90E8\u30A4\u30F3\u30DD\u30FC\u30C8\u30D5\u30A9\u30EB\u30C0\u3092\u691C\u51FA\u3057\u307E\u3059\u3002",
         joyful: "\u697D\u3057\u3044",
         jumpToMonth: "\u6708\u306B\u79FB\u52D5",
-        korean: "\uD55C\uAD6D\uC5B4",
         language: "\u8868\u793A\u8A00\u8A9E",
         languageDesc: "\u30D7\u30E9\u30B0\u30A4\u30F3\u306EUI\u3001\u901A\u77E5\u3001\u30E9\u30D9\u30EB\u306E\u8868\u793A\u8A00\u8A9E\u3092\u8A2D\u5B9A\u3057\u307E\u3059",
         locationFilter: "\u5834\u6240",
@@ -4234,7 +4201,6 @@ var init_i18n = __esm({
         restoreMetadataCommand: "\u6C17\u5206\u30E1\u30BF\u30C7\u30FC\u30BF\u30D0\u30C3\u30AF\u30A2\u30C3\u30D7\u3092\u5FA9\u5143",
         restoreMood: "\u5FA9\u5143",
         retry: "\u518D\u8A66\u884C",
-        russian: "\u0420\u0443\u0441\u0441\u043A\u0438\u0439",
         s_exifPersist: "\u5199\u771F\u306E\u4F4D\u7F6E\u60C5\u5831\u3092\u30CE\u30FC\u30C8\u306B\u4FDD\u5B58",
         s_exifPersistDesc: "\u8FFD\u52A0\u3057\u305F\u753B\u50CF\u306EEXIF GPS\u3092\u65E5\u8A18\u306E\u30D7\u30ED\u30D1\u30C6\u30A3\u306B\u4FDD\u5B58\u3057\u3001\u7DEF\u5EA6\u30FB\u7D4C\u5EA6\u3092\u66F8\u304D\u8FBC\u307F\u307E\u3059",
         sad: "\u60B2\u3057\u3044",
@@ -4297,7 +4263,6 @@ var init_i18n = __esm({
         sourceSaved: "\u30BD\u30FC\u30B9\u8A2D\u5B9A\u3092\u4FDD\u5B58\u3057\u307E\u3057\u305F",
         sourceType: "\u7A2E\u985E",
         sourceUnsaved: "\u672A\u4FDD\u5B58\u306E\u5909\u66F4\u304C\u3042\u308A\u307E\u3059",
-        spanish: "Espa\xF1ol",
         system: "\u30B7\u30B9\u30C6\u30E0",
         tagFilter: "\u30BF\u30B0",
         thisMonth: "\u4ECA\u6708\u306E\u8A18\u9332",
@@ -4308,7 +4273,6 @@ var init_i18n = __esm({
         tired: "\u75B2\u308C\u305F",
         toDate: "\u7D42\u4E86\u65E5",
         today: "\u4ECA\u65E5",
-        traditionalChinese: "\u4E2D\u56FD\u8A9E\uFF08\u7E41\u4F53\u5B57\uFF09",
         unknownError: "\u4E0D\u660E\u306A\u30A8\u30E9\u30FC",
         unsavedTitle: "\u672A\u4FDD\u5B58\u306E\u30BF\u30A4\u30C8\u30EB",
         untitledJournalTitle: "\u30BF\u30A4\u30C8\u30EB",
@@ -4379,7 +4343,6 @@ var init_i18n = __esm({
         calendarWeatherAvailable: "\uB0A0\uC528 \uAE30\uB85D \uC788\uC74C",
         calm: "\uCC28\uBD84\uD568",
         cancel: "\uCDE8\uC18C",
-        chinese: "\uC911\uAD6D\uC5B4 \uAC04\uCCB4",
         chooseFeelings: "\uD574\uB2F9\uD558\uB294 \uAC10\uC815\uC744 \uBAA8\uB450 \uC120\uD0DD\uD558\uC138\uC694",
         chooseLevel: "\uAE30\uBD84 \uB2E8\uACC4 \uC120\uD0DD",
         clearFilters: "\uD544\uD130 \uCD08\uAE30\uD654",
@@ -4413,7 +4376,6 @@ var init_i18n = __esm({
         editJournalTitle: "\uC800\uB110 \uC81C\uBAA9 \uD3B8\uC9D1",
         editMood: "\uAE30\uBD84 \uAE30\uB85D \uD3B8\uC9D1",
         energized: "\uD65C\uAE30\uCC38",
-        english: "English",
         entries: "\uAC1C",
         exportMetadataCommand: "\uAE30\uBD84 \uBA54\uD0C0\uB370\uC774\uD130 JSON \uB0B4\uBCF4\uB0B4\uAE30",
         exportMoodCsvCommand: "\uAE30\uBD84 CSV\uB85C \uB0B4\uBCF4\uB0B4\uAE30",
@@ -4422,10 +4384,8 @@ var init_i18n = __esm({
         favoritesOnly: "\uC990\uACA8\uCC3E\uAE30\uB9CC",
         filters: "\uD544\uD130",
         focused: "\uC9D1\uC911\uB428",
-        french: "Fran\xE7ais",
         fromDate: "\uC2DC\uC791 \uB0A0\uC9DC",
         frustrated: "\uB2F5\uB2F5\uD568",
-        german: "Deutsch",
         good: "\uC88B\uC74C",
         grateful: "\uAC10\uC0AC\uD568",
         heicConversionFailed: "HEIC \uBCC0\uD658 \uC2E4\uD328",
@@ -4437,7 +4397,6 @@ var init_i18n = __esm({
         inspired: "\uC601\uAC10\uC744 \uBC1B\uC740",
         integrityCommand: "\uAE30\uBD84 \uBA54\uD0C0\uB370\uC774\uD130 \uBB34\uACB0\uC131 \uAC80\uC0AC",
         invalidJournalSources: "\uC800\uB110 \uC18C\uC2A4\uB294 \uC720\uD6A8\uD55C JSON \uBC30\uC5F4\uC774\uC5B4\uC57C \uD569\uB2C8\uB2E4.",
-        japanese: "\u65E5\u672C\u8A9E",
         journalIndexLoadFailed: "\uC800\uB110\uC744 \uBD88\uB7EC\uC624\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4: {error}",
         journalIndexLoading: "\uC800\uB110\uC744 \uBD88\uB7EC\uC624\uB294 \uC911\u2026",
         journalLocation: "\uC800\uB110 \uC704\uCE58",
@@ -4448,7 +4407,6 @@ var init_i18n = __esm({
         journalToolsDesc: "\uD0C0\uC784\uB77C\uC778\uC744 \uC5F4\uAC70\uB098 \uC678\uBD80 \uAC00\uC838\uC624\uAE30 \uD3F4\uB354\uB97C \uAC10\uC9C0\uD569\uB2C8\uB2E4.",
         joyful: "\uAE30\uC068",
         jumpToMonth: "\uC6D4 \uC774\uB3D9",
-        korean: "\uD55C\uAD6D\uC5B4",
         language: "\uD45C\uC2DC \uC5B8\uC5B4",
         languageDesc: "\uD50C\uB7EC\uADF8\uC778 \uC778\uD130\uD398\uC774\uC2A4, \uC54C\uB9BC, \uB77C\uBCA8 \uBC0F \uC548\uB0B4 \uD14D\uC2A4\uD2B8\uC758 \uD45C\uC2DC \uC5B8\uC5B4\uB97C \uC124\uC815\uD569\uB2C8\uB2E4",
         locationFilter: "\uC704\uCE58",
@@ -4540,7 +4498,6 @@ var init_i18n = __esm({
         restoreMetadataCommand: "\uAE30\uBD84 \uBA54\uD0C0\uB370\uC774\uD130 \uBC31\uC5C5 \uBCF5\uAD6C",
         restoreMood: "\uBCF5\uAD6C",
         retry: "\uB2E4\uC2DC \uC2DC\uB3C4",
-        russian: "\u0420\u0443\u0441\u0441\u043A\u0438\u0439",
         s_exifPersist: "\uC0AC\uC9C4 \uC704\uCE58\uB97C \uB178\uD2B8\uC5D0 \uC800\uC7A5",
         s_exifPersistDesc: "\uC0C8\uB85C \uCD94\uAC00\uD55C \uC774\uBBF8\uC9C0\uC758 EXIF GPS\uB97C \uC77C\uAE30 \uC18D\uC131\uC5D0 \uC800\uC7A5\uD558\uACE0 \uC704\uB3C4/\uACBD\uB3C4\uB97C \uAE30\uB85D\uD569\uB2C8\uB2E4",
         sad: "\uC2AC\uD514",
@@ -4603,7 +4560,6 @@ var init_i18n = __esm({
         sourceSaved: "\uC18C\uC2A4 \uC124\uC815\uC774 \uC800\uC7A5\uB418\uC5C8\uC2B5\uB2C8\uB2E4",
         sourceType: "\uC720\uD615",
         sourceUnsaved: "\uC801\uC6A9\uB418\uC9C0 \uC54A\uC740 \uBCC0\uACBD\uC0AC\uD56D\uC774 \uC788\uC2B5\uB2C8\uB2E4",
-        spanish: "Espa\xF1ol",
         system: "\uC2DC\uC2A4\uD15C",
         tagFilter: "\uD0DC\uADF8",
         thisMonth: "\uC774\uBC88 \uB2EC \uC644\uB8CC",
@@ -4614,7 +4570,6 @@ var init_i18n = __esm({
         tired: "\uD53C\uACE4\uD568",
         toDate: "\uC885\uB8CC \uB0A0\uC9DC",
         today: "\uC624\uB298",
-        traditionalChinese: "\uC911\uAD6D\uC5B4 \uBC88\uCCB4",
         unknownError: "\uC54C \uC218 \uC5C6\uB294 \uC624\uB958",
         unsavedTitle: "\uC800\uC7A5\uB418\uC9C0 \uC54A\uC740 \uC81C\uBAA9",
         untitledJournalTitle: "\uC81C\uBAA9",
@@ -4685,7 +4640,6 @@ var init_i18n = __esm({
         calendarWeatherAvailable: "Donn\xE9es m\xE9t\xE9o disponibles",
         calm: "Calme",
         cancel: "Annuler",
-        chinese: "Chinois simplifi\xE9",
         chooseFeelings: "S\xE9lectionnez ce qui correspond",
         chooseLevel: "Choisir un niveau",
         clearFilters: "Effacer les filtres",
@@ -4719,7 +4673,6 @@ var init_i18n = __esm({
         editJournalTitle: "Modifier le titre de l'entr\xE9e",
         editMood: "Modifier l'enregistrement d'humeur",
         energized: "\xC9nergique",
-        english: "English",
         entries: "entr\xE9es",
         exportMetadataCommand: "Exporter les m\xE9tadonn\xE9es d'humeur en JSON",
         exportMoodCsvCommand: "Exporter l'humeur au format CSV",
@@ -4728,10 +4681,8 @@ var init_i18n = __esm({
         favoritesOnly: "Favoris uniquement",
         filters: "Filtres",
         focused: "Concentr\xE9",
-        french: "Fran\xE7ais",
         fromDate: "Date de d\xE9but",
         frustrated: "Frustr\xE9",
-        german: "Deutsch",
         good: "Bien",
         grateful: "Reconnaissant",
         heicConversionFailed: "\xC9chec de la conversion HEIC",
@@ -4743,7 +4694,6 @@ var init_i18n = __esm({
         inspired: "Inspir\xE9",
         integrityCommand: "V\xE9rifier l'int\xE9grit\xE9 des m\xE9tadonn\xE9es d'humeur",
         invalidJournalSources: "Les sources doivent former un tableau JSON valide.",
-        japanese: "\u65E5\u672C\u8A9E",
         journalIndexLoadFailed: "Impossible de charger le journal : {error}",
         journalIndexLoading: "Chargement du journal\u2026",
         journalLocation: "Lieu de l'entr\xE9e",
@@ -4754,7 +4704,6 @@ var init_i18n = __esm({
         journalToolsDesc: "Ouvrir la chronologie ou analyser les dossiers d'importation externes.",
         joyful: "Joyeux",
         jumpToMonth: "Aller au mois",
-        korean: "\uD55C\uAD6D\uC5B4",
         language: "Langue d'affichage",
         languageDesc: "Contr\xF4le globalement la langue de l'interface, des notifications et des libell\xE9s",
         locationFilter: "Lieu",
@@ -4846,7 +4795,6 @@ var init_i18n = __esm({
         restoreMetadataCommand: "Restaurer la sauvegarde des m\xE9tadonn\xE9es d'humeur",
         restoreMood: "Restaurer",
         retry: "R\xE9essayer",
-        russian: "\u0420\u0443\u0441\u0441\u043A\u0438\u0439",
         s_exifPersist: "Enregistrer la position des photos dans la note",
         s_exifPersistDesc: "Enregistrer le GPS EXIF des nouvelles images dans les propri\xE9t\xE9s de la note du journal et renseigner la latitude/longitude",
         sad: "Triste",
@@ -4909,7 +4857,6 @@ var init_i18n = __esm({
         sourceSaved: "Sources enregistr\xE9es",
         sourceType: "Type",
         sourceUnsaved: "Modifications non enregistr\xE9es",
-        spanish: "Espa\xF1ol",
         system: "Syst\xE8me",
         tagFilter: "\xC9tiquette",
         thisMonth: "Ce mois-ci",
@@ -4920,7 +4867,6 @@ var init_i18n = __esm({
         tired: "Fatigu\xE9",
         toDate: "Date de fin",
         today: "Aujourd'hui",
-        traditionalChinese: "Chinois traditionnel",
         unknownError: "erreur inconnue",
         unsavedTitle: "Titre non enregistr\xE9",
         untitledJournalTitle: "Titre",
@@ -4991,7 +4937,6 @@ var init_i18n = __esm({
         calendarWeatherAvailable: "Wetterdaten verf\xFCgbar",
         calm: "Ruhig",
         cancel: "Abbrechen",
-        chinese: "Vereinfachtes Chinesisch",
         chooseFeelings: "W\xE4hle alles Zutreffende",
         chooseLevel: "W\xE4hle eine Stufe",
         clearFilters: "Filter zur\xFCcksetzen",
@@ -5025,7 +4970,6 @@ var init_i18n = __esm({
         editJournalTitle: "Journaltitel bearbeiten",
         editMood: "Stimmungseintrag bearbeiten",
         energized: "Energeladen",
-        english: "English",
         entries: "Eintr\xE4ge",
         exportMetadataCommand: "Stimmungs-Metadaten als JSON exportieren",
         exportMoodCsvCommand: "Stimmungen als CSV exportieren",
@@ -5034,10 +4978,8 @@ var init_i18n = __esm({
         favoritesOnly: "Nur Favoriten",
         filters: "Filter",
         focused: "Fokussiert",
-        french: "Fran\xE7ais",
         fromDate: "Startdatum",
         frustrated: "Frustriert",
-        german: "Deutsch",
         good: "Gut",
         grateful: "Dankbar",
         heicConversionFailed: "HEIC-Konvertierung fehlgeschlagen",
@@ -5049,7 +4991,6 @@ var init_i18n = __esm({
         inspired: "Inspiriert",
         integrityCommand: "Stimmungs-Metadaten auf Integrit\xE4t pr\xFCfen",
         invalidJournalSources: "Journal-Quellen m\xFCssen ein g\xFCltiges JSON-Array sein.",
-        japanese: "\u65E5\u672C\u8A9E",
         journalIndexLoadFailed: "Laden des Journals fehlgeschlagen: {error}",
         journalIndexLoading: "Journal wird geladen\u2026",
         journalLocation: "Journal-Ort",
@@ -5060,7 +5001,6 @@ var init_i18n = __esm({
         journalToolsDesc: "Zeitleiste \xF6ffnen oder Ordner auf externe Importe pr\xFCfen.",
         joyful: "Freudig",
         jumpToMonth: "Zu Monat springen",
-        korean: "\uD55C\uAD6D\uC5B4",
         language: "Anzeigesprache",
         languageDesc: "Legt die Sprache f\xFCr Benutzeroberfl\xE4che, Hinweise und Beschriftungen fest",
         locationFilter: "Ort",
@@ -5152,7 +5092,6 @@ var init_i18n = __esm({
         restoreMetadataCommand: "Stimmungs-Metadaten-Backup wiederherstellen",
         restoreMood: "Wiederherstellen",
         retry: "Wiederholen",
-        russian: "\u0420\u0443\u0441\u0441\u043A\u0438\u0439",
         s_exifPersist: "Foto-Standort in der Notiz speichern",
         s_exifPersistDesc: "EXIF-GPS neu hinzugef\xFCgter Bilder in den Eigenschaften der Journal-Notiz speichern und Breiten-/L\xE4ngengrad setzen",
         sad: "Traurig",
@@ -5215,7 +5154,6 @@ var init_i18n = __esm({
         sourceSaved: "Quellen gespeichert",
         sourceType: "Typ",
         sourceUnsaved: "Ungespeicherte \xC4nderungen",
-        spanish: "Espa\xF1ol",
         system: "System",
         tagFilter: "Tag",
         thisMonth: "Diesen Monat",
@@ -5226,7 +5164,6 @@ var init_i18n = __esm({
         tired: "M\xFCde",
         toDate: "Enddatum",
         today: "Heute",
-        traditionalChinese: "Traditionelles Chinesisch",
         unknownError: "Unbekannter Fehler",
         unsavedTitle: "Ungespeicherter Titel",
         untitledJournalTitle: "Titel",
@@ -5297,7 +5234,6 @@ var init_i18n = __esm({
         calendarWeatherAvailable: "Datos meteorol\xF3gicos disponibles",
         calm: "Calmado",
         cancel: "Cancelar",
-        chinese: "Chino simplificado",
         chooseFeelings: "Selecciona todo lo que aplique",
         chooseLevel: "Elige un nivel",
         clearFilters: "Borrar filtros",
@@ -5331,7 +5267,6 @@ var init_i18n = __esm({
         editJournalTitle: "Editar t\xEDtulo del diario",
         editMood: "Editar registro de \xE1nimo",
         energized: "Con energ\xEDa",
-        english: "English",
         entries: "entradas",
         exportMetadataCommand: "Exportar metadatos de \xE1nimo en JSON",
         exportMoodCsvCommand: "Exportar estados de \xE1nimo como CSV",
@@ -5340,10 +5275,8 @@ var init_i18n = __esm({
         favoritesOnly: "Solo favoritos",
         filters: "Filtros",
         focused: "Concentrado",
-        french: "Fran\xE7ais",
         fromDate: "Fecha de inicio",
         frustrated: "Frustrado",
-        german: "Deutsch",
         good: "Bien",
         grateful: "Agradecido",
         heicConversionFailed: "Error al convertir HEIC",
@@ -5355,7 +5288,6 @@ var init_i18n = __esm({
         inspired: "Inspirado",
         integrityCommand: "Comprobar integridad de metadatos de \xE1nimo",
         invalidJournalSources: "Las fuentes del diario deben ser una matriz JSON v\xE1lida.",
-        japanese: "\u65E5\u672C\u8A9E",
         journalIndexLoadFailed: "Error al cargar el diario: {error}",
         journalIndexLoading: "Cargando diario\u2026",
         journalLocation: "Ubicaci\xF3n del diario",
@@ -5366,7 +5298,6 @@ var init_i18n = __esm({
         journalToolsDesc: "Abrir cronolog\xEDa o buscar carpetas de importaci\xF3n externa.",
         joyful: "Alegre",
         jumpToMonth: "Ir al mes",
-        korean: "\uD55C\uAD6D\uC5B4",
         language: "Idioma de visualizaci\xF3n",
         languageDesc: "Controla el idioma de la interfaz del complemento, notificaciones y etiquetas",
         locationFilter: "Ubicaci\xF3n",
@@ -5458,7 +5389,6 @@ var init_i18n = __esm({
         restoreMetadataCommand: "Restaurar copia de seguridad de metadatos de \xE1nimo",
         restoreMood: "Restaurar",
         retry: "Reintentar",
-        russian: "\u0420\u0443\u0441\u0441\u043A\u0438\u0439",
         s_exifPersist: "Guardar la ubicaci\xF3n de las fotos en la nota",
         s_exifPersistDesc: "Guardar el GPS EXIF de las im\xE1genes nuevas en las propiedades de la nota del diario y establecer latitud/longitud",
         sad: "Triste",
@@ -5521,7 +5451,6 @@ var init_i18n = __esm({
         sourceSaved: "Fuentes guardadas",
         sourceType: "Tipo",
         sourceUnsaved: "Cambios no guardados",
-        spanish: "Espa\xF1ol",
         system: "Sistema",
         tagFilter: "Etiqueta",
         thisMonth: "Este mes",
@@ -5532,7 +5461,6 @@ var init_i18n = __esm({
         tired: "Cansado",
         toDate: "Fecha de fin",
         today: "Hoy",
-        traditionalChinese: "Chino tradicional",
         unknownError: "error desconocido",
         unsavedTitle: "T\xEDtulo sin guardar",
         untitledJournalTitle: "T\xEDtulo",
@@ -5603,7 +5531,6 @@ var init_i18n = __esm({
         calendarWeatherAvailable: "\u0415\u0441\u0442\u044C \u043F\u043E\u0433\u043E\u0434\u043D\u044B\u0435 \u0434\u0430\u043D\u043D\u044B\u0435",
         calm: "\u0421\u043F\u043E\u043A\u043E\u0439\u0441\u0442\u0432\u0438\u0435",
         cancel: "\u041E\u0442\u043C\u0435\u043D\u0430",
-        chinese: "\u0423\u043F\u0440\u043E\u0449\u0435\u043D\u043D\u044B\u0439 \u043A\u0438\u0442\u0430\u0439\u0441\u043A\u0438\u0439",
         chooseFeelings: "\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u0432\u0441\u0451 \u043F\u043E\u0434\u0445\u043E\u0434\u044F\u0449\u0435\u0435",
         chooseLevel: "\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u0443\u0440\u043E\u0432\u0435\u043D\u044C",
         clearFilters: "\u0421\u0431\u0440\u043E\u0441\u0438\u0442\u044C \u0444\u0438\u043B\u044C\u0442\u0440\u044B",
@@ -5637,7 +5564,6 @@ var init_i18n = __esm({
         editJournalTitle: "\u0420\u0435\u0434\u0430\u043A\u0442\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u0437\u0430\u0433\u043E\u043B\u043E\u0432\u043E\u043A",
         editMood: "\u0420\u0435\u0434\u0430\u043A\u0442\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u0437\u0430\u043F\u0438\u0441\u044C \u043D\u0430\u0441\u0442\u0440\u043E\u0435\u043D\u0438\u044F",
         energized: "\u0411\u043E\u0434\u0440\u043E\u0441\u0442\u044C",
-        english: "English",
         entries: "\u0437\u0430\u043F\u0438\u0441\u0435\u0439",
         exportMetadataCommand: "\u042D\u043A\u0441\u043F\u043E\u0440\u0442\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u043C\u0435\u0442\u0430\u0434\u0430\u043D\u043D\u044B\u0435 \u043D\u0430\u0441\u0442\u0440\u043E\u0435\u043D\u0438\u044F \u0432 JSON",
         exportMoodCsvCommand: "\u042D\u043A\u0441\u043F\u043E\u0440\u0442\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u043D\u0430\u0441\u0442\u0440\u043E\u0435\u043D\u0438\u0435 \u0432 CSV",
@@ -5646,10 +5572,8 @@ var init_i18n = __esm({
         favoritesOnly: "\u0422\u043E\u043B\u044C\u043A\u043E \u0438\u0437\u0431\u0440\u0430\u043D\u043D\u043E\u0435",
         filters: "\u0424\u0438\u043B\u044C\u0442\u0440\u044B",
         focused: "\u0421\u043E\u0441\u0440\u0435\u0434\u043E\u0442\u043E\u0447\u0435\u043D\u043D\u043E\u0441\u0442\u044C",
-        french: "Fran\xE7ais",
         fromDate: "\u0414\u0430\u0442\u0430 \u043D\u0430\u0447\u0430\u043B\u0430",
         frustrated: "\u0420\u0430\u0437\u043E\u0447\u0430\u0440\u043E\u0432\u0430\u043D\u0438\u0435",
-        german: "Deutsch",
         good: "\u0425\u043E\u0440\u043E\u0448\u043E",
         grateful: "\u0411\u043B\u0430\u0433\u043E\u0434\u0430\u0440\u043D\u043E\u0441\u0442\u044C",
         heicConversionFailed: "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043A\u043E\u043D\u0432\u0435\u0440\u0442\u0438\u0440\u043E\u0432\u0430\u0442\u044C HEIC",
@@ -5661,7 +5585,6 @@ var init_i18n = __esm({
         inspired: "\u0412\u0434\u043E\u0445\u043D\u043E\u0432\u0435\u043D\u0438\u0435",
         integrityCommand: "\u041F\u0440\u043E\u0432\u0435\u0440\u0438\u0442\u044C \u0446\u0435\u043B\u043E\u0441\u0442\u043D\u043E\u0441\u0442\u044C \u043C\u0435\u0442\u0430\u0434\u0430\u043D\u043D\u044B\u0445 \u043D\u0430\u0441\u0442\u0440\u043E\u0435\u043D\u0438\u044F",
         invalidJournalSources: "\u0418\u0441\u0442\u043E\u0447\u043D\u0438\u043A\u0438 \u0434\u043D\u0435\u0432\u043D\u0438\u043A\u0430 \u0434\u043E\u043B\u0436\u043D\u044B \u0431\u044B\u0442\u044C \u043A\u043E\u0440\u0440\u0435\u043A\u0442\u043D\u044B\u043C JSON-\u043C\u0430\u0441\u0441\u0438\u0432\u043E\u043C.",
-        japanese: "\u65E5\u672C\u8A9E",
         journalIndexLoadFailed: "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0437\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044C \u0434\u043D\u0435\u0432\u043D\u0438\u043A: {error}",
         journalIndexLoading: "\u0417\u0430\u0433\u0440\u0443\u0437\u043A\u0430 \u0434\u043D\u0435\u0432\u043D\u0438\u043A\u0430\u2026",
         journalLocation: "\u041C\u0435\u0441\u0442\u043E \u0437\u0430\u043F\u0438\u0441\u0438",
@@ -5672,7 +5595,6 @@ var init_i18n = __esm({
         journalToolsDesc: "\u041E\u0442\u043A\u0440\u044B\u0442\u044C \u0445\u0440\u043E\u043D\u043E\u043B\u043E\u0433\u0438\u044E \u0438\u043B\u0438 \u043E\u0431\u043D\u0430\u0440\u0443\u0436\u0438\u0442\u044C \u043F\u0430\u043F\u043A\u0438 \u0432\u043D\u0435\u0448\u043D\u0435\u0433\u043E \u0438\u043C\u043F\u043E\u0440\u0442\u0430.",
         joyful: "\u0420\u0430\u0434\u043E\u0441\u0442\u044C",
         jumpToMonth: "\u041F\u0435\u0440\u0435\u0439\u0442\u0438 \u043A \u043C\u0435\u0441\u044F\u0446\u0443",
-        korean: "\uD55C\uAD6D\uC5B4",
         language: "\u042F\u0437\u044B\u043A \u0438\u043D\u0442\u0435\u0440\u0444\u0435\u0439\u0441\u0430",
         languageDesc: "\u042F\u0437\u044B\u043A \u0438\u043D\u0442\u0435\u0440\u0444\u0435\u0439\u0441\u0430 \u043F\u043B\u0430\u0433\u0438\u043D\u0430, \u0443\u0432\u0435\u0434\u043E\u043C\u043B\u0435\u043D\u0438\u0439 \u0438 \u043F\u043E\u0434\u0441\u043A\u0430\u0437\u043E\u043A",
         locationFilter: "\u041C\u0435\u0441\u0442\u043E\u043F\u043E\u043B\u043E\u0436\u0435\u043D\u0438\u0435",
@@ -5764,7 +5686,6 @@ var init_i18n = __esm({
         restoreMetadataCommand: "\u0412\u043E\u0441\u0441\u0442\u0430\u043D\u043E\u0432\u0438\u0442\u044C \u043A\u043E\u043F\u0438\u044E \u043C\u0435\u0442\u0430\u0434\u0430\u043D\u043D\u044B\u0445 \u043D\u0430\u0441\u0442\u0440\u043E\u0435\u043D\u0438\u044F",
         restoreMood: "\u0412\u043E\u0441\u0441\u0442\u0430\u043D\u043E\u0432\u0438\u0442\u044C",
         retry: "\u041F\u043E\u0432\u0442\u043E\u0440\u0438\u0442\u044C",
-        russian: "\u0420\u0443\u0441\u0441\u043A\u0438\u0439",
         s_exifPersist: "\u0421\u043E\u0445\u0440\u0430\u043D\u044F\u0442\u044C \u043C\u0435\u0441\u0442\u043E\u043F\u043E\u043B\u043E\u0436\u0435\u043D\u0438\u0435 \u0444\u043E\u0442\u043E \u0432 \u0437\u0430\u043C\u0435\u0442\u043A\u0435",
         s_exifPersistDesc: "\u0421\u043E\u0445\u0440\u0430\u043D\u044F\u0442\u044C EXIF GPS \u043D\u043E\u0432\u044B\u0445 \u0438\u0437\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0439 \u0432 \u0441\u0432\u043E\u0439\u0441\u0442\u0432\u0430\u0445 \u0437\u0430\u043C\u0435\u0442\u043A\u0438 \u0434\u043D\u0435\u0432\u043D\u0438\u043A\u0430 \u0438 \u0437\u0430\u043F\u0438\u0441\u044B\u0432\u0430\u0442\u044C \u0448\u0438\u0440\u043E\u0442\u0443/\u0434\u043E\u043B\u0433\u043E\u0442\u0443",
         sad: "\u0413\u0440\u0443\u0441\u0442\u044C",
@@ -5827,7 +5748,6 @@ var init_i18n = __esm({
         sourceSaved: "\u0418\u0441\u0442\u043E\u0447\u043D\u0438\u043A\u0438 \u0441\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u044B",
         sourceType: "\u0422\u0438\u043F",
         sourceUnsaved: "\u041D\u0435\u0441\u043E\u0445\u0440\u0430\u043D\u0451\u043D\u043D\u044B\u0435 \u0438\u0437\u043C\u0435\u043D\u0435\u043D\u0438\u044F",
-        spanish: "Espa\xF1ol",
         system: "\u0421\u0438\u0441\u0442\u0435\u043C\u0430",
         tagFilter: "\u0422\u0435\u0433",
         thisMonth: "\u0412 \u044D\u0442\u043E\u043C \u043C\u0435\u0441\u044F\u0446\u0435",
@@ -5838,7 +5758,6 @@ var init_i18n = __esm({
         tired: "\u0423\u0441\u0442\u0430\u043B\u043E\u0441\u0442\u044C",
         toDate: "\u0414\u0430\u0442\u0430 \u043E\u043A\u043E\u043D\u0447\u0430\u043D\u0438\u044F",
         today: "\u0421\u0435\u0433\u043E\u0434\u043D\u044F",
-        traditionalChinese: "\u0422\u0440\u0430\u0434\u0438\u0446\u0438\u043E\u043D\u043D\u044B\u0439 \u043A\u0438\u0442\u0430\u0439\u0441\u043A\u0438\u0439",
         unknownError: "\u043D\u0435\u0438\u0437\u0432\u0435\u0441\u0442\u043D\u0430\u044F \u043E\u0448\u0438\u0431\u043A\u0430",
         unsavedTitle: "\u041D\u0435\u0441\u043E\u0445\u0440\u0430\u043D\u0451\u043D\u043D\u044B\u0439 \u0437\u0430\u0433\u043E\u043B\u043E\u0432\u043E\u043A",
         untitledJournalTitle: "\u0417\u0430\u0433\u043E\u043B\u043E\u0432\u043E\u043A",
@@ -5882,17 +5801,16 @@ var init_i18n = __esm({
       }
     };
     DISPLAY_LANGUAGE_OPTIONS = ["system", ...SUPPORTED_DISPLAY_LANGUAGES];
-    DISPLAY_LANGUAGE_LABEL_KEYS = {
-      system: "system",
-      en: "english",
-      zh: "chinese",
-      "zh-tw": "traditionalChinese",
-      ja: "japanese",
-      ko: "korean",
-      fr: "french",
-      de: "german",
-      es: "spanish",
-      ru: "russian"
+    DISPLAY_LANGUAGE_ENDONYMS = {
+      en: "English",
+      zh: "\u7B80\u4F53\u4E2D\u6587",
+      "zh-tw": "\u7E41\u9AD4\u4E2D\u6587",
+      ja: "\u65E5\u672C\u8A9E",
+      ko: "\uD55C\uAD6D\uC5B4",
+      fr: "Fran\xE7ais",
+      de: "Deutsch",
+      es: "Espa\xF1ol",
+      ru: "\u0420\u0443\u0441\u0441\u043A\u0438\u0439"
     };
     LOCALE_TAGS = {
       zh: "zh-CN",
@@ -7285,8 +7203,9 @@ function detectPlatformCapabilities(input = {}) {
   const isTabletLayout = isMobile && !isPhoneLayout;
   const isIos = Boolean(platform.isIosApp || platform.isIos || platform.isIOS);
   const isAndroid = Boolean(platform.isAndroidApp || platform.isAndroid);
+  const finePointer = Boolean(mediaQuery?.("(pointer: fine)")?.matches);
   const coarsePointer = Boolean(
-    mediaQuery?.("(pointer: coarse)")?.matches || Number(nav?.maxTouchPoints) > 0 || isMobile
+    mediaQuery?.("(pointer: coarse)")?.matches || mediaQuery?.("(any-pointer: coarse)")?.matches || Number(nav?.maxTouchPoints) > 0 && !finePointer || isMobile
   );
   const dom = Boolean(doc?.createElement);
   let canvas = false;
@@ -10710,6 +10629,7 @@ __export(settings_tab_exports, {
   addExifPersistMetadataSetting: () => addExifPersistMetadataSetting,
   commitJournalSourceSettings: () => commitJournalSourceSettings,
   createSettingsLocalizer: () => createSettingsLocalizer,
+  fillDisplayLanguageDropdown: () => fillDisplayLanguageDropdown,
   normalizeMoodMetadataPath: () => normalizeMoodMetadataPath,
   parseCoordinateSettingValue: () => parseCoordinateSettingValue,
   shouldShowCalendarMoodStyle: () => shouldShowCalendarMoodStyle,
@@ -10743,6 +10663,11 @@ function shouldShowUseCurrentLocationButton(capabilities) {
 }
 function createSettingsLocalizer(settings) {
   return (key, ...args) => localize(getDisplayLanguage(settings), key, ...args);
+}
+function fillDisplayLanguageDropdown(dd, settings) {
+  for (const option of DISPLAY_LANGUAGE_OPTIONS) {
+    dd.addOption(option, option === "system" ? t(settings, "system") : DISPLAY_LANGUAGE_ENDONYMS[option]);
+  }
 }
 async function commitJournalSourceSettings(plugin, save = () => plugin.saveSettings()) {
   const saved = await save();
@@ -10992,9 +10917,7 @@ var init_settings_tab = __esm({
         renderSettingsBrand(containerEl, { markSvg: dayline_logo_default, wordmarkSvg: dayline_wordmark_compact_default });
         this._addSection(containerEl, "general");
         new import_obsidian5.Setting(containerEl).setName(t(this.plugin.settings, "language")).setDesc(t(this.plugin.settings, "languageDesc")).addDropdown((dd) => {
-          for (const option of DISPLAY_LANGUAGE_OPTIONS) {
-            dd.addOption(option, t(this.plugin.settings, DISPLAY_LANGUAGE_LABEL_KEYS[option]));
-          }
+          fillDisplayLanguageDropdown(dd, this.plugin.settings);
           return dd.setValue(this.plugin.settings.displayLanguage).onChange(async (value) => {
             this.plugin.settings.displayLanguage = value;
             this.plugin.settings.weatherLanguage = getDisplayLanguage({ displayLanguage: value });
@@ -31150,7 +31073,7 @@ var init_manifest = __esm({
     manifest_default = {
       id: "dayline-journal",
       name: "Dayline Journal",
-      version: "2.9.0",
+      version: "2.9.1",
       minAppVersion: "1.5.0",
       description: "A visual journal for calendars, timelines, moods, memories, weather, and photos. / \u96C6\u65E5\u5386\u3001\u65F6\u95F4\u7EBF\u3001\u5FC3\u60C5\u3001\u56DE\u987E\u3001\u5929\u6C14\u548C\u7167\u7247\u4E8E\u4E00\u4F53\u7684\u53EF\u89C6\u5316\u65E5\u8BB0\u5DE5\u5177.",
       author: "Haoo",
@@ -35102,6 +35025,9 @@ var CalendarView = class extends ItemView2 {
     if (this.closed) return;
     for (const img of images) {
       if (this._noteMediaDisposers().has(img)) continue;
+      if (img.classList?.contains("cm-widgetBuffer")) continue;
+      const src = img.getAttribute("src") || "";
+      if (classifyMediaLink2(normalizeMediaLink2(src)).kind !== "image") continue;
       this._bindNoteMediaHover(img, {
         onEnter: (e) => this._onNoteImageEnter(e, img),
         onLeave: () => this._onExifLeave(img),
@@ -35215,6 +35141,7 @@ var CalendarView = class extends ItemView2 {
     }, immediate ? 0 : 500);
   }
   _bindNoteMediaHover(el, { onEnter, onLeave, onFocus }) {
+    if (el.classList?.contains("cm-widgetBuffer")) return;
     const disposers = this._noteMediaDisposers();
     this._releaseNoteMediaEntry(el);
     const hadTabIndex = el.hasAttribute("tabindex");
