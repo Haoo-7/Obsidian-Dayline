@@ -209,4 +209,71 @@ describe('note media instrumentation lifecycle', () => {
     expect(img.hasAttribute('tabindex')).toBe(false);
     expect(container.querySelectorAll('.dayline-note-media-info')).toHaveLength(0);
   });
+
+  it('skips editor placeholder widgets and images without a real image source', () => {
+    const view = Object.create(CalendarView.prototype);
+    Object.assign(view, {
+      closed: false,
+      plugin: {
+        settings: { showExif: true },
+        capabilities: { coarsePointer: true, isMobile: false },
+        _endExifHover() {},
+      },
+      contentEl: element(),
+      containerEl: element(),
+      _exifNoteMediaControls: new WeakSet(),
+    });
+    const widget = element('img', { cls: 'cm-widgetBuffer' });
+    const srcless = element('img');
+    const pdf = element('img', { attr: { src: 'report.pdf' } });
+    const real = element('img', { attr: { src: 'app://local/vault/photo.png?1673010421546' } });
+    document.body.append(widget, srcless, pdf, real);
+    const widgetListeners = probeListeners(widget);
+    const realListeners = probeListeners(real);
+
+    view._processImageEls([widget, srcless, pdf, real]);
+
+    expect(document.querySelectorAll('.dayline-note-media-info')).toHaveLength(1);
+    expect(widget.getAttribute('aria-label')).toBe(null);
+    expect(widget.hasAttribute('tabindex')).toBe(false);
+    expect(widgetListeners.count('mouseenter')).toBe(0);
+    expect(srcless.getAttribute('aria-label')).toBe(null);
+    expect(srcless.hasAttribute('tabindex')).toBe(false);
+    expect(pdf.getAttribute('aria-label')).toBe(null);
+    expect(pdf.hasAttribute('tabindex')).toBe(false);
+    expect(real.getAttribute('aria-label')).toBe('mediaMetadata');
+    expect(real.tabIndex).toBe(0);
+    expect(realListeners.count('mouseenter')).toBe(1);
+  });
+
+  it('does not instrument placeholder widgets that the mutation observer sees', async () => {
+    const container = element();
+    document.body.append(container);
+    const view = Object.create(CalendarView.prototype);
+    Object.assign(view, {
+      closed: false,
+      plugin: {
+        settings: { showExif: true },
+        capabilities: { coarsePointer: true, isMobile: false },
+        _endExifHover() {},
+      },
+      contentEl: element(),
+      containerEl: element(),
+      _exifNoteMediaControls: new WeakSet(),
+    });
+    const leaf = { view: { containerEl: container }, containerEl: container };
+    view._observeNoteImages(leaf);
+
+    const widget = element('img', { cls: 'cm-widgetBuffer' });
+    container.append(widget);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(widget.getAttribute('aria-label')).toBe(null);
+    expect(widget.hasAttribute('tabindex')).toBe(false);
+    expect(container.querySelectorAll('.dayline-note-media-info')).toHaveLength(0);
+
+    const real = element('img', { attr: { src: 'photo.png' } });
+    container.append(real);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(real.getAttribute('aria-label')).toBe('mediaMetadata');
+  });
 });

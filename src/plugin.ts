@@ -3259,6 +3259,13 @@ class CalendarView extends ItemView {
     if (this.closed) return;
     for (const img of images) {
       if (this._noteMediaDisposers().has(img)) continue;
+      // Live Preview scatters CodeMirror placeholder widgets
+      // (img.cm-widgetBuffer) through the editor, and neither they nor
+      // sourceless / non-image nodes can resolve to note media. Mirror the
+      // embed path's extension validation so only real images are instrumented.
+      if (img.classList?.contains('cm-widgetBuffer')) continue;
+      const src = img.getAttribute('src') || '';
+      if (classifyMediaLink(normalizeMediaLink(src)).kind !== 'image') continue;
       this._bindNoteMediaHover(img, {
         onEnter: (e) => this._onNoteImageEnter(e, img),
         onLeave: () => this._onExifLeave(img),
@@ -3401,6 +3408,8 @@ class CalendarView extends ItemView {
   }
 
   _bindNoteMediaHover(el, { onEnter, onLeave, onFocus }) {
+    // Editor placeholder widgets are not media; never stamp them.
+    if (el.classList?.contains('cm-widgetBuffer')) return;
     const disposers = this._noteMediaDisposers();
     // Live Preview can rebuild the same node instance; release the previous
     // listeners first so they never stack (and so the previous attributes are
