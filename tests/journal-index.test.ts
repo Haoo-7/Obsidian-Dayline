@@ -38,6 +38,32 @@ describe('journal index', () => {
     expect(failed).toBe(false);
   });
 
+  it('overlaps bounded journal reads during a full rebuild', async () => {
+    const files = Array.from({ length: 6 }, (_, index) => ({
+      path: `Calendar/Daily/2026-07-${String(index + 1).padStart(2, '0')}.md`,
+      name: `2026-07-${String(index + 1).padStart(2, '0')}.md`,
+      frontmatter: {},
+      content: `# Day ${index + 1}`,
+    }));
+    const app: any = makeApp(files);
+    let activeReads = 0;
+    let maxActiveReads = 0;
+    app.vault.cachedRead = async (file: any) => {
+      activeReads += 1;
+      maxActiveReads = Math.max(maxActiveReads, activeReads);
+      await new Promise<void>((resolve) => setTimeout(resolve, 1));
+      activeReads -= 1;
+      return file.content;
+    };
+
+    const index = new JournalIndex(app, () => undefined);
+    await index.refresh({ dailyFolder: 'Calendar/Daily' });
+
+    expect(maxActiveReads).toBeGreaterThan(1);
+    expect(maxActiveReads).toBeLessThanOrEqual(4);
+    expect(index.getEntries()).toHaveLength(files.length);
+  });
+
   it('does not wait for a resolved event after Obsidian has already initialized metadata', async () => {
     const app: any = makeApp([]);
     app.metadataCache.initialized = true;

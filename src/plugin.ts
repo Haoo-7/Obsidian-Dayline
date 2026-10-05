@@ -2320,7 +2320,7 @@ class CalendarView extends ItemView {
             cls: 'cal-day-bg',
             attr: {
               alt: '',
-              loading: 'eager',
+              loading: 'lazy',
               decoding: 'async',
               'aria-hidden': 'true',
             },

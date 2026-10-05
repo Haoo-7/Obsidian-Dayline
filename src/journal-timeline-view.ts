@@ -23,10 +23,28 @@ const TIMELINE_PAGE_SIZE = 50;
 /** Keystrokes within this window replace the pending search render. */
 const SEARCH_DEBOUNCE_MS = 150;
 
+const timelineDatePartsFormatters = new Map();
+const timelineEntryTimeFormatters = new Map();
+const timelineMonthFormatters = new Map();
+
+function localeForSettings(settings) {
+  return LOCALE_TAGS[getDisplayLanguage(settings)] || 'en-US';
+}
+
+function cachedDateTimeFormatter(cache, locale, options) {
+  let formatter = cache.get(locale);
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat(locale, options);
+    cache.set(locale, formatter);
+  }
+  return formatter;
+}
+
 function timelineDateParts(date, settings) {
   const value = new Date(`${date}T12:00:00`);
-  const locale = LOCALE_TAGS[getDisplayLanguage(settings)] || 'en-US';
-  const parts = new Intl.DateTimeFormat(locale, { weekday: 'short', day: 'numeric' }).formatToParts(value);
+  const locale = localeForSettings(settings);
+  const formatter = cachedDateTimeFormatter(timelineDatePartsFormatters, locale, { weekday: 'short', day: 'numeric' });
+  const parts = formatter.formatToParts(value);
   return {
     weekday: parts.find((part) => part.type === 'weekday')?.value || '',
     day: parts.find((part) => part.type === 'day')?.value || '',
@@ -38,7 +56,8 @@ function timelineEntryTime(entry, settings) {
   if (!source) return '';
   const value = new Date(source);
   if (!Number.isFinite(value.getTime())) return '';
-  return new Intl.DateTimeFormat(LOCALE_TAGS[getDisplayLanguage(settings)] || 'en-US', {
+  const locale = localeForSettings(settings);
+  return cachedDateTimeFormatter(timelineEntryTimeFormatters, locale, {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
@@ -596,7 +615,8 @@ export class JournalTimelineView extends ItemView {
       const key = entry.date.slice(0, 7);
       if (key !== month) {
         month = key;
-        const label = new Intl.DateTimeFormat(LOCALE_TAGS[getDisplayLanguage(this.plugin.settings)] || 'en-US',
+        const locale = localeForSettings(this.plugin.settings);
+        const label = cachedDateTimeFormatter(timelineMonthFormatters, locale,
           { year: 'numeric', month: 'long' }).format(new Date(`${key}-01T12:00:00`));
         positionNewNode(list.createEl('h3', { cls: 'journal-timeline-month', text: label }));
       }

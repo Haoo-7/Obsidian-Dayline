@@ -25,6 +25,8 @@ export const DEFAULT_JOURNAL_SOURCES: JournalSource[] = [
   { id: 'daily', path: 'Calendar/Daily', type: 'daily', label: 'Daily notes' },
 ];
 
+const JOURNAL_READ_CONCURRENCY = 4;
+
 export interface JournalIndexSettings {
   dailyFolder?: string;
   journalSources?: JournalSource[];
@@ -472,13 +474,19 @@ export class JournalIndex {
     const next = new Map<string, JournalEntry>();
     const diagnostics = new Map<string, JournalDiagnostic>();
     const files = this.app.vault.getMarkdownFiles?.() ?? [];
-    for (const file of files) {
-      if (token !== this.refreshToken || mutationToken !== this.mutationToken) return false;
-      const source = sourceForPath(file.path, sources);
-      if (!source) continue;
-      const entry = await this.readEntry(file, sources, diagnostics);
-      if (entry) next.set(entry.path, entry);
-    }
+    const candidates = files.filter((file: any) => sourceForPath(file.path, sources));
+    let nextCandidate = 0;
+    const readWorker = async () => {
+      while (true) {
+        if (token !== this.refreshToken || mutationToken !== this.mutationToken) return;
+        const candidateIndex = nextCandidate++;
+        if (candidateIndex >= candidates.length) return;
+        const entry = await this.readEntry(candidates[candidateIndex], sources, diagnostics);
+        if (entry) next.set(entry.path, entry);
+      }
+    };
+    const workerCount = Math.min(JOURNAL_READ_CONCURRENCY, candidates.length);
+    await Promise.all(Array.from({ length: workerCount }, () => readWorker()));
     if (token !== this.refreshToken || mutationToken !== this.mutationToken) return false;
     this.currentSources = sources;
     this.entries.clear();
