@@ -6808,6 +6808,16 @@ function displayedTimelineTitle(entry, isGeneric) {
   if (entry.explicitTitle) return entry.title;
   return isGeneric(entry.title, entry.date) ? "" : entry.title;
 }
+function timelineDayGroups(entries) {
+  return entries.map((entry, index) => {
+    const previous = entries[index - 1];
+    const next = entries[index + 1];
+    return {
+      sameDayAsPrevious: Boolean(previous) && previous.date === entry.date,
+      sameDayAsNext: Boolean(next) && next.date === entry.date
+    };
+  });
+}
 var init_journal_timeline_display = __esm({
   "src/journal-timeline-display.ts"() {
     "use strict";
@@ -7857,7 +7867,10 @@ var init_journal_timeline_view = __esm({
         const positionNewNode = (node) => {
           if (beforeEdit) list.insertBefore(node, edit.card);
         };
-        for (const entry of entries.slice(0, this.visibleEntryLimit)) {
+        const pageEntries = entries.slice(0, this.visibleEntryLimit);
+        const dayGroups = timelineDayGroups(entries);
+        for (let index = 0; index < pageEntries.length; index += 1) {
+          const entry = pageEntries[index];
           const key = entry.date.slice(0, 7);
           if (key !== month) {
             month = key;
@@ -7871,7 +7884,7 @@ var init_journal_timeline_view = __esm({
             this.moveTitleEditCard(list);
             beforeEdit = false;
           } else {
-            this.renderEntry(list, entry, this.renderToken);
+            this.renderEntry(list, entry, this.renderToken, dayGroups[index]);
             positionNewNode(list.lastElementChild);
           }
         }
@@ -7911,7 +7924,7 @@ var init_journal_timeline_view = __esm({
           edit.moving = false;
         }
       }
-      renderEntry(list, entry, token) {
+      renderEntry(list, entry, token, dayGroup = {}) {
         const media = displayableJournalMedia(entry);
         const imageLinks = entry.attachments.filter((link) => this.plugin.thumbnailService?.isImageLink(link));
         const frontmatterCover = entry.cover ? createMediaAttachment(entry.cover, entry.path) : null;
@@ -7926,9 +7939,12 @@ var init_journal_timeline_view = __esm({
         card.dataset.path = entry.path;
         card.setAttribute("aria-label", `${entry.date}, ${formatJournalDate(entry.date, this.plugin.settings)}${entry.title ? `: ${entry.title}` : ""}`);
         const dateColumn = card.createDiv({ cls: "journal-timeline-entry-date-column" });
-        const dateParts = timelineDateParts(entry.date, this.plugin.settings);
-        dateColumn.createSpan({ cls: "journal-timeline-entry-weekday", text: dateParts.weekday });
-        dateColumn.createSpan({ cls: "journal-timeline-entry-day", text: dateParts.day });
+        if (!dayGroup.sameDayAsPrevious) {
+          const dateParts = timelineDateParts(entry.date, this.plugin.settings);
+          dateColumn.createSpan({ cls: "journal-timeline-entry-weekday", text: dateParts.weekday });
+          dateColumn.createSpan({ cls: "journal-timeline-entry-day", text: dateParts.day });
+        }
+        if (dayGroup.sameDayAsNext) card.addClass("has-same-day-next");
         const body = card.createDiv({ cls: "journal-timeline-entry-body" });
         const title = displayedTimelineTitle(entry, isGenericJournalTitle);
         const titleEditor = shouldShowTimelineTitles(this.plugin.settings) ? body.createEl("h3", {
@@ -31073,7 +31089,7 @@ var init_manifest = __esm({
     manifest_default = {
       id: "dayline-journal",
       name: "Dayline Journal",
-      version: "2.9.1",
+      version: "2.9.2",
       minAppVersion: "1.5.0",
       description: "A visual journal for calendars, timelines, moods, memories, weather, and photos. / \u96C6\u65E5\u5386\u3001\u65F6\u95F4\u7EBF\u3001\u5FC3\u60C5\u3001\u56DE\u987E\u3001\u5929\u6C14\u548C\u7167\u7247\u4E8E\u4E00\u4F53\u7684\u53EF\u89C6\u5316\u65E5\u8BB0\u5DE5\u5177.",
       author: "Haoo",

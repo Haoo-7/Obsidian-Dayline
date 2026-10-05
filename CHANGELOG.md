@@ -1,5 +1,35 @@
 # Changelog
 
+## 2.9.2 (2026-10-05)
+
+One fix: timeline entries written on the same day now read as one group instead of looking like two unrelated days.
+
+### Fixed
+- **Timeline entries written on the same day read as one group.** Every card drew a separator below it and repeated the weekday/day glyph in the left column, so two notes of one day looked like two unrelated days. Adjacent cards sharing a journal date now drop the separator between them, and only the group's first card shows the weekday and day; each card keeps its own mood dot and "Updated" time.
+
+### Verification
+- `npm run typecheck`, `npm test` (69 files / 799 tests), `npm run build`, `npm run build:tablet`, `npm run package:release`, `npm run verify:release`, `npm run verify:release:zip` and `git diff --check` all pass.
+- Obsidian Sandbox: deployed byte-identical and reloaded with no `dev:errors`. The timeline rendered from the running build keeps the demo's same-day pair (`2026-07-05-evening` before `2026-07-05`) as one group — `dev:dom` counts exactly one `.journal-timeline-entry.has-same-day-next`, that card's computed `border-bottom-color` is transparent, and the following card renders no weekday/day glyph while keeping its mood dot; neighboring different days keep both separator and date.
+
+### Notes
+- Sandbox only: the grouped cards were verified in the Mac desktop window; phone and tablet layouts share the same renderer and CSS but were not exercised on a real device, which stays a residual risk.
+
+---
+
+一处修复：同一天写下的时间线条目现在归为一组，而不是看起来像互不相干的两天。
+
+### 修复
+- **同一天写下的时间线条目归为一组。** 以前每张卡片下方都画分隔线，左列还重复星期和日期，同一天的两条记录看起来像互不相干的两天。现在相邻的同日期卡片之间不再有分隔线，星期和日期只出现在该组第一张卡片上；每张卡片保留自己的心情圆点和"更新于"时间。
+
+### 验证
+- `npm run typecheck`、`npm test`（69 个文件 / 799 项测试）、`npm run build`、`npm run build:tablet`、`npm run package:release`、`npm run verify:release`、`npm run verify:release:zip`、`git diff --check` 全部通过。
+- Obsidian Sandbox：逐字节部署，重载后 `dev:errors` 无错误。运行中的构建把演示库里同一天的两条记录（`2026-07-05-evening` 在 `2026-07-05` 之前）归为一组——`dev:dom` 恰好数到一个 `.journal-timeline-entry.has-same-day-next`，该卡片的计算 `border-bottom-color` 为透明，后一张卡片不再渲染星期和日期但保留心情圆点；相邻的不同日期仍保留分隔线和日期。
+
+### 备注
+- 仅有 Sandbox 证据：分组卡片在 Mac 桌面窗口验证；手机与平板布局共用同一渲染器和 CSS，但未在真机上验证，仍是残留风险。
+
+---
+
 ## 2.9.1 (2026-10-05)
 
 Three fixes: editor placeholder images stop claiming media info controls, Windows desktops without touch hardware stop being treated as touch devices, and the language dropdown becomes readable no matter which UI language you landed in.
