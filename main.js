@@ -818,7 +818,7 @@ function moodFromFrontmatter(frontmatter) {
     updatedAt: now
   };
 }
-var DEFAULT_JOURNAL_SOURCES, TITLE_FRONTMATTER, TITLE_FENCED_BLOCK, JournalIndex;
+var DEFAULT_JOURNAL_SOURCES, JOURNAL_READ_CONCURRENCY, TITLE_FRONTMATTER, TITLE_FENCED_BLOCK, JournalIndex;
 var init_journal_index = __esm({
   "src/journal-index.ts"() {
     "use strict";
@@ -831,6 +831,7 @@ var init_journal_index = __esm({
     DEFAULT_JOURNAL_SOURCES = [
       { id: "daily", path: "Calendar/Daily", type: "daily", label: "Daily notes" }
     ];
+    JOURNAL_READ_CONCURRENCY = 4;
     TITLE_FRONTMATTER = /^---\r?\n[\s\S]*?\r?\n---(?:\r?\n|$)/;
     TITLE_FENCED_BLOCK = /^\s*(```|~~~)[\s\S]*?^\s*\1\s*$/gm;
     JournalIndex = class {
@@ -1004,13 +1005,19 @@ var init_journal_index = __esm({
         const next = /* @__PURE__ */ new Map();
         const diagnostics = /* @__PURE__ */ new Map();
         const files = this.app.vault.getMarkdownFiles?.() ?? [];
-        for (const file of files) {
-          if (token !== this.refreshToken || mutationToken !== this.mutationToken) return false;
-          const source = sourceForPath(file.path, sources);
-          if (!source) continue;
-          const entry = await this.readEntry(file, sources, diagnostics);
-          if (entry) next.set(entry.path, entry);
-        }
+        const candidates = files.filter((file) => sourceForPath(file.path, sources));
+        let nextCandidate = 0;
+        const readWorker = async () => {
+          while (true) {
+            if (token !== this.refreshToken || mutationToken !== this.mutationToken) return;
+            const candidateIndex = nextCandidate++;
+            if (candidateIndex >= candidates.length) return;
+            const entry = await this.readEntry(candidates[candidateIndex], sources, diagnostics);
+            if (entry) next.set(entry.path, entry);
+          }
+        };
+        const workerCount = Math.min(JOURNAL_READ_CONCURRENCY, candidates.length);
+        await Promise.all(Array.from({ length: workerCount }, () => readWorker()));
         if (token !== this.refreshToken || mutationToken !== this.mutationToken) return false;
         this.currentSources = sources;
         this.entries.clear();
@@ -7293,10 +7300,22 @@ __export(journal_timeline_view_exports, {
   JOURNAL_TIMELINE_VIEW: () => JOURNAL_TIMELINE_VIEW,
   JournalTimelineView: () => JournalTimelineView
 });
+function localeForSettings(settings) {
+  return LOCALE_TAGS[getDisplayLanguage(settings)] || "en-US";
+}
+function cachedDateTimeFormatter(cache, locale, options) {
+  let formatter = cache.get(locale);
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat(locale, options);
+    cache.set(locale, formatter);
+  }
+  return formatter;
+}
 function timelineDateParts(date, settings) {
   const value = /* @__PURE__ */ new Date(`${date}T12:00:00`);
-  const locale = LOCALE_TAGS[getDisplayLanguage(settings)] || "en-US";
-  const parts = new Intl.DateTimeFormat(locale, { weekday: "short", day: "numeric" }).formatToParts(value);
+  const locale = localeForSettings(settings);
+  const formatter = cachedDateTimeFormatter(timelineDatePartsFormatters, locale, { weekday: "short", day: "numeric" });
+  const parts = formatter.formatToParts(value);
   return {
     weekday: parts.find((part) => part.type === "weekday")?.value || "",
     day: parts.find((part) => part.type === "day")?.value || ""
@@ -7307,7 +7326,8 @@ function timelineEntryTime(entry, settings) {
   if (!source) return "";
   const value = new Date(source);
   if (!Number.isFinite(value.getTime())) return "";
-  return new Intl.DateTimeFormat(LOCALE_TAGS[getDisplayLanguage(settings)] || "en-US", {
+  const locale = localeForSettings(settings);
+  return cachedDateTimeFormatter(timelineEntryTimeFormatters, locale, {
     year: "numeric",
     month: "short",
     day: "numeric",
@@ -7316,7 +7336,7 @@ function timelineEntryTime(entry, settings) {
     hour12: false
   }).format(value);
 }
-var import_obsidian2, JOURNAL_TIMELINE_VIEW, TIMELINE_PAGE_SIZE, SEARCH_DEBOUNCE_MS, JournalTimelineView;
+var import_obsidian2, JOURNAL_TIMELINE_VIEW, TIMELINE_PAGE_SIZE, SEARCH_DEBOUNCE_MS, timelineDatePartsFormatters, timelineEntryTimeFormatters, timelineMonthFormatters, JournalTimelineView;
 var init_journal_timeline_view = __esm({
   "src/journal-timeline-view.ts"() {
     "use strict";
@@ -7336,6 +7356,9 @@ var init_journal_timeline_view = __esm({
     JOURNAL_TIMELINE_VIEW = "journal-timeline-view";
     TIMELINE_PAGE_SIZE = 50;
     SEARCH_DEBOUNCE_MS = 150;
+    timelineDatePartsFormatters = /* @__PURE__ */ new Map();
+    timelineEntryTimeFormatters = /* @__PURE__ */ new Map();
+    timelineMonthFormatters = /* @__PURE__ */ new Map();
     JournalTimelineView = class extends import_obsidian2.ItemView {
       constructor(leaf, plugin) {
         super(leaf);
@@ -7874,8 +7897,10 @@ var init_journal_timeline_view = __esm({
           const key = entry.date.slice(0, 7);
           if (key !== month) {
             month = key;
-            const label = new Intl.DateTimeFormat(
-              LOCALE_TAGS[getDisplayLanguage(this.plugin.settings)] || "en-US",
+            const locale = localeForSettings(this.plugin.settings);
+            const label = cachedDateTimeFormatter(
+              timelineMonthFormatters,
+              locale,
               { year: "numeric", month: "long" }
             ).format(/* @__PURE__ */ new Date(`${key}-01T12:00:00`));
             positionNewNode(list.createEl("h3", { cls: "journal-timeline-month", text: label }));
@@ -31089,7 +31114,7 @@ var init_manifest = __esm({
     manifest_default = {
       id: "dayline-journal",
       name: "Dayline Journal",
-      version: "2.9.2",
+      version: "2.9.3",
       minAppVersion: "1.5.0",
       description: "A visual journal for calendars, timelines, moods, memories, weather, and photos. / \u96C6\u65E5\u5386\u3001\u65F6\u95F4\u7EBF\u3001\u5FC3\u60C5\u3001\u56DE\u987E\u3001\u5929\u6C14\u548C\u7167\u7247\u4E8E\u4E00\u4F53\u7684\u53EF\u89C6\u5316\u65E5\u8BB0\u5DE5\u5177.",
       author: "Haoo",
@@ -34287,7 +34312,7 @@ var CalendarView = class extends ItemView2 {
           cls: "cal-day-bg",
           attr: {
             alt: "",
-            loading: "eager",
+            loading: "lazy",
             decoding: "async",
             "aria-hidden": "true"
           }

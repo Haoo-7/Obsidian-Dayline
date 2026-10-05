@@ -1,5 +1,41 @@
 # Changelog
 
+## 2.9.3 (2026-10-05)
+
+Three performance changes: full journal index rebuilds read entries concurrently, the timeline reuses its date formatters instead of building one per row, and calendar day backgrounds load lazily on mobile.
+
+### Performance
+- **Full journal index rebuilds read entries with bounded concurrency.** The rebuild walked every candidate markdown file one at a time, so vault-wide indexing paid the full serial cost of every read. It now fans out across four worker readers pulling from a shared candidate queue, keeping the same abort semantics — a refresh or mutation token change still stops every worker before anything is committed. A regression test drives overlapping reads and asserts the peak stays within the cap of four.
+- **The timeline view reuses its Intl.DateTimeFormatters per locale.** Every entry row built a fresh formatter for its weekday/day glyph and its "Updated" stamp, and every month header built another for the month label. Formatter construction is one of the most expensive things Intl does, and long timelines paid it for every rendered node. The three call sites now share module-level caches keyed by locale.
+- **Calendar day background images load lazily.** The per-day background node was created with `loading="eager"`, so opening a month asked the browser to fetch every day's background at once. Days now request theirs as they approach the viewport (`loading="lazy"`; `decoding="async"` unchanged).
+
+### Verification
+- `npm run typecheck`, `npm test` (69 files / 800 tests), `npm run build`, `npm run build:tablet`, `npm run package:release`, `npm run verify:release`, `npm run verify:release:zip` and `git diff --check` all pass.
+- Obsidian Sandbox: `main.js` and `manifest.json` deployed byte-identical and reloaded with no `dev:errors` (`styles.css` is unchanged this release). The running build reports `2.9.3`, and the timeline rendered from it stays correct through the new formatter caches — 31 entries with month headers (2026年9月 / 2026年7月 / 2025年9月), weekday/day glyphs (周二29), and "Updated" stamps all intact. The deployed bundle contains the four-reader constant and `loading:"lazy"` with no `loading:"eager"`, while the 2.9.2 bundle has neither.
+- `data.json` was rewritten once during the run — a weather-cache refresh plus the first persistence of the pre-existing `showCalendarWrittenMarker` default (`true`, behaviorally a no-op) — and was restored from its byte-identical backup. `Calendar/journal-metadata.json` is unchanged.
+
+### Notes
+- Sandbox only, and partly mobile-only: the lazy-background change lives in the mobile branch (desktop renders a CSS background div, so the Mac window cannot produce an `img`), and the concurrency win shows at vault scales the demo vault cannot stage. Both are covered by the unit suite and deployed-bundle inspection; real-phone behavior stays a residual risk.
+
+---
+
+三处性能改动：日记索引全量重建改为并发读取，时间线复用日期格式化器而不是每行新建一个，日历格子的背景图在移动端改为懒加载。
+
+### 性能
+- **日记索引全量重建改为有上限的并发读取。** 以前重建逐个串行遍历所有候选 markdown 文件，全库索引要付完整的串行读取成本。现在由 4 个 worker 从共享候选队列并发读取，并保留同样的中止语义——refresh 或 mutation token 一变，所有 worker 都会在提交任何结果前停止。新增回归测试驱动并发读取，并断言峰值不超过 4 的上限。
+- **时间线视图按 locale 复用 Intl.DateTimeFormatter。** 以前每条目行都为星期/日期字符和"更新于"时间各新建一个 formatter，每个月标题再建一个。formatter 的构造成本是 Intl 里最贵的操作之一，长时间线在每个渲染节点上都要付一次。三处调用点现在共享以 locale 为键的模块级缓存。
+- **日历格子背景图改为懒加载。** 以前每日背景节点用 `loading="eager"` 创建，打开一个月就要求浏览器立刻抓取整月的背景图。现在随滚动接近视口才加载（`loading="lazy"`；`decoding="async"` 不变）。
+
+### 验证
+- `npm run typecheck`、`npm test`（69 个文件 / 800 项测试）、`npm run build`、`npm run build:tablet`、`npm run package:release`、`npm run verify:release`、`npm run verify:release:zip`、`git diff --check` 全部通过。
+- Obsidian Sandbox：`main.js` 与 `manifest.json` 逐字节部署并重载，`dev:errors` 无错误（本次 release 未改 `styles.css`）。运行中的构建报告 `2.9.3`，由它渲染的时间线经过新的 formatter 缓存后依旧正确——31 条条目，月份标题（2026年9月 / 2026年7月 / 2025年9月）、星期日期字符（周二29）、"更新于"时间全部完好。部署包里含 4-reader 常量与 `loading:"lazy"` 且没有 `loading:"eager"`，而 2.9.2 的包两者相反。
+- 运行期间 `data.json` 被改写过一次——天气缓存刷新，外加既有的 `showCalendarWrittenMarker` 默认值（`true`，行为上无变化）首次被持久化——已用逐字节备份还原。`Calendar/journal-metadata.json` 未变。
+
+### 备注
+- 仅有 Sandbox 证据，且部分改动只在移动端生效：懒加载位于移动端分支（桌面端渲染 CSS 背景的 div，Mac 窗口产生不出 `img`），并发读取的收益也要在大库里才显现，演示库无法呈现。两者由单元测试套件与部署包比对证明；真机行为仍是残留风险。
+
+---
+
 ## 2.9.2 (2026-10-05)
 
 One fix: timeline entries written on the same day now read as one group instead of looking like two unrelated days.
