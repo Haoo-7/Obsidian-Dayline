@@ -10,7 +10,7 @@ Reviewing old diary entries no longer registers weather for those past days unde
 
 ### Verification
 - `npm run typecheck`, `npm test` (69 files / 807 tests, including seven new regression tests), `npm run build`, `npm run build:tablet`, `npm run package:release`, `npm run verify:release`, `npm run verify:release:zip` and `git diff --check` all pass.
-- Obsidian Sandbox: `main.js` deployed byte-identical and reloaded with no `dev:errors`; the running build's weather service carries both guards, and a live probe confirmed `getSnapshot` on a settled historical date resolves `null` with zero network requests and no cache write. `data.json` was rewritten once during the run — the legitimate TTL refresh of the `2026-10-06` (today) cache entry — and was restored from its byte-identical backup. `Calendar/journal-metadata.json` is unchanged.
+- Obsidian Sandbox: `main.js` and `manifest.json` deployed byte-identical and reloaded with no `dev:errors`. The running build reports `2.9.4`, its weather service carries both guards, and a live probe confirmed `getSnapshot` on a settled historical date resolves `null` with zero network requests and no cache write. `data.json` was rewritten once during the day — the legitimate TTL refresh of the `2026-10-06` (today) cache entry — and was restored from its byte-identical backup. `Calendar/journal-metadata.json` is unchanged.
 
 ---
 
@@ -22,7 +22,7 @@ Reviewing old diary entries no longer registers weather for those past days unde
 
 ### 验证
 - `npm run typecheck`、`npm test`（69 个文件 / 807 项测试，含 7 项新增回归测试）、`npm run build`、`npm run build:tablet`、`npm run package:release`、`npm run verify:release`、`npm run verify:release:zip`、`git diff --check` 全部通过。
-- Obsidian Sandbox：`main.js` 逐字节部署并重载，`dev:errors` 无错误；运行中的天气服务带有两处修复，实测对历史日期调用 `getSnapshot` 返回 `null`、零网络请求、无缓存写入。运行期间 `data.json` 被改写过一次——`2026-10-06`（今天）缓存条目的正常 TTL 刷新——已用逐字节备份还原。`Calendar/journal-metadata.json` 未变。
+- Obsidian Sandbox：`main.js` 与 `manifest.json` 逐字节部署并重载，`dev:errors` 无错误。运行中的构建报告 `2.9.4`，其天气服务带有两处修复，实测对历史日期调用 `getSnapshot` 返回 `null`、零网络请求、无缓存写入。运行期间 `data.json` 被改写过一次——`2026-10-06`（今天）缓存条目的正常 TTL 刷新——已用逐字节备份还原。`Calendar/journal-metadata.json` 未变。
 
 ---
 
