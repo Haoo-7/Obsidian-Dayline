@@ -27281,6 +27281,7 @@ __export(weather_cache_exports, {
   WEATHER_RECENT_DAYS: () => WEATHER_RECENT_DAYS,
   cloneStaleOfflineSnapshot: () => cloneStaleOfflineSnapshot,
   cloneStaleSnapshot: () => cloneStaleSnapshot,
+  hasSnapshotPayload: () => hasSnapshotPayload,
   isHistoricalWeatherDate: () => isHistoricalWeatherDate,
   isSnapshotStale: () => isSnapshotStale,
   migrateCompatibleSnapshot: () => migrateCompatibleSnapshot,
@@ -27540,6 +27541,7 @@ var init_weather_service = __esm({
     init_date_utils();
     init_media_service();
     init_weather_cache();
+    init_geolocation();
     WEATHER_MAX_ATTEMPTS = 3;
     WEATHER_RETRY_BASE_DELAY_MS = 250;
     WEATHER_RETRY_MAX_DELAY_MS = 2e3;
@@ -27633,7 +27635,17 @@ var init_weather_service = __esm({
         this._inFlight.set(requestKey, promise);
         return promise;
       }
-      /** Get weather, returning a stale offline snapshot when refresh cannot complete. */
+      /**
+       * Get weather, returning a stale offline snapshot when refresh cannot complete.
+       *
+       * This is the passive path used while browsing, so settled historical dates
+       * (older than the revisable recent window) are served from the cache only:
+       * the device only knows the current address, and fetching an old day here
+       * would register that day's weather under it. Putting weather on a past
+       * date is always an explicit act — the card/overlay refresh button, the
+       * refresh command, or the settings backfill, all of which go through
+       * `forceRefresh`.
+       */
       async getSnapshot(dateStr) {
         const s = this.plugin.settings;
         if (!s.weatherEnabled) return null;
@@ -27726,6 +27738,9 @@ var init_weather_service = __esm({
         const locationName = s.weatherLocationName || "";
         const memoryRecord = this._memoryCache.get(dateStr);
         const cached = this._selectCached(dateStr, void 0, ttlHours, s, context.configKey);
+        if (!forceRefresh && isHistoricalWeatherDate(dateStr, context.today)) {
+          return cached?.snapshot ?? null;
+        }
         if (!forceRefresh && memoryRecord?.configKey === context.configKey && memoryRecord.snapshot === null && !cached && !this._shouldFetch(memoryRecord, ttlHours, dateStr)) {
           return null;
         }
@@ -27927,11 +27942,24 @@ var init_weather_service = __esm({
           return null;
         }
       }
-      /** Persist only canonical data; offline/stale status is transient UI state. */
+      /**
+       * Persist only canonical data; offline/stale status is transient UI state.
+       *
+       * A settled historical record is the only remaining copy of that day, and
+       * the device cannot know where the user actually was back then, so a
+       * snapshot fetched under different coordinates — a refresh or backfill run
+       * after a move — must never overwrite it. Same-place refetches (a units or
+       * timezone change, sub-kilometre drift) stay allowed.
+       */
       async _persistSnapshot(dateStr, weather) {
         const canonical = toCanonicalWeatherSnapshot(weather);
         if (!canonical) return;
         if (canonical.configKey && canonical.configKey !== this._configKey()) return;
+        const existing = this.plugin.weatherCache?.[dateStr];
+        if (existing && hasSnapshotPayload(existing) && isHistoricalWeatherDate(dateStr, this._today()) && coordinatesMovedBeyondThreshold(existing.latitude, existing.longitude, canonical.latitude, canonical.longitude)) {
+          console.warn("[Dayline] Kept pinned weather history for", dateStr, "- new snapshot came from different coordinates");
+          return;
+        }
         if (!this.plugin.weatherCache) this.plugin.weatherCache = {};
         this.plugin.weatherCache[dateStr] = { ...canonical, configKey: this._configKey() };
         pruneWeatherCache(this.plugin.weatherCache, { maxEntries: WEATHER_CACHE_MAX_ENTRIES });
@@ -31114,7 +31142,7 @@ var init_manifest = __esm({
     manifest_default = {
       id: "dayline-journal",
       name: "Dayline Journal",
-      version: "2.9.3",
+      version: "2.9.4",
       minAppVersion: "1.5.0",
       description: "A visual journal for calendars, timelines, moods, memories, weather, and photos. / \u96C6\u65E5\u5386\u3001\u65F6\u95F4\u7EBF\u3001\u5FC3\u60C5\u3001\u56DE\u987E\u3001\u5929\u6C14\u548C\u7167\u7247\u4E8E\u4E00\u4F53\u7684\u53EF\u89C6\u5316\u65E5\u8BB0\u5DE5\u5177.",
       author: "Haoo",
@@ -34676,7 +34704,7 @@ var CalendarView = class extends ItemView2 {
       if (this._weatherCardDate !== dateStr || !this._weatherCardEl?.isConnected) return snap;
       const compatible = snap && this.weather.isSnapshotCompatible(snap) ? snap : null;
       this._weatherSnapshot = compatible;
-      this._weatherError = !compatible;
+      this._weatherError = !compatible && dateStr >= _daylineDate(this.plugin.settings);
       this._weatherLoading = false;
       this._updateWeatherCardUI();
       return compatible;
@@ -34783,7 +34811,7 @@ var CalendarView = class extends ItemView2 {
       const snap = await this.weather.getSnapshot(dateStr);
       if (token !== this._fetchToken || this._weatherCardDate !== dateStr) return;
       this._weatherSnapshot = snap;
-      this._weatherError = !snap;
+      this._weatherError = !snap && dateStr >= _daylineDate(this.plugin.settings);
       this._weatherLoading = false;
       this._updateWeatherCardUI();
     } catch {

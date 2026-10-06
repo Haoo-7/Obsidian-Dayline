@@ -1,5 +1,31 @@
 # Changelog
 
+## 2.9.4 (2026-10-06)
+
+Reviewing old diary entries no longer registers weather for those past days under the current address, and weather already recorded for a past day stays pinned.
+
+### Fixed
+- **Browsing a past date no longer registers weather.** Opening an old daily note (weather overlay) or selecting an old date in the calendar (weather card) used to fetch that day's weather from Open-Meteo using the currently configured coordinates and persist it into the weather cache — so after moving, or enabling weather later, old entries quietly acquired "weather at the current address" that was never recorded there. Settled historical dates (older than the 7-day revisable window) are now served from the cache only on the passive path; they gain weather only through an explicit act: the card/overlay refresh button, the refresh command, or the settings backfill. Recent dates (today and the revisable window) keep their previous behavior. A past date without recorded weather now shows the card's "no data" state instead of the error state.
+- **A historical record can no longer be overwritten from a different place.** The weather cache entry for a past day is the only remaining copy of that day, so persistence now refuses a snapshot that was fetched under different coordinates (a refresh or backfill run after moving) and keeps the pinned record. Same-place refetches — a units or timezone change, sub-kilometre drift — still update the entry.
+
+### Verification
+- `npm run typecheck`, `npm test` (69 files / 807 tests, including seven new regression tests), `npm run build`, `npm run build:tablet`, `npm run package:release`, `npm run verify:release`, `npm run verify:release:zip` and `git diff --check` all pass.
+- Obsidian Sandbox: `main.js` deployed byte-identical and reloaded with no `dev:errors`; the running build's weather service carries both guards, and a live probe confirmed `getSnapshot` on a settled historical date resolves `null` with zero network requests and no cache write. `data.json` was rewritten once during the run — the legitimate TTL refresh of the `2026-10-06` (today) cache entry — and was restored from its byte-identical backup. `Calendar/journal-metadata.json` is unchanged.
+
+---
+
+回顾以前的日记时，不再按现在的地址为那些过去的日子登记天气；已经记录过的过去日期天气会被固定下来。
+
+### 修复
+- **浏览过去日期不再登记天气。** 以前打开旧日记（天气浮层）或在日历里选中过去的日期（天气卡片）时，插件会用当前配置的坐标向 Open-Meteo 请求那一天的天气并写入天气缓存——于是搬过家、或后来才开启天气的库，旧条目会悄悄多出一份"按现在地址登记"的天气。现在对于已定型的历史日期（早于 7 天可修订窗口），被动浏览路径只读缓存；要为过去的日子补天气，必须显式操作：卡片/浮层的刷新按钮、刷新命令，或设置里的批量补全。今天与 7 天窗口内的日期行为不变。没有天气记录的过去日期，卡片会显示"无数据"状态而不是错误状态。
+- **历史记录不再被不同地点的数据覆盖。** 过去某天的天气缓存条目是那一天仅存的副本，因此持久化现在会拒绝一份用不同坐标取回的快照（搬家后的刷新或批量补全），保留已固定的记录。同一地点的重取——改温度单位或时区、亚公里级的漂移——仍会正常更新。
+
+### 验证
+- `npm run typecheck`、`npm test`（69 个文件 / 807 项测试，含 7 项新增回归测试）、`npm run build`、`npm run build:tablet`、`npm run package:release`、`npm run verify:release`、`npm run verify:release:zip`、`git diff --check` 全部通过。
+- Obsidian Sandbox：`main.js` 逐字节部署并重载，`dev:errors` 无错误；运行中的天气服务带有两处修复，实测对历史日期调用 `getSnapshot` 返回 `null`、零网络请求、无缓存写入。运行期间 `data.json` 被改写过一次——`2026-10-06`（今天）缓存条目的正常 TTL 刷新——已用逐字节备份还原。`Calendar/journal-metadata.json` 未变。
+
+---
+
 ## 2.9.3 (2026-10-05)
 
 Three performance changes: full journal index rebuilds read entries concurrently, the timeline reuses its date formatters instead of building one per row, and calendar day backgrounds load lazily on mobile.
