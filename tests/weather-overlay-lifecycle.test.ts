@@ -41,6 +41,7 @@ const CalendarView = runInNewContext(ts.transpileModule(`${declaration.getText()
   _iconUrl: () => '', setIcon: () => {}, requestAnimationFrame: (callback: () => void) => callback(),
   usesPhoneLayout,
   weatherConditionLabel,
+  _daylineDate: (settings: any) => settings?.weatherToday || '2026-08-06',
 });
 
 function deferred<T>() {
@@ -203,5 +204,52 @@ describe('weather overlay request lifecycle', () => {
     await settle();
 
     expect(view.weather._shouldFetch).toHaveBeenCalledWith(stale, 2, '2026-09-01');
+  });
+
+  /* Reviewing an old diary with no recorded weather is "no data", not a
+     failure: the passive path never fetches settled history. */
+  it('treats a past date without weather as no data instead of an error', async () => {
+    const getSnapshot = vi.fn().mockResolvedValue(null);
+    const { view } = fixture(getSnapshot);
+    view.plugin.settings.weatherToday = '2026-09-02';
+    view._fetchToken = 1;
+    view._weatherCardDate = '2026-09-01';
+    view._updateWeatherCardUI = () => {};
+
+    await view._fetchWeatherForDate('2026-09-01');
+
+    expect(getSnapshot).toHaveBeenCalledWith('2026-09-01');
+    expect(view._weatherSnapshot).toBeNull();
+    expect(view._weatherError).toBe(false);
+    expect(view._weatherLoading).toBe(false);
+  });
+
+  it('still reports an error when today has no weather', async () => {
+    const getSnapshot = vi.fn().mockResolvedValue(null);
+    const { view } = fixture(getSnapshot);
+    view.plugin.settings.weatherToday = '2026-09-01';
+    view._fetchToken = 1;
+    view._weatherCardDate = '2026-09-01';
+    view._updateWeatherCardUI = () => {};
+
+    await view._fetchWeatherForDate('2026-09-01');
+
+    expect(view._weatherSnapshot).toBeNull();
+    expect(view._weatherError).toBe(true);
+    expect(view._weatherLoading).toBe(false);
+  });
+
+  it('keeps revalidation of an empty past date out of the error state', async () => {
+    const getSnapshot = vi.fn().mockResolvedValue(null);
+    const { view } = fixture(getSnapshot);
+    view.plugin.settings.weatherToday = '2026-09-02';
+    view._weatherCardDate = '2026-09-01';
+    view._weatherCardEl = { isConnected: true };
+    view._updateWeatherCardUI = () => {};
+
+    await view._revalidateConnectedWeatherCard('2026-09-01');
+
+    expect(view._weatherSnapshot).toBeNull();
+    expect(view._weatherError).toBe(false);
   });
 });

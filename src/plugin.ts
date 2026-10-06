@@ -2784,7 +2784,7 @@ class CalendarView extends ItemView {
         if (this._weatherCardDate !== dateStr || !this._weatherCardEl?.isConnected) return snap;
         const compatible = snap && this.weather.isSnapshotCompatible(snap) ? snap : null;
         this._weatherSnapshot = compatible;
-        this._weatherError = !compatible;
+        this._weatherError = !compatible && dateStr >= _daylineDate(this.plugin.settings);
         this._weatherLoading = false;
         this._updateWeatherCardUI();
         return compatible;
@@ -2900,7 +2900,9 @@ class CalendarView extends ItemView {
       // Discard stale results if render() was called again since we started fetching
       if (token !== this._fetchToken || this._weatherCardDate !== dateStr) return;
       this._weatherSnapshot = snap;
-      this._weatherError = !snap;
+      // A past date with no snapshot is "no data", not a failure: passive
+      // browsing never fetches settled history, so null is the policy result.
+      this._weatherError = !snap && dateStr >= _daylineDate(this.plugin.settings);
       this._weatherLoading = false;
       this._updateWeatherCardUI();
       // Do NOT call full render here — it would recreate the card and trigger another fetch.

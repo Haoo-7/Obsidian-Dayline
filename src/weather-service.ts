@@ -6,6 +6,7 @@ import {
   migrateCompatibleSnapshot,
   isSnapshotStale,
   isHistoricalWeatherDate,
+  hasSnapshotPayload,
   weatherDateAgeDays,
   pruneWeatherCache,
   WEATHER_RECENT_DAYS,
@@ -13,6 +14,7 @@ import {
   cloneStaleSnapshot,
   toCanonicalWeatherSnapshot,
 } from './weather-cache';
+import { coordinatesMovedBeyondThreshold } from './geolocation';
 
 let _obsidianWeatherDeps;
 function getObsidianWeatherDeps() {
@@ -291,7 +293,17 @@ export class WeatherService {
     return promise;
   }
 
-  /** Get weather, returning a stale offline snapshot when refresh cannot complete. */
+  /**
+   * Get weather, returning a stale offline snapshot when refresh cannot complete.
+   *
+   * This is the passive path used while browsing, so settled historical dates
+   * (older than the revisable recent window) are served from the cache only:
+   * the device only knows the current address, and fetching an old day here
+   * would register that day's weather under it. Putting weather on a past
+   * date is always an explicit act — the card/overlay refresh button, the
+   * refresh command, or the settings backfill, all of which go through
+   * `forceRefresh`.
+   */
   async getSnapshot(dateStr) {
     const s = this.plugin.settings;
     if (!s.weatherEnabled) return null;
@@ -398,6 +410,16 @@ export class WeatherService {
     const locationName = s.weatherLocationName || '';
     const memoryRecord = this._memoryCache.get(dateStr);
     const cached = this._selectCached(dateStr, undefined, ttlHours, s, context.configKey);
+
+    // Reviewing an old diary must never register weather: for a settled
+    // historical date this device only knows the current address, so a fetch
+    // here would fabricate that day's weather under it — and overwrite the
+    // only copy if the user has moved since. Historical dates are therefore
+    // served from the cache alone; past days gain weather only through an
+    // explicit refresh or the settings backfill.
+    if (!forceRefresh && isHistoricalWeatherDate(dateStr, context.today)) {
+      return cached?.snapshot ?? null;
+    }
 
     // Preserve the existing short-lived negative cache for dates with no
     // usable snapshot, while force refresh always gets a new attempt.
@@ -626,11 +648,26 @@ export class WeatherService {
     }
   }
 
-  /** Persist only canonical data; offline/stale status is transient UI state. */
+  /**
+   * Persist only canonical data; offline/stale status is transient UI state.
+   *
+   * A settled historical record is the only remaining copy of that day, and
+   * the device cannot know where the user actually was back then, so a
+   * snapshot fetched under different coordinates — a refresh or backfill run
+   * after a move — must never overwrite it. Same-place refetches (a units or
+   * timezone change, sub-kilometre drift) stay allowed.
+   */
   async _persistSnapshot(dateStr, weather) {
     const canonical = toCanonicalWeatherSnapshot(weather);
     if (!canonical) return;
     if (canonical.configKey && canonical.configKey !== this._configKey()) return;
+    const existing = this.plugin.weatherCache?.[dateStr];
+    if (existing && hasSnapshotPayload(existing)
+      && isHistoricalWeatherDate(dateStr, this._today())
+      && coordinatesMovedBeyondThreshold(existing.latitude, existing.longitude, canonical.latitude, canonical.longitude)) {
+      console.warn('[Dayline] Kept pinned weather history for', dateStr, '- new snapshot came from different coordinates');
+      return;
+    }
     if (!this.plugin.weatherCache) this.plugin.weatherCache = {};
     this.plugin.weatherCache[dateStr] = { ...canonical, configKey: this._configKey() };
     // Bound the cache by entry count, never by wall-clock fetch age: a

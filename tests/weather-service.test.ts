@@ -387,7 +387,7 @@ describe('weather retry and cache reliability', () => {
 
     const archivePlugin = makePlugin();
     const archiveService = new WeatherService(archivePlugin, { request, now: () => NOW });
-    const result = await archiveService.getSnapshot(oldDate);
+    const result = await archiveService.forceRefresh(oldDate);
     const url = request.mock.calls[0][0].url as string;
 
     expect(result).toMatchObject({ precipitationProbability: null, windSpeed: 18.7 });
@@ -517,5 +517,78 @@ describe('weather retry and cache reliability', () => {
     expect(build('2021-03-05')).not.toContain('past_days');
     expect(build('2021-03-05')).not.toContain('precipitation_probability_max');
     expect(build('2026-08-06')).not.toContain('past_days');
+  });
+});
+
+describe('weather history pinning on review', () => {
+  beforeEach(() => vi.restoreAllMocks());
+
+  it('does not register weather for an old date while reviewing it', async () => {
+    const request = vi.fn().mockResolvedValue({ status: 200, json: { daily: dailyPayload('2021-03-05') } });
+    const plugin = makePlugin();
+    const service = new WeatherService(plugin, { request, now: () => NOW });
+
+    await expect(service.getSnapshot('2021-03-05')).resolves.toBeNull();
+
+    expect(request).not.toHaveBeenCalled();
+    expect(plugin.weatherCache).toEqual({});
+    expect(plugin._saveWeatherCache).not.toHaveBeenCalled();
+  });
+
+  it('still puts weather on an old empty date when the user explicitly refreshes', async () => {
+    const request = vi.fn().mockResolvedValue({ status: 200, json: { daily: dailyPayload('2021-03-05') } });
+    const plugin = makePlugin();
+    const service = new WeatherService(plugin, { request, now: () => NOW });
+
+    const result = await service.forceRefresh('2021-03-05');
+
+    expect(result).toMatchObject({ date: '2021-03-05', temperature: 31, weatherCode: 2 });
+    expect(plugin.weatherCache['2021-03-05']).toMatchObject({ temperature: 31 });
+    expect(plugin._saveWeatherCache).toHaveBeenCalled();
+    const url = request.mock.calls[0][0].url as string;
+    expect(url).toContain('https://archive-api.open-meteo.com/v1/archive');
+  });
+
+  it('keeps a pinned historical record when a refresh comes back from a different place', async () => {
+    const pinned = {
+      fetchedAt: '2021-03-05T09:00:00.000Z',
+      date: '2021-03-05',
+      latitude: 31.23,
+      longitude: 121.47,
+      units: 'metric',
+      temperature: 9,
+      weatherCode: 3,
+    };
+    const request = vi.fn().mockResolvedValue({ status: 200, json: { daily: dailyPayload('2021-03-05') } });
+    const plugin = makePlugin({ weatherCache: { '2021-03-05': pinned } });
+    const service = new WeatherService(plugin, { request, now: () => NOW });
+
+    const result = await service.forceRefresh('2021-03-05');
+
+    // The explicit refresh still answers with the requested day's forecast at
+    // the configured place, but the only remaining copy of the old day stays.
+    expect(result).toMatchObject({ temperature: 31 });
+    expect(plugin.weatherCache['2021-03-05']).toMatchObject({ latitude: 31.23, temperature: 9 });
+    expect(plugin._saveWeatherCache).not.toHaveBeenCalled();
+  });
+
+  it('lets a same-place refresh update a historical record', async () => {
+    const pinned = {
+      fetchedAt: '2021-03-05T09:00:00.000Z',
+      date: '2021-03-05',
+      latitude: 39.9042,
+      longitude: 116.4074,
+      units: 'metric',
+      temperature: 9,
+      weatherCode: 3,
+    };
+    const request = vi.fn().mockResolvedValue({ status: 200, json: { daily: dailyPayload('2021-03-05') } });
+    const plugin = makePlugin({ weatherCache: { '2021-03-05': pinned } });
+    const service = new WeatherService(plugin, { request, now: () => NOW });
+
+    await service.forceRefresh('2021-03-05');
+
+    expect(plugin.weatherCache['2021-03-05']).toMatchObject({ latitude: 39.9042, temperature: 31 });
+    expect(plugin._saveWeatherCache).toHaveBeenCalled();
   });
 });

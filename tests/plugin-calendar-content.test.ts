@@ -219,6 +219,9 @@ describe('calendar weather card revalidation (P-09)', () => {
     const weather = makeWeather();
     weather.getSnapshot = vi.fn(async () => null);
     const view = makeView({ weather });
+    // Pin the card to the harness "today" (2026-08-15): a failed fetch for
+    // today is an error; a past date without data is the no-data policy state.
+    view.activeDate = '2026-08-15';
 
     view.render();
     await flush();

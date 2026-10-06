@@ -90,7 +90,7 @@ export function isHistoricalWeatherDate(
 }
 
 /** A record that only carries bookkeeping or transient status holds no weather. */
-function hasSnapshotPayload(snapshot: WeatherSnapshot): boolean {
+export function hasSnapshotPayload(snapshot: WeatherSnapshot): boolean {
   return Object.keys(snapshot).some((key) => !NON_PAYLOAD_FIELDS.has(key));
 }
 
