@@ -46,7 +46,7 @@ const { weatherConditionLabel } = require('./weather-conditions');
 const { buildWeatherCardParts, buildWeatherStatus, normalizeWeatherDisplayFields } = require('./weather-display');
 const { localize: _l } = require('./locale');
 const { formatDateParts, getClockPartsInTimeZone, getTodayDate, isPathInFolder, joinVaultPath, normalizeVaultPath, parentVaultPath } = require('./date-utils');
-const { ThumbnailService } = require('./thumbnail-service');
+const { ThumbnailService, collectHeicAttachments } = require('./thumbnail-service');
 const { MediaService, formatMediaMetadataForDisplay } = require('./media-service');
 const { aggregateCalendarDays, withWeatherOnlyDays } = require('./calendar-summary');
 const { cachedMonthsReferencingMedia } = require('./calendar-media-refresh');
@@ -61,6 +61,7 @@ const { ViewVisibilityController, normalizeViewVisibilitySettings } = require('.
 const { hasExistingImage } = require('./heic-embed');
 const { loadHeicCodec } = require('./heic-codec');
 const { ImageMetadataCache, HeicCache, HEIC_EXTS, ReverseGeocoder } = require('./image-metadata');
+const { HeicThumbStore, DEFAULT_HEIC_THUMB_CACHE_DIR, normalizeHeicThumbCacheDir, isUnderCacheDir } = require('./heic-thumb-store');
 const { detectPlatformCapabilities, resolveCapabilityRoute, usesPhoneLayout } = require('./platform-capabilities');
 const { createMobileMarkdownQuickEntry } = require('./mobile-quick-entry');
 const {
@@ -90,6 +91,13 @@ const { collectMobileDiagnostics, formatMobileDiagnostics } = require('./mobile-
 
 const VIEW_TYPE = 'calendar-sidebar-view';
 const OVERLAY_ATTR = 'data-cal-weather-overlay';
+// Shared HEIC thumbnail cache timing: a synced cache file debounces a view
+// refresh, and the desktop pre-warm sweep starts once the index is ready.
+const HEIC_THUMB_REFRESH_DELAY_MS = 3000;
+const HEIC_THUMB_PREWARM_DELAY_MS = 8000;
+const HEIC_THUMB_PREWARM_SESSION_LIMIT = 300;
+const HEIC_THUMB_PREWARM_IDLE_TIMEOUT_MS = 2000;
+const HEIC_THUMB_PREWARM_FALLBACK_DELAY_MS = 250;
 
 /* ============================================================
    Plugin Entry
@@ -130,6 +138,10 @@ const DEFAULT_SETTINGS = {
   // Insert-time EXIF/GPS frontmatter persistence. Off by default: it writes to
   // the user's notes, so it must be an explicit opt-in.
   exifPersistMetadata: false,
+  // --- Cross-device HEIC thumbnails ---
+  // Desktop converts HEIC once and writes the JPEG into this vault folder so
+  // phones and tablets show it without decoding. Empty string disables it.
+  heicThumbCachePath: DEFAULT_HEIC_THUMB_CACHE_DIR,
   // --- On This Day settings ---
   onThisDayEntry: 'merged', // 'off' | 'merged' | 'header'
   onThisDayButton: true,  // derived from onThisDayEntry !== 'off'; kept for downgrade
@@ -172,6 +184,10 @@ class DaylinePlugin extends Plugin {
     this._mobileDaylineLastViewTypeValue = null;
     this._lastReminderDate = null;
     this._otdRequestToken = 0;
+    this._heicThumbRefreshTimer = null;
+    this._heicThumbPrewarmTimer = null;
+    this._heicThumbPrewarmRunning = false;
+    this._heicThumbPrewarmCancelled = false;
     // Insert-time EXIF sync state: one run per note at a time, with a coalesced
     // rerun when an event arrives while that run is still in flight.
     this._exifPersistInFlight = new Map();
@@ -201,6 +217,9 @@ class DaylinePlugin extends Plugin {
     // dates and embedded images.
     if (!this.capabilities.isMobile) {
       this._desktopJournalIndexStartup = this._startJournalIndexAfterMetadataResolved();
+      // Fill the shared HEIC thumbnail cache in the background, so other
+      // devices receive thumbnails without waiting for a desktop calendar visit.
+      void this._desktopJournalIndexStartup.then(() => this._scheduleHeicThumbPrewarm()).catch(() => undefined);
     }
     this._reminderTimer = window.setInterval(() => this._maybeRemind(), 60 * 1000);
 
@@ -208,13 +227,23 @@ class DaylinePlugin extends Plugin {
     this.weatherService = new WeatherService(this);
     // Shared EXIF metadata cache (used by calendar tooltip + note-image tooltip)
     this.exifCache = new ImageMetadataCache(this.app);
+    // Cross-device HEIC thumbnails: desktop conversions are persisted into a
+    // vault folder so mobile reads the JPEG without decoding anything.
+    this.heicThumbStore = new HeicThumbStore(this.app, {
+      getDir: () => this.settings.heicThumbCachePath,
+      // Only the desktop converts, so only the desktop may modify the shared
+      // folder. A phone that "forgot" an entry used to delete the shared
+      // thumbnail and sync that deletion back upstream.
+      allowWrites: () => Boolean(this.capabilities?.isDesktop),
+    });
     // HEIC thumbnail conversion cache
-    this.heicCache = new HeicCache(this.app, this.capabilities);
-    this.thumbnailService = new ThumbnailService(this.app, this.heicCache);
+    this.heicCache = new HeicCache(this.app, this.capabilities, { thumbStore: this.heicThumbStore });
+    this.thumbnailService = new ThumbnailService(this.app, this.heicCache, this.heicThumbStore);
     // Unified image/video/audio metadata and cover service.
     this.mediaService = new MediaService(this.app, this.heicCache, {
       imageMetadata: this.exifCache,
       capabilities: this.capabilities,
+      heicThumbStore: this.heicThumbStore,
     });
     // Reverse geocoder for EXIF GPS coordinates (Nominatim, free)
     this.geocoder = new ReverseGeocoder({
@@ -357,6 +386,13 @@ class DaylinePlugin extends Plugin {
     this.registerEvent(this.app.vault.on('modify', (file) => this._handleVaultModify(file)));
     this.registerEvent(this.app.vault.on('delete', (file) => this._handleJournalDelete(file)));
     this.registerEvent(this.app.vault.on('rename', (file, oldPath) => this._handleJournalRename(file, oldPath)));
+    // Mobile: a thumbnail or index arriving through sync must invalidate the
+    // negative cover results that were cached while it was still missing.
+    this.registerEvent(this.app.vault.on('create', (file) => this._handleHeicThumbCacheChange(file)));
+    this.registerEvent(this.app.vault.on('modify', (file) => this._handleHeicThumbCacheChange(file)));
+    // A cache file deleted on another device invalidates the in-memory index,
+    // so freshness is re-read instead of trusted.
+    this.registerEvent(this.app.vault.on('delete', (file) => this._handleHeicThumbCacheDelete(file)));
     // `changed` is the only event that carries the parsed embed list, so the
     // insert-time EXIF sync hangs off it rather than off the raw vault events.
     this.registerEvent(this.app.metadataCache.on('changed', (file, _data, cache) => {
@@ -378,6 +414,9 @@ class DaylinePlugin extends Plugin {
     window.clearTimeout(this._geocoderSaveTimer);
     window.clearTimeout(this._exifHoverTimer);
     window.clearInterval(this._reminderTimer);
+    window.clearTimeout(this._heicThumbRefreshTimer);
+    window.clearTimeout(this._heicThumbPrewarmTimer);
+    this._heicThumbPrewarmCancelled = true;
     this._removeExifDismissHandlers();
     this._endExifHover();
     // Synchronous teardown runs first. Obsidian does not await onunload, so a
@@ -393,6 +432,7 @@ class DaylinePlugin extends Plugin {
     this._mobileQuickEntry = null;
     this._removeCapabilityClasses();
     this.mediaService?.dispose?.();
+    this.heicThumbStore?.dispose?.();
     this._exifTooltipEl?.remove();
     this._exifTooltipEl = null;
     document.getElementById('calendar-sidebar-styles')?.remove();
@@ -1171,6 +1211,10 @@ class DaylinePlugin extends Plugin {
 
   _notifyCalendarImageChange(file) {
     if (!(file instanceof TFile) || !MEDIA_EXTENSIONS.includes(file.extension?.toLowerCase())) return;
+    // Files inside the shared HEIC thumbnail cache are derived artifacts, not
+    // journal media. On mobile a freshly synced thumbnail is handled by
+    // `_handleHeicThumbCacheChange` instead.
+    if (this._isHeicThumbCachePath(file.path)) return;
     this._invalidateMediaCaches(file.path);
     for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE)) {
       leaf.view?._onMediaChanged?.(file);
@@ -1185,6 +1229,132 @@ class DaylinePlugin extends Plugin {
     this.exifCache?.invalidate(path);
     this.heicCache?.invalidate(path);
     this.mediaService?.invalidate(path);
+    // A changed, deleted, or renamed source retires its stored thumbnail; the
+    // sweep in `prune()` also treats a stale entry as removable.
+    this.heicThumbStore?.forget?.(path);
+  }
+
+  _isHeicThumbCachePath(path) {
+    return isUnderCacheDir(path, this.settings?.heicThumbCachePath);
+  }
+
+  /** A cache file disappeared (deleted on another device): re-read freshness. */
+  _handleHeicThumbCacheDelete(file) {
+    if (!(file instanceof TFile)) return;
+    if (!this._isHeicThumbCachePath(file.path)) return;
+    this.heicThumbStore?.invalidateIndex?.();
+  }
+
+  /**
+   * Mobile-only: a thumbnail (or the index) arrived through sync. Negative
+   * cover results were cached while it was still missing, so drop the caches
+   * and repaint once the sync burst settles.
+   */
+  _handleHeicThumbCacheChange(file) {
+    if (!this.capabilities?.isMobile) return;
+    if (!(file instanceof TFile)) return;
+    if (!this._isHeicThumbCachePath(file.path)) return;
+    if (this._heicThumbRefreshTimer) return;
+    this._heicThumbRefreshTimer = window.setTimeout(() => {
+      this._heicThumbRefreshTimer = null;
+      this.heicThumbStore?.invalidateIndex?.();
+      this.mediaService?.invalidate?.();
+      for (const viewType of DAYLINE_VIEW_TYPES) {
+        for (const leaf of this.app.workspace.getLeavesOfType(viewType)) leaf.view?.render?.();
+      }
+    }, HEIC_THUMB_REFRESH_DELAY_MS);
+  }
+
+  /**
+   * Desktop-only pre-warm: convert every HEIC the journal references that the
+   * shared cache does not have yet, so other devices receive thumbnails
+   * without waiting for a desktop calendar visit. Bounded per session and
+   * yielded through idle callbacks.
+   */
+  _scheduleHeicThumbPrewarm() {
+    if (!this.capabilities?.isDesktop) return;
+    if (this._heicThumbPrewarmTimer || this._heicThumbPrewarmRunning) return;
+    this._heicThumbPrewarmTimer = window.setTimeout(() => {
+      this._heicThumbPrewarmTimer = null;
+      void this._runHeicThumbPrewarm();
+    }, HEIC_THUMB_PREWARM_DELAY_MS);
+  }
+
+  _collectHeicMediaFiles() {
+    const files = new Map();
+    // `collectHeicAttachments` also covers the frontmatter `cover` link, which
+    // is not part of `entry.media`.
+    for (const attachment of collectHeicAttachments(this.journalIndex?.getEntries?.() || [])) {
+      const file = this.app.metadataCache?.getFirstLinkpathDest?.(attachment.normalizedLink, attachment.sourcePath)
+        || this.app.vault?.getAbstractFileByPath?.(attachment.normalizedLink);
+      if (file?.path && !files.has(file.path)) files.set(file.path, file);
+    }
+    return Array.from(files.values());
+  }
+
+  /**
+   * Convert every HEIC the journal references that the shared cache is missing.
+   * The background pre-warm stops at a per-session cap; the settings button
+   * calls this with `full: true`, which processes the whole list in one run.
+   */
+  async _runHeicThumbPrewarm({ full = false, onProgress = null } = {}) {
+    const store = this.heicThumbStore;
+    if (!store?.enabled || this._heicThumbPrewarmRunning || this._heicThumbPrewarmCancelled) {
+      return { converted: 0, total: 0, skipped: true };
+    }
+    this._heicThumbPrewarmRunning = true;
+    let converted = 0;
+    let done = 0;
+    try {
+      const files = full
+        ? this._collectHeicMediaFiles()
+        : this._collectHeicMediaFiles().slice(0, HEIC_THUMB_PREWARM_SESSION_LIMIT);
+      onProgress?.({ done, total: files.length, converted });
+      for (const file of files) {
+        if (this._heicThumbPrewarmCancelled || !store.enabled) break;
+        try {
+          if (!(await store.hasFresh(file))) {
+            if (full) await this._heicThumbPrewarmYield();
+            else await this._heicThumbPrewarmIdle();
+            if (!this._heicThumbPrewarmCancelled) {
+              await this.heicCache?.getThumbnail?.(file);
+              converted++;
+            }
+          }
+        } catch {
+          // A single unreadable file must not stop the sweep.
+        }
+        done++;
+        onProgress?.({ done, total: files.length, converted });
+      }
+      if (converted) console.debug(`[Dayline] HEIC thumbnail pre-warm converted ${converted} file(s).`);
+      return { converted, total: files.length, skipped: false };
+    } finally {
+      this._heicThumbPrewarmRunning = false;
+    }
+  }
+
+  /** Settings-page action: run the sweep with no per-session cap. */
+  async fillHeicThumbCache(onProgress) {
+    return this._runHeicThumbPrewarm({ full: true, onProgress });
+  }
+
+  /** Yield between explicit full-sweep items without waiting for idle. */
+  _heicThumbPrewarmYield() {
+    return new Promise((resolve) => {
+      window.setTimeout(resolve, 0);
+    });
+  }
+
+  _heicThumbPrewarmIdle() {
+    return new Promise((resolve) => {
+      const requestIdle = window.requestIdleCallback;
+      if (typeof requestIdle === 'function') {
+        requestIdle.call(window, () => resolve(), { timeout: HEIC_THUMB_PREWARM_IDLE_TIMEOUT_MS });
+      } else {
+        window.setTimeout(resolve, HEIC_THUMB_PREWARM_FALLBACK_DELAY_MS);
+      }
+    });
   }
 
   _queueJournalWrite(label, task, formatNotice) {
@@ -1491,6 +1661,7 @@ class DaylinePlugin extends Plugin {
     // Delete stale cache entries to prevent data.json bloat
     this._cleanupWeatherCache();
     this.settings = Object.assign({}, DEFAULT_SETTINGS, data, normalizeViewVisibilitySettings(data));
+    this.settings.heicThumbCachePath = normalizeHeicThumbCacheDir(this.settings.heicThumbCachePath);
     const legacyWeatherVisible = data.showCalendarWeather !== false;
     if (data.showCalendarWeatherCard === undefined) this.settings.showCalendarWeatherCard = legacyWeatherVisible;
     if (data.showCalendarWeatherBadge === undefined) this.settings.showCalendarWeatherBadge = legacyWeatherVisible;
@@ -2004,6 +2175,7 @@ class CalendarView extends ItemView {
   async _onJournalIndexChanged(change) {
     if (change?.type !== 'file') {
       await this.refresh();
+      this._scheduleHeicThumbPrewarm();
       return;
     }
 
@@ -3000,10 +3172,24 @@ class CalendarView extends ItemView {
       const result = await this.mediaService?.loadFirstCover?.(summary.media || [], summary.cover);
       if (result && bgEl.isConnected) {
         this._applyBackgroundResource(bgEl, result.url);
+        return;
       }
+      this._markBackgroundMissing(bgEl);
     } catch {
-      // silent
+      this._markBackgroundMissing(bgEl);
     }
+  }
+
+  /**
+   * No cover could be resolved (for example a HEIC whose shared thumbnail has
+   * not synced yet). Flip the cell to its no-image placeholder instead of
+   * leaving an empty tile that still claims to have an image.
+   */
+  _markBackgroundMissing(bgEl) {
+    const cell = bgEl?.closest?.('.cal-day');
+    if (!cell) return;
+    cell.removeClass('cal-has-image');
+    cell.addClass('cal-no-image');
   }
 
   _applyBackgroundResource(bgEl, resource) {
@@ -3315,7 +3501,7 @@ class CalendarView extends ItemView {
 
   async _convertHeicEmbed(el, src) {
     if (this.closed) return;
-    if (resolveCapabilityRoute(this.plugin.capabilities, 'heic') === 'disabled') return;
+    const route = resolveCapabilityRoute(this.plugin.capabilities, 'heic');
     // Show loading indicator
     const loader = el.createDiv({ cls: 'cal-heic-preview' });
     loader.textContent = t(this.plugin.settings, 'heicConverting');
@@ -3330,12 +3516,20 @@ class CalendarView extends ItemView {
         return;
       }
 
-      const thumb = await this.plugin.heicCache.getThumbnail(file);
+      // Mobile never decodes HEIC: it shows the JPEG the desktop converted
+      // into the shared cache, once that file has synced over.
+      const thumb = route === 'disabled' ? null : await this.plugin.heicCache.getThumbnail(file);
       if (this.closed) {
         loader.remove();
         return;
       }
-      if (!thumb) {
+      let url = thumb?.dataUrl || null;
+      if (!url) url = (await this.plugin.heicThumbStore?.read?.(file))?.url || null;
+      if (this.closed) {
+        loader.remove();
+        return;
+      }
+      if (!url) {
         loader.textContent = t(this.plugin.settings, 'heicConversionFailed');
         return;
       }
@@ -3348,7 +3542,7 @@ class CalendarView extends ItemView {
 
       // Replace loader with image
       const img = loader.createEl('img', { cls: 'cal-heic-preview-image' });
-      img.src = thumb.dataUrl;
+      img.src = url;
       img.setAttribute('data-cal-exif', '1');
       this._bindNoteMediaHover(img, {
         onEnter: (e) => this._onNoteImageEnter(e, img),

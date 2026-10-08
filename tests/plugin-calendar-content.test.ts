@@ -332,6 +332,74 @@ describe('HEIC embed loader cleanup (P-11)', () => {
   });
 });
 
+describe('HEIC embed shared-cache fallback', () => {
+  it('renders the stored thumbnail when no local conversion is possible', async () => {
+    const view = makeView();
+    const file = new TestTFile();
+    view.app = { metadataCache: { getFirstLinkpathDest: () => file } };
+    view._notePathForElement = () => 'Daily/2026-08-05.md';
+    view._bindNoteMediaHover = () => {};
+    view._addNoteMediaInfoControl = () => {};
+    view.plugin.heicCache = { getThumbnail: vi.fn(async () => null) };
+    const read = vi.fn(async () => ({ url: 'blob:shared-thumb' }));
+    view.plugin.heicThumbStore = { enabled: true, read };
+
+    const embed = view.contentEl.createDiv({ cls: 'internal-embed', attr: { src: 'photo.heic' } });
+    await view._convertHeicEmbed(embed, 'photo.heic');
+
+    expect(read).toHaveBeenCalledWith(file);
+    const img = embed.querySelector('img.cal-heic-preview-image');
+    expect(img?.getAttribute('src')).toBe('blob:shared-thumb');
+  });
+
+  it('keeps the failure text when neither the conversion nor the shared cache has it', async () => {
+    const view = makeView();
+    const file = new TestTFile();
+    view.app = { metadataCache: { getFirstLinkpathDest: () => file } };
+    view._notePathForElement = () => 'Daily/2026-08-05.md';
+    view.plugin.heicCache = { getThumbnail: vi.fn(async () => null) };
+    view.plugin.heicThumbStore = { enabled: true, read: vi.fn(async () => null) };
+
+    const embed = view.contentEl.createDiv({ cls: 'internal-embed', attr: { src: 'photo.heic' } });
+    await view._convertHeicEmbed(embed, 'photo.heic');
+
+    expect(embed.querySelector('.cal-heic-preview')?.textContent).toBe(t(baseSettings(), 'heicConversionFailed'));
+    expect(embed.querySelector('img.cal-heic-preview-image')).toBeNull();
+  });
+});
+
+describe('calendar HEIC cover fallback', () => {
+  it('flips a cell with an unresolvable cover to the no-image placeholder', async () => {
+    const view = makeView();
+    view.plugin.capabilities = {};
+    view.mediaService = { loadFirstCover: vi.fn(async () => null) };
+    const cover = {
+      link: 'photo.heic', normalizedLink: 'photo.heic', sourcePath: 'Daily/2026-08-05.md',
+      kind: 'image', external: false, extension: 'heic',
+    };
+    view.monthCache.set('2026-7', new Map([['2026-08-05', {
+      date: '2026-08-05',
+      entries: [],
+      entryCount: 1,
+      sourceIds: [],
+      hasRecord: true,
+      hasWeather: false,
+      path: 'Daily/2026-08-05.md',
+      media: [cover],
+      images: [cover],
+      cover,
+    }]]));
+
+    view.render();
+    await flush();
+
+    const cell = view.contentEl.querySelector('.cal-day[data-calendar-focus="day-2026-08-05"]');
+    expect(cell).not.toBeNull();
+    expect(cell.classList.contains('cal-has-image')).toBe(false);
+    expect(cell.classList.contains('cal-no-image')).toBe(true);
+  });
+});
+
 describe('calendar written-day marker (Day One style)', () => {
   const writtenEntry = {
     date: '2026-08-05',

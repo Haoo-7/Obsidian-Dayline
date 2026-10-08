@@ -121,6 +121,8 @@ When the new plugin folder has no `data.json`, Dayline migrates settings from an
 | --- | --- |
 | **Show image EXIF metadata** | Display camera settings and capture info when hovering over images. On by default. |
 | **Resolve GPS locations** | Send EXIF GPS coordinates to OpenStreetMap Nominatim to show place names. **Off by default**; no coordinates leave your device until you enable it. |
+| **HEIC thumbnail cache folder** | Vault folder where the desktop writes the HEIC thumbnails it converted (default: the hidden `.dayline/thumbs`), so phones and tablets display the same thumbnails without decoding. Leave empty to disable. Hidden folders (starting with a dot) are not synced by Obsidian Sync — pick a visible folder if you use Sync. The folder can be deleted at any time. |
+| **Generate all thumbnails now** | Convert every HEIC the journal references in one run, with progress shown under the button. The automatic pre-warm stops at 300 per session; this button has no cap. Desktop only. |
 
 **On This Day**
 
@@ -161,7 +163,7 @@ Dates are matched from the configured date field, then `date`, `creationDate`, a
 
 - **Obsidian v1.5.0+**, on desktop and mobile.
 - Daily notes default to `YYYY-MM-DD.md`, but the folder, source, and date field are configurable.
-- HEIC/HEIF thumbnail conversion is desktop-only. Video covers, audio artwork, and unsupported or oversized media can fall back to metadata or the original attachment depending on the device.
+- HEIC/HEIF thumbnail conversion runs on desktop only. Converted thumbnails are written to the **HEIC thumbnail cache folder** (default: the hidden `.dayline/thumbs`), and phones and tablets read that cache directly, so no device has to decode HEIC. The folder can be deleted at any time; the desktop rebuilds it as needed. Video covers, audio artwork, and unsupported or oversized media still fall back to metadata or the original attachment depending on the device.
 - Historical weather is best-effort because it depends on archive coverage. When refresh fails, compatible cached data can remain visible as stale or offline.
 - The timeline opens notes from the folders you configure. It does not replace Obsidian's file browser, Markdown editor, or sync system.
 

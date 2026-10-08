@@ -10,6 +10,7 @@ import { calendarMoodMarker, shouldShowCalendarMoodStyle, shouldShowCalendarWrit
 import { shouldShowTimelineMoodTrend, shouldShowTimelineTitles } from './journal-timeline-display';
 import { JournalSourceSettingsEditor } from './journal-source-settings';
 import { normalizeOnThisDayEntryMode } from './on-this-day-entry';
+import { DEFAULT_HEIC_THUMB_CACHE_DIR, normalizeHeicThumbCacheDir } from './heic-thumb-store';
 
 const VIEW_TYPE = 'calendar-sidebar-view';
 
@@ -63,6 +64,21 @@ export function normalizeMoodMetadataPath(raw: unknown): SettingsFieldValidation
 }
 
 /**
+ * The HEIC thumbnail cache is a vault-relative folder. Empty input disables the
+ * cross-device cache. Hidden folders (a leading dot) keep the vault clean but
+ * are skipped by Obsidian Sync, so any in-vault folder is accepted and the
+ * choice is left to the user.
+ */
+export function normalizeHeicThumbCachePath(raw: unknown): SettingsFieldValidation {
+  const value = String(raw ?? '').trim();
+  if (value === '') return { ok: true, value: '' };
+  if (/[\u0000-\u001f]/.test(value)) return { ok: false, messageKey: 'heicThumbCachePathInvalid' };
+  const normalized = normalizeHeicThumbCacheDir(value);
+  if (!normalized) return { ok: false, messageKey: 'heicThumbCachePathInvalid' };
+  return { ok: true, value: normalized };
+}
+
+/**
  * The one-tap locate control needs a platform location service. Obsidian mobile
  * (iOS/Android) provides one; desktop Electron builds usually have no provider
  * key, where the request only produced POSITION_UNAVAILABLE errors and an
@@ -74,6 +90,15 @@ export function shouldShowUseCurrentLocationButton(
 ): boolean {
   if (!capabilities) return false;
   return Boolean(capabilities.isMobileApp || capabilities.isIos || capabilities.isAndroid);
+}
+
+/**
+ * HEIC conversion only exists in the desktop build (the WASM decoder is
+ * desktop-gated), so the "generate everything now" action is hidden where it
+ * could not do any work.
+ */
+export function shouldShowHeicThumbCacheGenerate(capabilities?: { isDesktop?: boolean } | null): boolean {
+  return Boolean(capabilities?.isDesktop);
 }
 
 /**
@@ -317,6 +342,35 @@ export class DaylineSettingsTab extends PluginSettingTab {
       const message = error?.message || String(error);
       console.warn('[Dayline] Mood metadata path change failed:', message);
       new Notice(t(this.plugin.settings, 'moodMetadataPathFailed'));
+    }
+  }
+
+  /**
+   * Settings action: convert every missing HEIC thumbnail in one run. The
+   * background pre-warm stops at a per-session cap; this ignores it and reports
+   * progress inline in the row's description.
+   */
+  async _fillHeicThumbCache(setting, button) {
+    const plugin = this.plugin;
+    if (!plugin.heicThumbStore?.enabled) {
+      new Notice(t(plugin.settings, 'heicThumbCacheGenerateDisabled'));
+      return;
+    }
+    if (typeof plugin.fillHeicThumbCache !== 'function') return;
+    button?.setDisabled?.(true);
+    const idleDescription = t(plugin.settings, 'heicThumbCacheGenerateDesc');
+    try {
+      const result = await plugin.fillHeicThumbCache(({ done, total }) => {
+        setting?.setDesc?.(t(plugin.settings, 'heicThumbCacheGenerateProgress', { done, total }));
+      });
+      if (result?.skipped) {
+        new Notice(t(plugin.settings, 'heicThumbCacheGenerateBusy'));
+      } else {
+        new Notice(t(plugin.settings, 'heicThumbCacheGenerateDone', { count: result?.converted ?? 0 }));
+      }
+    } finally {
+      button?.setDisabled?.(false);
+      setting?.setDesc?.(idleDescription);
     }
   }
 
@@ -757,6 +811,28 @@ export class DaylineSettingsTab extends PluginSettingTab {
             this.plugin.settings.exifReverseGeocode = value;
             await this._saveSettings();
           }));
+    }
+
+    this._addValidatedTextField(containerEl, {
+      name: t(this.plugin.settings, 'heicThumbCachePath'),
+      description: t(this.plugin.settings, 'heicThumbCachePathDesc'),
+      placeholder: DEFAULT_HEIC_THUMB_CACHE_DIR,
+      field: 'heicThumbCachePath',
+      initialValue: this.plugin.settings.heicThumbCachePath ?? DEFAULT_HEIC_THUMB_CACHE_DIR,
+      parse: (raw) => normalizeHeicThumbCachePath(raw),
+      localizeError: (key) => t(this.plugin.settings, key),
+      apply: () => { this.plugin.heicThumbStore?.reconfigure?.(); },
+    });
+
+    if (shouldShowHeicThumbCacheGenerate(this.plugin.capabilities)) {
+      const generateRow = new Setting(containerEl)
+        .setName(t(this.plugin.settings, 'heicThumbCacheGenerate'))
+        .setDesc(t(this.plugin.settings, 'heicThumbCacheGenerateDesc'));
+      generateRow.addButton((button) => button
+        .setButtonText(t(this.plugin.settings, 'heicThumbCacheGenerate'))
+        .onClick(async () => {
+          await this._fillHeicThumbCache(generateRow, button);
+        }));
     }
 
     this._addSection(containerEl, 'on-this-day');

@@ -27,6 +27,11 @@ describe('mobile diagnostics', () => {
         },
       },
       journalIndex: { getEntries: () => [{ path: 'private-note.md' }] },
+      heicThumbStore: {
+        enabled: true,
+        entryCount: 3,
+        lastReadMiss: { reason: 'size-mismatch', mtimeDeltaMs: -28800000, entries: 3 },
+      },
       _mobileDiagnosticEvents: [{ name: 'plugin-loaded', at: '2026-08-31T00:00:00.000Z' }],
     });
 
@@ -37,6 +42,11 @@ describe('mobile diagnostics', () => {
     expect(output.daylineLeaves).toEqual({ calendar: 1, timeline: 1, legacy: 0, total: 2 });
     expect(output.activeContent).toEqual({ clientHeight: 320, scrollHeight: 960, childElementCount: 7 });
     expect(output.journalEntryCount).toBe(1);
+    expect(output.heicThumbCache).toEqual({
+      enabled: true,
+      entries: 3,
+      lastMiss: { reason: 'size-mismatch', mtimeDeltaMs: -28800000, entries: 3 },
+    });
     expect(formatMobileDiagnostics(output)).not.toContain('private-note.md');
   });
 
@@ -45,6 +55,11 @@ describe('mobile diagnostics', () => {
       manifest: {},
       capabilities: { routes: { mediaMetadata: 'fallback' } },
       journalIndex: { getEntries: () => { throw new Error('index unavailable'); } },
+      heicThumbStore: {
+        enabled: true,
+        entryCount: 2,
+        lastReadMiss: { reason: 'Calendar/Daily/private-note.md', mtimeDeltaMs: null, entries: -4 },
+      },
       _mobileDiagnosticEvents: [
         ...Array.from({ length: 18 }, () => ({ name: 'mode-request:timeline', at: '2026-08-31T00:00:00.000Z' })),
         { name: 'Calendar/Daily/private-note.md', at: '/Users/example/secret.md' },
@@ -54,6 +69,7 @@ describe('mobile diagnostics', () => {
 
     expect(output.pluginVersion).toBe('unknown');
     expect(output.journalEntryCount).toBeNull();
+    expect(output.heicThumbCache.lastMiss).toEqual({ reason: 'error', mtimeDeltaMs: null, entries: null });
     expect(output.events).toHaveLength(19);
     expect(output.events.at(-1)).toEqual({ name: 'unknown', at: 'unknown' });
     expect(formatMobileDiagnostics(output)).not.toContain('private-note.md');

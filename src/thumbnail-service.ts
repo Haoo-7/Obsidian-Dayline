@@ -1,7 +1,33 @@
-import { classifyMediaLink, IMAGE_EXTENSIONS as IMAGE_TYPES, normalizeMediaLink } from './media-links';
+import { classifyMediaLink, createMediaAttachment, IMAGE_EXTENSIONS as IMAGE_TYPES, normalizeMediaLink } from './media-links';
 
 export const IMAGE_EXTENSIONS = IMAGE_TYPES;
 export const HEIC_EXTENSIONS = ['heic', 'heif'];
+
+/**
+ * Every HEIC/HEIF image a journal entry references: its media attachments plus
+ * the frontmatter `cover` link, which the index stores separately from `media`.
+ * Deduplicated by source note + link so the desktop pre-warm converts each
+ * source file once.
+ */
+export function collectHeicAttachments(
+  entries: Array<{ media?: any[]; cover?: string; path?: string }> | null | undefined,
+): any[] {
+  const collected: any[] = [];
+  const seen = new Set<string>();
+  const push = (attachment: any) => {
+    if (!attachment || attachment.external || attachment.kind !== 'image') return;
+    if (!HEIC_EXTENSIONS.includes(String(attachment.extension || '').toLowerCase())) return;
+    const key = `${attachment.sourcePath}\u0000${attachment.normalizedLink}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    collected.push(attachment);
+  };
+  for (const entry of entries || []) {
+    for (const attachment of entry?.media || []) push(attachment);
+    if (entry?.cover) push(createMediaAttachment(entry.cover, entry.path || ''));
+  }
+  return collected;
+}
 
 export interface ThumbnailResult {
   url: string;
@@ -12,10 +38,12 @@ export interface ThumbnailResult {
 export class ThumbnailService {
   private readonly app: any;
   private readonly heicCache: any;
+  private readonly heicThumbStore: any;
 
-  constructor(app: any, heicCache: any) {
+  constructor(app: any, heicCache: any, heicThumbStore?: any) {
     this.app = app;
     this.heicCache = heicCache;
+    this.heicThumbStore = heicThumbStore || null;
   }
 
   isImageFile(file: any): boolean {
@@ -42,9 +70,15 @@ export class ThumbnailService {
     if (!file) return null;
     try {
       const ext = String(file.extension).toLowerCase();
-      const url = HEIC_EXTENSIONS.includes(ext)
-        ? (await this.heicCache?.getThumbnail(file))?.dataUrl
-        : this.app.vault.getResourcePath(file);
+      let url = null;
+      if (HEIC_EXTENSIONS.includes(ext)) {
+        url = (await this.heicCache?.getThumbnail(file))?.dataUrl || null;
+        // Mobile never decodes: fall back to the JPEG the desktop wrote into
+        // the shared cache, when it has synced.
+        if (!url) url = (await this.heicThumbStore?.read?.(file))?.url || null;
+      } else {
+        url = this.app.vault.getResourcePath(file);
+      }
       return url ? { url, path: file.path, index } : null;
     } catch {
       return null;

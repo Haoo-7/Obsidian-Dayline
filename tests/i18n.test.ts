@@ -176,7 +176,7 @@ describe('nine-language key parity and count plurals', () => {
 
   it('keeps one identical key set and English-compatible placeholders in every language', () => {
     const englishKeys = Object.keys(STRINGS.en).sort();
-    expect(englishKeys).toHaveLength(295);
+    expect(englishKeys).toHaveLength(304);
 
     for (const language of SUPPORTED_DISPLAY_LANGUAGES) {
       expect(Object.keys(STRINGS[language]).sort(), language).toEqual(englishKeys);

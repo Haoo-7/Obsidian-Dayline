@@ -707,9 +707,13 @@ export const MAX_HEIC_PIXELS = 50 * 1000 * 1000;
 export const MAX_HEIC_EDGE = 8192;
 
 export class HeicCache {
-  constructor(app, capabilities?: any) {
+  constructor(app, capabilities?, options?) {
     this.app = app;
     this.capabilities = capabilities;
+    // Optional shared on-disk store: successful conversions are persisted so
+    // phones and tablets can read the JPEG without decoding (see
+    // `heic-thumb-store.ts`).
+    this.thumbStore = options?.thumbStore || null;
     /** @type {Map<string, {dataUrl:string, width:number, height:number}>} */
     this._cache = new Map();
     /** @type {Map<string, Promise>} */
@@ -773,6 +777,10 @@ export class HeicCache {
       const value = this._cache.get(key);
       this._cache.delete(key);
       this._cache.set(key, value);
+      // The shared store may have been pruned, deleted by hand, or rewritten
+      // while this session held the thumbnail in memory: a memory hit still has
+      // to restore the cross-device copy.
+      void this.ensurePersisted(file, value);
       return value;
     }
     if (this._pending.has(key)) return this._pending.get(key);
@@ -786,6 +794,7 @@ export class HeicCache {
         this._cache.set(key, result);
         while (this._cache.size > 48) this._cache.delete(this._cache.keys().next().value);
       }
+      if (result) void this.ensurePersisted(file, result);
       return result;
     } finally {
       if (this._pending.get(key) === promise) this._pending.delete(key);
@@ -884,6 +893,22 @@ export class HeicCache {
   _hasLibheifFactory() {
     const plugin = this.app.plugins?.plugins?.[PLUGIN_ID];
     return typeof plugin?._libheifFactory === 'function';
+  }
+
+  /**
+   * Store the thumbnail for other devices, unless the shared cache already has
+   * a fresh entry. Best effort by design: the store swallows its own failures
+   * and a cache write must never affect the in-memory result.
+   */
+  async ensurePersisted(file, value) {
+    const store = this.thumbStore;
+    if (!store?.write || !value?.dataUrl) return;
+    try {
+      if (await store.hasFresh?.(file)) return;
+      await store.write(file, value);
+    } catch {
+      // Ignored: the phone-facing copy is optional.
+    }
   }
 
   invalidate(filePath) {

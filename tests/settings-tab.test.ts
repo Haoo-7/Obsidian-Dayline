@@ -44,7 +44,11 @@ vi.mock('obsidian', () => ({
       return this;
     }
     addButton(cb: (control: any) => void) {
-      const control: any = { setButtonText() { return control; }, onClick() { return control; } };
+      const control: any = {
+        setButtonText() { return control; },
+        setDisabled(value: boolean) { control.disabled = value; return control; },
+        onClick(fn: () => Promise<void>) { control.onClick = fn; return control; },
+      };
       cb(control);
       return this;
     }
@@ -75,11 +79,13 @@ import {
   commitJournalSourceSettings,
   createSettingsLocalizer,
   fillDisplayLanguageDropdown,
+  normalizeHeicThumbCachePath,
   normalizeMoodMetadataPath,
   parseCoordinateSettingValue,
   shouldShowCalendarMoodStyle,
   shouldShowCalendarWeatherOptions,
   shouldShowExifGeocoding,
+  shouldShowHeicThumbCacheGenerate,
   shouldShowOnThisDayExcerptSettings,
   shouldShowUseCurrentLocationButton,
   shouldShowWeatherLocationOption,
@@ -251,6 +257,83 @@ describe('mood metadata path validation', () => {
   });
 });
 
+describe('HEIC thumbnail cache folder validation', () => {
+  it('accepts a vault-relative folder and treats blank input as disabled', () => {
+    expect(normalizeHeicThumbCachePath('')).toEqual({ ok: true, value: '' });
+    expect(normalizeHeicThumbCachePath('  ')).toEqual({ ok: true, value: '' });
+    // Hidden and visible folders are both valid: the choice is the user's.
+    expect(normalizeHeicThumbCachePath('.dayline/thumbs')).toEqual({ ok: true, value: '.dayline/thumbs' });
+    expect(normalizeHeicThumbCachePath(' .dayline\\thumbs/ ')).toEqual({ ok: true, value: '.dayline/thumbs' });
+    expect(normalizeHeicThumbCachePath('dayline-thumbs')).toEqual({ ok: true, value: 'dayline-thumbs' });
+  });
+
+  it('rejects paths that would leave the vault or name a device', () => {
+    const invalid = { ok: false, messageKey: 'heicThumbCachePathInvalid' };
+    expect(normalizeHeicThumbCachePath('/absolute/path')).toEqual(invalid);
+    expect(normalizeHeicThumbCachePath('~/thumbs')).toEqual(invalid);
+    expect(normalizeHeicThumbCachePath('C:\\thumbs')).toEqual(invalid);
+    expect(normalizeHeicThumbCachePath('Photos/../../outside')).toEqual(invalid);
+    expect(normalizeHeicThumbCachePath('bad\u0000name')).toEqual(invalid);
+  });
+});
+
+describe('HEIC thumbnail generation action', () => {
+  it('only appears where the desktop converter exists', () => {
+    expect(shouldShowHeicThumbCacheGenerate({ isDesktop: true })).toBe(true);
+    expect(shouldShowHeicThumbCacheGenerate({ isDesktop: false })).toBe(false);
+    expect(shouldShowHeicThumbCacheGenerate(undefined)).toBe(false);
+  });
+
+  it('runs the full sweep and reports progress and the final count', async () => {
+    hoisted.notices.length = 0;
+    const plugin: any = makePlugin({ displayLanguage: 'en' });
+    plugin.heicThumbStore = { enabled: true };
+    plugin.fillHeicThumbCache = vi.fn(async (onProgress: any) => {
+      onProgress?.({ done: 1, total: 2, converted: 1 });
+      onProgress?.({ done: 2, total: 2, converted: 1 });
+      return { converted: 1, total: 2, skipped: false };
+    });
+    const tab = makeTab(plugin);
+    const setting = { setDesc: vi.fn() };
+    const button = { setDisabled: vi.fn() };
+
+    await tab._fillHeicThumbCache(setting, button);
+
+    expect(plugin.fillHeicThumbCache).toHaveBeenCalledTimes(1);
+    expect(setting.setDesc).toHaveBeenCalledWith('Generating 1/2');
+    expect(setting.setDesc).toHaveBeenLastCalledWith(expect.stringContaining('Scan every HEIC'));
+    expect(button.setDisabled).toHaveBeenNthCalledWith(1, true);
+    expect(button.setDisabled).toHaveBeenLastCalledWith(false);
+    expect(hoisted.notices.at(-1)).toBe('Generated 1 HEIC thumbnails');
+  });
+
+  it('explains when the cache folder is empty instead of running', async () => {
+    hoisted.notices.length = 0;
+    const plugin: any = makePlugin({ displayLanguage: 'en' });
+    plugin.heicThumbStore = { enabled: false };
+    const tab = makeTab(plugin);
+
+    await tab._fillHeicThumbCache({ setDesc: vi.fn() }, { setDisabled: vi.fn() });
+
+    expect(plugin.fillHeicThumbCache).toBeUndefined();
+    expect(hoisted.notices.at(-1)).toBe('The cache folder is empty, so the HEIC thumbnail cache is off');
+  });
+
+  it('reports a concurrent run instead of starting a second one', async () => {
+    hoisted.notices.length = 0;
+    const plugin: any = makePlugin({ displayLanguage: 'en' });
+    plugin.heicThumbStore = { enabled: true };
+    plugin.fillHeicThumbCache = vi.fn(async () => ({ converted: 0, total: 0, skipped: true }));
+    const tab = makeTab(plugin);
+    const button = { setDisabled: vi.fn() };
+
+    await tab._fillHeicThumbCache({ setDesc: vi.fn() }, button);
+
+    expect(hoisted.notices.at(-1)).toBe('HEIC thumbnail generation is already running');
+    expect(button.setDisabled).toHaveBeenLastCalledWith(false);
+  });
+});
+
 describe('one-tap locate availability', () => {
   it('only offers the button on platforms that provide a location service', () => {
     expect(shouldShowUseCurrentLocationButton({ isMobileApp: true })).toBe(true);
@@ -295,6 +378,7 @@ function makeTab(plugin: FakePlugin) {
     hide: () => void;
     _bindValidatedTextField: (text: unknown, options: Record<string, unknown>) => void;
     _reloadMoodMetadataStore: () => Promise<void>;
+    _fillHeicThumbCache: (setting: unknown, button: unknown) => Promise<void>;
     _fillWeatherCoordinatesFromDevice: (button: unknown) => Promise<void>;
   };
   tab.display = vi.fn();

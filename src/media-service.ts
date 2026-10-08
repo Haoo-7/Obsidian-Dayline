@@ -48,6 +48,11 @@ export interface MediaServiceOptions {
   imageMetadata?: { get(file: any): Promise<Array<{ key: string; value: string }> | null> };
   inputFactory?: (resourceUrl: string) => any;
   capabilities?: PlatformCapabilities;
+  /** Shared on-disk HEIC thumbnail cache (`heic-thumb-store.ts`). */
+  heicThumbStore?: {
+    enabled?: boolean;
+    read(file: any): Promise<{ url: string } | null>;
+  };
 }
 
 /**
@@ -254,6 +259,7 @@ function roundDuration(value: unknown): number | undefined {
 export class MediaService {
   private readonly app: any;
   private readonly heicCache: any;
+  private readonly heicThumbStore?: MediaServiceOptions['heicThumbStore'];
   private readonly imageMetadata?: MediaServiceOptions['imageMetadata'];
   private readonly inputFactory: (resourceUrl: string) => any;
   private readonly capabilities?: PlatformCapabilities;
@@ -268,9 +274,17 @@ export class MediaService {
   constructor(app: any, heicCache?: any, options: MediaServiceOptions = {}) {
     this.app = app;
     this.heicCache = heicCache;
+    this.heicThumbStore = options.heicThumbStore;
     this.imageMetadata = options.imageMetadata;
     this.capabilities = options.capabilities;
     this.inputFactory = options.inputFactory || ((resourceUrl) => this.createInput(resourceUrl));
+  }
+
+  /** Whether a HEIC miss is retried instead of cached (shared cache is enabled). */
+  private isStoreBackedHeic(attachment: MediaAttachment): boolean {
+    return Boolean(this.heicThumbStore?.enabled
+      && attachment.kind === 'image'
+      && ['heic', 'heif'].includes(String(attachment.extension || '').toLowerCase()));
   }
 
   classify(link: string): MediaKind {
@@ -496,11 +510,15 @@ export class MediaService {
     try {
       const result = await promise;
       if (this.coverPending.get(key) === promise) {
-        this.touch(this.coverCache, key, result, MEDIA_CACHE_LIMIT, (evicted) => {
-          // Eviction only drops the cache slot: a mounted node may still be
-          // displaying that blob URL, so revocation waits for teardown.
-          this.deferCoverRevocation(evicted);
-        });
+        // A missing shared HEIC thumbnail can arrive through sync at any
+        // moment, so that miss is not cached; the next render retries the read.
+        if (result !== null || !this.isStoreBackedHeic(attachment)) {
+          this.touch(this.coverCache, key, result, MEDIA_CACHE_LIMIT, (evicted) => {
+            // Eviction only drops the cache slot: a mounted node may still be
+            // displaying that blob URL, so revocation waits for teardown.
+            this.deferCoverRevocation(evicted);
+          });
+        }
       } else {
         // Invalidation or disposal can clear the pending entry while an
         // asynchronous cover extraction is still running. Do not let a
@@ -520,9 +538,14 @@ export class MediaService {
       const file = this.resolveFile(attachment);
       if (!file) return null;
       if (attachment.extension && ['heic', 'heif'].includes(attachment.extension)) {
-        if (this.route('heic') === 'disabled') return null;
-        const result = await this.heicCache?.getThumbnail?.(file);
-        return result?.dataUrl ? { url: result.dataUrl, attachment } : null;
+        if (this.route('heic') !== 'disabled') {
+          const result = await this.heicCache?.getThumbnail?.(file);
+          if (result?.dataUrl) return { url: result.dataUrl, attachment };
+        }
+        // Mobile (and any host without a decoder) shows the JPEG the desktop
+        // converted into the shared cache. A miss means it has not synced yet.
+        const stored = await this.heicThumbStore?.read?.(file);
+        return stored?.url ? { url: stored.url, attachment } : null;
       }
       const url = this.app.vault?.getResourcePath?.(file);
       return url ? { url, attachment } : null;

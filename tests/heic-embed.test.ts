@@ -205,4 +205,116 @@ describe('HEIC embed conversion guard', () => {
     await expect(cache.getThumbnail({ path: 'retry-b.heic', stat: { mtime: 1, size: 4 } })).resolves.toBeNull();
     expect(factoryCalls).toBe(2);
   });
+
+  it('persists a successful conversion into the shared thumbnail store', async () => {
+    const image = {
+      get_width: () => 2,
+      get_height: () => 2,
+      display: (data: unknown, callback: (value: unknown) => void) => callback(data),
+      free: vi.fn(),
+    };
+    const context = {
+      createImageData: (width: number, height: number) => ({ width, height }),
+      putImageData: vi.fn(),
+      drawImage: vi.fn(),
+    };
+    const createElement = vi.spyOn(document, 'createElement').mockImplementation(((tagName: string) => {
+      if (tagName !== 'canvas') return document.createElement(tagName);
+      return {
+        width: 0,
+        height: 0,
+        getContext: () => context,
+        toDataURL: () => 'data:image/jpeg;base64,ok',
+      } as unknown as HTMLCanvasElement;
+    }) as typeof document.createElement);
+    const app = {
+      vault: { readBinary: async () => new ArrayBuffer(4) },
+      plugins: { plugins: { 'dayline-journal': { _libheifFactory: () => ({ HeifDecoder: class { decode() { return [image]; } } }) } } },
+    };
+    const write = vi.fn(async () => true);
+    const file = { path: 'shared.heic', stat: { mtime: 1, size: 4 } };
+    const cache = new HeicCache(app, undefined, { thumbStore: { hasFresh: async () => false, write } });
+
+    await expect(cache.getThumbnail(file)).resolves.toEqual({ dataUrl: 'data:image/jpeg;base64,ok', width: 2, height: 2 });
+    await vi.waitFor(() => expect(write).toHaveBeenCalledWith(file, { dataUrl: 'data:image/jpeg;base64,ok', width: 2, height: 2 }));
+    createElement.mockRestore();
+  });
+
+  it('restores a shared entry that went missing while the thumbnail stayed in memory', async () => {
+    const image = {
+      get_width: () => 2,
+      get_height: () => 2,
+      display: (data: unknown, callback: (value: unknown) => void) => callback(data),
+      free: vi.fn(),
+    };
+    const context = {
+      createImageData: (width: number, height: number) => ({ width, height }),
+      putImageData: vi.fn(),
+      drawImage: vi.fn(),
+    };
+    const createElement = vi.spyOn(document, 'createElement').mockImplementation(((tagName: string) => {
+      if (tagName !== 'canvas') return document.createElement(tagName);
+      return {
+        width: 0,
+        height: 0,
+        getContext: () => context,
+        toDataURL: () => 'data:image/jpeg;base64,ok',
+      } as unknown as HTMLCanvasElement;
+    }) as typeof document.createElement);
+    const app = {
+      vault: { readBinary: async () => new ArrayBuffer(4) },
+      plugins: { plugins: { 'dayline-journal': { _libheifFactory: () => ({ HeifDecoder: class { decode() { return [image]; } } }) } } },
+    };
+    const store = {
+      fresh: false,
+      hasFresh: async () => store.fresh,
+      write: vi.fn(async () => { store.fresh = true; return true; }),
+    };
+    const file = { path: 'rebuild.heic', stat: { mtime: 1, size: 4 } };
+    const cache = new HeicCache(app, undefined, { thumbStore: store });
+
+    await cache.getThumbnail(file);
+    await vi.waitFor(() => expect(store.write).toHaveBeenCalledTimes(1));
+
+    // The user deleted the cache folder (or it was pruned): the in-memory hit
+    // must still restore the cross-device copy.
+    store.fresh = false;
+    await cache.getThumbnail(file);
+    await vi.waitFor(() => expect(store.write).toHaveBeenCalledTimes(2));
+    createElement.mockRestore();
+  });
+
+  it('does not fail a conversion when the shared store rejects the write', async () => {
+    const image = {
+      get_width: () => 2,
+      get_height: () => 2,
+      display: (data: unknown, callback: (value: unknown) => void) => callback(data),
+      free: vi.fn(),
+    };
+    const context = {
+      createImageData: (width: number, height: number) => ({ width, height }),
+      putImageData: vi.fn(),
+      drawImage: vi.fn(),
+    };
+    const createElement = vi.spyOn(document, 'createElement').mockImplementation(((tagName: string) => {
+      if (tagName !== 'canvas') return document.createElement(tagName);
+      return {
+        width: 0,
+        height: 0,
+        getContext: () => context,
+        toDataURL: () => 'data:image/jpeg;base64,ok',
+      } as unknown as HTMLCanvasElement;
+    }) as typeof document.createElement);
+    const app = {
+      vault: { readBinary: async () => new ArrayBuffer(4) },
+      plugins: { plugins: { 'dayline-journal': { _libheifFactory: () => ({ HeifDecoder: class { decode() { return [image]; } } }) } } },
+    };
+    const cache = new HeicCache(app, undefined, {
+      thumbStore: { write: vi.fn(async () => { throw new Error('disk full'); }) },
+    });
+
+    await expect(cache.getThumbnail({ path: 'reject.heic', stat: { mtime: 1, size: 4 } }))
+      .resolves.toMatchObject({ dataUrl: 'data:image/jpeg;base64,ok' });
+    createElement.mockRestore();
+  });
 });

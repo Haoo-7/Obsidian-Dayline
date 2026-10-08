@@ -27,6 +27,15 @@ export type MobileDiagnosticsSnapshot = {
     childElementCount: number | null;
   } | null;
   journalEntryCount: number | null;
+  heicThumbCache: {
+    enabled: boolean;
+    entries: number | null;
+    lastMiss: {
+      reason: string;
+      mtimeDeltaMs: number | null;
+      entries: number | null;
+    } | null;
+  };
   events: MobileDiagnosticEvent[];
 };
 
@@ -49,6 +58,31 @@ const SAFE_VIEW_TYPES = new Set([
   'markdown',
   'empty',
 ]);
+
+const SAFE_HEIC_MISS_REASONS = new Set([
+  'disabled',
+  'index-missing',
+  'index-empty',
+  'no-entry',
+  'size-mismatch',
+  'file-missing',
+  'no-url-api',
+  'error',
+]);
+
+/** Keep the shared-cache miss report path-free and bounded to known values. */
+function safeHeicMiss(value: unknown) {
+  if (!value || typeof value !== 'object') return null;
+  const miss = value as { reason?: unknown; mtimeDeltaMs?: unknown; entries?: unknown };
+  const reason = SAFE_HEIC_MISS_REASONS.has(String(miss.reason)) ? String(miss.reason) : 'error';
+  return {
+    reason,
+    mtimeDeltaMs: typeof miss.mtimeDeltaMs === 'number' && Number.isFinite(miss.mtimeDeltaMs)
+      ? miss.mtimeDeltaMs
+      : null,
+    entries: nonNegativeNumber(miss.entries),
+  };
+}
 
 function nonNegativeNumber(value: unknown): number | null {
   const number = Number(value);
@@ -117,6 +151,7 @@ export function collectMobileDiagnostics(plugin: any): MobileDiagnosticsSnapshot
   const events = Array.isArray(plugin?._mobileDiagnosticEvents)
     ? plugin._mobileDiagnosticEvents.slice(-20).map(safeEvent).filter(Boolean) as MobileDiagnosticEvent[]
     : [];
+  const heicThumbStore = plugin?.heicThumbStore;
   return {
     pluginVersion: String(plugin?.manifest?.version || 'unknown'),
     platform: {
@@ -137,6 +172,13 @@ export function collectMobileDiagnostics(plugin: any): MobileDiagnosticsSnapshot
     },
     activeContent: activeContentMetrics(activeLeaf, activeViewType),
     journalEntryCount: Array.isArray(entries) ? entries.length : null,
+    // Deliberately path-free: the snapshot stays privacy-safe while still
+    // proving whether the shared HEIC thumbnail cache is live on this device.
+    heicThumbCache: {
+      enabled: bool(heicThumbStore?.enabled),
+      entries: nonNegativeNumber(heicThumbStore?.entryCount),
+      lastMiss: safeHeicMiss(heicThumbStore?.lastReadMiss),
+    },
     events,
   };
 }
@@ -150,6 +192,7 @@ export function formatMobileDiagnostics(snapshot: MobileDiagnosticsSnapshot): st
     daylineLeaves: snapshot.daylineLeaves,
     activeContent: snapshot.activeContent,
     journalEntryCount: snapshot.journalEntryCount,
+    heicThumbCache: snapshot.heicThumbCache,
     events: snapshot.events,
   }, null, 2);
 }

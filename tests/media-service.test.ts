@@ -451,3 +451,57 @@ describe('media service', () => {
     ]);
   });
 });
+
+describe('shared HEIC thumbnail cache reads', () => {
+  const mobileRoutes = {
+    routes: { mediaMetadata: 'fallback', mediaCover: 'disabled', heic: 'disabled', audioArtwork: 'disabled', attachment: 'full' },
+  };
+
+  function makeImageService(file: any, heicCache: any, heicThumbStore: any) {
+    return new MediaService({
+      metadataCache: { getFirstLinkpathDest: () => file },
+      vault: { getResourcePath: () => 'resource://photo' },
+    }, heicCache, { capabilities: mobileRoutes as any, heicThumbStore });
+  }
+
+  it('serves a stored HEIC thumbnail when the platform has no decoder', async () => {
+    const file = { path: 'Photos/IMG_1.heic', extension: 'heic', stat: { mtime: 7, size: 9 } };
+    const read = vi.fn(async () => ({ url: 'blob:shared-thumb' }));
+    const service = makeImageService(file, undefined, { enabled: true, read });
+    const attachment = createMediaAttachment('Photos/IMG_1.heic', 'Calendar/Daily/2026-08-06.md')!;
+
+    await expect(service.loadCover(attachment)).resolves.toMatchObject({ url: 'blob:shared-thumb' });
+    // The hit is cached like any other cover, so a redraw does not re-read disk.
+    await expect(service.loadCover(attachment)).resolves.toMatchObject({ url: 'blob:shared-thumb' });
+    expect(read).toHaveBeenCalledTimes(1);
+  });
+
+  it('retries a HEIC miss instead of caching it until the thumbnail syncs', async () => {
+    const file = { path: 'Photos/IMG_2.heic', extension: 'heic', stat: { mtime: 7, size: 9 } };
+    const read = vi.fn()
+      .mockResolvedValueOnce(null)
+      .mockResolvedValue({ url: 'blob:arrived' });
+    const service = makeImageService(file, undefined, { enabled: true, read });
+    const attachment = createMediaAttachment('Photos/IMG_2.heic', 'Calendar/Daily/2026-08-06.md')!;
+
+    await expect(service.loadCover(attachment)).resolves.toBeNull();
+    await expect(service.loadCover(attachment)).resolves.toMatchObject({ url: 'blob:arrived' });
+    expect(read).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps the desktop conversion path ahead of the shared cache', async () => {
+    const file = { path: 'Photos/IMG_3.heic', extension: 'heic', stat: { mtime: 7, size: 9 } };
+    const read = vi.fn(async () => ({ url: 'blob:shared-thumb' }));
+    const service = new MediaService({
+      metadataCache: { getFirstLinkpathDest: () => file },
+      vault: { getResourcePath: () => 'resource://photo' },
+    }, { getThumbnail: async () => ({ dataUrl: 'data:image/jpeg;base64,converted' }) }, {
+      capabilities: { routes: { heic: 'full' } } as any,
+      heicThumbStore: { enabled: true, read },
+    });
+    const attachment = createMediaAttachment('Photos/IMG_3.heic', 'Calendar/Daily/2026-08-06.md')!;
+
+    await expect(service.loadCover(attachment)).resolves.toMatchObject({ url: 'data:image/jpeg;base64,converted' });
+    expect(read).not.toHaveBeenCalled();
+  });
+});
