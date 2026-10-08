@@ -1965,11 +1965,11 @@ var init_mood_store = __esm({
         return this.deleteRecord(path, preserveRecovery);
       }
       async restoreOrphan(orphanKey, destinationPath = orphanKey, options = {}) {
-        const sourceKey = normalizeVaultPath(orphanKey);
+        const sourceKey2 = normalizeVaultPath(orphanKey);
         const destination = safeVaultPath(destinationPath);
         let record;
         await this.mutate((data) => {
-          const source = data.orphans?.[sourceKey];
+          const source = data.orphans?.[sourceKey2];
           if (!source) return;
           const file = this.app.vault.getAbstractFileByPath(destination);
           if (!destination.toLowerCase().endsWith(".md") || !file) {
@@ -1978,10 +1978,10 @@ var init_mood_store = __esm({
           if (data.entries[destination] && !options.replace) {
             throw new Error(`Mood restore target already has a record: ${destination}`);
           }
-          const restored = normalizeRecord({ ...cloneUnknown(source.record), score: requireMoodScore(source.record?.score, sourceKey) });
+          const restored = normalizeRecord({ ...cloneUnknown(source.record), score: requireMoodScore(source.record?.score, sourceKey2) });
           record = restored;
           data.entries[destination] = restored;
-          delete data.orphans?.[sourceKey];
+          delete data.orphans?.[sourceKey2];
           delete data.tombstones?.[destination];
         });
         if (record) this.emit(destination, record);
@@ -3210,6 +3210,15 @@ var init_i18n = __esm({
         heicConversionFailed: "HEIC \u8F6C\u6362\u5931\u8D25",
         heicConverting: "\u6B63\u5728\u8F6C\u6362 HEIC\u2026\u2026",
         heicError: "HEIC \u5904\u7406\u5931\u8D25",
+        heicThumbCacheGenerate: "\u7ACB\u5373\u8865\u9F50\u5168\u5E93\u7F13\u5B58",
+        heicThumbCacheGenerateBusy: "HEIC \u7F29\u7565\u56FE\u6B63\u5728\u751F\u6210\u4E2D",
+        heicThumbCacheGenerateDesc: "\u626B\u63CF\u65E5\u8BB0\u5F15\u7528\u5230\u7684\u6240\u6709 HEIC \u5E76\u7ACB\u5373\u751F\u6210\u5171\u4EAB\u7F29\u7565\u56FE\uFF1B\u81EA\u52A8\u9884\u70ED\u6BCF\u4F1A\u8BDD\u6700\u591A 300 \u5F20\uFF0C\u8FD9\u4E2A\u6309\u94AE\u4E00\u6B21\u8DD1\u5B8C\u3002",
+        heicThumbCacheGenerateDisabled: "\u7F13\u5B58\u76EE\u5F55\u4E3A\u7A7A\uFF0CHEIC \u7F29\u7565\u56FE\u7F13\u5B58\u5DF2\u5173\u95ED",
+        heicThumbCacheGenerateDone: "\u5DF2\u751F\u6210 {count} \u5F20 HEIC \u7F29\u7565\u56FE",
+        heicThumbCacheGenerateProgress: "\u751F\u6210\u4E2D {done}/{total}",
+        heicThumbCachePath: "HEIC \u7F29\u7565\u56FE\u7F13\u5B58\u76EE\u5F55",
+        heicThumbCachePathDesc: "\u684C\u9762\u7AEF\u628A HEIC \u8F6C\u6362\u540E\u7684\u7F29\u7565\u56FE\u5199\u5165\u8FD9\u4E2A vault \u5185\u76EE\u5F55\uFF0C\u624B\u673A/\u5E73\u677F\u65E0\u9700\u89E3\u7801\u5373\u53EF\u663E\u793A\u3002\u7559\u7A7A\u5173\u95ED\u3002\u4EE5\u70B9\u5F00\u5934\u7684\u9690\u85CF\u76EE\u5F55\u4E0D\u4F1A\u968F Obsidian Sync \u540C\u6B65\u2014\u2014\u4F7F\u7528 Sync \u8BF7\u6539\u7528\u53EF\u89C1\u76EE\u5F55\u3002\u8BE5\u76EE\u5F55\u53EF\u968F\u65F6\u5220\u9664\u3002",
+        heicThumbCachePathInvalid: "\u8BF7\u8F93\u5165 vault \u5185\u7684\u76F8\u5BF9\u76EE\u5F55\uFF0C\u4E0D\u80FD\u5305\u542B .. \u6216\u4EE5 /\u3001\u76D8\u7B26\u5F00\u5934",
         hopeful: "\u5145\u6EE1\u5E0C\u671B",
         importFrontmatterCommand: "\u5BFC\u5165 frontmatter \u5FC3\u60C5\u5143\u6570\u636E",
         importedMoods: "\u5DF2\u5BFC\u5165 {count} \u6761\u5FC3\u60C5\u8BB0\u5F55",
@@ -3507,6 +3516,15 @@ var init_i18n = __esm({
         heicConversionFailed: "HEIC \u8F49\u63DB\u5931\u6557",
         heicConverting: "\u6B63\u5728\u8F49\u63DB HEIC\u2026\u2026",
         heicError: "HEIC \u8655\u7406\u5931\u6557",
+        heicThumbCacheGenerate: "\u7ACB\u5373\u88DC\u9F4A\u5168\u5EAB\u5FEB\u53D6",
+        heicThumbCacheGenerateBusy: "HEIC \u7E2E\u5716\u6B63\u5728\u7522\u751F\u4E2D",
+        heicThumbCacheGenerateDesc: "\u6383\u63CF\u65E5\u8A18\u5F15\u7528\u5230\u7684\u6240\u6709 HEIC \u4E26\u7ACB\u5373\u7522\u751F\u5171\u4EAB\u7E2E\u5716\uFF1B\u81EA\u52D5\u9810\u71B1\u6BCF\u5DE5\u4F5C\u968E\u6BB5\u6700\u591A 300 \u5F35\uFF0C\u9019\u500B\u6309\u9215\u4E00\u6B21\u8DD1\u5B8C\u3002",
+        heicThumbCacheGenerateDisabled: "\u5FEB\u53D6\u8CC7\u6599\u593E\u70BA\u7A7A\uFF0CHEIC \u7E2E\u5716\u5FEB\u53D6\u5DF2\u95DC\u9589",
+        heicThumbCacheGenerateDone: "\u5DF2\u7522\u751F {count} \u5F35 HEIC \u7E2E\u5716",
+        heicThumbCacheGenerateProgress: "\u7522\u751F\u4E2D {done}/{total}",
+        heicThumbCachePath: "HEIC \u7E2E\u5716\u5FEB\u53D6\u8CC7\u6599\u593E",
+        heicThumbCachePathDesc: "\u684C\u9762\u7AEF\u628A HEIC \u8F49\u63DB\u5F8C\u7684\u7E2E\u5716\u5BEB\u5165\u9019\u500B\u5132\u5B58\u5EAB\u5167\u8CC7\u6599\u593E\uFF0C\u624B\u6A5F/\u5E73\u677F\u7121\u9700\u89E3\u78BC\u5373\u53EF\u986F\u793A\u3002\u7559\u7A7A\u95DC\u9589\u3002\u4EE5\u9EDE\u958B\u982D\u7684\u96B1\u85CF\u8CC7\u6599\u593E\u4E0D\u6703\u96A8 Obsidian Sync \u540C\u6B65\u2014\u2014\u4F7F\u7528 Sync \u8ACB\u6539\u70BA\u53EF\u898B\u8CC7\u6599\u593E\u3002\u6B64\u8CC7\u6599\u593E\u53EF\u96A8\u6642\u522A\u9664\u3002",
+        heicThumbCachePathInvalid: "\u8ACB\u8F38\u5165\u5132\u5B58\u5EAB\u5167\u7684\u76F8\u5C0D\u8CC7\u6599\u593E\uFF0C\u4E0D\u80FD\u5305\u542B .. \u6216\u4EE5 /\u3001\u78C1\u789F\u6A5F\u4EE3\u865F\u958B\u982D",
         hopeful: "\u5145\u6EFF\u5E0C\u671B",
         importFrontmatterCommand: "\u532F\u5165 frontmatter \u5FC3\u60C5\u4E2D\u7E7C\u8CC7\u6599",
         importedMoods: "\u5DF2\u532F\u5165 {count} \u689D\u5FC3\u60C5\u8A18\u9304",
@@ -3804,6 +3822,15 @@ var init_i18n = __esm({
         heicConversionFailed: "HEIC conversion failed",
         heicConverting: "Converting HEIC\u2026",
         heicError: "HEIC processing failed",
+        heicThumbCacheGenerate: "Generate all thumbnails now",
+        heicThumbCacheGenerateBusy: "HEIC thumbnail generation is already running",
+        heicThumbCacheGenerateDesc: "Scan every HEIC the journal references and generate the shared thumbnails now. The automatic pre-warm stops at 300 per session; this button finishes the rest in one run.",
+        heicThumbCacheGenerateDisabled: "The cache folder is empty, so the HEIC thumbnail cache is off",
+        heicThumbCacheGenerateDone: "Generated {count} HEIC thumbnails",
+        heicThumbCacheGenerateProgress: "Generating {done}/{total}",
+        heicThumbCachePath: "HEIC thumbnail cache folder",
+        heicThumbCachePathDesc: "Vault-relative folder where Dayline writes HEIC thumbnails converted on desktop, so phones and tablets can show them without decoding. Leave empty to disable. Hidden folders (starting with a dot) are not synced by Obsidian Sync \u2014 pick a visible folder if you use Sync. The folder can be deleted at any time.",
+        heicThumbCachePathInvalid: "Enter a vault-relative folder path without '..', a leading slash, or a drive letter",
         hopeful: "Hopeful",
         importFrontmatterCommand: "Import frontmatter mood metadata",
         importedMoods: "Imported {count} mood records",
@@ -4101,6 +4128,15 @@ var init_i18n = __esm({
         heicConversionFailed: "HEIC\u306E\u5909\u63DB\u306B\u5931\u6557\u3057\u307E\u3057\u305F",
         heicConverting: "HEIC\u3092\u5909\u63DB\u4E2D\u2026",
         heicError: "HEIC\u306E\u51E6\u7406\u306B\u5931\u6557\u3057\u307E\u3057\u305F",
+        heicThumbCacheGenerate: "HEIC \u30B5\u30E0\u30CD\u30A4\u30EB\u3092\u4ECA\u3059\u3050\u5168\u4EF6\u751F\u6210",
+        heicThumbCacheGenerateBusy: "HEIC \u30B5\u30E0\u30CD\u30A4\u30EB\u3092\u751F\u6210\u4E2D\u3067\u3059",
+        heicThumbCacheGenerateDesc: "\u65E5\u8A18\u304C\u53C2\u7167\u3059\u308B\u3059\u3079\u3066\u306E HEIC \u3092\u30B9\u30AD\u30E3\u30F3\u3057\u3066\u5171\u6709\u30B5\u30E0\u30CD\u30A4\u30EB\u3092\u4ECA\u3059\u3050\u751F\u6210\u3057\u307E\u3059\u3002\u81EA\u52D5\u306E\u4E8B\u524D\u751F\u6210\u306F1\u30BB\u30C3\u30B7\u30E7\u30F3300\u4EF6\u307E\u3067\u3067\u3059\u304C\u3001\u3053\u306E\u30DC\u30BF\u30F3\u306F\u4E00\u5EA6\u306B\u5B8C\u4E86\u3057\u307E\u3059\u3002",
+        heicThumbCacheGenerateDisabled: "\u30AD\u30E3\u30C3\u30B7\u30E5\u30D5\u30A9\u30EB\u30C0\u30FC\u304C\u7A7A\u306E\u305F\u3081\u3001HEIC \u30B5\u30E0\u30CD\u30A4\u30EB\u30AD\u30E3\u30C3\u30B7\u30E5\u306F\u7121\u52B9\u3067\u3059",
+        heicThumbCacheGenerateDone: "{count} \u4EF6\u306E HEIC \u30B5\u30E0\u30CD\u30A4\u30EB\u3092\u751F\u6210\u3057\u307E\u3057\u305F",
+        heicThumbCacheGenerateProgress: "\u751F\u6210\u4E2D {done}/{total}",
+        heicThumbCachePath: "HEIC \u30B5\u30E0\u30CD\u30A4\u30EB\u30AD\u30E3\u30C3\u30B7\u30E5\u30D5\u30A9\u30EB\u30C0\u30FC",
+        heicThumbCachePathDesc: "\u30C7\u30B9\u30AF\u30C8\u30C3\u30D7\u3067\u5909\u63DB\u3057\u305F HEIC \u30B5\u30E0\u30CD\u30A4\u30EB\u3092\u4FDD\u7BA1\u5EAB\u5185\u306E\u3053\u306E\u30D5\u30A9\u30EB\u30C0\u30FC\u306B\u4FDD\u5B58\u3057\u3001\u30B9\u30DE\u30DB\u3084\u30BF\u30D6\u30EC\u30C3\u30C8\u306F\u30C7\u30B3\u30FC\u30C9\u306A\u3057\u3067\u8868\u793A\u3067\u304D\u307E\u3059\u3002\u7A7A\u6B04\u3067\u7121\u52B9\u3002\u30C9\u30C3\u30C8\u3067\u59CB\u307E\u308B\u96A0\u3057\u30D5\u30A9\u30EB\u30C0\u30FC\u306F Obsidian Sync \u3067\u540C\u671F\u3055\u308C\u307E\u305B\u3093\uFF08Sync \u5229\u7528\u6642\u306F\u8868\u793A\u30D5\u30A9\u30EB\u30C0\u30FC\u3092\u6307\u5B9A\uFF09\u3002\u3053\u306E\u30D5\u30A9\u30EB\u30C0\u30FC\u306F\u3044\u3064\u3067\u3082\u524A\u9664\u3067\u304D\u307E\u3059\u3002",
+        heicThumbCachePathInvalid: "\u4FDD\u7BA1\u5EAB\u5185\u306E\u76F8\u5BFE\u30D1\u30B9\u3092\u5165\u529B\u3057\u3066\u304F\u3060\u3055\u3044\uFF08.. \u3084\u5148\u982D\u306E / \u3001\u30C9\u30E9\u30A4\u30D6\u6587\u5B57\u306F\u4F7F\u7528\u4E0D\u53EF\uFF09",
         hopeful: "\u5E0C\u671B\u306B\u6E80\u3061\u305F",
         importFrontmatterCommand: "frontmatter\u304B\u3089\u6C17\u5206\u30E1\u30BF\u30C7\u30FC\u30BF\u3092\u30A4\u30F3\u30DD\u30FC\u30C8",
         importedMoods: "{count} \u4EF6\u306E\u6C17\u5206\u8A18\u9332\u3092\u30A4\u30F3\u30DD\u30FC\u30C8\u3057\u307E\u3057\u305F",
@@ -4398,6 +4434,15 @@ var init_i18n = __esm({
         heicConversionFailed: "HEIC \uBCC0\uD658 \uC2E4\uD328",
         heicConverting: "HEIC \uBCC0\uD658 \uC911\u2026",
         heicError: "HEIC \uCC98\uB9AC \uC2E4\uD328",
+        heicThumbCacheGenerate: "\uC9C0\uAE08 \uBAA8\uB4E0 \uC378\uB124\uC77C \uC0DD\uC131",
+        heicThumbCacheGenerateBusy: "HEIC \uC378\uB124\uC77C\uC744 \uC0DD\uC131\uD558\uB294 \uC911\uC785\uB2C8\uB2E4",
+        heicThumbCacheGenerateDesc: "\uC77C\uC9C0\uC5D0\uC11C \uCC38\uC870\uD558\uB294 \uBAA8\uB4E0 HEIC\uB97C \uAC80\uC0AC\uD574 \uACF5\uC720 \uC378\uB124\uC77C\uC744 \uC9C0\uAE08 \uC0DD\uC131\uD569\uB2C8\uB2E4. \uC790\uB3D9 \uC0AC\uC804 \uC0DD\uC131\uC740 \uC138\uC158\uB2F9 300\uC7A5\uAE4C\uC9C0\uC9C0\uB9CC \uC774 \uBC84\uD2BC\uC740 \uD55C \uBC88\uC5D0 \uB05D\uB0C5\uB2C8\uB2E4.",
+        heicThumbCacheGenerateDisabled: "\uCE90\uC2DC \uD3F4\uB354\uAC00 \uBE44\uC5B4 \uC788\uC5B4 HEIC \uC378\uB124\uC77C \uCE90\uC2DC\uAC00 \uAEBC\uC838 \uC788\uC2B5\uB2C8\uB2E4",
+        heicThumbCacheGenerateDone: "HEIC \uC378\uB124\uC77C {count}\uC7A5\uC744 \uC0DD\uC131\uD588\uC2B5\uB2C8\uB2E4",
+        heicThumbCacheGenerateProgress: "\uC0DD\uC131 \uC911 {done}/{total}",
+        heicThumbCachePath: "HEIC \uC378\uB124\uC77C \uCE90\uC2DC \uD3F4\uB354",
+        heicThumbCachePathDesc: "\uB370\uC2A4\uD06C\uD1B1\uC5D0\uC11C \uBCC0\uD658\uD55C HEIC \uC378\uB124\uC77C\uC744 \uBCF4\uAD00\uC18C \uB0B4 \uC774 \uD3F4\uB354\uC5D0 \uC800\uC7A5\uD558\uBA74 \uD734\uB300\uD3F0/\uD0DC\uBE14\uB9BF\uC774 \uB514\uCF54\uB529 \uC5C6\uC774 \uD45C\uC2DC\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4. \uBE44\uC6CC \uB450\uBA74 \uC0AC\uC6A9 \uC548 \uD568. \uC810\uC73C\uB85C \uC2DC\uC791\uD558\uB294 \uC228\uAE40 \uD3F4\uB354\uB294 Obsidian Sync\uB85C \uB3D9\uAE30\uD654\uB418\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4. Sync \uC0AC\uC6A9\uC790\uB294 \uD45C\uC2DC \uD3F4\uB354\uB97C \uC9C0\uC815\uD558\uC138\uC694. \uC5B8\uC81C\uB4E0\uC9C0 \uC0AD\uC81C\uD574\uB3C4 \uB429\uB2C8\uB2E4.",
+        heicThumbCachePathInvalid: "\uBCF4\uAD00\uC18C \uB0B4 \uC0C1\uB300 \uACBD\uB85C\uB97C \uC785\uB825\uD558\uC138\uC694(.. \uB610\uB294 /, \uB4DC\uB77C\uC774\uBE0C \uBB38\uC790\uB85C \uC2DC\uC791\uD560 \uC218 \uC5C6\uC74C)",
         hopeful: "\uD76C\uB9DD\uCC38",
         importFrontmatterCommand: "frontmatter \uAE30\uBD84 \uBA54\uD0C0\uB370\uC774\uD130 \uAC00\uC838\uC624\uAE30",
         importedMoods: "{count}\uAC1C\uC758 \uAE30\uBD84 \uAE30\uB85D\uC744 \uAC00\uC838\uC654\uC2B5\uB2C8\uB2E4",
@@ -4695,6 +4740,15 @@ var init_i18n = __esm({
         heicConversionFailed: "\xC9chec de la conversion HEIC",
         heicConverting: "Conversion HEIC\u2026",
         heicError: "Erreur de traitement HEIC",
+        heicThumbCacheGenerate: "G\xE9n\xE9rer toutes les vignettes maintenant",
+        heicThumbCacheGenerateBusy: "La g\xE9n\xE9ration des vignettes HEIC est d\xE9j\xE0 en cours",
+        heicThumbCacheGenerateDesc: "Analyse tous les HEIC r\xE9f\xE9renc\xE9s par le journal et g\xE9n\xE8re les vignettes partag\xE9es imm\xE9diatement. La pr\xE9-g\xE9n\xE9ration automatique s'arr\xEAte \xE0 300 par session ; ce bouton termine tout en une fois.",
+        heicThumbCacheGenerateDisabled: "Le dossier de cache est vide : le cache de vignettes HEIC est d\xE9sactiv\xE9",
+        heicThumbCacheGenerateDone: "{count} vignettes HEIC g\xE9n\xE9r\xE9es",
+        heicThumbCacheGenerateProgress: "G\xE9n\xE9ration {done}/{total}",
+        heicThumbCachePath: "Dossier de cache des vignettes HEIC",
+        heicThumbCachePathDesc: "Dossier du coffre o\xF9 Dayline \xE9crit les vignettes HEIC converties sur ordinateur, pour que t\xE9l\xE9phones et tablettes les affichent sans d\xE9codage. Vide pour d\xE9sactiver. Les dossiers cach\xE9s (commen\xE7ant par un point) ne sont pas synchronis\xE9s par Obsidian Sync \u2014 choisissez un dossier visible avec Sync. Le dossier peut \xEAtre supprim\xE9 \xE0 tout moment.",
+        heicThumbCachePathInvalid: "Saisissez un dossier relatif au coffre, sans \xAB .. \xBB, ni \xAB / \xBB initial ni lettre de lecteur",
         hopeful: "Plein d'espoir",
         importFrontmatterCommand: "Importer les m\xE9tadonn\xE9es d'humeur depuis le frontmatter",
         importedMoods: "{count} enregistrements d'humeur import\xE9s",
@@ -4992,6 +5046,15 @@ var init_i18n = __esm({
         heicConversionFailed: "HEIC-Konvertierung fehlgeschlagen",
         heicConverting: "HEIC wird konvertiert\u2026",
         heicError: "HEIC-Verarbeitungsfehler",
+        heicThumbCacheGenerate: "Alle Vorschaubilder jetzt erzeugen",
+        heicThumbCacheGenerateBusy: "Die HEIC-Vorschaubilder werden bereits erzeugt",
+        heicThumbCacheGenerateDesc: "Durchsucht alle im Journal referenzierten HEIC-Dateien und erzeugt die geteilten Vorschaubilder sofort. Die automatische Vorab-Erzeugung endet nach 300 pro Sitzung; diese Schaltfl\xE4che erledigt alles in einem Durchlauf.",
+        heicThumbCacheGenerateDisabled: "Der Cacheordner ist leer, der HEIC-Vorschaubild-Cache ist deaktiviert",
+        heicThumbCacheGenerateDone: "{count} HEIC-Vorschaubilder erzeugt",
+        heicThumbCacheGenerateProgress: "Erzeuge {done}/{total}",
+        heicThumbCachePath: "HEIC-Vorschaubild-Cacheordner",
+        heicThumbCachePathDesc: "Ordner im Tresor, in dem Dayline die am Desktop konvertierten HEIC-Vorschaubilder speichert, damit Handys und Tablets sie ohne Dekodierung anzeigen. Leer lassen zum Deaktivieren. Versteckte Ordner (mit Punkt) werden von Obsidian Sync nicht synchronisiert \u2014 bei Sync einen sichtbaren Ordner w\xE4hlen. Der Ordner kann jederzeit gel\xF6scht werden.",
+        heicThumbCachePathInvalid: "Bitte einen tresorrelativen Ordner ohne \u201E..\u201C, f\xFChrenden \u201E/\u201C oder Laufwerksbuchstaben eingeben",
         hopeful: "Hoffnungsvoll",
         importFrontmatterCommand: "Stimmungs-Metadaten aus Frontmatter importieren",
         importedMoods: "{count} Stimmungseintr\xE4ge importiert",
@@ -5289,6 +5352,15 @@ var init_i18n = __esm({
         heicConversionFailed: "Error al convertir HEIC",
         heicConverting: "Convirtiendo HEIC\u2026",
         heicError: "Error de procesamiento HEIC",
+        heicThumbCacheGenerate: "Generar todas las miniaturas ahora",
+        heicThumbCacheGenerateBusy: "La generaci\xF3n de miniaturas HEIC ya est\xE1 en marcha",
+        heicThumbCacheGenerateDesc: "Analiza todos los HEIC referenciados por el diario y genera ya las miniaturas compartidas. La pregeneraci\xF3n autom\xE1tica se detiene en 300 por sesi\xF3n; este bot\xF3n termina el resto de una vez.",
+        heicThumbCacheGenerateDisabled: "La carpeta de cach\xE9 est\xE1 vac\xEDa: la cach\xE9 de miniaturas HEIC est\xE1 desactivada",
+        heicThumbCacheGenerateDone: "Se generaron {count} miniaturas HEIC",
+        heicThumbCacheGenerateProgress: "Generando {done}/{total}",
+        heicThumbCachePath: "Carpeta de cach\xE9 de miniaturas HEIC",
+        heicThumbCachePathDesc: "Carpeta de la b\xF3veda donde Dayline guarda las miniaturas HEIC convertidas en el escritorio, para que m\xF3viles y tablets las muestren sin decodificar. Vac\xEDo para desactivar. Las carpetas ocultas (con punto) no se sincronizan con Obsidian Sync: usa una carpeta visible si utilizas Sync. La carpeta puede borrarse en cualquier momento.",
+        heicThumbCachePathInvalid: "Introduce una carpeta relativa a la b\xF3veda, sin \xAB..\xBB ni \xAB/\xBB inicial ni letra de unidad",
         hopeful: "Esperanzado",
         importFrontmatterCommand: "Importar metadatos de \xE1nimo desde frontmatter",
         importedMoods: "Se importaron {count} registros de estado de \xE1nimo",
@@ -5586,6 +5658,15 @@ var init_i18n = __esm({
         heicConversionFailed: "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043A\u043E\u043D\u0432\u0435\u0440\u0442\u0438\u0440\u043E\u0432\u0430\u0442\u044C HEIC",
         heicConverting: "\u041A\u043E\u043D\u0432\u0435\u0440\u0442\u0430\u0446\u0438\u044F HEIC\u2026",
         heicError: "\u041E\u0448\u0438\u0431\u043A\u0430 \u043E\u0431\u0440\u0430\u0431\u043E\u0442\u043A\u0438 HEIC",
+        heicThumbCacheGenerate: "\u0421\u043E\u0437\u0434\u0430\u0442\u044C \u0432\u0441\u0435 \u043C\u0438\u043D\u0438\u0430\u0442\u044E\u0440\u044B \u0441\u0435\u0439\u0447\u0430\u0441",
+        heicThumbCacheGenerateBusy: "\u0421\u043E\u0437\u0434\u0430\u043D\u0438\u0435 \u043C\u0438\u043D\u0438\u0430\u0442\u044E\u0440 HEIC \u0443\u0436\u0435 \u0432\u044B\u043F\u043E\u043B\u043D\u044F\u0435\u0442\u0441\u044F",
+        heicThumbCacheGenerateDesc: "\u041D\u0430\u0445\u043E\u0434\u0438\u0442 \u0432\u0441\u0435 HEIC, \u043D\u0430 \u043A\u043E\u0442\u043E\u0440\u044B\u0435 \u0441\u0441\u044B\u043B\u0430\u0435\u0442\u0441\u044F \u0436\u0443\u0440\u043D\u0430\u043B, \u0438 \u0441\u0440\u0430\u0437\u0443 \u0441\u043E\u0437\u0434\u0430\u0451\u0442 \u043E\u0431\u0449\u0438\u0435 \u043C\u0438\u043D\u0438\u0430\u0442\u044E\u0440\u044B. \u0410\u0432\u0442\u043E\u043C\u0430\u0442\u0438\u0447\u0435\u0441\u043A\u0438\u0439 \u043F\u0440\u0435\u0434\u0432\u0430\u0440\u0438\u0442\u0435\u043B\u044C\u043D\u044B\u0439 \u043F\u0440\u043E\u0445\u043E\u0434 \u043E\u0441\u0442\u0430\u043D\u0430\u0432\u043B\u0438\u0432\u0430\u0435\u0442\u0441\u044F \u043D\u0430 300 \u0437\u0430 \u0441\u0435\u0430\u043D\u0441; \u044D\u0442\u0430 \u043A\u043D\u043E\u043F\u043A\u0430 \u0432\u044B\u043F\u043E\u043B\u043D\u044F\u0435\u0442 \u0432\u0441\u0451 \u0437\u0430 \u043E\u0434\u0438\u043D \u0440\u0430\u0437.",
+        heicThumbCacheGenerateDisabled: "\u041F\u0430\u043F\u043A\u0430 \u043A\u044D\u0448\u0430 \u043F\u0443\u0441\u0442\u0430 \u2014 \u043A\u044D\u0448 \u043C\u0438\u043D\u0438\u0430\u0442\u044E\u0440 HEIC \u043E\u0442\u043A\u043B\u044E\u0447\u0451\u043D",
+        heicThumbCacheGenerateDone: "\u0421\u043E\u0437\u0434\u0430\u043D\u043E \u043C\u0438\u043D\u0438\u0430\u0442\u044E\u0440 HEIC: {count}",
+        heicThumbCacheGenerateProgress: "\u0421\u043E\u0437\u0434\u0430\u043D\u0438\u0435 {done}/{total}",
+        heicThumbCachePath: "\u041F\u0430\u043F\u043A\u0430 \u043A\u044D\u0448\u0430 \u043C\u0438\u043D\u0438\u0430\u0442\u044E\u0440 HEIC",
+        heicThumbCachePathDesc: "\u041F\u0430\u043F\u043A\u0430 \u0432 \u0445\u0440\u0430\u043D\u0438\u043B\u0438\u0449\u0435, \u043A\u0443\u0434\u0430 Dayline \u0441\u043E\u0445\u0440\u0430\u043D\u044F\u0435\u0442 \u043C\u0438\u043D\u0438\u0430\u0442\u044E\u0440\u044B HEIC, \u043F\u0440\u0435\u043E\u0431\u0440\u0430\u0437\u043E\u0432\u0430\u043D\u043D\u044B\u0435 \u043D\u0430 \u043A\u043E\u043C\u043F\u044C\u044E\u0442\u0435\u0440\u0435, \u0447\u0442\u043E\u0431\u044B \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u044B \u0438 \u043F\u043B\u0430\u043D\u0448\u0435\u0442\u044B \u043F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u043B\u0438 \u0438\u0445 \u0431\u0435\u0437 \u0434\u0435\u043A\u043E\u0434\u0438\u0440\u043E\u0432\u0430\u043D\u0438\u044F. \u041F\u0443\u0441\u0442\u043E \u2014 \u0432\u044B\u043A\u043B\u044E\u0447\u0435\u043D\u043E. \u0421\u043A\u0440\u044B\u0442\u044B\u0435 \u043F\u0430\u043F\u043A\u0438 (\u0441 \u0442\u043E\u0447\u043A\u043E\u0439) \u043D\u0435 \u0441\u0438\u043D\u0445\u0440\u043E\u043D\u0438\u0437\u0438\u0440\u0443\u044E\u0442\u0441\u044F Obsidian Sync \u2014 \u043F\u0440\u0438 \u0438\u0441\u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u043D\u0438\u0438 Sync \u0432\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u0432\u0438\u0434\u0438\u043C\u0443\u044E \u043F\u0430\u043F\u043A\u0443. \u041F\u0430\u043F\u043A\u0443 \u043C\u043E\u0436\u043D\u043E \u0443\u0434\u0430\u043B\u0438\u0442\u044C \u0432 \u043B\u044E\u0431\u043E\u0439 \u043C\u043E\u043C\u0435\u043D\u0442.",
+        heicThumbCachePathInvalid: "\u0423\u043A\u0430\u0436\u0438\u0442\u0435 \u043F\u0430\u043F\u043A\u0443 \u043E\u0442\u043D\u043E\u0441\u0438\u0442\u0435\u043B\u044C\u043D\u043E \u0445\u0440\u0430\u043D\u0438\u043B\u0438\u0449\u0430, \u0431\u0435\u0437 \xAB..\xBB, \u0432\u0435\u0434\u0443\u0449\u0435\u0439 \xAB/\xBB \u0438 \u0431\u0443\u043A\u0432\u044B \u0434\u0438\u0441\u043A\u0430",
         hopeful: "\u041D\u0430\u0434\u0435\u0436\u0434\u0430",
         importFrontmatterCommand: "\u0418\u043C\u043F\u043E\u0440\u0442\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u043C\u0435\u0442\u0430\u0434\u0430\u043D\u043D\u044B\u0435 \u043D\u0430\u0441\u0442\u0440\u043E\u0435\u043D\u0438\u044F \u0438\u0437 frontmatter",
         importedMoods: "\u0418\u043C\u043F\u043E\u0440\u0442\u0438\u0440\u043E\u0432\u0430\u043D\u043E {count} \u0437\u0430\u043F\u0438\u0441\u0435\u0439 \u043D\u0430\u0441\u0442\u0440\u043E\u0435\u043D\u0438\u044F",
@@ -10658,6 +10739,462 @@ var init_journal_source_settings = __esm({
   }
 });
 
+// src/heic-thumb-store.ts
+var heic_thumb_store_exports = {};
+__export(heic_thumb_store_exports, {
+  DEFAULT_HEIC_THUMB_CACHE_DIR: () => DEFAULT_HEIC_THUMB_CACHE_DIR,
+  HEIC_THUMB_CACHE_INDEX: () => HEIC_THUMB_CACHE_INDEX,
+  HEIC_THUMB_CACHE_MAX_BYTES: () => HEIC_THUMB_CACHE_MAX_BYTES,
+  HEIC_THUMB_CACHE_MAX_ENTRIES: () => HEIC_THUMB_CACHE_MAX_ENTRIES,
+  HEIC_THUMB_INDEX_CACHE_TTL_MS: () => HEIC_THUMB_INDEX_CACHE_TTL_MS,
+  HEIC_THUMB_INDEX_WRITE_DELAY_MS: () => HEIC_THUMB_INDEX_WRITE_DELAY_MS,
+  HEIC_THUMB_PARKED_URL_LIMIT: () => HEIC_THUMB_PARKED_URL_LIMIT,
+  HEIC_THUMB_PRUNE_INTERVAL_MS: () => HEIC_THUMB_PRUNE_INTERVAL_MS,
+  HeicThumbStore: () => HeicThumbStore,
+  isUnderCacheDir: () => isUnderCacheDir,
+  normalizeHeicThumbCacheDir: () => normalizeHeicThumbCacheDir,
+  sourceKey: () => sourceKey
+});
+function normalizeHeicThumbCacheDir(value) {
+  const raw = toPathString(value).trim().replace(/\\/g, "/");
+  if (!raw) return "";
+  if (raw.startsWith("/") || raw.startsWith("~") || /^[a-zA-Z]:/.test(raw)) return "";
+  const segments = raw.split("/").filter((segment) => segment !== "" && segment !== ".");
+  if (!segments.length || segments.some((segment) => segment === "..")) return "";
+  return segments.join("/");
+}
+function isUnderCacheDir(path, dir) {
+  const normalized = normalizeHeicThumbCacheDir(dir);
+  if (!normalized) return false;
+  const candidate = toPathString(path).replace(/\\/g, "/");
+  return candidate === normalized || candidate.startsWith(`${normalized}/`);
+}
+function sourceKey(path) {
+  let hash = 0xcbf29ce484222325n;
+  for (let index = 0; index < path.length; index++) {
+    hash ^= BigInt(path.charCodeAt(index));
+    hash = BigInt.asUintN(64, hash * 0x100000001b3n);
+  }
+  return hash.toString(16).padStart(16, "0");
+}
+function emptyIndex() {
+  return { version: 1, entries: {} };
+}
+function errorMessage(error) {
+  return error instanceof Error ? error.message : String(error);
+}
+function toPathString(value) {
+  return typeof value === "string" ? value : "";
+}
+function resolveUrlApi() {
+  const host = typeof window !== "undefined" ? window : void 0;
+  if (host?.URL) return host.URL;
+  return typeof URL !== "undefined" ? URL : null;
+}
+function dataUrlToBytes(dataUrl) {
+  if (typeof dataUrl !== "string") return null;
+  const separator = dataUrl.indexOf(";base64,");
+  if (!dataUrl.startsWith("data:") || separator < 0) return null;
+  try {
+    const binary = atob(dataUrl.slice(separator + 8));
+    const bytes = new Uint8Array(binary.length);
+    for (let index = 0; index < binary.length; index++) bytes[index] = binary.charCodeAt(index);
+    return bytes;
+  } catch {
+    return null;
+  }
+}
+function isValidEntry(value) {
+  if (!value || typeof value !== "object") return false;
+  const entry = value;
+  return typeof entry.path === "string" && entry.path.length > 0 && typeof entry.file === "string" && entry.file.length > 0 && Number.isFinite(entry.mtime) && Number.isFinite(entry.size) && Number.isFinite(entry.bytes) && Number.isFinite(entry.createdAt);
+}
+var DEFAULT_HEIC_THUMB_CACHE_DIR, HEIC_THUMB_CACHE_INDEX, HEIC_THUMB_CACHE_MAX_ENTRIES, HEIC_THUMB_CACHE_MAX_BYTES, HEIC_THUMB_INDEX_WRITE_DELAY_MS, HEIC_THUMB_INDEX_CACHE_TTL_MS, HEIC_THUMB_PRUNE_INTERVAL_MS, HEIC_THUMB_PARKED_URL_LIMIT, HeicThumbStore;
+var init_heic_thumb_store = __esm({
+  "src/heic-thumb-store.ts"() {
+    "use strict";
+    DEFAULT_HEIC_THUMB_CACHE_DIR = ".dayline/thumbs";
+    HEIC_THUMB_CACHE_INDEX = "index.json";
+    HEIC_THUMB_CACHE_MAX_ENTRIES = 4e3;
+    HEIC_THUMB_CACHE_MAX_BYTES = 200 * 1024 * 1024;
+    HEIC_THUMB_INDEX_WRITE_DELAY_MS = 1500;
+    HEIC_THUMB_INDEX_CACHE_TTL_MS = 60 * 1e3;
+    HEIC_THUMB_PRUNE_INTERVAL_MS = 10 * 60 * 1e3;
+    HEIC_THUMB_PARKED_URL_LIMIT = 256;
+    HeicThumbStore = class {
+      constructor(app, options) {
+        __publicField(this, "app");
+        __publicField(this, "getDir");
+        __publicField(this, "allowWrites");
+        __publicField(this, "now");
+        __publicField(this, "index", null);
+        __publicField(this, "indexLoadedAt", 0);
+        __publicField(this, "indexLoading", null);
+        __publicField(this, "dirty", false);
+        __publicField(this, "flushTimer", null);
+        __publicField(this, "writeQueue", Promise.resolve());
+        __publicField(this, "pruning", false);
+        __publicField(this, "lastPruneAt", 0);
+        __publicField(this, "parkedUrls", /* @__PURE__ */ new Set());
+        __publicField(this, "lastEntryCount", null);
+        __publicField(this, "lastMiss", null);
+        __publicField(this, "indexFileMissing", false);
+        this.app = app;
+        this.getDir = options.getDir;
+        this.allowWrites = options.allowWrites || (() => true);
+        this.now = options.now || (() => Date.now());
+      }
+      /** Read-only devices never touch the shared folder. */
+      get canWrite() {
+        try {
+          return this.allowWrites() !== false;
+        } catch {
+          return false;
+        }
+      }
+      get enabled() {
+        return this.dir !== "";
+      }
+      /** Entry count of the shared index; used by mobile diagnostics. */
+      get entryCount() {
+        if (this.index) return Object.keys(this.index.entries).length;
+        return this.lastEntryCount;
+      }
+      /** Why the last read missed; used by mobile diagnostics. Path-free. */
+      get lastReadMiss() {
+        return this.lastMiss;
+      }
+      get dir() {
+        return normalizeHeicThumbCacheDir(this.getDir());
+      }
+      get adapter() {
+        return this.app?.vault?.adapter;
+      }
+      indexPath() {
+        return `${this.dir}/${HEIC_THUMB_CACHE_INDEX}`;
+      }
+      canUseAdapter() {
+        const adapter = this.adapter;
+        return Boolean(adapter && typeof adapter.readBinary === "function" && typeof adapter.writeBinary === "function");
+      }
+      /** Whether a fresh thumbnail for this source file is already stored. */
+      async hasFresh(file) {
+        if (!this.enabled || !file?.path) return false;
+        try {
+          const index = await this.ensureIndex();
+          const entry = index.entries[sourceKey(file.path)];
+          return Boolean(entry && this.entryMatches(entry, file));
+        } catch {
+          return false;
+        }
+      }
+      /** Read a stored thumbnail as an object URL, or null on any miss. */
+      async read(file) {
+        if (!this.enabled || !file?.path || !this.canUseAdapter()) {
+          this.recordMiss("disabled", null);
+          return null;
+        }
+        try {
+          const index = await this.ensureIndex();
+          const entry = index.entries[sourceKey(file.path)];
+          if (!entry) {
+            const reason = this.entryCount ? "no-entry" : this.indexFileMissing ? "index-missing" : "index-empty";
+            this.recordMiss(reason, null);
+            return null;
+          }
+          if (!this.entryMatches(entry, file)) {
+            this.recordMiss("size-mismatch", this.mtimeDelta(entry, file), entry);
+            return null;
+          }
+          const data = await this.adapter.readBinary(`${this.dir}/${entry.file}`);
+          if (!data || !data.byteLength) {
+            this.recordMiss("file-missing", this.mtimeDelta(entry, file), entry);
+            return null;
+          }
+          const urlApi = resolveUrlApi();
+          if (!urlApi || typeof urlApi.createObjectURL !== "function") {
+            this.recordMiss("no-url-api", this.mtimeDelta(entry, file), entry);
+            return null;
+          }
+          const url = urlApi.createObjectURL(new Blob([data], { type: "image/jpeg" }));
+          this.parkUrl(url);
+          this.lastMiss = null;
+          return { url };
+        } catch (error) {
+          console.warn("[Dayline] HEIC thumbnail cache read failed:", errorMessage(error));
+          this.recordMiss("error", null);
+          return null;
+        }
+      }
+      /** Persist a converted thumbnail and register it in the index. */
+      async write(file, thumb) {
+        if (!this.canWrite || !this.enabled || !file?.path || !this.canUseAdapter()) return false;
+        const bytes = dataUrlToBytes(thumb?.dataUrl);
+        if (!bytes || !bytes.byteLength) return false;
+        try {
+          const dir = this.dir;
+          await this.ensureDir(dir);
+          const key = sourceKey(file.path);
+          const file_ = `${key}.jpg`;
+          const buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+          await this.adapter.writeBinary(`${dir}/${file_}`, buffer);
+          const index = await this.ensureIndex();
+          index.entries[key] = {
+            path: file.path,
+            mtime: Number(file?.stat?.mtime) || 0,
+            size: Number(file?.stat?.size) || 0,
+            file: file_,
+            width: Number(thumb?.width) || 0,
+            height: Number(thumb?.height) || 0,
+            bytes: bytes.byteLength,
+            createdAt: this.now()
+          };
+          this.dirty = true;
+          this.scheduleIndexFlush();
+          this.maybePrune();
+          return true;
+        } catch (error) {
+          console.warn("[Dayline] HEIC thumbnail cache write failed:", errorMessage(error));
+          return false;
+        }
+      }
+      /** Drop the entry for a source file that was deleted or renamed away. */
+      forget(sourcePath) {
+        if (!this.canWrite || !this.enabled || !sourcePath) return;
+        void (async () => {
+          const index = await this.ensureIndex();
+          const key = sourceKey(sourcePath);
+          const entry = index.entries[key];
+          if (!entry || entry.path !== sourcePath) return;
+          delete index.entries[key];
+          this.dirty = true;
+          this.scheduleIndexFlush();
+          await this.removeThumb(entry);
+        })().catch((error) => {
+          console.warn("[Dayline] HEIC thumbnail cache forget failed:", errorMessage(error));
+        });
+      }
+      /** Drop stale, orphaned, and over-capacity entries. Desktop runs this. */
+      async prune() {
+        if (!this.canWrite || !this.enabled || !this.canUseAdapter() || this.pruning) return;
+        this.pruning = true;
+        try {
+          const index = await this.ensureIndex();
+          for (const [key, entry] of Object.entries(index.entries)) {
+            const source = this.app?.vault?.getAbstractFileByPath?.(entry.path) || null;
+            const stat = source?.stat;
+            const stale = !stat || Number.isFinite(Number(stat.size)) && Number(stat.size) !== entry.size;
+            if (stale) {
+              delete index.entries[key];
+              await this.removeThumb(entry);
+            }
+          }
+          await this.removeOrphans(index);
+          this.evictOverCapacity(index);
+          this.dirty = true;
+          await this.flush();
+          this.lastPruneAt = this.now();
+        } catch (error) {
+          console.warn("[Dayline] HEIC thumbnail cache prune failed:", errorMessage(error));
+        } finally {
+          this.pruning = false;
+        }
+      }
+      /** Write the index immediately instead of waiting for the debounce. */
+      async flush() {
+        if (this.flushTimer !== null) {
+          window.clearTimeout(this.flushTimer);
+          this.flushTimer = null;
+        }
+        if (!this.canWrite || !this.dirty || !this.index || !this.enabled || !this.canUseAdapter()) return;
+        const index = this.index;
+        this.dirty = false;
+        const write = this.writeQueue.then(() => this.writeIndexFile(index));
+        this.writeQueue = write.catch(() => void 0);
+        return write.catch((error) => {
+          console.warn("[Dayline] HEIC thumbnail index write failed:", error?.message || error);
+        });
+      }
+      /** Clearing the index cache re-reads it; keep object URLs (nodes may use them). */
+      reconfigure() {
+        this.index = null;
+        this.indexLoadedAt = 0;
+        this.lastPruneAt = 0;
+        this.dirty = false;
+      }
+      /** Called when an external writer changed `index.json` (sync arrival). */
+      invalidateIndex() {
+        if (this.dirty) return;
+        this.index = null;
+        this.indexLoadedAt = 0;
+      }
+      dispose() {
+        if (this.flushTimer !== null) {
+          window.clearTimeout(this.flushTimer);
+          this.flushTimer = null;
+        }
+        void this.flush();
+        for (const url of this.parkedUrls) this.revoke(url);
+        this.parkedUrls.clear();
+        this.index = null;
+      }
+      /**
+       * Match by source size only. The mtime is recorded for diagnostics, but a
+       * cross-device filesystem may re-report it in seconds, in local time, or with
+       * a rounded value, and a thumbnail that is merely old is far more useful than
+       * no thumbnail at all. A same-size edit of a photo is not a real scenario.
+       */
+      entryMatches(entry, file) {
+        if (entry.path !== file.path) return false;
+        const size = Number(file?.stat?.size);
+        return Number.isFinite(size) && size === entry.size;
+      }
+      mtimeDelta(entry, file) {
+        const mtime = Number(file?.stat?.mtime);
+        return Number.isFinite(mtime) ? mtime - entry.mtime : null;
+      }
+      recordMiss(reason, mtimeDeltaMs, entry) {
+        this.lastMiss = {
+          reason,
+          mtimeDeltaMs: Number.isFinite(mtimeDeltaMs) ? Number(mtimeDeltaMs) : null,
+          entries: entry ? this.entryCount : this.index ? Object.keys(this.index.entries).length : this.lastEntryCount
+        };
+      }
+      async ensureIndex(force = false) {
+        if (!force && this.index && (this.dirty || this.now() - this.indexLoadedAt < HEIC_THUMB_INDEX_CACHE_TTL_MS)) {
+          return this.index;
+        }
+        if (this.indexLoading) return this.indexLoading;
+        const load = this.readIndexFile().then((index) => {
+          this.index = index;
+          this.indexLoadedAt = this.now();
+          this.lastEntryCount = Object.keys(index.entries).length;
+          return index;
+        });
+        this.indexLoading = load;
+        try {
+          return await load;
+        } finally {
+          if (this.indexLoading === load) this.indexLoading = null;
+        }
+      }
+      async readIndexFile() {
+        try {
+          if (!await this.adapter.exists(this.indexPath())) {
+            this.indexFileMissing = true;
+            return emptyIndex();
+          }
+          const raw = await this.adapter.read(this.indexPath());
+          const parsed = JSON.parse(raw);
+          const entries = parsed && typeof parsed === "object" ? parsed.entries : null;
+          if (!entries || typeof entries !== "object") {
+            this.indexFileMissing = true;
+            return emptyIndex();
+          }
+          const clean = {};
+          for (const [key, value] of Object.entries(entries)) {
+            if (isValidEntry(value)) clean[key] = value;
+          }
+          this.indexFileMissing = false;
+          return { version: 1, entries: clean };
+        } catch (error) {
+          console.warn("[Dayline] HEIC thumbnail index read failed:", errorMessage(error));
+          this.indexFileMissing = true;
+          return emptyIndex();
+        }
+      }
+      async writeIndexFile(index) {
+        const dir = this.dir;
+        await this.ensureDir(dir);
+        const path = this.indexPath();
+        const content = JSON.stringify(index);
+        const temp = `${path}.tmp`;
+        try {
+          await this.adapter.write(temp, content);
+          await this.adapter.rename(temp, path);
+        } catch {
+          await this.adapter.write(path, content);
+        } finally {
+          try {
+            if (await this.adapter.exists(temp)) await this.adapter.remove(temp);
+          } catch {
+          }
+        }
+      }
+      async ensureDir(dir) {
+        if (!await this.adapter.exists(dir)) await this.adapter.mkdir(dir);
+      }
+      scheduleIndexFlush() {
+        if (!this.canWrite) return;
+        if (this.flushTimer !== null) return;
+        this.flushTimer = window.setTimeout(() => {
+          this.flushTimer = null;
+          void this.flush();
+        }, HEIC_THUMB_INDEX_WRITE_DELAY_MS);
+      }
+      maybePrune() {
+        if (!this.canWrite) return;
+        if (this.now() - this.lastPruneAt < HEIC_THUMB_PRUNE_INTERVAL_MS) return;
+        void this.prune();
+      }
+      async removeThumb(entry) {
+        try {
+          const path = `${this.dir}/${entry.file}`;
+          if (await this.adapter.exists(path)) await this.adapter.remove(path);
+        } catch {
+        }
+      }
+      async removeOrphans(index) {
+        let listing;
+        try {
+          listing = await this.adapter.list(this.dir);
+        } catch {
+          return;
+        }
+        const files = Array.isArray(listing) ? listing : listing?.files;
+        if (!Array.isArray(files)) return;
+        const referenced = new Set(Object.values(index.entries).map((entry) => `${this.dir}/${entry.file}`));
+        for (const filePath of files) {
+          if (typeof filePath !== "string" || !/\.jpe?g$/i.test(filePath)) continue;
+          if (referenced.has(filePath)) continue;
+          try {
+            await this.adapter.remove(filePath);
+          } catch {
+          }
+        }
+      }
+      evictOverCapacity(index) {
+        const entries = Object.entries(index.entries);
+        let totalBytes = entries.reduce((sum, [, entry]) => sum + (Number(entry.bytes) || 0), 0);
+        if (entries.length <= HEIC_THUMB_CACHE_MAX_ENTRIES && totalBytes <= HEIC_THUMB_CACHE_MAX_BYTES) return;
+        const oldestFirst = entries.sort((a, b) => a[1].createdAt - b[1].createdAt);
+        for (const [key, entry] of oldestFirst) {
+          const count = Object.keys(index.entries).length;
+          if (count <= HEIC_THUMB_CACHE_MAX_ENTRIES && totalBytes <= HEIC_THUMB_CACHE_MAX_BYTES) break;
+          delete index.entries[key];
+          totalBytes -= Number(entry.bytes) || 0;
+          void this.removeThumb(entry);
+        }
+      }
+      parkUrl(url) {
+        this.parkedUrls.add(url);
+        while (this.parkedUrls.size > HEIC_THUMB_PARKED_URL_LIMIT) {
+          const oldest = this.parkedUrls.values().next().value;
+          if (oldest === void 0) break;
+          this.parkedUrls.delete(oldest);
+          this.revoke(oldest);
+        }
+      }
+      revoke(url) {
+        try {
+          resolveUrlApi()?.revokeObjectURL?.(url);
+        } catch {
+        }
+      }
+    };
+  }
+});
+
 // src/settings-tab.ts
 var settings_tab_exports = {};
 __export(settings_tab_exports, {
@@ -10671,11 +11208,13 @@ __export(settings_tab_exports, {
   commitJournalSourceSettings: () => commitJournalSourceSettings,
   createSettingsLocalizer: () => createSettingsLocalizer,
   fillDisplayLanguageDropdown: () => fillDisplayLanguageDropdown,
+  normalizeHeicThumbCachePath: () => normalizeHeicThumbCachePath,
   normalizeMoodMetadataPath: () => normalizeMoodMetadataPath,
   parseCoordinateSettingValue: () => parseCoordinateSettingValue,
   shouldShowCalendarMoodStyle: () => shouldShowCalendarMoodStyle,
   shouldShowCalendarWeatherOptions: () => shouldShowCalendarWeatherOptions,
   shouldShowExifGeocoding: () => shouldShowExifGeocoding,
+  shouldShowHeicThumbCacheGenerate: () => shouldShowHeicThumbCacheGenerate,
   shouldShowOnThisDayExcerptSettings: () => shouldShowOnThisDayExcerptSettings,
   shouldShowUseCurrentLocationButton: () => shouldShowUseCurrentLocationButton,
   shouldShowWeatherLocationOption: () => shouldShowWeatherLocationOption,
@@ -10698,9 +11237,20 @@ function normalizeMoodMetadataPath(raw) {
   if (!/\.json$/i.test(value)) return { ok: false, messageKey: "moodMetadataPathMustBeJson" };
   return { ok: true, value };
 }
+function normalizeHeicThumbCachePath(raw) {
+  const value = String(raw ?? "").trim();
+  if (value === "") return { ok: true, value: "" };
+  if (/[\u0000-\u001f]/.test(value)) return { ok: false, messageKey: "heicThumbCachePathInvalid" };
+  const normalized = normalizeHeicThumbCacheDir(value);
+  if (!normalized) return { ok: false, messageKey: "heicThumbCachePathInvalid" };
+  return { ok: true, value: normalized };
+}
 function shouldShowUseCurrentLocationButton(capabilities) {
   if (!capabilities) return false;
   return Boolean(capabilities.isMobileApp || capabilities.isIos || capabilities.isAndroid);
+}
+function shouldShowHeicThumbCacheGenerate(capabilities) {
+  return Boolean(capabilities?.isDesktop);
 }
 function createSettingsLocalizer(settings) {
   return (key, ...args) => localize(getDisplayLanguage(settings), key, ...args);
@@ -10753,6 +11303,7 @@ var init_settings_tab = __esm({
     init_journal_timeline_display();
     init_journal_source_settings();
     init_on_this_day_entry();
+    init_heic_thumb_store();
     VIEW_TYPE = "calendar-sidebar-view";
     SETTINGS_TEXT_COMMIT_DELAY_MS = 800;
     DEFAULT_MOOD_METADATA_PATH = "Calendar/journal-metadata.json";
@@ -10918,6 +11469,34 @@ var init_settings_tab = __esm({
           const message = error?.message || String(error);
           console.warn("[Dayline] Mood metadata path change failed:", message);
           new import_obsidian5.Notice(t(this.plugin.settings, "moodMetadataPathFailed"));
+        }
+      }
+      /**
+       * Settings action: convert every missing HEIC thumbnail in one run. The
+       * background pre-warm stops at a per-session cap; this ignores it and reports
+       * progress inline in the row's description.
+       */
+      async _fillHeicThumbCache(setting, button) {
+        const plugin = this.plugin;
+        if (!plugin.heicThumbStore?.enabled) {
+          new import_obsidian5.Notice(t(plugin.settings, "heicThumbCacheGenerateDisabled"));
+          return;
+        }
+        if (typeof plugin.fillHeicThumbCache !== "function") return;
+        button?.setDisabled?.(true);
+        const idleDescription = t(plugin.settings, "heicThumbCacheGenerateDesc");
+        try {
+          const result = await plugin.fillHeicThumbCache(({ done, total }) => {
+            setting?.setDesc?.(t(plugin.settings, "heicThumbCacheGenerateProgress", { done, total }));
+          });
+          if (result?.skipped) {
+            new import_obsidian5.Notice(t(plugin.settings, "heicThumbCacheGenerateBusy"));
+          } else {
+            new import_obsidian5.Notice(t(plugin.settings, "heicThumbCacheGenerateDone", { count: result?.converted ?? 0 }));
+          }
+        } finally {
+          button?.setDisabled?.(false);
+          setting?.setDesc?.(idleDescription);
         }
       }
       async _fillWeatherCoordinatesFromDevice(button) {
@@ -11169,6 +11748,24 @@ var init_settings_tab = __esm({
           new import_obsidian5.Setting(containerEl).setName(_s("s_exifGeocode")).setDesc(_s("s_exifGeocodeDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.exifReverseGeocode).onChange(async (value) => {
             this.plugin.settings.exifReverseGeocode = value;
             await this._saveSettings();
+          }));
+        }
+        this._addValidatedTextField(containerEl, {
+          name: t(this.plugin.settings, "heicThumbCachePath"),
+          description: t(this.plugin.settings, "heicThumbCachePathDesc"),
+          placeholder: DEFAULT_HEIC_THUMB_CACHE_DIR,
+          field: "heicThumbCachePath",
+          initialValue: this.plugin.settings.heicThumbCachePath ?? DEFAULT_HEIC_THUMB_CACHE_DIR,
+          parse: (raw) => normalizeHeicThumbCachePath(raw),
+          localizeError: (key) => t(this.plugin.settings, key),
+          apply: () => {
+            this.plugin.heicThumbStore?.reconfigure?.();
+          }
+        });
+        if (shouldShowHeicThumbCacheGenerate(this.plugin.capabilities)) {
+          const generateRow = new import_obsidian5.Setting(containerEl).setName(t(this.plugin.settings, "heicThumbCacheGenerate")).setDesc(t(this.plugin.settings, "heicThumbCacheGenerateDesc"));
+          generateRow.addButton((button) => button.setButtonText(t(this.plugin.settings, "heicThumbCacheGenerate")).onClick(async () => {
+            await this._fillHeicThumbCache(generateRow, button);
           }));
         }
         this._addSection(containerEl, "on-this-day");
@@ -26827,6 +27424,7 @@ var init_media_service = __esm({
       constructor(app, heicCache, options = {}) {
         __publicField(this, "app");
         __publicField(this, "heicCache");
+        __publicField(this, "heicThumbStore");
         __publicField(this, "imageMetadata");
         __publicField(this, "inputFactory");
         __publicField(this, "capabilities");
@@ -26839,9 +27437,14 @@ var init_media_service = __esm({
         __publicField(this, "disposed", false);
         this.app = app;
         this.heicCache = heicCache;
+        this.heicThumbStore = options.heicThumbStore;
         this.imageMetadata = options.imageMetadata;
         this.capabilities = options.capabilities;
         this.inputFactory = options.inputFactory || ((resourceUrl) => this.createInput(resourceUrl));
+      }
+      /** Whether a HEIC miss is retried instead of cached (shared cache is enabled). */
+      isStoreBackedHeic(attachment) {
+        return Boolean(this.heicThumbStore?.enabled && attachment.kind === "image" && ["heic", "heif"].includes(String(attachment.extension || "").toLowerCase()));
       }
       classify(link) {
         return classifyMediaLink(link).kind;
@@ -27059,9 +27662,11 @@ var init_media_service = __esm({
         try {
           const result = await promise;
           if (this.coverPending.get(key) === promise) {
-            this.touch(this.coverCache, key, result, MEDIA_CACHE_LIMIT, (evicted) => {
-              this.deferCoverRevocation(evicted);
-            });
+            if (result !== null || !this.isStoreBackedHeic(attachment)) {
+              this.touch(this.coverCache, key, result, MEDIA_CACHE_LIMIT, (evicted) => {
+                this.deferCoverRevocation(evicted);
+              });
+            }
           } else {
             this.revokeCoverResult(result);
             return null;
@@ -27077,9 +27682,12 @@ var init_media_service = __esm({
           const file = this.resolveFile(attachment);
           if (!file) return null;
           if (attachment.extension && ["heic", "heif"].includes(attachment.extension)) {
-            if (this.route("heic") === "disabled") return null;
-            const result = await this.heicCache?.getThumbnail?.(file);
-            return result?.dataUrl ? { url: result.dataUrl, attachment } : null;
+            if (this.route("heic") !== "disabled") {
+              const result = await this.heicCache?.getThumbnail?.(file);
+              if (result?.dataUrl) return { url: result.dataUrl, attachment };
+            }
+            const stored = await this.heicThumbStore?.read?.(file);
+            return stored?.url ? { url: stored.url, attachment } : null;
           }
           const url = this.app.vault?.getResourcePath?.(file);
           return url ? { url, attachment } : null;
@@ -28422,8 +29030,26 @@ var thumbnail_service_exports = {};
 __export(thumbnail_service_exports, {
   HEIC_EXTENSIONS: () => HEIC_EXTENSIONS,
   IMAGE_EXTENSIONS: () => IMAGE_EXTENSIONS3,
-  ThumbnailService: () => ThumbnailService
+  ThumbnailService: () => ThumbnailService,
+  collectHeicAttachments: () => collectHeicAttachments
 });
+function collectHeicAttachments(entries) {
+  const collected = [];
+  const seen = /* @__PURE__ */ new Set();
+  const push = (attachment) => {
+    if (!attachment || attachment.external || attachment.kind !== "image") return;
+    if (!HEIC_EXTENSIONS.includes(String(attachment.extension || "").toLowerCase())) return;
+    const key = `${attachment.sourcePath}\0${attachment.normalizedLink}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    collected.push(attachment);
+  };
+  for (const entry of entries || []) {
+    for (const attachment of entry?.media || []) push(attachment);
+    if (entry?.cover) push(createMediaAttachment(entry.cover, entry.path || ""));
+  }
+  return collected;
+}
 var IMAGE_EXTENSIONS3, HEIC_EXTENSIONS, ThumbnailService;
 var init_thumbnail_service = __esm({
   "src/thumbnail-service.ts"() {
@@ -28432,11 +29058,13 @@ var init_thumbnail_service = __esm({
     IMAGE_EXTENSIONS3 = IMAGE_EXTENSIONS;
     HEIC_EXTENSIONS = ["heic", "heif"];
     ThumbnailService = class {
-      constructor(app, heicCache) {
+      constructor(app, heicCache, heicThumbStore) {
         __publicField(this, "app");
         __publicField(this, "heicCache");
+        __publicField(this, "heicThumbStore");
         this.app = app;
         this.heicCache = heicCache;
+        this.heicThumbStore = heicThumbStore || null;
       }
       isImageFile(file) {
         return Boolean(file?.extension && IMAGE_EXTENSIONS3.includes(String(file.extension).toLowerCase()));
@@ -28459,7 +29087,13 @@ var init_thumbnail_service = __esm({
         if (!file) return null;
         try {
           const ext = String(file.extension).toLowerCase();
-          const url = HEIC_EXTENSIONS.includes(ext) ? (await this.heicCache?.getThumbnail(file))?.dataUrl : this.app.vault.getResourcePath(file);
+          let url = null;
+          if (HEIC_EXTENSIONS.includes(ext)) {
+            url = (await this.heicCache?.getThumbnail(file))?.dataUrl || null;
+            if (!url) url = (await this.heicThumbStore?.read?.(file))?.url || null;
+          } else {
+            url = this.app.vault.getResourcePath(file);
+          }
           return url ? { url, path: file.path, index } : null;
         } catch {
           return null;
@@ -28738,7 +29372,7 @@ function normalizeViewVisibilitySettings(settings = {}) {
 function preferenceKey(kind) {
   return kind === "calendar" ? "showCalendarView" : "showTimelineView";
 }
-function errorMessage(error) {
+function errorMessage2(error) {
   return error instanceof Error ? error.message : String(error);
 }
 var DEFAULT_VIEW_VISIBILITY, VIEW_TYPE_BY_KIND, ViewVisibilityController;
@@ -28782,7 +29416,7 @@ var init_view_visibility_controller = __esm({
         try {
           await this.openWithoutPersist(kind);
         } catch (error) {
-          console.warn(`[Dayline] Failed to open ${kind} view:`, errorMessage(error));
+          console.warn(`[Dayline] Failed to open ${kind} view:`, errorMessage2(error));
           return false;
         }
         if (!this.isOpen(kind)) return false;
@@ -28805,7 +29439,7 @@ var init_view_visibility_controller = __esm({
               try {
                 await this.openWithoutPersist(kind);
               } catch (error) {
-                console.warn(`[Dayline] Failed to restore ${kind} view:`, errorMessage(error));
+                console.warn(`[Dayline] Failed to restore ${kind} view:`, errorMessage2(error));
               }
             } else {
               await this.closeWithoutPersist(kind, false);
@@ -28845,7 +29479,7 @@ var init_view_visibility_controller = __esm({
               try {
                 await this.detachLeaf(leaf);
               } catch (error) {
-                console.warn(`[Dayline] Failed to close ${kind} view:`, errorMessage(error));
+                console.warn(`[Dayline] Failed to close ${kind} view:`, errorMessage2(error));
               }
             }
           } finally {
@@ -31142,7 +31776,7 @@ var init_manifest = __esm({
     manifest_default = {
       id: "dayline-journal",
       name: "Dayline Journal",
-      version: "2.9.4",
+      version: "2.10.0",
       minAppVersion: "1.5.0",
       description: "A visual journal for calendars, timelines, moods, memories, weather, and photos. / \u96C6\u65E5\u5386\u3001\u65F6\u95F4\u7EBF\u3001\u5FC3\u60C5\u3001\u56DE\u987E\u3001\u5929\u6C14\u548C\u7167\u7247\u4E8E\u4E00\u4F53\u7684\u53EF\u89C6\u5316\u65E5\u8BB0\u5DE5\u5177.",
       author: "Haoo",
@@ -31756,9 +32390,10 @@ var init_image_metadata = __esm({
     MAX_HEIC_PIXELS = 50 * 1e3 * 1e3;
     MAX_HEIC_EDGE = 8192;
     HeicCache = class {
-      constructor(app, capabilities) {
+      constructor(app, capabilities, options) {
         this.app = app;
         this.capabilities = capabilities;
+        this.thumbStore = options?.thumbStore || null;
         this._cache = /* @__PURE__ */ new Map();
         this._pending = /* @__PURE__ */ new Map();
         this._libheifReady = null;
@@ -31809,6 +32444,7 @@ var init_image_metadata = __esm({
           const value = this._cache.get(key);
           this._cache.delete(key);
           this._cache.set(key, value);
+          void this.ensurePersisted(file, value);
           return value;
         }
         if (this._pending.has(key)) return this._pending.get(key);
@@ -31821,6 +32457,7 @@ var init_image_metadata = __esm({
             this._cache.set(key, result);
             while (this._cache.size > 48) this._cache.delete(this._cache.keys().next().value);
           }
+          if (result) void this.ensurePersisted(file, result);
           return result;
         } finally {
           if (this._pending.get(key) === promise) this._pending.delete(key);
@@ -31900,6 +32537,20 @@ var init_image_metadata = __esm({
       _hasLibheifFactory() {
         const plugin = this.app.plugins?.plugins?.[PLUGIN_ID];
         return typeof plugin?._libheifFactory === "function";
+      }
+      /**
+       * Store the thumbnail for other devices, unless the shared cache already has
+       * a fresh entry. Best effort by design: the store swallows its own failures
+       * and a cache write must never affect the in-memory result.
+       */
+      async ensurePersisted(file, value) {
+        const store = this.thumbStore;
+        if (!store?.write || !value?.dataUrl) return;
+        try {
+          if (await store.hasFresh?.(file)) return;
+          await store.write(file, value);
+        } catch {
+        }
       }
       invalidate(filePath) {
         if (filePath) {
@@ -32295,6 +32946,16 @@ __export(mobile_diagnostics_exports, {
 function bool(value) {
   return value === true;
 }
+function safeHeicMiss(value) {
+  if (!value || typeof value !== "object") return null;
+  const miss = value;
+  const reason = SAFE_HEIC_MISS_REASONS.has(String(miss.reason)) ? String(miss.reason) : "error";
+  return {
+    reason,
+    mtimeDeltaMs: typeof miss.mtimeDeltaMs === "number" && Number.isFinite(miss.mtimeDeltaMs) ? miss.mtimeDeltaMs : null,
+    entries: nonNegativeNumber(miss.entries)
+  };
+}
 function nonNegativeNumber(value) {
   const number = Number(value);
   return Number.isFinite(number) && number >= 0 ? number : null;
@@ -32350,6 +33011,7 @@ function collectMobileDiagnostics(plugin) {
     entries = void 0;
   }
   const events = Array.isArray(plugin?._mobileDiagnosticEvents) ? plugin._mobileDiagnosticEvents.slice(-20).map(safeEvent).filter(Boolean) : [];
+  const heicThumbStore = plugin?.heicThumbStore;
   return {
     pluginVersion: String(plugin?.manifest?.version || "unknown"),
     platform: {
@@ -32370,6 +33032,13 @@ function collectMobileDiagnostics(plugin) {
     },
     activeContent: activeContentMetrics(activeLeaf, activeViewType),
     journalEntryCount: Array.isArray(entries) ? entries.length : null,
+    // Deliberately path-free: the snapshot stays privacy-safe while still
+    // proving whether the shared HEIC thumbnail cache is live on this device.
+    heicThumbCache: {
+      enabled: bool(heicThumbStore?.enabled),
+      entries: nonNegativeNumber(heicThumbStore?.entryCount),
+      lastMiss: safeHeicMiss(heicThumbStore?.lastReadMiss)
+    },
     events
   };
 }
@@ -32382,10 +33051,11 @@ function formatMobileDiagnostics(snapshot) {
     daylineLeaves: snapshot.daylineLeaves,
     activeContent: snapshot.activeContent,
     journalEntryCount: snapshot.journalEntryCount,
+    heicThumbCache: snapshot.heicThumbCache,
     events: snapshot.events
   }, null, 2);
 }
-var SAFE_EVENT_NAMES, SAFE_VIEW_TYPES;
+var SAFE_EVENT_NAMES, SAFE_VIEW_TYPES, SAFE_HEIC_MISS_REASONS;
 var init_mobile_diagnostics = __esm({
   "src/mobile-diagnostics.ts"() {
     "use strict";
@@ -32402,6 +33072,16 @@ var init_mobile_diagnostics = __esm({
       "dayline-mobile-view",
       "markdown",
       "empty"
+    ]);
+    SAFE_HEIC_MISS_REASONS = /* @__PURE__ */ new Set([
+      "disabled",
+      "index-missing",
+      "index-empty",
+      "no-entry",
+      "size-mismatch",
+      "file-missing",
+      "no-url-api",
+      "error"
     ]);
   }
 });
@@ -32447,7 +33127,7 @@ var { weatherConditionLabel: weatherConditionLabel2 } = (init_weather_conditions
 var { buildWeatherCardParts: buildWeatherCardParts2, buildWeatherStatus: buildWeatherStatus2, normalizeWeatherDisplayFields: normalizeWeatherDisplayFields2 } = (init_weather_display(), __toCommonJS(weather_display_exports));
 var { localize: _l } = (init_locale(), __toCommonJS(locale_exports));
 var { formatDateParts: formatDateParts2, getClockPartsInTimeZone: getClockPartsInTimeZone2, getTodayDate: getTodayDate2, isPathInFolder: isPathInFolder2, joinVaultPath: joinVaultPath2, normalizeVaultPath: normalizeVaultPath2, parentVaultPath: parentVaultPath2 } = (init_date_utils(), __toCommonJS(date_utils_exports));
-var { ThumbnailService: ThumbnailService2 } = (init_thumbnail_service(), __toCommonJS(thumbnail_service_exports));
+var { ThumbnailService: ThumbnailService2, collectHeicAttachments: collectHeicAttachments2 } = (init_thumbnail_service(), __toCommonJS(thumbnail_service_exports));
 var { MediaService: MediaService2, formatMediaMetadataForDisplay: formatMediaMetadataForDisplay2 } = (init_media_service(), __toCommonJS(media_service_exports));
 var { aggregateCalendarDays: aggregateCalendarDays2, withWeatherOnlyDays: withWeatherOnlyDays2 } = (init_calendar_summary(), __toCommonJS(calendar_summary_exports));
 var { cachedMonthsReferencingMedia: cachedMonthsReferencingMedia2 } = (init_calendar_media_refresh(), __toCommonJS(calendar_media_refresh_exports));
@@ -32462,6 +33142,7 @@ var { ViewVisibilityController: ViewVisibilityController2, normalizeViewVisibili
 var { hasExistingImage: hasExistingImage2 } = (init_heic_embed(), __toCommonJS(heic_embed_exports));
 var { loadHeicCodec: loadHeicCodec2 } = (init_heic_codec(), __toCommonJS(heic_codec_exports));
 var { ImageMetadataCache: ImageMetadataCache2, HeicCache: HeicCache2, HEIC_EXTS: HEIC_EXTS2, ReverseGeocoder: ReverseGeocoder2 } = (init_image_metadata(), __toCommonJS(image_metadata_exports));
+var { HeicThumbStore: HeicThumbStore2, DEFAULT_HEIC_THUMB_CACHE_DIR: DEFAULT_HEIC_THUMB_CACHE_DIR2, normalizeHeicThumbCacheDir: normalizeHeicThumbCacheDir2, isUnderCacheDir: isUnderCacheDir2 } = (init_heic_thumb_store(), __toCommonJS(heic_thumb_store_exports));
 var { detectPlatformCapabilities: detectPlatformCapabilities2, resolveCapabilityRoute: resolveCapabilityRoute2, usesPhoneLayout: usesPhoneLayout2 } = (init_platform_capabilities(), __toCommonJS(platform_capabilities_exports));
 var { createMobileMarkdownQuickEntry: createMobileMarkdownQuickEntry2 } = (init_mobile_quick_entry(), __toCommonJS(mobile_quick_entry_exports));
 var {
@@ -32490,6 +33171,11 @@ var {
 var { collectMobileDiagnostics: collectMobileDiagnostics2, formatMobileDiagnostics: formatMobileDiagnostics2 } = (init_mobile_diagnostics(), __toCommonJS(mobile_diagnostics_exports));
 var VIEW_TYPE2 = "calendar-sidebar-view";
 var OVERLAY_ATTR = "data-cal-weather-overlay";
+var HEIC_THUMB_REFRESH_DELAY_MS = 3e3;
+var HEIC_THUMB_PREWARM_DELAY_MS = 8e3;
+var HEIC_THUMB_PREWARM_SESSION_LIMIT = 300;
+var HEIC_THUMB_PREWARM_IDLE_TIMEOUT_MS = 2e3;
+var HEIC_THUMB_PREWARM_FALLBACK_DELAY_MS = 250;
 var DEFAULT_SETTINGS = {
   dailyFolder: "Calendar/Daily",
   thumbnailFilter: "all",
@@ -32536,6 +33222,10 @@ var DEFAULT_SETTINGS = {
   // Insert-time EXIF/GPS frontmatter persistence. Off by default: it writes to
   // the user's notes, so it must be an explicit opt-in.
   exifPersistMetadata: false,
+  // --- Cross-device HEIC thumbnails ---
+  // Desktop converts HEIC once and writes the JPEG into this vault folder so
+  // phones and tablets show it without decoding. Empty string disables it.
+  heicThumbCachePath: DEFAULT_HEIC_THUMB_CACHE_DIR2,
   // --- On This Day settings ---
   onThisDayEntry: "merged",
   // 'off' | 'merged' | 'header'
@@ -32576,6 +33266,10 @@ var DaylinePlugin = class extends Plugin {
     this._mobileDaylineLastViewTypeValue = null;
     this._lastReminderDate = null;
     this._otdRequestToken = 0;
+    this._heicThumbRefreshTimer = null;
+    this._heicThumbPrewarmTimer = null;
+    this._heicThumbPrewarmRunning = false;
+    this._heicThumbPrewarmCancelled = false;
     this._exifPersistInFlight = /* @__PURE__ */ new Map();
     this._exifPersistPending = /* @__PURE__ */ new Set();
     await this._migrateLegacyData();
@@ -32591,15 +33285,24 @@ var DaylinePlugin = class extends Plugin {
     this.journalIndex = new JournalIndex2(this.app, (path) => this.moodStore.getForIndex(path));
     if (!this.capabilities.isMobile) {
       this._desktopJournalIndexStartup = this._startJournalIndexAfterMetadataResolved();
+      void this._desktopJournalIndexStartup.then(() => this._scheduleHeicThumbPrewarm()).catch(() => void 0);
     }
     this._reminderTimer = window.setInterval(() => this._maybeRemind(), 60 * 1e3);
     this.weatherService = new WeatherService2(this);
     this.exifCache = new ImageMetadataCache2(this.app);
-    this.heicCache = new HeicCache2(this.app, this.capabilities);
-    this.thumbnailService = new ThumbnailService2(this.app, this.heicCache);
+    this.heicThumbStore = new HeicThumbStore2(this.app, {
+      getDir: () => this.settings.heicThumbCachePath,
+      // Only the desktop converts, so only the desktop may modify the shared
+      // folder. A phone that "forgot" an entry used to delete the shared
+      // thumbnail and sync that deletion back upstream.
+      allowWrites: () => Boolean(this.capabilities?.isDesktop)
+    });
+    this.heicCache = new HeicCache2(this.app, this.capabilities, { thumbStore: this.heicThumbStore });
+    this.thumbnailService = new ThumbnailService2(this.app, this.heicCache, this.heicThumbStore);
     this.mediaService = new MediaService2(this.app, this.heicCache, {
       imageMetadata: this.exifCache,
-      capabilities: this.capabilities
+      capabilities: this.capabilities,
+      heicThumbStore: this.heicThumbStore
     });
     this.geocoder = new ReverseGeocoder2({
       cache: this.geocoderCache,
@@ -32716,6 +33419,9 @@ var DaylinePlugin = class extends Plugin {
     this.registerEvent(this.app.vault.on("modify", (file) => this._handleVaultModify(file)));
     this.registerEvent(this.app.vault.on("delete", (file) => this._handleJournalDelete(file)));
     this.registerEvent(this.app.vault.on("rename", (file, oldPath) => this._handleJournalRename(file, oldPath)));
+    this.registerEvent(this.app.vault.on("create", (file) => this._handleHeicThumbCacheChange(file)));
+    this.registerEvent(this.app.vault.on("modify", (file) => this._handleHeicThumbCacheChange(file)));
+    this.registerEvent(this.app.vault.on("delete", (file) => this._handleHeicThumbCacheDelete(file)));
     this.registerEvent(this.app.metadataCache.on("changed", (file, _data, cache) => {
       void this._syncJournalEmbedExif(file, cache);
     }));
@@ -32734,6 +33440,9 @@ var DaylinePlugin = class extends Plugin {
     window.clearTimeout(this._geocoderSaveTimer);
     window.clearTimeout(this._exifHoverTimer);
     window.clearInterval(this._reminderTimer);
+    window.clearTimeout(this._heicThumbRefreshTimer);
+    window.clearTimeout(this._heicThumbPrewarmTimer);
+    this._heicThumbPrewarmCancelled = true;
     this._removeExifDismissHandlers();
     this._endExifHover();
     this._removeAllOverlays();
@@ -32743,6 +33452,7 @@ var DaylinePlugin = class extends Plugin {
     this._mobileQuickEntry = null;
     this._removeCapabilityClasses();
     this.mediaService?.dispose?.();
+    this.heicThumbStore?.dispose?.();
     this._exifTooltipEl?.remove();
     this._exifTooltipEl = null;
     document.getElementById("calendar-sidebar-styles")?.remove();
@@ -33384,6 +34094,7 @@ ${path}`)) return false;
   }
   _notifyCalendarImageChange(file) {
     if (!(file instanceof TFile3) || !MEDIA_EXTENSIONS2.includes(file.extension?.toLowerCase())) return;
+    if (this._isHeicThumbCachePath(file.path)) return;
     this._invalidateMediaCaches(file.path);
     for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE2)) {
       leaf.view?._onMediaChanged?.(file);
@@ -33397,6 +34108,115 @@ ${path}`)) return false;
     this.exifCache?.invalidate(path);
     this.heicCache?.invalidate(path);
     this.mediaService?.invalidate(path);
+    this.heicThumbStore?.forget?.(path);
+  }
+  _isHeicThumbCachePath(path) {
+    return isUnderCacheDir2(path, this.settings?.heicThumbCachePath);
+  }
+  /** A cache file disappeared (deleted on another device): re-read freshness. */
+  _handleHeicThumbCacheDelete(file) {
+    if (!(file instanceof TFile3)) return;
+    if (!this._isHeicThumbCachePath(file.path)) return;
+    this.heicThumbStore?.invalidateIndex?.();
+  }
+  /**
+   * Mobile-only: a thumbnail (or the index) arrived through sync. Negative
+   * cover results were cached while it was still missing, so drop the caches
+   * and repaint once the sync burst settles.
+   */
+  _handleHeicThumbCacheChange(file) {
+    if (!this.capabilities?.isMobile) return;
+    if (!(file instanceof TFile3)) return;
+    if (!this._isHeicThumbCachePath(file.path)) return;
+    if (this._heicThumbRefreshTimer) return;
+    this._heicThumbRefreshTimer = window.setTimeout(() => {
+      this._heicThumbRefreshTimer = null;
+      this.heicThumbStore?.invalidateIndex?.();
+      this.mediaService?.invalidate?.();
+      for (const viewType of DAYLINE_VIEW_TYPES2) {
+        for (const leaf of this.app.workspace.getLeavesOfType(viewType)) leaf.view?.render?.();
+      }
+    }, HEIC_THUMB_REFRESH_DELAY_MS);
+  }
+  /**
+   * Desktop-only pre-warm: convert every HEIC the journal references that the
+   * shared cache does not have yet, so other devices receive thumbnails
+   * without waiting for a desktop calendar visit. Bounded per session and
+   * yielded through idle callbacks.
+   */
+  _scheduleHeicThumbPrewarm() {
+    if (!this.capabilities?.isDesktop) return;
+    if (this._heicThumbPrewarmTimer || this._heicThumbPrewarmRunning) return;
+    this._heicThumbPrewarmTimer = window.setTimeout(() => {
+      this._heicThumbPrewarmTimer = null;
+      void this._runHeicThumbPrewarm();
+    }, HEIC_THUMB_PREWARM_DELAY_MS);
+  }
+  _collectHeicMediaFiles() {
+    const files = /* @__PURE__ */ new Map();
+    for (const attachment of collectHeicAttachments2(this.journalIndex?.getEntries?.() || [])) {
+      const file = this.app.metadataCache?.getFirstLinkpathDest?.(attachment.normalizedLink, attachment.sourcePath) || this.app.vault?.getAbstractFileByPath?.(attachment.normalizedLink);
+      if (file?.path && !files.has(file.path)) files.set(file.path, file);
+    }
+    return Array.from(files.values());
+  }
+  /**
+   * Convert every HEIC the journal references that the shared cache is missing.
+   * The background pre-warm stops at a per-session cap; the settings button
+   * calls this with `full: true`, which processes the whole list in one run.
+   */
+  async _runHeicThumbPrewarm({ full = false, onProgress = null } = {}) {
+    const store = this.heicThumbStore;
+    if (!store?.enabled || this._heicThumbPrewarmRunning || this._heicThumbPrewarmCancelled) {
+      return { converted: 0, total: 0, skipped: true };
+    }
+    this._heicThumbPrewarmRunning = true;
+    let converted = 0;
+    let done = 0;
+    try {
+      const files = full ? this._collectHeicMediaFiles() : this._collectHeicMediaFiles().slice(0, HEIC_THUMB_PREWARM_SESSION_LIMIT);
+      onProgress?.({ done, total: files.length, converted });
+      for (const file of files) {
+        if (this._heicThumbPrewarmCancelled || !store.enabled) break;
+        try {
+          if (!await store.hasFresh(file)) {
+            if (full) await this._heicThumbPrewarmYield();
+            else await this._heicThumbPrewarmIdle();
+            if (!this._heicThumbPrewarmCancelled) {
+              await this.heicCache?.getThumbnail?.(file);
+              converted++;
+            }
+          }
+        } catch {
+        }
+        done++;
+        onProgress?.({ done, total: files.length, converted });
+      }
+      if (converted) console.debug(`[Dayline] HEIC thumbnail pre-warm converted ${converted} file(s).`);
+      return { converted, total: files.length, skipped: false };
+    } finally {
+      this._heicThumbPrewarmRunning = false;
+    }
+  }
+  /** Settings-page action: run the sweep with no per-session cap. */
+  async fillHeicThumbCache(onProgress) {
+    return this._runHeicThumbPrewarm({ full: true, onProgress });
+  }
+  /** Yield between explicit full-sweep items without waiting for idle. */
+  _heicThumbPrewarmYield() {
+    return new Promise((resolve) => {
+      window.setTimeout(resolve, 0);
+    });
+  }
+  _heicThumbPrewarmIdle() {
+    return new Promise((resolve) => {
+      const requestIdle = window.requestIdleCallback;
+      if (typeof requestIdle === "function") {
+        requestIdle.call(window, () => resolve(), { timeout: HEIC_THUMB_PREWARM_IDLE_TIMEOUT_MS });
+      } else {
+        window.setTimeout(resolve, HEIC_THUMB_PREWARM_FALLBACK_DELAY_MS);
+      }
+    });
   }
   _queueJournalWrite(label, task, formatNotice) {
     return this._journalWriteQueue.add(task).catch((error) => {
@@ -33654,6 +34474,7 @@ ${path}`)) return false;
     this.geocoderCache = data.geocoderCache && typeof data.geocoderCache === "object" ? data.geocoderCache : {};
     this._cleanupWeatherCache();
     this.settings = Object.assign({}, DEFAULT_SETTINGS, data, normalizeViewVisibilitySettings2(data));
+    this.settings.heicThumbCachePath = normalizeHeicThumbCacheDir2(this.settings.heicThumbCachePath);
     const legacyWeatherVisible = data.showCalendarWeather !== false;
     if (data.showCalendarWeatherCard === void 0) this.settings.showCalendarWeatherCard = legacyWeatherVisible;
     if (data.showCalendarWeatherBadge === void 0) this.settings.showCalendarWeatherBadge = legacyWeatherVisible;
@@ -34080,6 +34901,7 @@ var CalendarView = class extends ItemView2 {
   async _onJournalIndexChanged(change) {
     if (change?.type !== "file") {
       await this.refresh();
+      this._scheduleHeicThumbPrewarm();
       return;
     }
     const entries = [change.previous, change.entry].filter(Boolean);
@@ -34895,9 +35717,23 @@ var CalendarView = class extends ItemView2 {
       const result = await this.mediaService?.loadFirstCover?.(summary.media || [], summary.cover);
       if (result && bgEl.isConnected) {
         this._applyBackgroundResource(bgEl, result.url);
+        return;
       }
+      this._markBackgroundMissing(bgEl);
     } catch {
+      this._markBackgroundMissing(bgEl);
     }
+  }
+  /**
+   * No cover could be resolved (for example a HEIC whose shared thumbnail has
+   * not synced yet). Flip the cell to its no-image placeholder instead of
+   * leaving an empty tile that still claims to have an image.
+   */
+  _markBackgroundMissing(bgEl) {
+    const cell = bgEl?.closest?.(".cal-day");
+    if (!cell) return;
+    cell.removeClass("cal-has-image");
+    cell.addClass("cal-no-image");
   }
   _applyBackgroundResource(bgEl, resource) {
     if (String(bgEl.tagName || "").toLowerCase() === "img") bgEl.src = resource;
@@ -35129,7 +35965,7 @@ var CalendarView = class extends ItemView2 {
   }
   async _convertHeicEmbed(el, src) {
     if (this.closed) return;
-    if (resolveCapabilityRoute2(this.plugin.capabilities, "heic") === "disabled") return;
+    const route2 = resolveCapabilityRoute2(this.plugin.capabilities, "heic");
     const loader = el.createDiv({ cls: "cal-heic-preview" });
     loader.textContent = t2(this.plugin.settings, "heicConverting");
     try {
@@ -35139,12 +35975,18 @@ var CalendarView = class extends ItemView2 {
         loader.remove();
         return;
       }
-      const thumb = await this.plugin.heicCache.getThumbnail(file);
+      const thumb = route2 === "disabled" ? null : await this.plugin.heicCache.getThumbnail(file);
       if (this.closed) {
         loader.remove();
         return;
       }
-      if (!thumb) {
+      let url = thumb?.dataUrl || null;
+      if (!url) url = (await this.plugin.heicThumbStore?.read?.(file))?.url || null;
+      if (this.closed) {
+        loader.remove();
+        return;
+      }
+      if (!url) {
         loader.textContent = t2(this.plugin.settings, "heicConversionFailed");
         return;
       }
@@ -35153,7 +35995,7 @@ var CalendarView = class extends ItemView2 {
         return;
       }
       const img = loader.createEl("img", { cls: "cal-heic-preview-image" });
-      img.src = thumb.dataUrl;
+      img.src = url;
       img.setAttribute("data-cal-exif", "1");
       this._bindNoteMediaHover(img, {
         onEnter: (e) => this._onNoteImageEnter(e, img),

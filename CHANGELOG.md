@@ -1,5 +1,47 @@
 # Changelog
 
+## 2.10.0 (2026-10-08)
+
+HEIC photos taken on an iPhone now appear on every device: the desktop converts each one once into a shared thumbnail cache inside the vault, and phones and tablets read that cache directly without decoding anything.
+
+### Added
+- **Cross-device HEIC thumbnails.** Every desktop conversion is persisted into a configurable vault folder (default `.dayline/thumbs`; empty disables the cache) as one JPEG per source file plus an `index.json` manifest. Calendar day cells, timeline covers, On This Day photos, and HEIC note embeds on phones and tablets all read that cache. Matching needs only the source path and byte size, because a phone filesystem may re-report modification times in seconds, in local time, or rounded. The shared folder is written by the desktop only; mobile devices are read-only.
+- **Background pre-warm.** Once the journal index is ready, the desktop converts the HEICs the journal references (embeds, `media`/`photos` frontmatter, and the frontmatter `cover`) that the cache is still missing, up to 300 per session, through idle callbacks.
+- **Generate everything now.** A desktop-only settings action under Media metadata and privacy converts every referenced HEIC in one run, with inline progress and no per-session cap.
+- **Mobile diagnostics report the shared cache state**: enabled, entry count, and the reason the last read missed (`index-missing`, `index-empty`, `no-entry`, `size-mismatch`, `file-missing`, `no-url-api`), with no paths included.
+
+### Fixed
+- **A phone no longer deletes the shared cache.** Media events on a mobile device used to run the same "retire this entry" path as the desktop, so a phone deleted the shared thumbnail and its index entry and synced that deletion back upstream, breaking every device. Only the converting desktop may write the shared folder now.
+- **An emptied cache folder rebuilds.** A thumbnail that is still in memory now restores the shared copy when the file has gone, and a cache file deleted on another device invalidates the in-memory index instead of being trusted as fresh.
+- **Day cells with an unresolvable cover fall back to the no-image placeholder** instead of showing an empty tile that still claimed to have an image.
+
+### Verification
+- `npm run typecheck`, `npm test` (70 files / 800 tests, 39 of them new), `npm run build`, `npm run package:release`, `npm run verify:release`, `npm run verify:release:zip` and `git diff --check` pass. On this machine 47 tests in the jsdom-environment suites fail for a pre-existing reason (Node/Vite externalize `node:fs`/`node:path` there); the failing set is byte-identical before and after this change.
+- Obsidian Sandbox: the built bundle deployed byte-identical and reloaded with no `dev:errors`. A real HEIC (947,758 bytes) converted to a 33,188-byte 900×675 JPEG, was served back as a blob URL, still matched after an 8-hour mtime shift, and the settings action rebuilt the cache from an emptied folder. `data.json` was rewritten by the plugin itself during the runs (weather cache only) and was restored from its byte-identical backup; `Calendar/journal-metadata.json` is unchanged.
+- iPhone 13 mini (real device, Syncthing test vault): confirmed — the HEIC note, its calendar day cell, and the timeline show the photo once the phone ran the read-only build. Android and the Obsidian Sync hint stay open: hidden cache folders are not synced by Obsidian Sync, so those users should point the setting at a visible folder.
+
+---
+
+iPhone 拍的 HEIC 照片现在能在所有设备上显示：桌面端把每张照片转换一次、写入 vault 内的共享缩略图缓存，手机和平板直接读取缓存，完全不需要解码。
+
+### 新增
+- **跨设备 HEIC 缩略图。** 桌面端每次转换都会写进一个可配置的 vault 目录（默认 `.dayline/thumbs`，留空关闭），每张源文件一个 JPEG，外加 `index.json` 清单。手机和平板上的日历格子、时间线封面、"去年今日"照片、笔记内嵌 HEIC 都读这份缓存。命中判定只看源文件路径和字节大小——手机文件系统可能把修改时间报成秒、本地时间或取整值。共享目录只由桌面端写入，移动端只读。
+- **后台预热。** 日记索引就绪后，桌面端会在空闲时把日记引用到（正文内嵌、frontmatter `media`/`photos`，以及 frontmatter `cover`）但缓存里还缺的 HEIC 逐张转换，每会话上限 300 张。
+- **立即补齐全库缓存。** "媒体元数据与隐私"里的桌面端操作，一次跑完全部引用的 HEIC，行内显示进度，不受每会话上限限制。
+- **移动端诊断新增共享缓存状态**：是否启用、条目数，以及上次读取失败的原因（`index-missing`、`index-empty`、`no-entry`、`size-mismatch`、`file-missing`、`no-url-api`），不含任何路径。
+
+### 修复
+- **手机不再删除共享缓存。** 以前移动端的媒体事件会走和桌面端相同的"注销条目"路径，于是手机删掉共享缩略图和索引条目，又把这次删除同步回上游，导致所有设备都坏掉。现在只有执行转换的桌面端可以写入共享目录。
+- **缓存目录被清空后能重建。** 内存里仍持有的缩略图会在共享文件消失时重新补写；被其他设备删除的缓存文件会让内存索引失效，而不再被当作"仍然新鲜"。
+- **无法解析封面的日格回退为"无图片"占位**，不再显示一块仍标记着"有图片"的空格子。
+
+### 验证
+- `npm run typecheck`、`npm test`（70 个文件 / 800 项测试，其中 39 项为本次新增）、`npm run build`、`npm run package:release`、`npm run verify:release`、`npm run verify:release:zip`、`git diff --check` 全部通过。本机有 47 项 jsdom 环境测试因既有原因失败（Node/Vite 在该环境下把 `node:fs`/`node:path` 外置），失败集合在本次改动前后逐字节一致。
+- Obsidian Sandbox：构建产物逐字节部署并重载，`dev:errors` 无错误。一张真实 HEIC（947,758 字节）转换成 33,188 字节、900×675 的 JPEG，能作为 blob URL 读回；把 mtime 人为挪 8 小时后仍能命中；设置里的按钮能从被清空的目录重建缓存。运行期间 `data.json` 由插件自身改写（仅天气缓存），已用逐字节备份还原；`Calendar/journal-metadata.json` 未变。
+- iPhone 13 mini（真机，Syncthing 测试库）：已确认——手机运行只读构建后，HEIC 笔记、日历格子和时间线都能显示照片。Android 与 Obsidian Sync 提示仍为待办：Obsidian Sync 不同步隐藏目录，这类用户应把设置指向可见目录。
+
+---
+
 ## 2.9.4 (2026-10-06)
 
 Reviewing old diary entries no longer registers weather for those past days under the current address, and weather already recorded for a past day stays pinned.
