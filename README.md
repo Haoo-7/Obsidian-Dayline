@@ -170,6 +170,14 @@ npm run build
 
 仓库中的 `main.js` 由构建生成。打包发布前请运行 `npm run verify:release`，版本变更见 [CHANGELOG.md](CHANGELOG.md)。
 
+## 支持
+
+如果 Dayline 帮你把日记坚持了下来，欢迎请作者（和这只猫）喝杯咖啡 ☕
+
+<p align="center">
+  <img src="./assets/readme/sponsor-wechat.jpg" width="280" alt="Haoo 的微信赞赏码">
+</p>
+
 ## 许可证
 
 [MIT](LICENSE)
