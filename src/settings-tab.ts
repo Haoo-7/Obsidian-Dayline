@@ -17,6 +17,11 @@ const VIEW_TYPE = 'calendar-sidebar-view';
 /** Delay before a settings text field commits while the user is still typing. */
 export const SETTINGS_TEXT_COMMIT_DELAY_MS = 800;
 
+/** Rounding slop for "can this scroll" and for a restored position. */
+const SCROLL_EPSILON_PX = 1;
+/** Frames to keep re-asserting the position while the rebuilt rows lay out. */
+const SCROLL_RESCUE_MAX_FRAMES = 8;
+
 export const DEFAULT_MOOD_METADATA_PATH = 'Calendar/journal-metadata.json';
 
 export type SettingsFieldValidation =
@@ -205,11 +210,79 @@ export { shouldShowCalendarMoodStyle };
 /* ============================================================
    Settings Tab
    ============================================================ */
+
+/**
+ * The pane that actually scrolls. `display()` rebuilds `containerEl` from
+ * scratch, and while the old rows are gone and the new ones are still laying
+ * out, the scrollable ancestor loses its content height and clamps
+ * `scrollTop` to 0 — which is the "settings jumped back to the top" the phones
+ * report after almost every toggle. Obsidian scrolls through a wrapper rather
+ * than through `containerEl`, and that wrapper differs between desktop and
+ * mobile, so walk the ancestry for the first element that can scroll.
+ */
+export function resolveSettingsScrollHost(containerEl) {
+  let current = containerEl || null;
+  while (current) {
+    if (isScrollableSettingsPane(current)) return current;
+    current = current.parentElement;
+  }
+  const fallback = typeof document !== 'undefined' ? document.scrollingElement : null;
+  return isScrollableSettingsPane(fallback) ? fallback : null;
+}
+
+export function isScrollableSettingsPane(el) {
+  if (!el) return false;
+  if ((el.scrollHeight - el.clientHeight) <= SCROLL_EPSILON_PX) return false;
+  if (typeof window === 'undefined' || typeof window.getComputedStyle !== 'function') return true;
+  const overflowY = window.getComputedStyle(el).overflowY;
+  return overflowY === 'auto' || overflowY === 'scroll' || overflowY === 'overlay';
+}
+
+/**
+ * Only a re-render while the pane is open may restore a position: the first
+ * `display()` after opening must stay at the top, and Obsidian hands a tab the
+ * same `containerEl` again on the next open.
+ */
+export function shouldPreserveSettingsScroll(visible, host, containerEl) {
+  return Boolean(visible && host && containerEl && containerEl.childElementCount > 0);
+}
+
+export type SettingsScrollRestoreOptions = {
+  maxFrames?: number;
+  frame?: (callback: () => void) => void;
+};
+
+/**
+ * Restore, then re-assert once per frame while the layout settles: reading a
+ * `scrollTop` that the browser clamped tells us the content was not laid out
+ * yet. Bounded so a pane that ends up shorter than the remembered position
+ * cannot spin forever.
+ */
+export function restoreSettingsScroll(host, scrollTop, options: SettingsScrollRestoreOptions = {}) {
+  const { maxFrames = SCROLL_RESCUE_MAX_FRAMES, frame } = options;
+  if (!host || !(scrollTop > 0)) return;
+  host.scrollTop = scrollTop;
+  if (host.scrollTop >= scrollTop - SCROLL_EPSILON_PX) return;
+  const nextFrame = frame || ((callback) => {
+    if (typeof window === 'undefined' || typeof window.requestAnimationFrame !== 'function') return;
+    window.requestAnimationFrame(callback);
+  });
+  let remaining = Math.max(0, maxFrames);
+  const retry = () => {
+    if (remaining <= 0 || host.scrollTop >= scrollTop - SCROLL_EPSILON_PX) return;
+    host.scrollTop = scrollTop;
+    remaining -= 1;
+    nextFrame(retry);
+  };
+  nextFrame(retry);
+}
+
 export class DaylineSettingsTab extends PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
     this.plugin = plugin;
     this._pendingFieldFlushes = new Set();
+    this._settingsVisible = false;
   }
 
   async _saveSettings() {
@@ -272,6 +345,7 @@ export class DaylineSettingsTab extends PluginSettingTab {
   }
 
   hide() {
+    this._settingsVisible = false;
     this._flushPendingFieldCommits();
     super.hide();
   }
@@ -415,6 +489,10 @@ export class DaylineSettingsTab extends PluginSettingTab {
   display() {
     this._flushPendingFieldCommits();
     const { containerEl } = this;
+    const scrollHost = resolveSettingsScrollHost(containerEl);
+    const keepScroll = shouldPreserveSettingsScroll(this._settingsVisible, scrollHost, containerEl);
+    const previousScrollTop = keepScroll ? scrollHost.scrollTop : 0;
+    this._settingsVisible = true;
     containerEl.empty();
     containerEl.addClass('dayline-settings-container');
     const _s = createSettingsLocalizer(this.plugin.settings);
@@ -1003,6 +1081,8 @@ export class DaylineSettingsTab extends PluginSettingTab {
             if (leaf?.view) leaf.view.startWeatherBackfill();
           }));
     }
+
+    if (keepScroll) restoreSettingsScroll(scrollHost, previousScrollTop);
   }
 }
 /* ============================================================

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const hoisted = vi.hoisted(() => ({
   notices: [] as string[],
@@ -79,9 +79,13 @@ import {
   commitJournalSourceSettings,
   createSettingsLocalizer,
   fillDisplayLanguageDropdown,
+  isScrollableSettingsPane,
   normalizeHeicThumbCachePath,
   normalizeMoodMetadataPath,
   parseCoordinateSettingValue,
+  resolveSettingsScrollHost,
+  restoreSettingsScroll,
+  shouldPreserveSettingsScroll,
   shouldShowCalendarMoodStyle,
   shouldShowCalendarWeatherOptions,
   shouldShowExifGeocoding,
@@ -659,5 +663,105 @@ describe('insert-time EXIF persistence setting', () => {
     const plugin = makePlugin({ displayLanguage: 'en' });
     addExifPersistMetadataSetting(document.createElement('div'), plugin, vi.fn(async () => true));
     expect((hoisted.settings.at(-1) as any).toggle.value).toBe(false);
+  });
+});
+
+describe('settings scroll position survives a rebuild', () => {
+  function scrollable(tag = 'div', overflow = 'auto', overflowPx = 600) {
+    const el = document.createElement(tag);
+    el.style.overflowY = overflow;
+    Object.defineProperty(el, 'scrollHeight', { configurable: true, value: 900 });
+    Object.defineProperty(el, 'clientHeight', { configurable: true, value: 900 - overflowPx });
+    return el;
+  }
+
+  afterEach(() => document.body.replaceChildren());
+
+  it('walks out to the pane that actually scrolls', () => {
+    const pane = scrollable();
+    const wrapper = document.createElement('div');
+    const containerEl = document.createElement('div');
+    pane.append(wrapper);
+    wrapper.append(containerEl);
+    document.body.append(pane);
+
+    expect(resolveSettingsScrollHost(containerEl)).toBe(pane);
+    expect(resolveSettingsScrollHost(document.createElement('div'))).toBeNull();
+  });
+
+  it('skips an ancestor that overflows but cannot scroll', () => {
+    const clipped = scrollable('div', 'visible');
+    const pane = scrollable();
+    const containerEl = document.createElement('div');
+    clipped.append(containerEl);
+    pane.append(clipped);
+    document.body.append(pane);
+
+    expect(isScrollableSettingsPane(clipped)).toBe(false);
+    expect(resolveSettingsScrollHost(containerEl)).toBe(pane);
+  });
+
+  it('only preserves a position for a rebuild of an open pane', () => {
+    const pane = scrollable();
+    const containerEl = document.createElement('div');
+    pane.append(containerEl);
+    document.body.append(pane);
+
+    // First open: nothing was on screen yet, so the pane has to start at the top.
+    expect(shouldPreserveSettingsScroll(false, pane, containerEl)).toBe(false);
+    // A re-render while open, with rows already built.
+    containerEl.append(document.createElement('div'));
+    expect(shouldPreserveSettingsScroll(true, pane, containerEl)).toBe(true);
+    // Without a scrollable host there is nothing to restore.
+    expect(shouldPreserveSettingsScroll(true, null, containerEl)).toBe(false);
+  });
+
+  it('re-asserts the position while the rebuilt rows lay out, then gives up', () => {
+    // A browser that clamps the position to 0 until the new rows are laid out.
+    let written = 0;
+    let layoutFrames = 0;
+    const host = {
+      get scrollTop() { return layoutFrames >= 2 ? written : 0; },
+      set scrollTop(value: number) { written = value; },
+    };
+    restoreSettingsScroll(host, 240, {
+      maxFrames: 4,
+      frame: (callback: () => void) => { layoutFrames += 1; callback(); },
+    });
+
+    expect(written).toBe(240);
+    expect(layoutFrames).toBe(2);
+
+    // A pane that ends up shorter than the remembered position must not spin.
+    let stubbornWrites = 0;
+    const stubborn = {
+      get scrollTop() { return 0; },
+      set scrollTop(_value: number) { stubbornWrites += 1; },
+    };
+    restoreSettingsScroll(stubborn, 240, {
+      maxFrames: 3,
+      frame: (callback: () => void) => callback(),
+    });
+
+    expect(stubbornWrites).toBe(4);
+  });
+
+  it('keeps a position that the browser already honoured without extra frames', () => {
+    let frames = 0;
+    const host = { scrollTop: 0 };
+    restoreSettingsScroll(host, 120, { frame: (callback: () => void) => { frames += 1; callback(); } });
+
+    expect(host.scrollTop).toBe(120);
+    expect(frames).toBe(0);
+  });
+
+  it('stays at the top on the next open after the pane closes', () => {
+    const plugin = makePlugin({ displayLanguage: 'en' });
+    const tab = new DaylineSettingsTab({ workspace: { getLeavesOfType: () => [] } }, plugin) as any;
+    tab._settingsVisible = true;
+
+    tab.hide();
+
+    expect(tab._settingsVisible).toBe(false);
   });
 });
