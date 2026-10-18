@@ -1,5 +1,47 @@
 # Changelog
 
+## 2.10.1 (2026-10-18)
+
+Two phone fixes: a photo's metadata inside a note now opens with a long press instead of a button injected into the editor's DOM, and the settings pane keeps its scroll position when a toggle rebuilds it.
+
+### Fixed
+- **Return works on the line above an image.** In Live Preview on a phone, Dayline injected a small info button into the photo's own node. CodeMirror owns every node under `.cm-content` and reads unrecognised DOM back as editor content, so that button re-synced the line and swallowed Return whenever the line below the caret was an image. Phones now get a gesture on the embed itself: a 450 ms hold opens the photo's metadata, a drag past 10 px or a release before the hold elapsed cancels it, and a tap still reaches the editor as cursor placement. Nothing is added to the DOM. Reading view keeps its visible info button and fine-pointer desktops keep hover, because the gate is a coarse pointer *and* being inside `.cm-content`.
+- **iOS no longer answers that hold with its own image callout.** Embeds inside Live Preview on a touch device get `-webkit-touch-callout: none`, so the long press stays Dayline's gesture.
+- **Settings stop jumping back to the top.** Almost every toggle re-renders the whole pane, and while the old rows are gone and the new ones are still laying out, the scrollable ancestor loses its content height and clamps the offset to 0. Dayline now walks up from `containerEl` to the element that actually scrolls — it is a wrapper, and a different one on desktop than on mobile — remembers the offset, and restores it after the rebuild, re-asserting it for up to 8 frames while the layout settles. A pane that ends up shorter than the remembered offset stops the retry instead of spinning. Opening settings for the first time still starts at the top.
+
+### Verification
+- `npm run typecheck`, `npm test` (71 files / 861 tests, 15 of them new), `npm run build`, `npm run build:tablet`, `npm run package:release`, `npm run verify:release`, `npm run verify:release:zip` and `git diff --check` all pass. The 47 jsdom-environment failures recorded under 2.10.0 are gone on this machine: the whole suite is green.
+- Obsidian Sandbox: `main.js`, `manifest.json` and `styles.css` deployed byte-identical and reloaded with no `dev:errors`. The running build reports `2.10.1`, and its live calendar view carries both `_bindNoteMediaMetadataControl` — whose source reads `shouldUseNoteMediaLongPress` — and `_addNoteMediaLongPress`.
+- Settings scroll, live: with the pane open the scroll host resolved to `.vertical-tab-content.dayline-settings-container` (3,002 px of scroll room); `scrollTop` 1500 survived a `display()` rebuild, and after forcing the mid-render clamp phones hit — making `empty()` zero the offset while the rows were gone — the rebuild still ended at 1500. On 2.10.0 that path ends at 0.
+- Long press, live: with `capabilities.coarsePointer` forced true and a stub `.internal-embed > img` inside a `.cm-content`, a 450 ms hold opened the metadata exactly once, a press that moved 40 px and released opened nothing, and the embed's child count stayed 1 — no control injected into editor DOM.
+- The `-webkit-touch-callout` rule reaches the live document but the Mac window keeps it with zero declarations (`style.length` 0): it is a WebKit-only property that Chromium does not implement, so this window cannot prove it.
+- `data.json` was rewritten once during the runs — `showCalendarView` flipped `false → true` because the calendar view was opened through `app.commands.executeCommandById` for the probes, a product effect of the probe rather than of this release — and was restored from its byte-identical backup. `Calendar/journal-metadata.json` is unchanged.
+
+### Notes
+- Real iPhone and Android acceptance is still open. The long press only runs on a coarse pointer, the callout rule only exists on WebKit, and the clamp the restore fixes is a mobile layout-timing effect; the Mac Sandbox is tablet-like and stands in for none of the three. Both paths are covered by unit tests and by the forced-condition probes above.
+
+---
+
+两处手机修复：笔记里照片的元数据改为长按打开，不再往编辑器 DOM 注入按钮；设置里任何开关重建设置面板时，滚动位置保持不变。
+
+### 修复
+- **图片上一行的回车键恢复可用。** 手机上在 Live Preview 里编辑笔记时，Dayline 会往图片自身的节点里注入一个小的信息按钮。CodeMirror 拥有 `.cm-content` 下的每一个节点，会把不认识 DOM 当作编辑器内容读回去，于是这个按钮会重新同步该行，只要光标下一行是图片，回车就被吞掉。现在手机上改为长按图片本身：按住 450 毫秒打开照片元数据，拖动超过 10 像素或在到时前松手都会取消，普通点击仍然作为"放置光标"传给编辑器，并且完全不往 DOM 里加东西。阅读视图仍保留可见的信息按钮，桌面精确指针仍是悬停——判定条件是"粗指针 **且** 位于 `.cm-content` 内"。
+- **iOS 不再用自己的图片菜单回应这次长按。** 触屏设备上 Live Preview 里的内嵌图片加上 `-webkit-touch-callout: none`，长按归 Dayline 使用。
+- **设置页不再跳回顶部。** 几乎每一个开关都会整体重建设置面板，而在旧行已清空、新行仍在排版的那段时间里，可滚动的祖先元素内容高度归零，把偏移夹回 0。Dayline 现在从 `containerEl` 往上找到真正滚动的那一层（它是一个包装元素，桌面和手机端还各不相同），记下偏移，重建完成后恢复；布局未稳定时最多逐帧重申 8 次，若面板最终比记录的偏移更短就停止重试，不会空转。第一次打开设置仍然从顶部开始。
+
+### 验证
+- `npm run typecheck`、`npm test`（71 个文件 / 861 项测试，其中 15 项为本次新增）、`npm run build`、`npm run build:tablet`、`npm run package:release`、`npm run verify:release`、`npm run verify:release:zip`、`git diff --check` 全部通过。2.10.0 记录的 47 项 jsdom 环境失败在本机已消失：整套测试全绿。
+- Obsidian Sandbox：`main.js`、`manifest.json`、`styles.css` 逐字节部署并重载，`dev:errors` 无错误。运行中的构建报告 `2.10.1`，其日历视图实例上同时存在 `_bindNoteMediaMetadataControl`（函数源码读取 `shouldUseNoteMediaLongPress`）与 `_addNoteMediaLongPress`。
+- 设置滚动，实测：面板打开时滚动宿主解析为 `.vertical-tab-content.dayline-settings-container`（可滚 3,002 像素）；`scrollTop` 1500 在一次 `display()` 重建后保持不变；再人为制造手机端那种"渲染中被夹回 0"——让 `empty()` 在行被清空后把偏移置 0——重建结束时依旧回到 1500。同一条路径在 2.10.0 上会停在 0。
+- 长按，实测：把 `capabilities.coarsePointer` 强制置为 true，并在一个 `.cm-content` 里放入 `.internal-embed > img` 的临时节点，450 毫秒长按恰好打开一次元数据；按住后移动 40 像素再松开则一次都不打开；该内嵌元素的子节点数保持为 1——没有向编辑器 DOM 注入任何控件。
+- `-webkit-touch-callout` 规则进入了运行中的文档，但 Mac 窗口里它的声明数为 0（`style.length` 为 0）：这是 WebKit 独有、Chromium 不实现的属性，所以这个窗口证明不了它。
+- 运行期间 `data.json` 被改写过一次——`showCalendarView` 由 `false` 变为 `true`，原因是实测过程中用 `app.commands.executeCommandById` 打开了日历视图，属于探测动作的产品效果、与本次发布的行为改动无关——已用逐字节备份还原。`Calendar/journal-metadata.json` 未变。
+
+### 备注
+- 真机 iPhone 与 Android 验收仍未完成：长按只在粗指针设备上生效，callout 属性只有 WebKit 支持，而需要恢复的那个"夹回 0"是移动端布局时序造成的；Mac Sandbox 是平板形态，三者都替代不了。两条路径由单元测试和上述强制条件的实测覆盖。
+
+---
+
 ## 2.10.0 (2026-10-08)
 
 HEIC photos taken on an iPhone now appear on every device: the desktop converts each one once into a shared thumbnail cache inside the vault, and phones and tablets read that cache directly without decoding anything.

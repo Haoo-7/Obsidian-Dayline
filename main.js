@@ -11208,9 +11208,13 @@ __export(settings_tab_exports, {
   commitJournalSourceSettings: () => commitJournalSourceSettings,
   createSettingsLocalizer: () => createSettingsLocalizer,
   fillDisplayLanguageDropdown: () => fillDisplayLanguageDropdown,
+  isScrollableSettingsPane: () => isScrollableSettingsPane,
   normalizeHeicThumbCachePath: () => normalizeHeicThumbCachePath,
   normalizeMoodMetadataPath: () => normalizeMoodMetadataPath,
   parseCoordinateSettingValue: () => parseCoordinateSettingValue,
+  resolveSettingsScrollHost: () => resolveSettingsScrollHost,
+  restoreSettingsScroll: () => restoreSettingsScroll,
+  shouldPreserveSettingsScroll: () => shouldPreserveSettingsScroll,
   shouldShowCalendarMoodStyle: () => shouldShowCalendarMoodStyle,
   shouldShowCalendarWeatherOptions: () => shouldShowCalendarWeatherOptions,
   shouldShowExifGeocoding: () => shouldShowExifGeocoding,
@@ -11288,7 +11292,44 @@ function addExifPersistMetadataSetting(containerEl, plugin, saveSettings = () =>
     await saveSettings();
   }));
 }
-var import_obsidian5, VIEW_TYPE, SETTINGS_TEXT_COMMIT_DELAY_MS, DEFAULT_MOOD_METADATA_PATH, COORDINATE_LIMITS, COORDINATE_RANGE_MESSAGE_KEYS, DECIMAL_NUMBER_PATTERN, SETTINGS_SECTION_IDS, SETTINGS_SECTION_LABEL_KEYS, SETTINGS_ACTION_ROWS, DaylineSettingsTab, FolderSuggestModal;
+function resolveSettingsScrollHost(containerEl) {
+  let current = containerEl || null;
+  while (current) {
+    if (isScrollableSettingsPane(current)) return current;
+    current = current.parentElement;
+  }
+  const fallback = typeof document !== "undefined" ? document.scrollingElement : null;
+  return isScrollableSettingsPane(fallback) ? fallback : null;
+}
+function isScrollableSettingsPane(el) {
+  if (!el) return false;
+  if (el.scrollHeight - el.clientHeight <= SCROLL_EPSILON_PX) return false;
+  if (typeof window === "undefined" || typeof window.getComputedStyle !== "function") return true;
+  const overflowY = window.getComputedStyle(el).overflowY;
+  return overflowY === "auto" || overflowY === "scroll" || overflowY === "overlay";
+}
+function shouldPreserveSettingsScroll(visible, host, containerEl) {
+  return Boolean(visible && host && containerEl && containerEl.childElementCount > 0);
+}
+function restoreSettingsScroll(host, scrollTop, options = {}) {
+  const { maxFrames = SCROLL_RESCUE_MAX_FRAMES, frame } = options;
+  if (!host || !(scrollTop > 0)) return;
+  host.scrollTop = scrollTop;
+  if (host.scrollTop >= scrollTop - SCROLL_EPSILON_PX) return;
+  const nextFrame = frame || ((callback) => {
+    if (typeof window === "undefined" || typeof window.requestAnimationFrame !== "function") return;
+    window.requestAnimationFrame(callback);
+  });
+  let remaining = Math.max(0, maxFrames);
+  const retry = () => {
+    if (remaining <= 0 || host.scrollTop >= scrollTop - SCROLL_EPSILON_PX) return;
+    host.scrollTop = scrollTop;
+    remaining -= 1;
+    nextFrame(retry);
+  };
+  nextFrame(retry);
+}
+var import_obsidian5, VIEW_TYPE, SETTINGS_TEXT_COMMIT_DELAY_MS, SCROLL_EPSILON_PX, SCROLL_RESCUE_MAX_FRAMES, DEFAULT_MOOD_METADATA_PATH, COORDINATE_LIMITS, COORDINATE_RANGE_MESSAGE_KEYS, DECIMAL_NUMBER_PATTERN, SETTINGS_SECTION_IDS, SETTINGS_SECTION_LABEL_KEYS, SETTINGS_ACTION_ROWS, DaylineSettingsTab, FolderSuggestModal;
 var init_settings_tab = __esm({
   "src/settings-tab.ts"() {
     "use strict";
@@ -11306,6 +11347,8 @@ var init_settings_tab = __esm({
     init_heic_thumb_store();
     VIEW_TYPE = "calendar-sidebar-view";
     SETTINGS_TEXT_COMMIT_DELAY_MS = 800;
+    SCROLL_EPSILON_PX = 1;
+    SCROLL_RESCUE_MAX_FRAMES = 8;
     DEFAULT_MOOD_METADATA_PATH = "Calendar/journal-metadata.json";
     COORDINATE_LIMITS = { latitude: 90, longitude: 180 };
     COORDINATE_RANGE_MESSAGE_KEYS = {
@@ -11342,6 +11385,7 @@ var init_settings_tab = __esm({
         super(app, plugin);
         this.plugin = plugin;
         this._pendingFieldFlushes = /* @__PURE__ */ new Set();
+        this._settingsVisible = false;
       }
       async _saveSettings() {
         try {
@@ -11398,6 +11442,7 @@ var init_settings_tab = __esm({
         for (const flush of pending) flush();
       }
       hide() {
+        this._settingsVisible = false;
         this._flushPendingFieldCommits();
         super.hide();
       }
@@ -11531,6 +11576,10 @@ var init_settings_tab = __esm({
       display() {
         this._flushPendingFieldCommits();
         const { containerEl } = this;
+        const scrollHost = resolveSettingsScrollHost(containerEl);
+        const keepScroll = shouldPreserveSettingsScroll(this._settingsVisible, scrollHost, containerEl);
+        const previousScrollTop = keepScroll ? scrollHost.scrollTop : 0;
+        this._settingsVisible = true;
         containerEl.empty();
         containerEl.addClass("dayline-settings-container");
         const _s = createSettingsLocalizer(this.plugin.settings);
@@ -11867,6 +11916,7 @@ var init_settings_tab = __esm({
             if (leaf?.view) leaf.view.startWeatherBackfill();
           }));
         }
+        if (keepScroll) restoreSettingsScroll(scrollHost, previousScrollTop);
       }
     };
     FolderSuggestModal = class extends import_obsidian5.SuggestModal {
@@ -31776,7 +31826,7 @@ var init_manifest = __esm({
     manifest_default = {
       id: "dayline-journal",
       name: "Dayline Journal",
-      version: "2.10.0",
+      version: "2.10.1",
       minAppVersion: "1.5.0",
       description: "A visual journal for calendars, timelines, moods, memories, weather, and photos. / \u96C6\u65E5\u5386\u3001\u65F6\u95F4\u7EBF\u3001\u5FC3\u60C5\u3001\u56DE\u987E\u3001\u5929\u6C14\u548C\u7167\u7247\u4E8E\u4E00\u4F53\u7684\u53EF\u89C6\u5316\u65E5\u8BB0\u5DE5\u5177.",
       author: "Haoo",
@@ -32922,6 +32972,74 @@ var init_media_interaction = __esm({
   }
 });
 
+// src/note-media-press.ts
+var note_media_press_exports = {};
+__export(note_media_press_exports, {
+  NOTE_MEDIA_LONG_PRESS_MS: () => NOTE_MEDIA_LONG_PRESS_MS,
+  NOTE_MEDIA_PRESS_TOLERANCE_PX: () => NOTE_MEDIA_PRESS_TOLERANCE_PX,
+  bindNoteMediaLongPress: () => bindNoteMediaLongPress,
+  isInsideEditorContentDom: () => isInsideEditorContentDom,
+  shouldUseNoteMediaLongPress: () => shouldUseNoteMediaLongPress
+});
+function isInsideEditorContentDom(el) {
+  return Boolean(el?.closest?.(".cm-content"));
+}
+function shouldUseNoteMediaLongPress(el, coarsePointer) {
+  return Boolean(coarsePointer) && isInsideEditorContentDom(el);
+}
+function bindNoteMediaLongPress(target, onOpen, {
+  delayMs = NOTE_MEDIA_LONG_PRESS_MS,
+  moveTolerance = NOTE_MEDIA_PRESS_TOLERANCE_PX
+} = {}) {
+  let press = null;
+  let timer = null;
+  const cancel = () => {
+    if (timer !== null) {
+      window.clearTimeout(timer);
+      timer = null;
+    }
+    press = null;
+  };
+  const onPointerDown = (event) => {
+    if (event.isPrimary === false) return;
+    if (event.button !== void 0 && event.button !== 0) return;
+    cancel();
+    press = { pointerId: event.pointerId, x: event.clientX ?? 0, y: event.clientY ?? 0 };
+    timer = window.setTimeout(() => {
+      timer = null;
+      press = null;
+      onOpen();
+    }, delayMs);
+  };
+  const onPointerMove = (event) => {
+    if (!press || timer === null || event.pointerId !== press.pointerId) return;
+    if (!isCalendarTapGesture(press.x, press.y, event.clientX ?? 0, event.clientY ?? 0, moveTolerance)) cancel();
+  };
+  const onPointerUp = (event) => {
+    if (press && event.pointerId === press.pointerId) cancel();
+  };
+  target.addEventListener("pointerdown", onPointerDown);
+  target.addEventListener("pointermove", onPointerMove, { passive: true });
+  target.addEventListener("pointerup", onPointerUp);
+  target.addEventListener("pointercancel", cancel);
+  return () => {
+    cancel();
+    target.removeEventListener("pointerdown", onPointerDown);
+    target.removeEventListener("pointermove", onPointerMove);
+    target.removeEventListener("pointerup", onPointerUp);
+    target.removeEventListener("pointercancel", cancel);
+  };
+}
+var NOTE_MEDIA_LONG_PRESS_MS, NOTE_MEDIA_PRESS_TOLERANCE_PX;
+var init_note_media_press = __esm({
+  "src/note-media-press.ts"() {
+    "use strict";
+    init_touch_targets();
+    NOTE_MEDIA_LONG_PRESS_MS = 450;
+    NOTE_MEDIA_PRESS_TOLERANCE_PX = 10;
+  }
+});
+
 // src/css-url.ts
 var css_url_exports = {};
 __export(css_url_exports, {
@@ -33152,6 +33270,7 @@ var {
   shouldOpenCalendarDateFromPointer: shouldOpenCalendarDateFromPointer2
 } = (init_media_interaction(), __toCommonJS(media_interaction_exports));
 var { calendarCellTouchRouting: calendarCellTouchRouting2, bindOpenOnPointer: bindOpenOnPointer2 } = (init_touch_targets(), __toCommonJS(touch_targets_exports));
+var { shouldUseNoteMediaLongPress: shouldUseNoteMediaLongPress2, bindNoteMediaLongPress: bindNoteMediaLongPress2 } = (init_note_media_press(), __toCommonJS(note_media_press_exports));
 var { cssUrl: cssUrl2 } = (init_css_url(), __toCommonJS(css_url_exports));
 var {
   DAYLINE_VIEW_TYPES: DAYLINE_VIEW_TYPES2,
@@ -35939,7 +36058,7 @@ var CalendarView = class extends ItemView2 {
         onFocus: (e) => this._onNoteImageEnter(e, img, true)
       });
       if (getMediaControlOwner2(img) === img) {
-        this._addNoteMediaInfoControl(img, () => this._onNoteImageEnter(null, img, true));
+        this._bindNoteMediaMetadataControl(img, () => this._onNoteImageEnter(null, img, true));
       }
     }
   }
@@ -35957,7 +36076,7 @@ var CalendarView = class extends ItemView2 {
         onLeave: () => this._onExifLeave(el),
         onFocus: (e) => MEDIA_IMAGE_EXTENSIONS.includes(ext) ? this._onNoteImageEnter(e, el, true) : this._onNoteMediaEnter(e, el, true)
       });
-      this._addNoteMediaInfoControl(el, () => MEDIA_IMAGE_EXTENSIONS.includes(ext) ? this._onNoteImageEnter(null, el, true) : this._onNoteMediaEnter(null, el, true));
+      this._bindNoteMediaMetadataControl(el, () => MEDIA_IMAGE_EXTENSIONS.includes(ext) ? this._onNoteImageEnter(null, el, true) : this._onNoteMediaEnter(null, el, true));
       if (HEIC_EXTS2.includes(ext) && !hasExistingImage2(el) && !el.querySelector(".cal-heic-preview")) {
         void this._convertHeicEmbed(el, normalizedSrc);
       }
@@ -36002,7 +36121,7 @@ var CalendarView = class extends ItemView2 {
         onLeave: () => this._onExifLeave(img),
         onFocus: (e) => this._onNoteImageEnter(e, img, true)
       });
-      this._addNoteMediaInfoControl(img, () => this._onNoteImageEnter(null, img, true));
+      this._bindNoteMediaMetadataControl(img, () => this._onNoteImageEnter(null, img, true));
       loader.replaceWith(img);
     } catch {
       loader.textContent = t2(this.plugin.settings, "heicError");
@@ -36084,6 +36203,29 @@ var CalendarView = class extends ItemView2 {
     for (const disposers of entries) {
       for (const dispose of disposers) dispose();
     }
+  }
+  /**
+   * Entry point for a photo's metadata inside a note. Inside Live Preview a
+   * phone long-presses instead: any node added under `.cm-content` is DOM that
+   * CodeMirror has to reconcile, and the injected info button is what made the
+   * Return key do nothing on the line above an image.
+   */
+  _bindNoteMediaMetadataControl(el, open) {
+    if (shouldUseNoteMediaLongPress2(el, this.plugin.capabilities?.coarsePointer)) {
+      this._addNoteMediaLongPress(el, open);
+      return;
+    }
+    this._addNoteMediaInfoControl(el, open);
+  }
+  _addNoteMediaLongPress(el, open) {
+    const owner = getMediaControlOwner2(el);
+    if (!owner?.addEventListener || !shouldAddMediaInfoControl2(owner, this._exifNoteMediaControls)) return;
+    this._exifNoteMediaControls?.add?.(owner);
+    const dispose = bindNoteMediaLongPress2(owner, open);
+    const disposers = this._noteMediaDisposers();
+    const existing = disposers.get(el);
+    if (existing) existing.push(dispose);
+    else disposers.set(el, [dispose]);
   }
   _addNoteMediaInfoControl(el, open) {
     const owner = getMediaControlOwner2(el);
