@@ -1,6 +1,7 @@
 .DS_Store
 .omo/
 .commandcode/
+.qoder/
 node_modules/
 dist/
 output/
