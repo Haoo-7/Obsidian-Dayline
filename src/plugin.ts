@@ -71,6 +71,7 @@ const {
   shouldOpenCalendarDateFromPointer,
 } = require('./media-interaction');
 const { calendarCellTouchRouting, bindOpenOnPointer } = require('./touch-targets');
+const { shouldUseNoteMediaLongPress, bindNoteMediaLongPress } = require('./note-media-press');
 const { cssUrl } = require('./css-url');
 const {
   DAYLINE_VIEW_TYPES,
@@ -3462,7 +3463,7 @@ class CalendarView extends ItemView {
       // Let the outer embed own the single touch affordance when Obsidian
       // renders an image inside an interactive embed wrapper.
       if (getMediaControlOwner(img) === img) {
-        this._addNoteMediaInfoControl(img, () => this._onNoteImageEnter(null, img, true));
+        this._bindNoteMediaMetadataControl(img, () => this._onNoteImageEnter(null, img, true));
       }
     }
   }
@@ -3488,7 +3489,7 @@ class CalendarView extends ItemView {
           ? this._onNoteImageEnter(e, el, true)
           : this._onNoteMediaEnter(e, el, true),
       });
-      this._addNoteMediaInfoControl(el, () => MEDIA_IMAGE_EXTENSIONS.includes(ext)
+      this._bindNoteMediaMetadataControl(el, () => MEDIA_IMAGE_EXTENSIONS.includes(ext)
         ? this._onNoteImageEnter(null, el, true)
         : this._onNoteMediaEnter(null, el, true));
 
@@ -3549,7 +3550,7 @@ class CalendarView extends ItemView {
         onLeave: () => this._onExifLeave(img),
         onFocus: (e) => this._onNoteImageEnter(e, img, true),
       });
-      this._addNoteMediaInfoControl(img, () => this._onNoteImageEnter(null, img, true));
+      this._bindNoteMediaMetadataControl(img, () => this._onNoteImageEnter(null, img, true));
       loader.replaceWith(img);
     } catch {
       loader.textContent = t(this.plugin.settings, 'heicError');
@@ -3643,6 +3644,31 @@ class CalendarView extends ItemView {
     for (const disposers of entries) {
       for (const dispose of disposers) dispose();
     }
+  }
+
+  /**
+   * Entry point for a photo's metadata inside a note. Inside Live Preview a
+   * phone long-presses instead: any node added under `.cm-content` is DOM that
+   * CodeMirror has to reconcile, and the injected info button is what made the
+   * Return key do nothing on the line above an image.
+   */
+  _bindNoteMediaMetadataControl(el, open) {
+    if (shouldUseNoteMediaLongPress(el, this.plugin.capabilities?.coarsePointer)) {
+      this._addNoteMediaLongPress(el, open);
+      return;
+    }
+    this._addNoteMediaInfoControl(el, open);
+  }
+
+  _addNoteMediaLongPress(el, open) {
+    const owner = getMediaControlOwner(el);
+    if (!owner?.addEventListener || !shouldAddMediaInfoControl(owner, this._exifNoteMediaControls)) return;
+    this._exifNoteMediaControls?.add?.(owner);
+    const dispose = bindNoteMediaLongPress(owner, open);
+    const disposers = this._noteMediaDisposers();
+    const existing = disposers.get(el);
+    if (existing) existing.push(dispose);
+    else disposers.set(el, [dispose]);
   }
 
   _addNoteMediaInfoControl(el, open) {

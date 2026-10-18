@@ -5,6 +5,7 @@ import { runInNewContext } from 'node:vm';
 import ts from 'typescript';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { getMediaControlOwner, shouldAddMediaInfoControl } from '../src/media-interaction';
+import { bindNoteMediaLongPress, shouldUseNoteMediaLongPress, NOTE_MEDIA_LONG_PRESS_MS } from '../src/note-media-press';
 import { MEDIA_EXTENSIONS, IMAGE_EXTENSIONS as MEDIA_IMAGE_EXTENSIONS, classifyMediaLink, normalizeMediaLink } from '../src/media-links';
 
 // Execute the actual view class without booting Obsidian or loading optional codecs.
@@ -42,6 +43,7 @@ const CalendarView = runInNewContext(ts.transpileModule(`${declaration.getText()
   t: (_settings: unknown, key: string) => key,
   setIcon: () => {},
   getMediaControlOwner, shouldAddMediaInfoControl,
+  shouldUseNoteMediaLongPress, bindNoteMediaLongPress,
   usesPhoneLayout: () => false,
   normalizeMediaLink, classifyMediaLink, MEDIA_EXTENSIONS, MEDIA_IMAGE_EXTENSIONS,
   HEIC_EXTS: ['heic', 'heif'],
@@ -67,12 +69,25 @@ function probeListeners(node: HTMLElement) {
   };
 }
 
-function fixture() {
-  const note = element();
+/** jsdom ships no PointerEvent, and the gesture only reads these fields. */
+function pointerEvent(type: string, init: Record<string, unknown> = {}) {
+  const event = new Event(type, { bubbles: true, cancelable: true }) as Event & Record<string, unknown>;
+  Object.assign(event, { isPrimary: true, button: 0, pointerId: 1, clientX: 0, clientY: 0 }, init);
+  return event;
+}
+
+function fixture({ inEditor = false } = {}) {
+  const note = element('div', inEditor ? { cls: 'cm-content' } : {});
+  const line = element('div', { cls: 'cm-line' });
   const embed = element('span', { cls: 'internal-embed', attr: { src: 'photo.jpg', 'aria-label': 'existing-embed' } });
   const img = element('img', { attr: { src: 'photo.jpg' } });
   embed.append(img);
-  note.append(embed);
+  if (inEditor) {
+    line.append(embed);
+    note.append(line);
+  } else {
+    note.append(embed);
+  }
   document.body.append(note);
   const imgListeners = probeListeners(img);
   const embedListeners = probeListeners(embed);
@@ -111,7 +126,7 @@ function fixture() {
     view._processEmbedEls([embed]);
   }
 
-  return { note, embed, img, imgListeners, embedListeners, createView, instrument };
+  return { note, line, embed, img, imgListeners, embedListeners, createView, instrument };
 }
 
 afterEach(() => document.body.replaceChildren());
@@ -275,5 +290,50 @@ describe('note media instrumentation lifecycle', () => {
     container.append(real);
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(real.getAttribute('aria-label')).toBe('mediaMetadata');
+  });
+
+  it('leaves the editor DOM untouched and long-presses the photo open', () => {
+    vi.useFakeTimers();
+    try {
+      const { line, embed, img, embedListeners, createView, instrument } = fixture({ inEditor: true });
+      const view = createView();
+      view._onNoteImageEnter = vi.fn();
+      instrument(view);
+
+      // The injected button was a foreign child of a `.cm-line`. CodeMirror
+      // reconciles nodes it does not own, and on iOS that re-sync ate the
+      // Return key pressed on the text line above the photo.
+      expect(line.querySelectorAll('.dayline-note-media-info')).toHaveLength(0);
+      expect(document.querySelectorAll('.dayline-note-media-info')).toHaveLength(0);
+
+      expect(embedListeners.count('pointerdown')).toBe(1);
+      expect(embedListeners.count('pointermove')).toBe(1);
+      expect(embedListeners.count('pointerup')).toBe(1);
+      expect(embedListeners.count('pointercancel')).toBe(1);
+      // A gesture replaces the control; it does not replace the instrumentation.
+      expect(embedListeners.count('mouseenter')).toBe(1);
+      expect(embed.getAttribute('aria-label')).toBe('mediaMetadata');
+      expect(img.getAttribute('aria-label')).toBe('mediaMetadata');
+
+      embed.dispatchEvent(pointerEvent('pointerdown'));
+      vi.advanceTimersByTime(NOTE_MEDIA_LONG_PRESS_MS);
+      expect(view._onNoteImageEnter).toHaveBeenCalledTimes(1);
+
+      // A tap below the hold stays the editor's business.
+      embed.dispatchEvent(pointerEvent('pointerdown'));
+      embed.dispatchEvent(pointerEvent('pointerup'));
+      vi.advanceTimersByTime(NOTE_MEDIA_LONG_PRESS_MS);
+      expect(view._onNoteImageEnter).toHaveBeenCalledTimes(1);
+
+      view.onClose();
+      expect(embedListeners.count('pointerdown')).toBe(0);
+      expect(embedListeners.count('pointermove')).toBe(0);
+      expect(embedListeners.count('pointerup')).toBe(0);
+      embed.dispatchEvent(pointerEvent('pointerdown'));
+      vi.advanceTimersByTime(NOTE_MEDIA_LONG_PRESS_MS * 2);
+      expect(view._onNoteImageEnter).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

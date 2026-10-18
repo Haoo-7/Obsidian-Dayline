@@ -6,6 +6,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import * as calendarDisplay from '../src/calendar-display';
 import * as dateUtils from '../src/date-utils';
 import * as daylineMobile from '../src/dayline-mobile';
+import * as heicThumbStore from '../src/heic-thumb-store';
+import * as noteMediaPress from '../src/note-media-press';
 import * as onThisDayEntry from '../src/on-this-day-entry';
 import * as viewVisibility from '../src/view-visibility-controller';
 import * as pluginIdentity from '../src/plugin-identity';
@@ -110,6 +112,8 @@ function loadPluginClass(overrides: PluginOverrides = {}): any {
     if (id === './on-this-day-entry') return onThisDayEntry;
     if (id === './view-visibility-controller') return viewVisibility;
     if (id === './plugin-identity') return pluginIdentity;
+    if (id === './heic-thumb-store') return heicThumbStore;
+    if (id === './note-media-press') return noteMediaPress;
     if (id.endsWith('?raw')) return '';
     return {};
   };

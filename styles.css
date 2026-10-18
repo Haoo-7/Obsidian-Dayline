@@ -363,6 +363,12 @@
   color: var(--text-muted);
   vertical-align: middle;
 }
+/* A long press on a photo in Live Preview is Dayline's gesture, so iOS must not
+   answer it with its own image callout. */
+body.dayline-coarse-pointer .markdown-source-view.mod-cm6 .internal-embed,
+body.dayline-coarse-pointer .markdown-source-view.mod-cm6 .internal-embed img {
+  -webkit-touch-callout: none;
+}
 .cal-entry-count {
   position: absolute;
   right: 4px;

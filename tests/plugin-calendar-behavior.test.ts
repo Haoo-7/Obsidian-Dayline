@@ -30,6 +30,7 @@ import {
   resolveWeatherOnThisDayHost,
 } from '../src/on-this-day-entry';
 import { getMediaControlOwner, shouldAddMediaInfoControl, shouldOpenCalendarDateFromPointer } from '../src/media-interaction';
+import { bindNoteMediaLongPress, shouldUseNoteMediaLongPress } from '../src/note-media-press';
 import { calendarCellTouchRouting, bindOpenOnPointer } from '../src/touch-targets';
 import { usesPhoneLayout } from '../src/platform-capabilities';
 import { cssUrl } from '../src/css-url';
@@ -81,6 +82,8 @@ const CalendarView = loadClass('CalendarView', {
   shouldOpenCalendarDateFromPointer,
   getMediaControlOwner,
   shouldAddMediaInfoControl,
+  shouldUseNoteMediaLongPress,
+  bindNoteMediaLongPress,
   _daylineDate: () => daylineDate(),
   formatDateParts,
   joinVaultPath,
