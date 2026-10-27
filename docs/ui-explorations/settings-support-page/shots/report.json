@@ -1,0 +1,80 @@
+[
+  {
+    "file": "row.png",
+    "target": "/Users/haoo/Desktop/Obsidian-Calendar-Sidebar/explore/a.html",
+    "name": "一行",
+    "state": null,
+    "size": "1240x820",
+    "zoom": 1,
+    "thumb": true,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": []
+  },
+  {
+    "file": "letter.png",
+    "target": "/Users/haoo/Desktop/Obsidian-Calendar-Sidebar/explore/b.html",
+    "name": "一封信",
+    "state": null,
+    "size": "1240x820",
+    "zoom": 1,
+    "thumb": true,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": []
+  },
+  {
+    "file": "desk.png",
+    "target": "/Users/haoo/Desktop/Obsidian-Calendar-Sidebar/explore/c.html",
+    "name": "深夜书桌",
+    "state": null,
+    "size": "1240x820",
+    "zoom": 1,
+    "thumb": true,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": []
+  },
+  {
+    "file": "sheet.png",
+    "width": 1940,
+    "height": 490,
+    "columns": 3,
+    "items": [
+      {
+        "naturalWidth": 620,
+        "naturalHeight": 410,
+        "width": 620,
+        "height": 410,
+        "labelHeight": 32,
+        "x": 24,
+        "y": 24,
+        "label": "一行",
+        "labelY": 442
+      },
+      {
+        "naturalWidth": 620,
+        "naturalHeight": 410,
+        "width": 620,
+        "height": 410,
+        "labelHeight": 32,
+        "x": 660,
+        "y": 24,
+        "label": "一封信",
+        "labelY": 442
+      },
+      {
+        "naturalWidth": 620,
+        "naturalHeight": 410,
+        "width": 620,
+        "height": 410,
+        "labelHeight": 32,
+        "x": 1296,
+        "y": 24,
+        "label": "深夜书桌",
+        "labelY": 442
+      }
+    ],
+    "issues": []
+  }
+]

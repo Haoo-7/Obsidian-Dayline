@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>C · 深夜书桌</title>
+<link rel="stylesheet" href="frame.css">
+<style>
+/* C · 深夜书桌：一盏台灯、一张卡片、一只猫 */
+.pane { background: #0f1512; }
+
+.room {
+  position: relative; height: 100%; overflow: hidden;
+  color: #e9e6dc;
+  background:
+    radial-gradient(760px 560px at 74% 44%, rgba(232, 177, 92, .17), rgba(232, 177, 92, 0) 66%),
+    radial-gradient(900px 620px at 10% -12%, #1b2a24, rgba(27, 42, 36, 0) 58%),
+    #0f1512;
+}
+/* 桌面只是光线变暗，不画一条硬边 */
+.room::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 38%;
+  background: linear-gradient(180deg, rgba(9, 14, 11, 0) 0%, rgba(9, 14, 11, .72) 54%, #090e0b 100%);
+}
+/* 台灯在桌面上留下的一小片暖光，让下半部不至于变成空洞 */
+.room::before {
+  content: ""; position: absolute; left: 34%; right: 0; bottom: 4%; height: 42%;
+  background: radial-gradient(52% 62% at 66% 62%, rgba(232, 177, 92, .10), rgba(232, 177, 92, 0) 72%);
+  z-index: 1; pointer-events: none;
+}
+
+.room__grid {
+  position: relative; z-index: 2;
+  display: grid; grid-template-columns: minmax(0, 1fr) 268px;
+  gap: 40px; height: 100%; padding: 30px 44px 44px;
+}
+
+.back { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: #9aa79d; }
+.back svg { display: block; }
+
+h1 {
+  margin: 24px 0 16px;
+  font-size: 32px; font-weight: 700; line-height: 1.46; letter-spacing: -.012em;
+  color: #f2efe6;
+}
+h1 em { font-style: normal; color: #e8b15c; }
+
+.body { margin: 0; max-width: 27em; font-size: 14px; line-height: 1.95; color: #a9b4ab; }
+.body b { font-weight: 600; color: #dcd8cc; }
+.body em { font-style: normal; color: #e8b15c; }
+
+/* 账本 */
+.ledger { margin: 30px 0 0; }
+.ledger__cap { margin: 0 0 6px; font-size: 12.5px; color: #98a39b; }
+.ledger ul { margin: 0; padding: 0; list-style: none; }
+.ledger li {
+  display: flex; align-items: baseline; gap: 10px;
+  padding: 7px 0; border-bottom: 1px solid rgba(232, 177, 92, .12);
+  font-size: 13.5px; color: #d3cfc2;
+}
+.ledger li span { flex: none; }
+.ledger li i { flex: 1; height: 0; border-bottom: 1px dotted rgba(233, 230, 220, .2); }
+.ledger li em {
+  flex: none; font-family: Menlo, "SF Mono", monospace; font-style: normal;
+  font-size: 13px; color: #e8b15c;
+}
+
+/* 桌上的卡片：对齐桌面，落在页面的下半部 */
+.cardwrap { position: relative; display: flex; align-items: flex-end; padding-bottom: 46px; }
+.card {
+  position: relative; width: 100%; padding: 14px 14px 13px;
+  background: #f7f2e8; border-radius: 4px;
+  transform: rotate(-1.6deg);
+  box-shadow: 0 26px 40px -26px rgba(0, 0, 0, .9), 0 3px 9px rgba(0, 0, 0, .32);
+}
+.card img { display: block; width: 100%; height: auto; }
+.card__cap { margin: 10px 0 0; text-align: center; font-size: 12.5px; color: #4a4136; }
+
+/* 接触阴影：卡片真的压在桌面上 */
+.cardwrap::after {
+  content: ""; position: absolute; left: 2%; right: -2%; bottom: 30px; height: 26px;
+  background: radial-gradient(50% 50% at 50% 50%, rgba(0, 0, 0, .55), rgba(0, 0, 0, 0) 72%);
+  filter: blur(8px);
+}
+/* 台灯落在卡片周围的光晕 */
+.cardwrap::before {
+  content: ""; position: absolute; left: -60px; right: -50px; top: -80px; bottom: -60px;
+  background: radial-gradient(closest-side, rgba(232, 177, 92, .16), rgba(232, 177, 92, 0) 70%);
+  filter: blur(10px); z-index: -1;
+}
+
+.foot {
+  position: absolute; left: 44px; right: 44px; bottom: 20px; z-index: 3;
+  margin: 0; font-size: 12.5px; color: #98a39b;
+}
+
+</style>
+</head>
+<body>
+<div class="deck">
+  <div class="backdrop" aria-hidden="true"></div>
+  <div class="modal">
+    <nav class="mnav">
+      <div class="mnav__search">搜索设置</div>
+      <div class="mnav__group">选项</div>
+      <ul>
+        <li>通用</li>
+        <li>编辑器</li>
+        <li>文件与链接</li>
+        <li>外观</li>
+        <li>快捷键</li>
+      </ul>
+      <div class="mnav__group">第三方插件</div>
+      <ul>
+        <li class="on">Dayline Journal</li>
+      </ul>
+    </nav>
+    <div class="pane">
+      <div class="room">
+        <div class="room__grid">
+          <div>
+            <a class="back" href="#">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+              返回设置
+            </a>
+
+            <h1>你把今天写下来，<br>我把这个插件写下去</h1>
+
+            <p class="body">Dayline 没有账号，不联网，不会把你的日记交给任何人。它不欠你什么，你也不欠它什么；如果它值一杯咖啡，这里是<em>那只猫的罐头钱</em>。</p>
+
+            <div class="ledger">
+              <p class="ledger__cap">赞赏会变成</p>
+              <ul>
+                <li><span>一杯咖啡</span><i></i><em>15</em></li>
+                <li><span>一罐猫罐头</span><i></i><em>9</em></li>
+                <li><span>一个月域名</span><i></i><em>30</em></li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="cardwrap">
+            <div class="card">
+              <img src="assets/qr.jpg" alt="Haoo 的微信赞赏码">
+              <p class="card__cap">微信扫码 · 金额随意</p>
+            </div>
+          </div>
+        </div>
+
+        <p class="foot">Dayline · 免费 · 开源 · MIT 许可　　赞助不解锁任何功能，不赞助也一样用。</p>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

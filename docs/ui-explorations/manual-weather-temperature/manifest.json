@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "project": "Dayline 手动天气温度",
+  "brief": "在 Obsidian 日记插件里记录某一刻的体感温度：读数、时刻、保存，覆盖自动天气。三个候选共用 2026-10-08、29°C、15:30、广州这一组事实。",
+  "round": "01",
+  "nativeViewport": "1240x820",
+  "candidates": [
+    {
+      "id": "rail",
+      "name": "温标",
+      "concept": "温度本身是主角，用一条可读的温标把这一刻的量画出来",
+      "typography": "系统无衬线；主值 68px 等宽数字，标签 11–12.5px",
+      "palette": ["#ffffff", "#1f2328", "#6f9bf0", "#e8774c"],
+      "traits": ["水平温标轨道", "大号等宽数字", "深墨主按钮", "无输入框"],
+      "source": "rail.html"
+    },
+    {
+      "id": "strip",
+      "name": "仪表条",
+      "concept": "像调空调一样一步到位：一行里把读数、时刻和确认放完",
+      "typography": "系统无衬线；读数 26px 等宽数字，键帽 15px",
+      "palette": ["#ffffff", "#8b5cf6", "#f3f4f6", "#4b5058"],
+      "traits": ["单行仪表条", "加减键帽带按压边", "宿主紫强调色", "高度最小"],
+      "source": "strip.html"
+    },
+    {
+      "id": "sentence",
+      "name": "句子",
+      "concept": "把读数写进一句话里，像在日记上补一笔，而不是填一张表",
+      "typography": "宋体；句子 26px，读数 44px，元信息 11.5px",
+      "palette": ["#fbf7f1", "#2c2723", "#b4532a", "#dcc6b2"],
+      "traits": ["句子式版式", "内联可写数字", "纸张暖色", "无控件边框"],
+      "source": "sentence.html"
+    }
+  ]
+}

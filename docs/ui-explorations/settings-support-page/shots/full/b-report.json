@@ -1,0 +1,22 @@
+[
+  {
+    "file": "page.png",
+    "state": null,
+    "size": "1240x820",
+    "zoom": 1,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "contrastLow",
+        "label": "文字对比度不达标（正文低于 4.5:1，大字低于 3:1）",
+        "count": 6,
+        "examples": [
+          "div.mnav__search「搜索设置」（3.05:1）",
+          "div.mnav__group「选项」（2.45:1）",
+          "div.mnav__group「第三方插件」（2.45:1）"
+        ]
+      }
+    ]
+  }
+]

@@ -1,0 +1,112 @@
+* { box-sizing: border-box; }
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  background: #f6f6f8;
+  color: #1f2328;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  border: 0;
+  padding: 0;
+  background: none;
+}
+
+/* ---- The app behind the dialog: context only, no competing detail ---- */
+.app {
+  position: fixed;
+  inset: 0;
+  display: flex;
+}
+
+.app__side {
+  width: 246px;
+  padding: 18px 16px;
+  border-right: 1px solid #e8e8ec;
+  background: #fbfbfc;
+}
+
+.app__title {
+  font-size: 12px;
+  color: #9a9fa8;
+  margin: 0 0 12px;
+}
+
+.app__month {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #4a4f57;
+  margin: 0 0 10px;
+}
+
+.app__grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 3px;
+}
+
+.app__grid i {
+  display: block;
+  height: 24px;
+  border-radius: 5px;
+  background: #f0f1f4;
+}
+
+.app__grid i.has {
+  background: #e6e7ec;
+}
+
+.app__grid i.today {
+  background: #fff;
+  box-shadow: inset 0 0 0 1px #cfd1d9;
+}
+
+.app__main {
+  flex: 1;
+  padding: 30px 36px;
+}
+
+.app__main i {
+  display: block;
+  height: 9px;
+  border-radius: 5px;
+  background: #ededf1;
+  margin: 0 0 11px;
+}
+
+.app__main i:nth-child(1) {
+  width: 34%;
+  height: 16px;
+  background: #e7e8ec;
+  margin-bottom: 22px;
+}
+
+.app__main i:nth-child(2) {
+  width: 62%;
+}
+
+.app__main i:nth-child(3) {
+  width: 54%;
+}
+
+.app__main i:nth-child(4) {
+  width: 40%;
+}
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(18, 19, 22, 0.32);
+  display: grid;
+  place-items: center;
+}

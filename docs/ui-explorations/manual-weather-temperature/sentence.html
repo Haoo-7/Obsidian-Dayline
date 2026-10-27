@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>句子</title>
+  <link rel="stylesheet" href="frame.css">
+  <style>
+    .note {
+      position: relative;
+      width: 445px;
+      padding: 28px 30px 22px;
+      background: #fbf7f1;
+      border-radius: 10px;
+      color: #2c2723;
+      box-shadow: 0 26px 70px rgba(30, 20, 10, 0.3);
+    }
+
+    .close {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      width: 24px;
+      height: 24px;
+      border-radius: 6px;
+      display: grid;
+      place-items: center;
+      font-size: 12px;
+      color: #75655a;
+    }
+
+    .sentence {
+      margin: 0;
+      font-family: "Songti SC", "Noto Serif SC", "Source Han Serif SC", "STSong", serif;
+      font-size: 26px;
+      line-height: 1.66;
+      letter-spacing: 0.01em;
+    }
+
+    .soft {
+      color: #7a6a5c;
+    }
+
+    .num {
+      display: inline-block;
+      padding: 0 4px;
+      font-size: 42px;
+      font-weight: 600;
+      line-height: 1.15;
+      vertical-align: -3px;
+      background: linear-gradient(180deg, transparent 55%, #f1dfcb 55%);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .unit {
+      margin-left: 5px;
+      font-size: 24px;
+      font-weight: 400;
+      letter-spacing: 0;
+      color: #6f6055;
+    }
+
+    .meta {
+      margin: 16px 0 0;
+      font-size: 11.5px;
+      letter-spacing: 0.03em;
+      color: #75655a;
+    }
+
+    .actions {
+      margin-top: 26px;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 18px;
+    }
+
+    .text {
+      font-size: 12.5px;
+      color: #7a6a5c;
+    }
+
+    .pill {
+      height: 36px;
+      padding: 0 18px;
+      border-radius: 999px;
+      background: #b4532a;
+      color: #fff8f2;
+      font-size: 12.5px;
+      font-weight: 500;
+    }
+  </style>
+</head>
+<body>
+  <div class="app" aria-hidden="true">
+    <aside class="app__side">
+      <p class="app__title">Dayline</p>
+      <p class="app__month">2026 年 10 月</p>
+      <div class="app__grid">
+        <i></i><i></i><i></i><i class="has"></i><i></i><i></i><i></i>
+        <i class="has"></i><i></i><i class="has"></i><i></i><i></i><i class="has"></i><i></i>
+        <i></i><i></i><i class="has"></i><i></i><i class="today"></i><i></i><i></i>
+        <i></i><i></i><i></i><i class="has"></i><i></i><i></i><i></i>
+        <i></i><i class="has"></i><i></i><i></i><i class="has"></i><i></i><i></i>
+      </div>
+    </aside>
+    <main class="app__main"><i></i><i></i><i></i><i></i></main>
+  </div>
+
+  <div class="overlay">
+    <section class="note" role="dialog" aria-label="记录体感温度">
+      <button class="close" aria-label="关闭">✕</button>
+
+      <p class="sentence">
+        <span class="soft" data-sample="dateShort">10月8日</span>
+        <span class="soft" data-sample="time">15:30</span>，我觉得
+        <span class="num" data-sample="temp">29</span><span class="unit">度</span>
+      </p>
+
+      <p class="meta">广州 · 手动记录</p>
+
+      <div class="actions">
+        <button class="text">清除</button>
+        <button class="pill">记下这一刻</button>
+      </div>
+    </section>
+  </div>
+
+  <script src="sample.js"></script>
+</body>
+</html>

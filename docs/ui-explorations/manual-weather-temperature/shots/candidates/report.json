@@ -1,0 +1,80 @@
+[
+  {
+    "file": "rail.png",
+    "target": "/Users/haoo/Desktop/Obsidian-Calendar-Sidebar/output/oil-ui-pro/weather-temp-modal/rail.html",
+    "name": "温标",
+    "state": null,
+    "size": "1240x820",
+    "zoom": 1,
+    "thumb": true,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": []
+  },
+  {
+    "file": "strip.png",
+    "target": "/Users/haoo/Desktop/Obsidian-Calendar-Sidebar/output/oil-ui-pro/weather-temp-modal/strip.html",
+    "name": "仪表条",
+    "state": null,
+    "size": "1240x820",
+    "zoom": 1,
+    "thumb": true,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": []
+  },
+  {
+    "file": "sentence.png",
+    "target": "/Users/haoo/Desktop/Obsidian-Calendar-Sidebar/output/oil-ui-pro/weather-temp-modal/sentence.html",
+    "name": "句子",
+    "state": null,
+    "size": "1240x820",
+    "zoom": 1,
+    "thumb": true,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": []
+  },
+  {
+    "file": "sheet.png",
+    "width": 1940,
+    "height": 490,
+    "columns": 3,
+    "items": [
+      {
+        "naturalWidth": 620,
+        "naturalHeight": 410,
+        "width": 620,
+        "height": 410,
+        "labelHeight": 32,
+        "x": 24,
+        "y": 24,
+        "label": "温标",
+        "labelY": 442
+      },
+      {
+        "naturalWidth": 620,
+        "naturalHeight": 410,
+        "width": 620,
+        "height": 410,
+        "labelHeight": 32,
+        "x": 660,
+        "y": 24,
+        "label": "仪表条",
+        "labelY": 442
+      },
+      {
+        "naturalWidth": 620,
+        "naturalHeight": 410,
+        "width": 620,
+        "height": 410,
+        "labelHeight": 32,
+        "x": 1296,
+        "y": 24,
+        "label": "句子",
+        "labelY": 442
+      }
+    ],
+    "issues": []
+  }
+]

@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>温标</title>
+  <link rel="stylesheet" href="frame.css">
+  <style>
+    .card {
+      width: 420px;
+      padding: 20px 24px 18px;
+      background: #fff;
+      border-radius: 18px;
+      box-shadow: 0 24px 60px rgba(15, 20, 30, 0.24), 0 1px 0 rgba(15, 20, 30, 0.03);
+    }
+
+    .card__head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .date {
+      font-size: 12.5px;
+      color: #5f6673;
+    }
+
+    .close {
+      width: 26px;
+      height: 26px;
+      border-radius: 7px;
+      display: grid;
+      place-items: center;
+      font-size: 13px;
+      color: #5c636e;
+    }
+
+    .readout {
+      display: flex;
+      align-items: flex-end;
+      gap: 2px;
+      margin-top: 16px;
+    }
+
+    .readout__value {
+      font-size: 68px;
+      font-weight: 600;
+      line-height: 1;
+      letter-spacing: -0.035em;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .unit {
+      padding-bottom: 9px;
+      font-size: 19px;
+      font-weight: 500;
+      color: #5f6673;
+    }
+
+    .readout__meta {
+      margin-left: auto;
+      padding-bottom: 11px;
+      text-align: right;
+      font-size: 11.5px;
+      line-height: 1.55;
+      color: #5f6673;
+    }
+
+    .rail {
+      position: relative;
+      height: 22px;
+      margin: 22px 2px 6px;
+    }
+
+    .rail__track {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 8px;
+      height: 6px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #6f9bf0 0%, #9fc0e8 26%, #e8d59a 55%, #efa96f 78%, #e8774c 100%);
+    }
+
+    .rail__thumb {
+      position: absolute;
+      top: 1px;
+      left: calc(var(--temp-ratio, 0.78) * 100%);
+      width: 20px;
+      height: 20px;
+      margin-left: -10px;
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: 0 0 0 2px #1f2328, 0 2px 6px rgba(15, 20, 30, 0.28);
+    }
+
+    .ticks {
+      display: flex;
+      justify-content: space-between;
+      padding: 0 1px;
+      font-size: 10px;
+      color: #5c636e;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .foot {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 20px;
+    }
+
+    .time {
+      display: inline-flex;
+      align-items: baseline;
+      gap: 7px;
+      padding: 6px 10px;
+      border-radius: 9px;
+      background: #f4f5f7;
+    }
+
+    .time__label {
+      font-size: 11px;
+      color: #5f6673;
+    }
+
+    .time__value {
+      font-size: 13px;
+      font-weight: 500;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn {
+      height: 32px;
+      padding: 0 14px;
+      border-radius: 9px;
+      font-size: 12.5px;
+      font-weight: 500;
+    }
+
+    .btn--ghost {
+      color: #4b5058;
+      box-shadow: inset 0 0 0 1px #e1e3e8;
+    }
+
+    .btn--primary {
+      background: #1f2328;
+      color: #fff;
+    }
+  </style>
+</head>
+<body>
+  <div class="app" aria-hidden="true">
+    <aside class="app__side">
+      <p class="app__title">Dayline</p>
+      <p class="app__month">2026 年 10 月</p>
+      <div class="app__grid">
+        <i></i><i></i><i></i><i class="has"></i><i></i><i></i><i></i>
+        <i class="has"></i><i></i><i class="has"></i><i></i><i></i><i class="has"></i><i></i>
+        <i></i><i></i><i class="has"></i><i></i><i class="today"></i><i></i><i></i>
+        <i></i><i></i><i></i><i class="has"></i><i></i><i></i><i></i>
+        <i></i><i class="has"></i><i></i><i></i><i class="has"></i><i></i><i></i>
+      </div>
+    </aside>
+    <main class="app__main"><i></i><i></i><i></i><i></i></main>
+  </div>
+
+  <div class="overlay">
+    <section class="card" role="dialog" aria-label="记录体感温度">
+      <header class="card__head">
+        <span class="date" data-sample="date">10月8日 周四</span>
+        <button class="close" aria-label="关闭">✕</button>
+      </header>
+
+      <div class="readout">
+        <span class="readout__value" data-sample="temp">29</span>
+        <span class="unit">°C</span>
+        <span class="readout__meta">体感温度<br>手动记录</span>
+      </div>
+
+      <div class="rail" role="img" aria-label="温度标尺，当前 29 度">
+        <div class="rail__track"></div>
+        <div class="rail__thumb"></div>
+      </div>
+      <div class="ticks">
+        <span>−10</span><span>0</span><span>10</span><span>20</span><span>30</span><span>40</span>
+      </div>
+
+      <footer class="foot">
+        <button class="time">
+          <span class="time__label">时间</span>
+          <span class="time__value" data-sample="time">15:30</span>
+        </button>
+        <div class="actions">
+          <button class="btn btn--ghost">取消</button>
+          <button class="btn btn--primary">记录</button>
+        </div>
+      </footer>
+    </section>
+  </div>
+
+  <script src="sample.js"></script>
+</body>
+</html>

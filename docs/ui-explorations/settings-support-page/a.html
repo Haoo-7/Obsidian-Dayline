@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>A · 一行</title>
+<link rel="stylesheet" href="frame.css">
+<style>
+/* A · 一行：整页没有一个彩色像素，颜色只来自二维码本身 */
+.pane { background: #fff; }
+
+.scroll { height: 100%; padding: 24px 40px 0; }
+
+.sec__title {
+  margin: 0; padding: 22px 0 10px;
+  border-top: 1px solid #e9eaee;
+  font-size: 15px; font-weight: 600; color: #1f2329;
+}
+.sec:first-of-type .sec__title { padding-top: 2px; border-top: 0; }
+
+.row { display: flex; align-items: flex-start; gap: 20px; padding: 13px 0 17px; }
+.row__main { flex: 1; min-width: 0; }
+.row__name { display: block; font-size: 14px; font-weight: 500; color: #1f2329; }
+.row__desc { display: block; max-width: 40em; margin-top: 4px; font-size: 13px; line-height: 1.62; color: #6b7078; }
+
+.ghost {
+  flex: none; height: 30px; padding: 0 13px;
+  border: 0; border-radius: 6px; background: #f0f1f3;
+  font-size: 13px; color: #2e3338; box-shadow: 0 1px 1px rgba(0, 0, 0, .04);
+}
+
+/* 展开态：行本身加一条横向分隔，内容在行的下方长出来 */
+.row--open { padding-bottom: 6px; }
+.row__toggle {
+  display: inline-flex; align-items: center; gap: 6px;
+  flex: none; margin-top: 2px; font-size: 13px; color: #6b7078;
+}
+.row__toggle svg { display: block; }
+
+.drawer {
+  margin: 4px 0 20px; padding: 18px;
+  border: 1px solid #e6e8ed; border-radius: 8px; background: #fbfbfc;
+}
+.drawer__top { display: flex; gap: 22px; align-items: center; }
+.drawer__code {
+  flex: none; width: 152px; height: 152px; padding: 9px;
+  background: #fff; border: 1px solid #e4e6eb; border-radius: 6px;
+}
+.drawer__code img { display: block; width: 100%; height: 100%; }
+.drawer__body { flex: 1; min-width: 0; }
+.drawer__title { margin: 0; font-size: 14px; font-weight: 600; color: #1f2329; }
+.drawer__note { margin: 7px 0 0; font-size: 13px; line-height: 1.66; color: #6b7078; }
+.drawer__uses {
+  margin: 15px 0 0; padding-top: 13px; border-top: 1px solid #eceef2;
+  font-size: 13px; line-height: 1.6; color: #4d535d;
+}
+.drawer__uses b { font-weight: 500; color: #1f2329; }
+
+.drawer__alt { margin: 9px 0 0; font-size: 13px; color: #6b7078; }
+.drawer__alt a { color: #1f2329; text-decoration: underline; text-underline-offset: 3px; }
+
+.ver { color: #8f949d; }
+
+</style>
+</head>
+<body>
+<div class="deck">
+  <div class="backdrop" aria-hidden="true"></div>
+  <div class="modal">
+    <nav class="mnav">
+      <div class="mnav__search">搜索设置</div>
+      <div class="mnav__group">选项</div>
+      <ul>
+        <li>通用</li>
+        <li>编辑器</li>
+        <li>文件与链接</li>
+        <li>外观</li>
+        <li>快捷键</li>
+      </ul>
+      <div class="mnav__group">第三方插件</div>
+      <ul>
+        <li class="on">Dayline Journal</li>
+      </ul>
+    </nav>
+    <div class="pane">
+      <div class="scroll">
+        <section class="sec">
+          <h2 class="sec__title">数据维护</h2>
+          <div class="row">
+            <div class="row__main">
+              <span class="row__name">重建索引</span>
+              <span class="row__desc">重新扫描日记文件夹，刷新日历、时间线和搜索结果。日记本身不会被改动。</span>
+            </div>
+            <button class="ghost">重建</button>
+          </div>
+          <div class="row">
+            <div class="row__main">
+              <span class="row__name">清理缩略图缓存</span>
+              <span class="row__desc">删除本机的缩略图副本，下次浏览时会重新生成。</span>
+            </div>
+            <button class="ghost">清理</button>
+          </div>
+        </section>
+
+        <section class="sec">
+          <h2 class="sec__title">支持</h2>
+          <div class="row">
+            <div class="row__main">
+              <span class="row__name">关于 Dayline</span>
+              <span class="row__desc">v2.10.1 · MIT 许可 · 作者 Haoo</span>
+            </div>
+            <button class="ghost">检查更新</button>
+          </div>
+
+          <div class="row row--open">
+            <div class="row__main">
+              <span class="row__name">请作者喝杯咖啡</span>
+              <span class="row__desc">插件免费，所有功能都不需要付费解锁。如果它帮你把日记坚持了下来，可以请作者（和那只猫）喝杯咖啡。</span>
+            </div>
+            <button class="row__toggle" aria-expanded="true">
+              收起
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg>
+            </button>
+          </div>
+
+          <div class="drawer">
+            <div class="drawer__top">
+              <div class="drawer__code">
+                <img src="assets/qr.jpg" alt="Haoo 的微信赞赏码">
+              </div>
+              <div class="drawer__body">
+                <p class="drawer__title">微信扫码，金额随意</p>
+                <p class="drawer__note">赞赏不会解锁任何功能，也不会改变这个插件怎么发展。</p>
+                <p class="drawer__uses">这笔钱会变成<b>咖啡、猫罐头、域名和字体授权</b>。</p>
+                <p class="drawer__alt"><a href="#">或者可以点个 star～</a></p>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

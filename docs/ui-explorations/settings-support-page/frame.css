@@ -1,0 +1,52 @@
+/* 三个候选共用的 Obsidian 设置页外壳。
+   只交代"这是在 Obsidian 的设置里"，不参与风格比较；
+   每个候选自己的页面样式写在自己的 HTML 里。 */
+
+* { box-sizing: border-box; }
+
+html, body { margin: 0; height: 100%; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", sans-serif;
+  background: #d8dae1;
+  color: #20242b;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+button { font: inherit; color: inherit; border: 0; padding: 0; background: none; cursor: pointer; }
+a { color: inherit; }
+
+.deck { position: fixed; inset: 0; display: grid; place-items: center; overflow: hidden; }
+
+/* 背景只做景深，不放任何能读的内容 */
+.backdrop { position: absolute; inset: 0; background: radial-gradient(1100px 620px at 50% 4%, #eaecf1, #d3d6de 72%); }
+.backdrop::before {
+  content: ""; position: absolute; left: 50%; top: 50%;
+  width: 1160px; height: 780px; transform: translate(-50%, -50%) scale(1.04);
+  background: #fff; border-radius: 10px; opacity: .5;
+  box-shadow: 0 34px 80px rgba(22, 26, 34, .22);
+}
+
+.modal {
+  position: relative; display: flex; width: 1000px; height: 720px; overflow: hidden;
+  background: #fff; border: 1px solid #e1e3e9; border-radius: 12px;
+  box-shadow: 0 26px 66px rgba(22, 26, 34, .24), 0 2px 8px rgba(22, 26, 34, .07);
+}
+
+/* 左侧是 Obsidian 自己的设置导航，三个候选完全一致 */
+.mnav {
+  flex: 0 0 198px; width: 198px; padding: 16px 10px;
+  background: #f6f7f9; border-right: 1px solid #e6e8ed;
+}
+.mnav__search {
+  display: flex; align-items: center; height: 30px; margin-bottom: 14px; padding: 0 10px;
+  border: 1px solid #e3e5ea; border-radius: 7px; background: #fff;
+  font-size: 12.5px; color: #8f949d;
+}
+.mnav__group { margin: 15px 10px 6px; font-size: 11.5px; color: #9aa0aa; }
+.mnav ul { margin: 0; padding: 0; list-style: none; }
+.mnav li { margin-bottom: 1px; padding: 6px 10px; border-radius: 6px; font-size: 13px; color: #4d535d; }
+.mnav li.on { background: #e7e9ef; color: #1f2329; font-weight: 600; }
+
+.pane { position: relative; flex: 1; min-width: 0; overflow: hidden; }

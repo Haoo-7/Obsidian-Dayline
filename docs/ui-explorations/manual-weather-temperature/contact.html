@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>候选对照</title>
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      padding: 44px 44px 36px;
+      background: #f1f1f4;
+      color: #1f2328;
+      font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    h1 {
+      margin: 0 0 6px;
+      font-size: 17px;
+      font-weight: 600;
+    }
+
+    p.lead {
+      margin: 0 0 28px;
+      font-size: 12.5px;
+      color: #5b6169;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+      align-items: stretch;
+    }
+
+    .cell {
+      display: flex;
+      flex-direction: column;
+      padding: 16px 16px 14px;
+      background: #fff;
+      border-radius: 14px;
+      box-shadow: 0 1px 2px rgba(20, 24, 31, 0.06);
+    }
+
+    .shot {
+      display: grid;
+      place-items: center;
+      height: 300px;
+      padding: 12px;
+      border-radius: 10px;
+      background: #a9a9ac;
+    }
+
+    .shot img {
+      display: block;
+      max-width: 100%;
+      max-height: 100%;
+      width: auto;
+      height: auto;
+    }
+
+    .caption {
+      margin-top: auto;
+      padding-top: 16px;
+    }
+
+    .caption strong {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 3px;
+    }
+
+    .caption span {
+      display: block;
+      font-size: 11.5px;
+      line-height: 1.5;
+      color: #5b6169;
+    }
+  </style>
+</head>
+<body>
+  <h1>手动温度弹窗 · 三个方向</h1>
+  <p class="lead">同一组事实：2026-10-08，29 度，15:30，广州。差异在骨架、字体、色彩和主视觉。</p>
+
+  <div class="grid">
+    <section class="cell">
+      <div class="shot"><img src="shots/crop-rail/page.png" alt="温标方向"></div>
+      <div class="caption">
+        <strong>01 温标</strong>
+        <span>温度是主角：大号读数加一条 −10…40 的温标，让数字有位置感。</span>
+      </div>
+    </section>
+
+    <section class="cell">
+      <div class="shot"><img src="shots/crop-strip/page.png" alt="仪表条方向"></div>
+      <div class="caption">
+        <strong>02 仪表条</strong>
+        <span>像调空调：一行里加减键、时刻和确认，最省高度。</span>
+      </div>
+    </section>
+
+    <section class="cell">
+      <div class="shot"><img src="shots/crop-sentence/page.png" alt="句子方向"></div>
+      <div class="caption">
+        <strong>03 句子</strong>
+        <span>把读数写进一句话，像在日记上补一笔，不像填表。</span>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>B · 一封信</title>
+<link rel="stylesheet" href="frame.css">
+<style>
+/* B · 一封信：纸、墨、一枚回执 */
+.pane { background: #f7f1e6; }
+
+.letter {
+  height: 100%; padding: 30px 0 0;
+  display: flex; flex-direction: column; align-items: center;
+}
+.letter__inner { width: 560px; }
+
+.back {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: 13px; color: #77624f;
+}
+.back svg { display: block; }
+
+h1 {
+  margin: 20px 0 18px; max-width: 11em;
+  font-family: "Songti SC", "Noto Serif SC", Georgia, serif;
+  font-size: 29px; font-weight: 600; line-height: 1.42; letter-spacing: .01em;
+  color: #2a211b;
+}
+
+p { margin: 0 0 12px; font-size: 14.5px; line-height: 1.92; color: #3b3027; }
+p strong { font-weight: 600; color: #2a211b; }
+
+/* 回执 */
+.receipt {
+  position: relative; margin: 20px 0 0; padding: 20px 22px 18px;
+  background: #fffdf6; border: 1px solid #e0d0b8; border-radius: 0 0 4px 4px;
+}
+.receipt::before {
+  content: ""; position: absolute; left: 0; right: 0; top: -1px; height: 2px;
+  background-image: linear-gradient(to right, #cdb897 0 8px, transparent 8px 16px);
+  background-size: 16px 2px;
+}
+.receipt::after {
+  content: ""; position: absolute; left: -6px; right: -6px; top: -7px; height: 0;
+}
+.receipt__row { display: flex; gap: 22px; align-items: flex-start; }
+.receipt__qr { flex: none; width: 140px; height: 140px; display: block; }
+.receipt__meta { flex: 1; min-width: 0; padding-top: 2px; }
+.receipt__pair {
+  display: flex; justify-content: space-between; align-items: baseline;
+  margin: 0 0 10px; padding-bottom: 9px; border-bottom: 1px solid #ece0cd;
+  font-size: 13px; color: #5d4b39;
+}
+.receipt__pair b { font-weight: 600; color: #2a211b; font-size: 13.5px; }
+.receipt__line { margin: 0 0 5px; font-size: 12.5px; line-height: 1.6; color: #7a6552; }
+.receipt__sign {
+  margin: 12px 0 0; font-family: "Songti SC", Georgia, serif; font-style: italic;
+  font-size: 15px; color: #2a211b;
+}
+
+/* 别的事 */
+.helps-block { margin: 26px 0 0; }
+.helps { margin: 0; padding: 0; list-style: none; }
+.helps__title { margin: 0 0 8px; font-size: 13.5px; font-weight: 600; color: #2a211b; }
+.helps li {
+  display: flex; align-items: baseline; gap: 12px;
+  padding: 8px 0; border-top: 1px solid #e6d9c6;
+  font-size: 13.5px; line-height: 1.6; color: #3b3027;
+}
+.helps li:last-child { border-bottom: 1px solid #e6d9c6; }
+.helps__n {
+  flex: none; width: 20px;
+  font-family: Georgia, "Songti SC", serif; font-style: italic;
+  font-size: 13px; color: #a08a72;
+}
+
+.foot { margin: 16px 0 0; font-size: 12.5px; color: #7a6552; }
+
+</style>
+</head>
+<body>
+<div class="deck">
+  <div class="backdrop" aria-hidden="true"></div>
+  <div class="modal">
+    <nav class="mnav">
+      <div class="mnav__search">搜索设置</div>
+      <div class="mnav__group">选项</div>
+      <ul>
+        <li>通用</li>
+        <li>编辑器</li>
+        <li>文件与链接</li>
+        <li>外观</li>
+        <li>快捷键</li>
+      </ul>
+      <div class="mnav__group">第三方插件</div>
+      <ul>
+        <li class="on">Dayline Journal</li>
+      </ul>
+    </nav>
+    <div class="pane">
+      <div class="letter">
+        <div class="letter__inner">
+          <a class="back" href="#">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+            返回设置
+          </a>
+
+          <h1>这杯咖啡的钱，<br>去了哪里</h1>
+
+          <p>Dayline 是我一个人写的。它免费、开源，没有账号，日记只存在你自己的库里。</p>
+          <p>所以你不用为它付费。但如果它确实让你多写了几篇，可以扫码赞赏：这笔钱会变成咖啡、猫罐头、域名和字体授权。新功能本来就会做，不会因为谁赞赏了才做。</p>
+
+          <div class="receipt">
+            <div class="receipt__row">
+              <img class="receipt__qr" src="assets/qr.jpg" alt="Haoo 的微信赞赏码">
+              <div class="receipt__meta">
+                <p class="receipt__pair"><b>微信扫码</b><span>金额随意</span></p>
+                <p class="receipt__line">Haoo 的微信赞赏码</p>
+                <p class="receipt__line">Dayline Journal · MIT 许可</p>
+                <p class="receipt__sign">— Haoo，和那只猫</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="helps-block">
+            <p class="helps__title">不打钱，也能帮上忙</p>
+            <ul class="helps">
+              <li><span class="helps__n">01</span><span>在仓库点一个 star，让更多人搜得到它</span></li>
+              <li><span class="helps__n">02</span><span>把卡住你的地方说给我听，这比钱有用</span></li>
+              <li><span class="helps__n">03</span><span>推荐给一个也在写日记的人</span></li>
+            </ul>
+          </div>
+
+          <p class="foot">赞助不解锁任何功能。不赞助，也一样用。</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
