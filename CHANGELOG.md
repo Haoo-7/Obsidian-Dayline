@@ -1,5 +1,45 @@
 # Changelog
 
+## 2.11.0 (2026-10-27)
+
+A support section inside settings, an update check that reads the same catalogue Obsidian's plugin browser does, and manual temperature readings that outlive a forecast refresh.
+
+### Added
+- **A support section in the settings pane.** Two rows that read like every other setting: "About Dayline" shows the running version and offers "Check for updates", and "Buy the author a coffee" holds the WeChat tip code in a drawer that starts open. The code is bundled into `main.js` as a data URL, so a plugin folder is still just `main.js` and `styles.css`. The copy says up front that nothing is paywalled and offers a star as an equal alternative, in all nine UI languages.
+- **The update check reads the community catalogue.** It asks `obsidianmd/obsidian-releases` for the published version table — the same source the plugin browser uses — and compares versions numerically, because `2.10.0` has to beat `2.9.4`. That table is about 630 KB, so it is cached for ten minutes; `requestUrl` has no timeout of its own, so the check gives up after 15 seconds and says so instead of leaving the button on "checking" forever. It cannot install anything: a newer version is reported with a pointer to Settings → Community plugins.
+- **Manual temperature readings.** The pencil on the weather card opens a rail with the day's temperature. Dragging it snaps to whole degrees, arrow keys and PageUp/PageDown/Home/End work, a number can be typed directly, and the time of the reading is kept. The reading is journal data: it lives with the plugin's data rather than in `weatherCache`, so a forecast refresh, a cache prune or a units/location change cannot overwrite it, and clearing it falls back to the forecast.
+
+### Verification
+- `npm run typecheck`, `npm test` (76 files / 944 tests), `npm run build`, `npm run package:release`, `npm run verify:release` and `npm run verify:release:zip` all pass.
+- Obsidian Sandbox: `main.js`, `manifest.json` and `styles.css` deployed byte-identical and reloaded with no `dev:errors`. The live settings pane renders eight sections; the support block builds two ordinary `.setting-item` rows, the update button carries no styling of its own, the drawer starts open, and the tip code arrives as a 33 KB inlined data URL.
+- Update check, live: clicking "Check for updates" in the running app produced "已是最新版本（2.10.1）。", and a second click answered from the ten-minute cache without touching the network.
+- The support rows first shipped with the theme's row padding zeroed, which made them 32 px wider than their neighbours and pushed the buttons past the pane edge. They now measure identically to a native `.setting-item`: 16 px inset, same left and right edges.
+- `data.json` was rewritten during the runs by the plugin's own weather cache (one entry for today) and restored from its byte-identical backup; `Calendar/journal-metadata.json` is unchanged.
+
+### Notes
+- The check needs the catalogue to be reachable. Where `raw.githubusercontent.com` is blocked it reports the failure; it deliberately does not fall back to the GitHub API.
+- Real iPhone and Android acceptance for the temperature modal is still open.
+
+---
+
+设置页里多了一块「支持」，检查更新改为读 Obsidian 插件浏览器用的那份版本表，手动记录的体感温度不再被天气预报覆盖。
+
+### 新增
+- **设置页里的「支持」区块。** 两行和页面上其它设置长得一样：「关于 Dayline」显示当前版本并带一个「检查更新」，「请作者喝杯咖啡」把微信赞赏码放在默认展开的抽屉里。二维码以 data URL 内联进 `main.js`，插件目录仍然只有 `main.js` 和 `styles.css`。文案在二维码之前就说明没有任何功能需要付费解锁，并给出点 star 这条同等分量的替代路径；九种界面语言都写了。
+- **检查更新改读商店的版本表。** 向 `obsidianmd/obsidian-releases` 要那份已发布版本表——和插件浏览器同一个来源——并按数字比较，因为 `2.10.0` 必须大于 `2.9.4`。这份表约 630 KB，所以缓存十分钟；`requestUrl` 自己没有超时，检查在 15 秒后放弃并如实提示，而不是让按钮一直停在「检查中…」。它不能安装任何东西：发现新版本只提示去「设置 → 第三方插件」更新。
+- **手动记录体感温度。** 天气卡片上的铅笔打开一条温标：拖动按整度吸附，方向键、PageUp/PageDown/Home/End 都能用，也可以直接输入数字，并保留读数对应的时刻。这条读数属于日记数据，和插件数据存在一起、不进 `weatherCache`，所以天气预报刷新、缓存清理、单位或地点变更都不会覆盖它；清除后回到自动天气。
+
+### 验证
+- `npm run typecheck`、`npm test`（76 个文件 / 944 项测试）、`npm run build`、`npm run package:release`、`npm run verify:release`、`npm run verify:release:zip` 全部通过。
+- Obsidian Sandbox：`main.js`、`manifest.json`、`styles.css` 逐字节一致地部署并重载，`dev:errors` 无错误。运行中的设置页渲染出八个分区；「支持」区块生成的是两个普通的 `.setting-item` 行，更新按钮不带任何自带样式，抽屉默认展开，二维码以 33 KB 的内联 data URL 呈现。
+- 检查更新，实测：在运行中的应用里点「检查更新」得到「已是最新版本（2.10.1）。」，再点一次由十分钟缓存作答，没有再走网络。
+- 「支持」的两行最初把主题设置行的内边距清零，导致比邻居宽 32 像素、按钮被面板裁掉。现在与原生 `.setting-item` 的度量完全一致：左右各 16 像素内边距，左右边界相同。
+- 运行期间 `data.json` 被插件自己的天气缓存改写过（多了一条今天的记录），已用逐字节备份还原；`Calendar/journal-metadata.json` 未变。
+
+### 备注
+- 检查更新需要商店的版本表可访问。`raw.githubusercontent.com` 被挡时会如实报失败，不会退回 GitHub API。
+- 温度弹窗的真机 iPhone / Android 验收仍未完成。
+
 ## 2.10.1 (2026-10-18)
 
 Two phone fixes: a photo's metadata inside a note now opens with a long press instead of a button injected into the editor's DOM, and the settings pane keeps its scroll position when a toggle rebuilds it.

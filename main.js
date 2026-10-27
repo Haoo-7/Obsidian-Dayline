@@ -3340,6 +3340,7 @@ var init_i18n = __esm({
         settingsMood: "\u5FC3\u60C5",
         settingsOnThisDay: "\u53BB\u5E74\u4ECA\u65E5",
         settingsSaveFailed: "\u4FDD\u5B58\u8BBE\u7F6E\u5931\u8D25\uFF1A{error}",
+        settingsSupport: "\u652F\u6301",
         settingsWeather: "\u5929\u6C14",
         showCalendarEntryCount: "\u663E\u793A\u540C\u65E5\u8BB0\u5F55\u89D2\u6807",
         showCalendarEntryCountDesc: "\u540C\u4E00\u5929\u6709\u591A\u7BC7\u8BB0\u5F55\u65F6\u663E\u793A\u989D\u5916\u7BC7\u6570\uFF0C\u70B9\u51FB\u89D2\u6807\u6253\u5F00\u4E3B\u65E5\u8BB0\u3002",
@@ -3388,6 +3389,23 @@ var init_i18n = __esm({
         sourceSaved: "\u6765\u6E90\u5DF2\u4FDD\u5B58",
         sourceType: "\u7C7B\u578B",
         sourceUnsaved: "\u6709\u672A\u5E94\u7528\u7684\u66F4\u6539",
+        supportAboutDesc: "v{version} \xB7 MIT \u8BB8\u53EF \xB7 \u4F5C\u8005 Haoo",
+        supportAboutName: "\u5173\u4E8E Dayline",
+        supportCheckUpdate: "\u68C0\u67E5\u66F4\u65B0",
+        supportChecking: "\u68C0\u67E5\u4E2D\u2026",
+        supportCoffeeDesc: "\u63D2\u4EF6\u514D\u8D39\uFF0C\u6240\u6709\u529F\u80FD\u90FD\u4E0D\u9700\u8981\u4ED8\u8D39\u89E3\u9501\u3002\u5982\u679C\u5B83\u5E2E\u4F60\u628A\u65E5\u8BB0\u575A\u6301\u4E86\u4E0B\u6765\uFF0C\u53EF\u4EE5\u8BF7\u4F5C\u8005\uFF08\u548C\u90A3\u53EA\u732B\uFF09\u559D\u676F\u5496\u5561\u3002",
+        supportCoffeeName: "\u8BF7\u4F5C\u8005\u559D\u676F\u5496\u5561",
+        supportCollapse: "\u6536\u8D77",
+        supportExpand: "\u5C55\u5F00",
+        supportQrAlt: "Haoo \u7684\u5FAE\u4FE1\u8D5E\u8D4F\u7801",
+        supportScanNote: "\u8D5E\u8D4F\u4E0D\u4F1A\u89E3\u9501\u4EFB\u4F55\u529F\u80FD\uFF0C\u4E5F\u4E0D\u4F1A\u6539\u53D8\u8FD9\u4E2A\u63D2\u4EF6\u600E\u4E48\u53D1\u5C55\u3002",
+        supportScanTitle: "\u5FAE\u4FE1\u626B\u7801\uFF0C\u91D1\u989D\u968F\u610F",
+        supportStar: "\u6216\u8005\u53EF\u4EE5\u70B9\u4E2A star\uFF5E",
+        supportUpToDate: "\u5DF2\u662F\u6700\u65B0\u7248\u672C\uFF08{version}\uFF09\u3002",
+        supportUpdateAvailable: "\u6709\u65B0\u7248\u672C {version}\uFF0C\u53EF\u4EE5\u5728\u300C\u8BBE\u7F6E \u2192 \u7B2C\u4E09\u65B9\u63D2\u4EF6\u300D\u91CC\u66F4\u65B0\u3002",
+        supportUpdateFailed: "\u68C0\u67E5\u66F4\u65B0\u5931\u8D25\uFF1A{error}",
+        supportUpdateTimeout: "\u68C0\u67E5\u66F4\u65B0\u8D85\u65F6\uFF0C\u7A0D\u540E\u518D\u8BD5\u4E00\u6B21\u3002",
+        supportUses: "\u8FD9\u7B14\u94B1\u4F1A\u53D8\u6210\u5496\u5561\u3001\u732B\u7F50\u5934\u3001\u57DF\u540D\u548C\u5B57\u4F53\u6388\u6743\u3002",
         system: "\u7CFB\u7EDF",
         tagFilter: "\u6807\u7B7E",
         thisMonth: "\u672C\u6708\u5B8C\u6210",
@@ -3430,6 +3448,19 @@ var init_i18n = __esm({
         weatherIconAlt: "\u5929\u6C14",
         weatherTimezone: "\u5929\u6C14\u65F6\u533A",
         weatherTimezoneDesc: "\u65E5\u8BB0\u65E5\u671F\u6BD4\u8F83\u548C Open-Meteo \u4F7F\u7528\u7684 IANA \u65F6\u533A\u3002auto \u4F7F\u7528\u7CFB\u7EDF\u65F6\u533A\u3002",
+        weatherTemperatureTitle: "{date} \u7684\u5929\u6C14",
+        weatherTemperatureDesc: "\u586B\u5199\u4F60\u5F53\u65F6\u611F\u53D7\u5230\u7684\u6E29\u5EA6",
+        weatherTemperatureLabel: "\u6E29\u5EA6",
+        weatherTimeLabel: "\u65F6\u95F4",
+        weatherTemperatureInvalid: "\u8BF7\u8F93\u5165\u6570\u5B57\uFF0C\u4F8B\u5982 18 \u6216 -2.5",
+        weatherRecord: "\u8BB0\u5F55",
+        weatherTemperatureSaved: "\u5DF2\u8BB0\u5F55 {date} \u7684\u624B\u52A8\u6E29\u5EA6",
+        weatherTemperatureCleared: "\u5DF2\u6E05\u9664 {date} \u7684\u624B\u52A8\u6E29\u5EA6",
+        weatherClearManual: "\u6E05\u9664\u624B\u52A8\u6E29\u5EA6",
+        weatherManualBadge: "\u624B\u52A8",
+        weatherEditTemperature: "\u586B\u5199\u6E29\u5EA6",
+        weatherManualRecordedAt: "\u624B\u52A8\u8BB0\u5F55\u4E8E {date} {time}",
+        setWeatherTemperatureCommand: "\u586B\u5199\u5F53\u524D\u65E5\u671F\u7684\u5929\u6C14\u6E29\u5EA6",
         weekStart: "\u6BCF\u5468\u8D77\u59CB\u65E5",
         weekStartDesc: "\u8BBE\u7F6E\u65E5\u5386\u6BCF\u5468\u4ECE\u661F\u671F\u51E0\u5F00\u59CB\u3002",
         weekStartMonday: "\u5468\u4E00",
@@ -3646,6 +3677,7 @@ var init_i18n = __esm({
         settingsMood: "\u5FC3\u60C5",
         settingsOnThisDay: "\u5F80\u5E74\u4ECA\u65E5",
         settingsSaveFailed: "\u5132\u5B58\u8A2D\u5B9A\u5931\u6557\uFF1A{error}",
+        settingsSupport: "\u652F\u6301",
         settingsWeather: "\u5929\u6C23",
         showCalendarEntryCount: "\u986F\u793A\u540C\u65E5\u8A18\u9304\u89D2\u6A19",
         showCalendarEntryCountDesc: "\u540C\u4E00\u5929\u6709\u591A\u7BC7\u8A18\u9304\u6642\u986F\u793A\u984D\u5916\u7BC7\u6578\uFF0C\u9EDE\u64CA\u89D2\u6A19\u958B\u555F\u4E3B\u65E5\u8A18\u3002",
@@ -3694,6 +3726,23 @@ var init_i18n = __esm({
         sourceSaved: "\u4F86\u6E90\u5DF2\u5132\u5B58",
         sourceType: "\u985E\u578B",
         sourceUnsaved: "\u6709\u672A\u5957\u7528\u7684\u8B8A\u66F4",
+        supportAboutDesc: "v{version} \xB7 MIT \u6388\u6B0A \xB7 \u4F5C\u8005 Haoo",
+        supportAboutName: "\u95DC\u65BC Dayline",
+        supportCheckUpdate: "\u6AA2\u67E5\u66F4\u65B0",
+        supportChecking: "\u6AA2\u67E5\u4E2D\u2026",
+        supportCoffeeDesc: "\u5916\u639B\u514D\u8CBB\uFF0C\u6240\u6709\u529F\u80FD\u90FD\u4E0D\u9700\u8981\u4ED8\u8CBB\u89E3\u9396\u3002\u5982\u679C\u5B83\u5E6B\u4F60\u628A\u65E5\u8A18\u5805\u6301\u4E86\u4E0B\u4F86\uFF0C\u53EF\u4EE5\u8ACB\u4F5C\u8005\uFF08\u548C\u90A3\u96BB\u8C93\uFF09\u559D\u676F\u5496\u5561\u3002",
+        supportCoffeeName: "\u8ACB\u4F5C\u8005\u559D\u676F\u5496\u5561",
+        supportCollapse: "\u6536\u5408",
+        supportExpand: "\u5C55\u958B",
+        supportQrAlt: "Haoo \u7684\u5FAE\u4FE1\u8D0A\u8CDE\u78BC",
+        supportScanNote: "\u8D0A\u8CDE\u4E0D\u6703\u89E3\u9396\u4EFB\u4F55\u529F\u80FD\uFF0C\u4E5F\u4E0D\u6703\u6539\u8B8A\u9019\u500B\u5916\u639B\u600E\u9EBC\u767C\u5C55\u3002",
+        supportScanTitle: "\u5FAE\u4FE1\u6383\u78BC\uFF0C\u91D1\u984D\u96A8\u610F",
+        supportStar: "\u6216\u8005\u53EF\u4EE5\u9EDE\u500B star\uFF5E",
+        supportUpToDate: "\u5DF2\u662F\u6700\u65B0\u7248\u672C\uFF08{version}\uFF09\u3002",
+        supportUpdateAvailable: "\u6709\u65B0\u7248\u672C {version}\uFF0C\u53EF\u4EE5\u5728\u300C\u8A2D\u5B9A \u2192 \u7B2C\u4E09\u65B9\u5916\u639B\u300D\u88E1\u66F4\u65B0\u3002",
+        supportUpdateFailed: "\u6AA2\u67E5\u66F4\u65B0\u5931\u6557\uFF1A{error}",
+        supportUpdateTimeout: "\u6AA2\u67E5\u66F4\u65B0\u903E\u6642\uFF0C\u7A0D\u5F8C\u518D\u8A66\u4E00\u6B21\u3002",
+        supportUses: "\u9019\u7B46\u9322\u6703\u8B8A\u6210\u5496\u5561\u3001\u8C93\u7F50\u982D\u3001\u7DB2\u57DF\u548C\u5B57\u578B\u6388\u6B0A\u3002",
         system: "\u7CFB\u7D71",
         tagFilter: "\u6A19\u7C64",
         thisMonth: "\u672C\u6708\u5B8C\u6210",
@@ -3736,6 +3785,19 @@ var init_i18n = __esm({
         weatherIconAlt: "\u5929\u6C23",
         weatherTimezone: "\u5929\u6C23\u6642\u5340",
         weatherTimezoneDesc: "\u65E5\u8A18\u65E5\u671F\u6BD4\u5C0D\u548C Open-Meteo \u4F7F\u7528\u7684 IANA \u6642\u5340\u3002auto \u4F7F\u7528\u7CFB\u7D71\u6642\u5340\u3002",
+        weatherTemperatureTitle: "{date} \u7684\u5929\u6C23",
+        weatherTemperatureDesc: "\u586B\u5BEB\u4F60\u7576\u6642\u611F\u53D7\u5230\u7684\u6EAB\u5EA6",
+        weatherTemperatureLabel: "\u6EAB\u5EA6",
+        weatherTimeLabel: "\u6642\u9593",
+        weatherTemperatureInvalid: "\u8ACB\u8F38\u5165\u6578\u5B57\uFF0C\u4F8B\u5982 18 \u6216 -2.5",
+        weatherRecord: "\u8A18\u9304",
+        weatherTemperatureSaved: "\u5DF2\u8A18\u9304 {date} \u7684\u624B\u52D5\u6EAB\u5EA6",
+        weatherTemperatureCleared: "\u5DF2\u6E05\u9664 {date} \u7684\u624B\u52D5\u6EAB\u5EA6",
+        weatherClearManual: "\u6E05\u9664\u624B\u52D5\u6EAB\u5EA6",
+        weatherManualBadge: "\u624B\u52D5",
+        weatherEditTemperature: "\u586B\u5BEB\u6EAB\u5EA6",
+        weatherManualRecordedAt: "\u624B\u52D5\u8A18\u9304\u65BC {date} {time}",
+        setWeatherTemperatureCommand: "\u586B\u5BEB\u76EE\u524D\u65E5\u671F\u7684\u5929\u6C23\u6EAB\u5EA6",
         weekStart: "\u6BCF\u9031\u8D77\u59CB\u65E5",
         weekStartDesc: "\u8A2D\u5B9A\u65E5\u66C6\u6BCF\u9031\u5F9E\u661F\u671F\u5E7E\u958B\u59CB\u3002",
         weekStartMonday: "\u9031\u4E00",
@@ -3952,6 +4014,7 @@ var init_i18n = __esm({
         settingsMood: "Mood",
         settingsOnThisDay: "On This Day",
         settingsSaveFailed: "Failed to save settings: {error}",
+        settingsSupport: "Support",
         settingsWeather: "Weather",
         showCalendarEntryCount: "Show same-day entry count",
         showCalendarEntryCountDesc: "Show additional entries for a date; clicking it opens the primary daily note.",
@@ -4000,6 +4063,23 @@ var init_i18n = __esm({
         sourceSaved: "Sources saved",
         sourceType: "Type",
         sourceUnsaved: "Unapplied changes",
+        supportAboutDesc: "v{version} \xB7 MIT licence \xB7 by Haoo",
+        supportAboutName: "About Dayline",
+        supportCheckUpdate: "Check for updates",
+        supportChecking: "Checking\u2026",
+        supportCoffeeDesc: "Dayline is free, and no feature is locked behind a payment. If it helped you keep journaling, you can buy the author (and the cat) a coffee.",
+        supportCoffeeName: "Buy the author a coffee",
+        supportCollapse: "Collapse",
+        supportExpand: "Expand",
+        supportQrAlt: "Haoo's WeChat tip code",
+        supportScanNote: "A tip never unlocks a feature and doesn't change how this plugin is built.",
+        supportScanTitle: "Scan with WeChat, any amount",
+        supportStar: "Or just give it a star.",
+        supportUpToDate: "You're on the latest version ({version}).",
+        supportUpdateAvailable: "Version {version} is available \u2014 update it in Settings \u2192 Community plugins.",
+        supportUpdateFailed: "Couldn't check for updates: {error}",
+        supportUpdateTimeout: "The check timed out. Try again in a moment.",
+        supportUses: "It turns into coffee, cat food, a domain, and font licences.",
         system: "System",
         tagFilter: "Tag",
         thisMonth: "This month",
@@ -4042,6 +4122,19 @@ var init_i18n = __esm({
         weatherIconAlt: "Weather",
         weatherTimezone: "Weather timezone",
         weatherTimezoneDesc: "IANA timezone used for diary dates and Open-Meteo. auto uses the system timezone.",
+        weatherTemperatureTitle: "{date} weather",
+        weatherTemperatureDesc: "What was the temperature?",
+        weatherTemperatureLabel: "Temperature",
+        weatherTimeLabel: "Time",
+        weatherTemperatureInvalid: "Enter a number, for example 18 or -2.5",
+        weatherRecord: "Record",
+        weatherTemperatureSaved: "Recorded a manual temperature for {date}",
+        weatherTemperatureCleared: "Cleared the manual temperature for {date}",
+        weatherClearManual: "Clear manual temperature",
+        weatherManualBadge: "Manual",
+        weatherEditTemperature: "Enter temperature",
+        weatherManualRecordedAt: "Manually recorded {date} at {time}",
+        setWeatherTemperatureCommand: "Set the weather temperature",
         weekStart: "Week starts on",
         weekStartDesc: "Choose the first weekday shown in the calendar.",
         weekStartMonday: "Monday",
@@ -4258,6 +4351,7 @@ var init_i18n = __esm({
         settingsMood: "\u6C17\u5206",
         settingsOnThisDay: "\u904E\u53BB\u306E\u4ECA\u65E5",
         settingsSaveFailed: "\u8A2D\u5B9A\u306E\u4FDD\u5B58\u306B\u5931\u6557\u3057\u307E\u3057\u305F\uFF1A{error}",
+        settingsSupport: "\u30B5\u30DD\u30FC\u30C8",
         settingsWeather: "\u5929\u6C17",
         showCalendarEntryCount: "\u540C\u65E5\u306E\u8A18\u4E8B\u4EF6\u6570\u3092\u8868\u793A",
         showCalendarEntryCountDesc: "\u540C\u4E00\u65E5\u306B\u8907\u6570\u306E\u65E5\u8A18\u304C\u3042\u308B\u5834\u5408\u306B\u4EF6\u6570\u3092\u8868\u793A\u3057\u3001\u30AF\u30EA\u30C3\u30AF\u3067\u30E1\u30A4\u30F3\u306E\u65E5\u8A18\u3092\u958B\u304D\u307E\u3059\u3002",
@@ -4306,6 +4400,23 @@ var init_i18n = __esm({
         sourceSaved: "\u30BD\u30FC\u30B9\u8A2D\u5B9A\u3092\u4FDD\u5B58\u3057\u307E\u3057\u305F",
         sourceType: "\u7A2E\u985E",
         sourceUnsaved: "\u672A\u4FDD\u5B58\u306E\u5909\u66F4\u304C\u3042\u308A\u307E\u3059",
+        supportAboutDesc: "v{version} \xB7 MIT \u30E9\u30A4\u30BB\u30F3\u30B9 \xB7 \u4F5C\u8005 Haoo",
+        supportAboutName: "Dayline \u306B\u3064\u3044\u3066",
+        supportCheckUpdate: "\u66F4\u65B0\u3092\u78BA\u8A8D",
+        supportChecking: "\u78BA\u8A8D\u4E2D\u2026",
+        supportCoffeeDesc: "\u3053\u306E\u30D7\u30E9\u30B0\u30A4\u30F3\u306F\u7121\u6599\u3067\u3001\u6709\u6599\u3067\u958B\u653E\u3055\u308C\u308B\u6A5F\u80FD\u306F\u3042\u308A\u307E\u305B\u3093\u3002\u65E5\u8A18\u3092\u7D9A\u3051\u308B\u52A9\u3051\u306B\u306A\u3063\u305F\u306A\u3089\u3001\u4F5C\u8005\uFF08\u3068\u3042\u306E\u732B\uFF09\u306B\u30B3\u30FC\u30D2\u30FC\u3092\u304A\u3054\u3063\u3066\u304F\u3060\u3055\u3044\u3002",
+        supportCoffeeName: "\u4F5C\u8005\u306B\u30B3\u30FC\u30D2\u30FC\u3092\u304A\u3054\u308B",
+        supportCollapse: "\u9589\u3058\u308B",
+        supportExpand: "\u958B\u304F",
+        supportQrAlt: "Haoo \u306E WeChat \u652F\u63F4\u30B3\u30FC\u30C9",
+        supportScanNote: "\u3054\u652F\u63F4\u3067\u6A5F\u80FD\u304C\u958B\u653E\u3055\u308C\u308B\u3053\u3068\u306F\u306A\u304F\u3001\u958B\u767A\u306E\u9032\u3081\u65B9\u3082\u5909\u308F\u308A\u307E\u305B\u3093\u3002",
+        supportScanTitle: "WeChat \u3067\u8AAD\u307F\u53D6\u308B\uFF08\u91D1\u984D\u306F\u81EA\u7531\uFF09",
+        supportStar: "star \u3092\u4ED8\u3051\u3066\u3044\u305F\u3060\u304F\u3060\u3051\u3067\u3082\u69CB\u3044\u307E\u305B\u3093\u3002",
+        supportUpToDate: "\u6700\u65B0\u30D0\u30FC\u30B8\u30E7\u30F3\u3067\u3059\uFF08{version}\uFF09\u3002",
+        supportUpdateAvailable: "\u65B0\u3057\u3044\u30D0\u30FC\u30B8\u30E7\u30F3 {version} \u304C\u3042\u308A\u307E\u3059\u3002\u8A2D\u5B9A \u2192 \u30B3\u30DF\u30E5\u30CB\u30C6\u30A3\u30D7\u30E9\u30B0\u30A4\u30F3 \u304B\u3089\u66F4\u65B0\u3067\u304D\u307E\u3059\u3002",
+        supportUpdateFailed: "\u66F4\u65B0\u306E\u78BA\u8A8D\u306B\u5931\u6557\u3057\u307E\u3057\u305F\uFF1A{error}",
+        supportUpdateTimeout: "\u66F4\u65B0\u306E\u78BA\u8A8D\u304C\u30BF\u30A4\u30E0\u30A2\u30A6\u30C8\u3057\u307E\u3057\u305F\u3002\u3057\u3070\u3089\u304F\u3057\u3066\u304B\u3089\u3082\u3046\u4E00\u5EA6\u304A\u8A66\u3057\u304F\u3060\u3055\u3044\u3002",
+        supportUses: "\u3053\u306E\u304A\u91D1\u306F\u30B3\u30FC\u30D2\u30FC\u3001\u732B\u306E\u7F36\u8A70\u3001\u30C9\u30E1\u30A4\u30F3\u3001\u30D5\u30A9\u30F3\u30C8\u306E\u30E9\u30A4\u30BB\u30F3\u30B9\u306B\u306A\u308A\u307E\u3059\u3002",
         system: "\u30B7\u30B9\u30C6\u30E0",
         tagFilter: "\u30BF\u30B0",
         thisMonth: "\u4ECA\u6708\u306E\u8A18\u9332",
@@ -4348,6 +4459,19 @@ var init_i18n = __esm({
         weatherIconAlt: "\u5929\u6C17",
         weatherTimezone: "\u5929\u6C17\u306E\u30BF\u30A4\u30E0\u30BE\u30FC\u30F3",
         weatherTimezoneDesc: "\u65E5\u8A18\u306E\u65E5\u4ED8\u6BD4\u8F03\u3068Open-Meteo\u3067\u4F7F\u7528\u3059\u308BIANA\u30BF\u30A4\u30E0\u30BE\u30FC\u30F3\u3002auto\u306F\u30B7\u30B9\u30C6\u30E0\u8A2D\u5B9A\u3092\u4F7F\u7528\u3057\u307E\u3059\u3002",
+        weatherTemperatureTitle: "{date} \u306E\u5929\u6C17",
+        weatherTemperatureDesc: "\u305D\u306E\u3068\u304D\u611F\u3058\u305F\u6C17\u6E29\u3092\u5165\u529B\u3057\u3066\u304F\u3060\u3055\u3044",
+        weatherTemperatureLabel: "\u6C17\u6E29",
+        weatherTimeLabel: "\u6642\u523B",
+        weatherTemperatureInvalid: "\u6570\u5024\u3092\u5165\u529B\u3057\u3066\u304F\u3060\u3055\u3044\uFF08\u4F8B: 18 \u307E\u305F\u306F -2.5\uFF09",
+        weatherRecord: "\u8A18\u9332",
+        weatherTemperatureSaved: "{date} \u306E\u624B\u52D5\u6C17\u6E29\u3092\u8A18\u9332\u3057\u307E\u3057\u305F",
+        weatherTemperatureCleared: "{date} \u306E\u624B\u52D5\u6C17\u6E29\u3092\u524A\u9664\u3057\u307E\u3057\u305F",
+        weatherClearManual: "\u624B\u52D5\u306E\u6C17\u6E29\u3092\u524A\u9664",
+        weatherManualBadge: "\u624B\u52D5",
+        weatherEditTemperature: "\u6C17\u6E29\u3092\u5165\u529B",
+        weatherManualRecordedAt: "{date} {time} \u306B\u624B\u52D5\u3067\u8A18\u9332",
+        setWeatherTemperatureCommand: "\u5929\u6C17\u306E\u6C17\u6E29\u3092\u5165\u529B",
         weekStart: "\u9031\u306E\u59CB\u307E\u308A",
         weekStartDesc: "\u30AB\u30EC\u30F3\u30C0\u30FC\u3067\u9031\u306E\u6700\u521D\u306B\u8868\u793A\u3059\u308B\u66DC\u65E5\u3092\u9078\u629E\u3057\u307E\u3059\u3002",
         weekStartMonday: "\u6708\u66DC\u65E5",
@@ -4564,6 +4688,7 @@ var init_i18n = __esm({
         settingsMood: "\uAE30\uBD84",
         settingsOnThisDay: "\uC791\uB144 \uC624\uB298",
         settingsSaveFailed: "\uC124\uC815 \uC800\uC7A5 \uC2E4\uD328: {error}",
+        settingsSupport: "\uC9C0\uC6D0",
         settingsWeather: "\uB0A0\uC528",
         showCalendarEntryCount: "\uAC19\uC740 \uB0A0\uC9DC \uAE30\uB85D \uAC1C\uC218 \uD45C\uC2DC",
         showCalendarEntryCountDesc: "\uAC19\uC740 \uB0A0\uC5D0 \uC5EC\uB7EC \uC800\uB110\uC774 \uC788\uC744 \uB54C \uAC1C\uC218\uB97C \uD45C\uC2DC\uD558\uBA70, \uD074\uB9AD \uC2DC \uAE30\uBCF8 \uB370\uC77C\uB9AC \uB178\uD2B8\uB97C \uC5FD\uB2C8\uB2E4.",
@@ -4612,6 +4737,23 @@ var init_i18n = __esm({
         sourceSaved: "\uC18C\uC2A4 \uC124\uC815\uC774 \uC800\uC7A5\uB418\uC5C8\uC2B5\uB2C8\uB2E4",
         sourceType: "\uC720\uD615",
         sourceUnsaved: "\uC801\uC6A9\uB418\uC9C0 \uC54A\uC740 \uBCC0\uACBD\uC0AC\uD56D\uC774 \uC788\uC2B5\uB2C8\uB2E4",
+        supportAboutDesc: "v{version} \xB7 MIT \uB77C\uC774\uC120\uC2A4 \xB7 \uC81C\uC791 Haoo",
+        supportAboutName: "Dayline \uC815\uBCF4",
+        supportCheckUpdate: "\uC5C5\uB370\uC774\uD2B8 \uD655\uC778",
+        supportChecking: "\uD655\uC778 \uC911\u2026",
+        supportCoffeeDesc: "\uC774 \uD50C\uB7EC\uADF8\uC778\uC740 \uBB34\uB8CC\uC774\uBA70 \uACB0\uC81C\uB85C \uC5F4\uB9AC\uB294 \uAE30\uB2A5\uC740 \uC5C6\uC2B5\uB2C8\uB2E4. \uC77C\uAE30\uB97C \uC774\uC5B4\uAC00\uB294 \uB370 \uB3C4\uC6C0\uC774 \uB418\uC5C8\uB2E4\uBA74 \uC791\uC131\uC790(\uADF8\uB9AC\uACE0 \uADF8 \uACE0\uC591\uC774)\uC5D0\uAC8C \uCEE4\uD53C \uD55C \uC794\uC744 \uC0AC \uC8FC\uC138\uC694.",
+        supportCoffeeName: "\uC791\uC131\uC790\uC5D0\uAC8C \uCEE4\uD53C \uD55C \uC794",
+        supportCollapse: "\uC811\uAE30",
+        supportExpand: "\uD3BC\uCE58\uAE30",
+        supportQrAlt: "Haoo\uC758 WeChat \uD6C4\uC6D0 \uCF54\uB4DC",
+        supportScanNote: "\uD6C4\uC6D0\uC73C\uB85C \uC5F4\uB9AC\uB294 \uAE30\uB2A5\uC740 \uC5C6\uC73C\uBA70 \uD50C\uB7EC\uADF8\uC778 \uAC1C\uBC1C \uBC29\uC2DD\uB3C4 \uBC14\uB00C\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.",
+        supportScanTitle: "WeChat\uC73C\uB85C \uC2A4\uCE94, \uAE08\uC561 \uC790\uC720",
+        supportStar: "\uC544\uB2C8\uBA74 star\uB9CC \uB20C\uB7EC \uC8FC\uC154\uB3C4 \uC88B\uC2B5\uB2C8\uB2E4.",
+        supportUpToDate: "\uCD5C\uC2E0 \uBC84\uC804\uC785\uB2C8\uB2E4({version}).",
+        supportUpdateAvailable: "\uC0C8 \uBC84\uC804 {version}\uC774(\uAC00) \uC788\uC2B5\uB2C8\uB2E4. \uC124\uC815 \u2192 \uCEE4\uBBA4\uB2C8\uD2F0 \uD50C\uB7EC\uADF8\uC778\uC5D0\uC11C \uC5C5\uB370\uC774\uD2B8\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4.",
+        supportUpdateFailed: "\uC5C5\uB370\uC774\uD2B8\uB97C \uD655\uC778\uD558\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4: {error}",
+        supportUpdateTimeout: "\uC5C5\uB370\uC774\uD2B8 \uD655\uC778 \uC2DC\uAC04\uC774 \uCD08\uACFC\uB418\uC5C8\uC2B5\uB2C8\uB2E4. \uC7A0\uC2DC \uD6C4 \uB2E4\uC2DC \uC2DC\uB3C4\uD574 \uC8FC\uC138\uC694.",
+        supportUses: "\uC774 \uB3C8\uC740 \uCEE4\uD53C, \uACE0\uC591\uC774 \uC0AC\uB8CC, \uB3C4\uBA54\uC778, \uD3F0\uD2B8 \uB77C\uC774\uC120\uC2A4\uAC00 \uB429\uB2C8\uB2E4.",
         system: "\uC2DC\uC2A4\uD15C",
         tagFilter: "\uD0DC\uADF8",
         thisMonth: "\uC774\uBC88 \uB2EC \uC644\uB8CC",
@@ -4654,6 +4796,19 @@ var init_i18n = __esm({
         weatherIconAlt: "\uB0A0\uC528",
         weatherTimezone: "\uB0A0\uC528 \uC2DC\uAC04\uB300",
         weatherTimezoneDesc: "\uC800\uB110 \uB0A0\uC9DC \uBE44\uAD50 \uBC0F Open-Meteo\uC5D0 \uC0AC\uC6A9\uD560 IANA \uC2DC\uAC04\uB300. auto\uB294 \uC2DC\uC2A4\uD15C \uC2DC\uAC04\uB300\uB97C \uC0AC\uC6A9\uD569\uB2C8\uB2E4.",
+        weatherTemperatureTitle: "{date} \uB0A0\uC528",
+        weatherTemperatureDesc: "\uADF8\uB54C \uB290\uB080 \uC628\uB3C4\uB97C \uC785\uB825\uD558\uC138\uC694",
+        weatherTemperatureLabel: "\uC628\uB3C4",
+        weatherTimeLabel: "\uC2DC\uAC04",
+        weatherTemperatureInvalid: "\uC22B\uC790\uB97C \uC785\uB825\uD558\uC138\uC694. \uC608: 18 \uB610\uB294 -2.5",
+        weatherRecord: "\uAE30\uB85D",
+        weatherTemperatureSaved: "{date}\uC758 \uC218\uB3D9 \uC628\uB3C4\uB97C \uAE30\uB85D\uD588\uC2B5\uB2C8\uB2E4",
+        weatherTemperatureCleared: "{date}\uC758 \uC218\uB3D9 \uC628\uB3C4\uB97C \uC0AD\uC81C\uD588\uC2B5\uB2C8\uB2E4",
+        weatherClearManual: "\uC218\uB3D9 \uC628\uB3C4 \uC0AD\uC81C",
+        weatherManualBadge: "\uC218\uB3D9",
+        weatherEditTemperature: "\uC628\uB3C4 \uC785\uB825",
+        weatherManualRecordedAt: "{date} {time}\uC5D0 \uC218\uB3D9\uC73C\uB85C \uAE30\uB85D",
+        setWeatherTemperatureCommand: "\uB0A0\uC528 \uC628\uB3C4 \uC785\uB825",
         weekStart: "\uD55C \uC8FC\uC758 \uC2DC\uC791",
         weekStartDesc: "\uCE98\uB9B0\uB354\uC5D0 \uD45C\uC2DC\uD560 \uC8FC\uC758 \uCCAB \uBC88\uC9F8 \uC694\uC77C\uC744 \uC120\uD0DD\uD569\uB2C8\uB2E4.",
         weekStartMonday: "\uC6D4\uC694\uC77C",
@@ -4870,6 +5025,7 @@ var init_i18n = __esm({
         settingsMood: "Humeur",
         settingsOnThisDay: "Ce jour-l\xE0",
         settingsSaveFailed: "Impossible d'enregistrer les param\xE8tres : {error}",
+        settingsSupport: "Soutien",
         settingsWeather: "M\xE9t\xE9o",
         showCalendarEntryCount: "Afficher le nombre d'entr\xE9es du m\xEAme jour",
         showCalendarEntryCountDesc: "Affiche le nombre d'entr\xE9es suppl\xE9mentaires d'un jour ; cliquer ouvre la note quotidienne principale.",
@@ -4918,6 +5074,23 @@ var init_i18n = __esm({
         sourceSaved: "Sources enregistr\xE9es",
         sourceType: "Type",
         sourceUnsaved: "Modifications non enregistr\xE9es",
+        supportAboutDesc: "v{version} \xB7 licence MIT \xB7 par Haoo",
+        supportAboutName: "\xC0 propos de Dayline",
+        supportCheckUpdate: "V\xE9rifier les mises \xE0 jour",
+        supportChecking: "V\xE9rification\u2026",
+        supportCoffeeDesc: "L'extension est gratuite et aucune fonction n'est payante. Si elle vous a aid\xE9 \xE0 tenir votre journal, vous pouvez offrir un caf\xE9 \xE0 l'auteur (et au chat).",
+        supportCoffeeName: "Offrir un caf\xE9 \xE0 l'auteur",
+        supportCollapse: "R\xE9duire",
+        supportExpand: "D\xE9velopper",
+        supportQrAlt: "Code de pourboire WeChat de Haoo",
+        supportScanNote: "Un don ne d\xE9bloque aucune fonction et ne change rien \xE0 la fa\xE7on dont l'extension \xE9volue.",
+        supportScanTitle: "Scanner avec WeChat, montant libre",
+        supportStar: "Ou laissez simplement une \xE9toile.",
+        supportUpToDate: "Vous \xEAtes \xE0 jour ({version}).",
+        supportUpdateAvailable: "La version {version} est disponible \u2014 mettez-la \xE0 jour dans Param\xE8tres \u2192 Modules compl\xE9mentaires.",
+        supportUpdateFailed: "Impossible de v\xE9rifier les mises \xE0 jour : {error}",
+        supportUpdateTimeout: "La v\xE9rification a expir\xE9. R\xE9essayez dans un instant.",
+        supportUses: "Cet argent devient du caf\xE9, des croquettes, un domaine et des licences de police.",
         system: "Syst\xE8me",
         tagFilter: "\xC9tiquette",
         thisMonth: "Ce mois-ci",
@@ -4960,6 +5133,19 @@ var init_i18n = __esm({
         weatherIconAlt: "M\xE9t\xE9o",
         weatherTimezone: "Fuseau horaire m\xE9t\xE9o",
         weatherTimezoneDesc: "Fuseau IANA pour les dates du journal et Open-Meteo. \xAB auto \xBB utilise le fuseau du syst\xE8me.",
+        weatherTemperatureTitle: "M\xE9t\xE9o du {date}",
+        weatherTemperatureDesc: "Quelle temp\xE9rature avez-vous ressentie ?",
+        weatherTemperatureLabel: "Temp\xE9rature",
+        weatherTimeLabel: "Heure",
+        weatherTemperatureInvalid: "Saisissez un nombre, par exemple 18 ou -2.5",
+        weatherRecord: "Enregistrer",
+        weatherTemperatureSaved: "Temp\xE9rature manuelle enregistr\xE9e pour le {date}",
+        weatherTemperatureCleared: "Temp\xE9rature manuelle effac\xE9e pour le {date}",
+        weatherClearManual: "Effacer la temp\xE9rature manuelle",
+        weatherManualBadge: "Manuel",
+        weatherEditTemperature: "Saisir la temp\xE9rature",
+        weatherManualRecordedAt: "Saisi manuellement le {date} \xE0 {time}",
+        setWeatherTemperatureCommand: "Saisir la temp\xE9rature m\xE9t\xE9o",
         weekStart: "Premier jour de la semaine",
         weekStartDesc: "Choisir le premier jour de la semaine affich\xE9 dans le calendrier.",
         weekStartMonday: "Lundi",
@@ -5176,6 +5362,7 @@ var init_i18n = __esm({
         settingsMood: "Stimmung",
         settingsOnThisDay: "An diesem Tag",
         settingsSaveFailed: "Einstellungen konnten nicht gespeichert werden: {error}",
+        settingsSupport: "Unterst\xFCtzen",
         settingsWeather: "Wetter",
         showCalendarEntryCount: "Anzahl gleichzeitiger Eintr\xE4ge anzeigen",
         showCalendarEntryCountDesc: "Zeigt zus\xE4tzliche Eintr\xE4ge am selben Tag an; Klick \xF6ffnet die Haupt-Tagesnotiz.",
@@ -5224,6 +5411,23 @@ var init_i18n = __esm({
         sourceSaved: "Quellen gespeichert",
         sourceType: "Typ",
         sourceUnsaved: "Ungespeicherte \xC4nderungen",
+        supportAboutDesc: "v{version} \xB7 MIT-Lizenz \xB7 von Haoo",
+        supportAboutName: "\xDCber Dayline",
+        supportCheckUpdate: "Nach Updates suchen",
+        supportChecking: "Wird gepr\xFCft\u2026",
+        supportCoffeeDesc: "Das Plugin ist kostenlos, und keine Funktion ist kostenpflichtig. Wenn es dir geholfen hat, am Tagebuch dranzubleiben, kannst du dem Autor (und der Katze) einen Kaffee spendieren.",
+        supportCoffeeName: "Dem Autor einen Kaffee spendieren",
+        supportCollapse: "Einklappen",
+        supportExpand: "Ausklappen",
+        supportQrAlt: "WeChat-Spenden-Code von Haoo",
+        supportScanNote: "Eine Spende schaltet keine Funktion frei und \xE4ndert nicht, wie dieses Plugin entsteht.",
+        supportScanTitle: "Mit WeChat scannen, Betrag frei",
+        supportStar: "Oder lass einfach einen Stern da.",
+        supportUpToDate: "Du bist auf dem neuesten Stand ({version}).",
+        supportUpdateAvailable: "Version {version} ist verf\xFCgbar \u2013 aktualisiere sie unter Einstellungen \u2192 Community-Plugins.",
+        supportUpdateFailed: "Update-Pr\xFCfung fehlgeschlagen: {error}",
+        supportUpdateTimeout: "Die Pr\xFCfung ist abgelaufen. Versuch es gleich noch einmal.",
+        supportUses: "Das Geld wird zu Kaffee, Katzenfutter, einer Domain und Schriftlizenzen.",
         system: "System",
         tagFilter: "Tag",
         thisMonth: "Diesen Monat",
@@ -5266,6 +5470,19 @@ var init_i18n = __esm({
         weatherIconAlt: "Wetter",
         weatherTimezone: "Wetter-Zeitzone",
         weatherTimezoneDesc: "IANA-Zeitzone f\xFCr Datumsvergleiche und Open-Meteo. 'auto' nutzt die Systemzeitzone.",
+        weatherTemperatureTitle: "Wetter am {date}",
+        weatherTemperatureDesc: "Welche Temperatur hast du gesp\xFCrt?",
+        weatherTemperatureLabel: "Temperatur",
+        weatherTimeLabel: "Uhrzeit",
+        weatherTemperatureInvalid: "Gib eine Zahl ein, zum Beispiel 18 oder -2.5",
+        weatherRecord: "Erfassen",
+        weatherTemperatureSaved: "Manuelle Temperatur f\xFCr {date} gespeichert",
+        weatherTemperatureCleared: "Manuelle Temperatur f\xFCr {date} gel\xF6scht",
+        weatherClearManual: "Manuelle Temperatur l\xF6schen",
+        weatherManualBadge: "Manuell",
+        weatherEditTemperature: "Temperatur eingeben",
+        weatherManualRecordedAt: "Manuell erfasst am {date} um {time}",
+        setWeatherTemperatureCommand: "Wettertemperatur eingeben",
         weekStart: "Wochenbeginn",
         weekStartDesc: "W\xE4hlen Sie den ersten Wochentag f\xFCr die Kalenderansicht.",
         weekStartMonday: "Montag",
@@ -5482,6 +5699,7 @@ var init_i18n = __esm({
         settingsMood: "Estado de \xE1nimo",
         settingsOnThisDay: "Un d\xEDa como hoy",
         settingsSaveFailed: "Error al guardar la configuraci\xF3n: {error}",
+        settingsSupport: "Apoyo",
         settingsWeather: "Tiempo",
         showCalendarEntryCount: "Mostrar recuento de entradas del mismo d\xEDa",
         showCalendarEntryCountDesc: "Muestra el recuento de entradas adicionales el mismo d\xEDa; al hacer clic se abre la nota diaria principal.",
@@ -5530,6 +5748,23 @@ var init_i18n = __esm({
         sourceSaved: "Fuentes guardadas",
         sourceType: "Tipo",
         sourceUnsaved: "Cambios no guardados",
+        supportAboutDesc: "v{version} \xB7 licencia MIT \xB7 por Haoo",
+        supportAboutName: "Acerca de Dayline",
+        supportCheckUpdate: "Buscar actualizaciones",
+        supportChecking: "Comprobando\u2026",
+        supportCoffeeDesc: "El plugin es gratis y ninguna funci\xF3n se desbloquea pagando. Si te ha ayudado a mantener el diario, puedes invitar a un caf\xE9 al autor (y al gato).",
+        supportCoffeeName: "Invita un caf\xE9 al autor",
+        supportCollapse: "Contraer",
+        supportExpand: "Desplegar",
+        supportQrAlt: "C\xF3digo de propinas de WeChat de Haoo",
+        supportScanNote: "Una propina no desbloquea ninguna funci\xF3n ni cambia c\xF3mo evoluciona el plugin.",
+        supportScanTitle: "Escanea con WeChat, importe libre",
+        supportStar: "O simplemente deja una estrella.",
+        supportUpToDate: "Est\xE1s en la \xFAltima versi\xF3n ({version}).",
+        supportUpdateAvailable: "Ya est\xE1 disponible la versi\xF3n {version}: actual\xEDzala en Ajustes \u2192 Complementos de la comunidad.",
+        supportUpdateFailed: "No se pudo comprobar: {error}",
+        supportUpdateTimeout: "La comprobaci\xF3n ha caducado. Int\xE9ntalo de nuevo en un momento.",
+        supportUses: "Ese dinero se convierte en caf\xE9, comida para gato, un dominio y licencias de tipograf\xEDa.",
         system: "Sistema",
         tagFilter: "Etiqueta",
         thisMonth: "Este mes",
@@ -5572,6 +5807,19 @@ var init_i18n = __esm({
         weatherIconAlt: "Tiempo",
         weatherTimezone: "Zona horaria meteorol\xF3gica",
         weatherTimezoneDesc: "Zona horaria IANA para fechas del diario y Open-Meteo. 'auto' utiliza la zona horaria del sistema.",
+        weatherTemperatureTitle: "Tiempo del {date}",
+        weatherTemperatureDesc: "\xBFQu\xE9 temperatura sentiste?",
+        weatherTemperatureLabel: "Temperatura",
+        weatherTimeLabel: "Hora",
+        weatherTemperatureInvalid: "Introduce un n\xFAmero, por ejemplo 18 o -2.5",
+        weatherRecord: "Registrar",
+        weatherTemperatureSaved: "Temperatura manual registrada para el {date}",
+        weatherTemperatureCleared: "Temperatura manual borrada para el {date}",
+        weatherClearManual: "Borrar temperatura manual",
+        weatherManualBadge: "Manual",
+        weatherEditTemperature: "Introducir temperatura",
+        weatherManualRecordedAt: "Registrado manualmente el {date} a las {time}",
+        setWeatherTemperatureCommand: "Introducir la temperatura del tiempo",
         weekStart: "Inicio de la semana",
         weekStartDesc: "Selecciona el primer d\xEDa de la semana en la vista del calendario.",
         weekStartMonday: "Lunes",
@@ -5788,6 +6036,7 @@ var init_i18n = __esm({
         settingsMood: "\u041D\u0430\u0441\u0442\u0440\u043E\u0435\u043D\u0438\u0435",
         settingsOnThisDay: "\u0412 \u044D\u0442\u043E\u0442 \u0434\u0435\u043D\u044C",
         settingsSaveFailed: "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0441\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438: {error}",
+        settingsSupport: "\u041F\u043E\u0434\u0434\u0435\u0440\u0436\u043A\u0430",
         settingsWeather: "\u041F\u043E\u0433\u043E\u0434\u0430",
         showCalendarEntryCount: "\u041F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u0442\u044C \u0447\u0438\u0441\u043B\u043E \u0437\u0430\u043F\u0438\u0441\u0435\u0439 \u0437\u0430 \u0434\u0435\u043D\u044C",
         showCalendarEntryCountDesc: "\u041E\u0442\u043E\u0431\u0440\u0430\u0436\u0430\u0435\u0442 \u0447\u0438\u0441\u043B\u043E \u0434\u043E\u043F\u043E\u043B\u043D\u0438\u0442\u0435\u043B\u044C\u043D\u044B\u0445 \u0437\u0430\u043F\u0438\u0441\u0435\u0439; \u043D\u0430\u0436\u0430\u0442\u0438\u0435 \u043E\u0442\u043A\u0440\u044B\u0432\u0430\u0435\u0442 \u043E\u0441\u043D\u043E\u0432\u043D\u0443\u044E \u0435\u0436\u0435\u0434\u043D\u0435\u0432\u043D\u0443\u044E \u0437\u0430\u043C\u0435\u0442\u043A\u0443.",
@@ -5836,6 +6085,23 @@ var init_i18n = __esm({
         sourceSaved: "\u0418\u0441\u0442\u043E\u0447\u043D\u0438\u043A\u0438 \u0441\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u044B",
         sourceType: "\u0422\u0438\u043F",
         sourceUnsaved: "\u041D\u0435\u0441\u043E\u0445\u0440\u0430\u043D\u0451\u043D\u043D\u044B\u0435 \u0438\u0437\u043C\u0435\u043D\u0435\u043D\u0438\u044F",
+        supportAboutDesc: "v{version} \xB7 \u043B\u0438\u0446\u0435\u043D\u0437\u0438\u044F MIT \xB7 \u0430\u0432\u0442\u043E\u0440 Haoo",
+        supportAboutName: "\u041E Dayline",
+        supportCheckUpdate: "\u041F\u0440\u043E\u0432\u0435\u0440\u0438\u0442\u044C \u043E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u0438\u044F",
+        supportChecking: "\u041F\u0440\u043E\u0432\u0435\u0440\u043A\u0430\u2026",
+        supportCoffeeDesc: "\u041F\u043B\u0430\u0433\u0438\u043D \u0431\u0435\u0441\u043F\u043B\u0430\u0442\u043D\u044B\u0439, \u043D\u0438 \u043E\u0434\u043D\u0430 \u0444\u0443\u043D\u043A\u0446\u0438\u044F \u043D\u0435 \u043E\u0442\u043A\u0440\u044B\u0432\u0430\u0435\u0442\u0441\u044F \u0437\u0430 \u0434\u0435\u043D\u044C\u0433\u0438. \u0415\u0441\u043B\u0438 \u043E\u043D \u043F\u043E\u043C\u043E\u0433 \u0432\u0430\u043C \u0432\u0435\u0441\u0442\u0438 \u0434\u043D\u0435\u0432\u043D\u0438\u043A, \u043C\u043E\u0436\u0435\u0442\u0435 \u0443\u0433\u043E\u0441\u0442\u0438\u0442\u044C \u0430\u0432\u0442\u043E\u0440\u0430 (\u0438 \u043A\u043E\u0442\u0430) \u043A\u043E\u0444\u0435.",
+        supportCoffeeName: "\u0423\u0433\u043E\u0441\u0442\u0438\u0442\u044C \u0430\u0432\u0442\u043E\u0440\u0430 \u043A\u043E\u0444\u0435",
+        supportCollapse: "\u0421\u0432\u0435\u0440\u043D\u0443\u0442\u044C",
+        supportExpand: "\u0420\u0430\u0437\u0432\u0435\u0440\u043D\u0443\u0442\u044C",
+        supportQrAlt: "\u041A\u043E\u0434 \u0434\u043B\u044F \u0434\u043E\u043D\u0430\u0442\u0430 \u0432 WeChat \u043E\u0442 Haoo",
+        supportScanNote: "\u0414\u043E\u043D\u0430\u0442 \u043D\u0435 \u043E\u0442\u043A\u0440\u044B\u0432\u0430\u0435\u0442 \u0444\u0443\u043D\u043A\u0446\u0438\u0438 \u0438 \u043D\u0435 \u0432\u043B\u0438\u044F\u0435\u0442 \u043D\u0430 \u0440\u0430\u0437\u0432\u0438\u0442\u0438\u0435 \u043F\u043B\u0430\u0433\u0438\u043D\u0430.",
+        supportScanTitle: "\u0421\u043A\u0430\u043D\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u0432 WeChat, \u0441\u0443\u043C\u043C\u0430 \u043B\u044E\u0431\u0430\u044F",
+        supportStar: "\u0418\u043B\u0438 \u043F\u0440\u043E\u0441\u0442\u043E \u043F\u043E\u0441\u0442\u0430\u0432\u044C\u0442\u0435 \u0437\u0432\u0435\u0437\u0434\u0443.",
+        supportUpToDate: "\u0423 \u0432\u0430\u0441 \u043F\u043E\u0441\u043B\u0435\u0434\u043D\u044F\u044F \u0432\u0435\u0440\u0441\u0438\u044F ({version}).",
+        supportUpdateAvailable: "\u0414\u043E\u0441\u0442\u0443\u043F\u043D\u0430 \u0432\u0435\u0440\u0441\u0438\u044F {version} \u2014 \u043E\u0431\u043D\u043E\u0432\u0438\u0442\u0435 \u0435\u0451 \u0432 \u0440\u0430\u0437\u0434\u0435\u043B\u0435 \xAB\u041D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438 \u2192 \u0421\u0442\u043E\u0440\u043E\u043D\u043D\u0438\u0435 \u043F\u043B\u0430\u0433\u0438\u043D\u044B\xBB.",
+        supportUpdateFailed: "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043F\u0440\u043E\u0432\u0435\u0440\u0438\u0442\u044C \u043E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u0438\u044F: {error}",
+        supportUpdateTimeout: "\u041F\u0440\u043E\u0432\u0435\u0440\u043A\u0430 \u043D\u0435 \u0443\u043B\u043E\u0436\u0438\u043B\u0430\u0441\u044C \u0432\u043E \u0432\u0440\u0435\u043C\u044F. \u041F\u043E\u043F\u0440\u043E\u0431\u0443\u0439\u0442\u0435 \u0435\u0449\u0451 \u0440\u0430\u0437 \u0447\u0443\u0442\u044C \u043F\u043E\u0437\u0436\u0435.",
+        supportUses: "\u042D\u0442\u0438 \u0434\u0435\u043D\u044C\u0433\u0438 \u043F\u0440\u0435\u0432\u0440\u0430\u0449\u0430\u044E\u0442\u0441\u044F \u0432 \u043A\u043E\u0444\u0435, \u043A\u043E\u0448\u0430\u0447\u0438\u0439 \u043A\u043E\u0440\u043C, \u0434\u043E\u043C\u0435\u043D \u0438 \u043B\u0438\u0446\u0435\u043D\u0437\u0438\u0438 \u043D\u0430 \u0448\u0440\u0438\u0444\u0442\u044B.",
         system: "\u0421\u0438\u0441\u0442\u0435\u043C\u0430",
         tagFilter: "\u0422\u0435\u0433",
         thisMonth: "\u0412 \u044D\u0442\u043E\u043C \u043C\u0435\u0441\u044F\u0446\u0435",
@@ -5878,6 +6144,19 @@ var init_i18n = __esm({
         weatherIconAlt: "\u041F\u043E\u0433\u043E\u0434\u0430",
         weatherTimezone: "\u0427\u0430\u0441\u043E\u0432\u043E\u0439 \u043F\u043E\u044F\u0441 \u043F\u043E\u0433\u043E\u0434\u044B",
         weatherTimezoneDesc: "\u0427\u0430\u0441\u043E\u0432\u043E\u0439 \u043F\u043E\u044F\u0441 IANA \u0434\u043B\u044F \u0434\u0430\u0442 \u0434\u043D\u0435\u0432\u043D\u0438\u043A\u0430 \u0438 Open-Meteo. 'auto' \u0438\u0441\u043F\u043E\u043B\u044C\u0437\u0443\u0435\u0442 \u0441\u0438\u0441\u0442\u0435\u043C\u043D\u044B\u0439 \u043F\u043E\u044F\u0441.",
+        weatherTemperatureTitle: "\u041F\u043E\u0433\u043E\u0434\u0430 {date}",
+        weatherTemperatureDesc: "\u041A\u0430\u043A\u0430\u044F \u0431\u044B\u043B\u0430 \u0442\u0435\u043C\u043F\u0435\u0440\u0430\u0442\u0443\u0440\u0430?",
+        weatherTemperatureLabel: "\u0422\u0435\u043C\u043F\u0435\u0440\u0430\u0442\u0443\u0440\u0430",
+        weatherTimeLabel: "\u0412\u0440\u0435\u043C\u044F",
+        weatherTemperatureInvalid: "\u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u0447\u0438\u0441\u043B\u043E, \u043D\u0430\u043F\u0440\u0438\u043C\u0435\u0440 18 \u0438\u043B\u0438 -2.5",
+        weatherRecord: "\u0417\u0430\u043F\u0438\u0441\u0430\u0442\u044C",
+        weatherTemperatureSaved: "\u0420\u0443\u0447\u043D\u0430\u044F \u0442\u0435\u043C\u043F\u0435\u0440\u0430\u0442\u0443\u0440\u0430 \u0434\u043B\u044F {date} \u0441\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u0430",
+        weatherTemperatureCleared: "\u0420\u0443\u0447\u043D\u0430\u044F \u0442\u0435\u043C\u043F\u0435\u0440\u0430\u0442\u0443\u0440\u0430 \u0434\u043B\u044F {date} \u0443\u0434\u0430\u043B\u0435\u043D\u0430",
+        weatherClearManual: "\u0423\u0434\u0430\u043B\u0438\u0442\u044C \u0440\u0443\u0447\u043D\u0443\u044E \u0442\u0435\u043C\u043F\u0435\u0440\u0430\u0442\u0443\u0440\u0443",
+        weatherManualBadge: "\u0412\u0440\u0443\u0447\u043D\u0443\u044E",
+        weatherEditTemperature: "\u0412\u0432\u0435\u0441\u0442\u0438 \u0442\u0435\u043C\u043F\u0435\u0440\u0430\u0442\u0443\u0440\u0443",
+        weatherManualRecordedAt: "\u0417\u0430\u043F\u0438\u0441\u0430\u043D\u043E \u0432\u0440\u0443\u0447\u043D\u0443\u044E {date} \u0432 {time}",
+        setWeatherTemperatureCommand: "\u0412\u0432\u0435\u0441\u0442\u0438 \u0442\u0435\u043C\u043F\u0435\u0440\u0430\u0442\u0443\u0440\u0443 \u043F\u043E\u0433\u043E\u0434\u044B",
         weekStart: "\u041D\u0430\u0447\u0430\u043B\u043E \u043D\u0435\u0434\u0435\u043B\u0438",
         weekStartDesc: "\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u043F\u0435\u0440\u0432\u044B\u0439 \u0434\u0435\u043D\u044C \u043D\u0435\u0434\u0435\u043B\u0438 \u0434\u043B\u044F \u043E\u0442\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u044F \u0432 \u043A\u0430\u043B\u0435\u043D\u0434\u0430\u0440\u0435.",
         weekStartMonday: "\u041F\u043E\u043D\u0435\u0434\u0435\u043B\u044C\u043D\u0438\u043A",
@@ -10348,6 +10627,262 @@ var init_settings_brand = __esm({
   }
 });
 
+// src/settings-support.ts
+function createChevron(doc) {
+  const svg = doc.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("fill", "none");
+  svg.setAttribute("stroke", "currentColor");
+  svg.setAttribute("stroke-width", "1.7");
+  svg.setAttribute("stroke-linecap", "round");
+  svg.setAttribute("stroke-linejoin", "round");
+  svg.setAttribute("aria-hidden", "true");
+  svg.setAttribute("focusable", "false");
+  const path = doc.createElementNS("http://www.w3.org/2000/svg", "path");
+  path.setAttribute("d", CHEVRON_PATH);
+  svg.appendChild(path);
+  return svg;
+}
+function createRow(doc, name, description) {
+  const row = doc.createElement("div");
+  row.className = "setting-item";
+  const info = doc.createElement("div");
+  info.className = "setting-item-info";
+  const title = doc.createElement("div");
+  title.className = "setting-item-name";
+  title.textContent = name;
+  info.appendChild(title);
+  const desc2 = doc.createElement("div");
+  desc2.className = "setting-item-description";
+  desc2.textContent = description;
+  info.appendChild(desc2);
+  row.appendChild(info);
+  const control = doc.createElement("div");
+  control.className = "setting-item-control";
+  row.appendChild(control);
+  return { row, control };
+}
+function renderSupportSection(container, options) {
+  const doc = options.doc ?? container.ownerDocument ?? document;
+  const localize2 = options.localize;
+  const repositoryUrl = options.repositoryUrl ?? SUPPORT_REPOSITORY_URL;
+  const root = doc.createElement("div");
+  root.className = SUPPORT_CONTAINER_CLASS;
+  root.dataset.daylineSettingsSupport = "";
+  const about = createRow(
+    doc,
+    localize2("supportAboutName"),
+    localize2("supportAboutDesc", { version: options.version ?? "" })
+  );
+  root.appendChild(about.row);
+  if (options.checkUpdate) {
+    const checkUpdate = options.checkUpdate;
+    const button = doc.createElement("button");
+    button.type = "button";
+    button.className = SUPPORT_CHECK_CLASS;
+    button.textContent = localize2("supportCheckUpdate");
+    about.control.appendChild(button);
+    const runCheck = async () => {
+      if (button.disabled) return;
+      button.disabled = true;
+      button.textContent = localize2("supportChecking");
+      try {
+        await checkUpdate();
+      } finally {
+        button.disabled = false;
+        button.textContent = localize2("supportCheckUpdate");
+      }
+    };
+    button.addEventListener("click", () => {
+      void runCheck();
+    });
+  }
+  const coffee = createRow(doc, localize2("supportCoffeeName"), localize2("supportCoffeeDesc"));
+  root.appendChild(coffee.row);
+  drawerIdCounter += 1;
+  const drawerId = `dayline-settings-support-drawer-${drawerIdCounter}`;
+  const toggle = doc.createElement("button");
+  toggle.type = "button";
+  toggle.className = SUPPORT_TOGGLE_CLASS;
+  toggle.setAttribute("aria-expanded", "true");
+  toggle.setAttribute("aria-controls", drawerId);
+  const toggleLabel = doc.createElement("span");
+  toggleLabel.className = SUPPORT_TOGGLE_LABEL_CLASS;
+  toggleLabel.textContent = localize2("supportCollapse");
+  toggle.appendChild(toggleLabel);
+  toggle.appendChild(createChevron(doc));
+  coffee.control.appendChild(toggle);
+  const drawer = doc.createElement("div");
+  drawer.className = SUPPORT_DRAWER_CLASS;
+  drawer.id = drawerId;
+  const qr = doc.createElement("img");
+  qr.className = SUPPORT_QR_CLASS;
+  qr.src = options.qrSrc;
+  qr.alt = localize2("supportQrAlt");
+  qr.decoding = "async";
+  drawer.appendChild(qr);
+  const detail = doc.createElement("div");
+  detail.className = `${SUPPORT_CONTAINER_CLASS}-detail`;
+  const title = doc.createElement("p");
+  title.className = `${SUPPORT_CONTAINER_CLASS}-title`;
+  title.textContent = localize2("supportScanTitle");
+  detail.appendChild(title);
+  const note = doc.createElement("p");
+  note.className = `${SUPPORT_CONTAINER_CLASS}-note`;
+  note.textContent = localize2("supportScanNote");
+  detail.appendChild(note);
+  const uses = doc.createElement("p");
+  uses.className = `${SUPPORT_CONTAINER_CLASS}-uses`;
+  uses.textContent = localize2("supportUses");
+  detail.appendChild(uses);
+  const star = doc.createElement("p");
+  star.className = SUPPORT_STAR_CLASS;
+  const starLink = doc.createElement("a");
+  starLink.href = repositoryUrl;
+  starLink.target = "_blank";
+  starLink.rel = "noopener noreferrer";
+  starLink.textContent = localize2("supportStar");
+  star.appendChild(starLink);
+  detail.appendChild(star);
+  drawer.appendChild(detail);
+  root.appendChild(drawer);
+  const setOpen = (next) => {
+    drawer.hidden = !next;
+    toggle.setAttribute("aria-expanded", next ? "true" : "false");
+    toggleLabel.textContent = localize2(next ? "supportCollapse" : "supportExpand");
+    root.classList.toggle("is-open", next);
+  };
+  setOpen(true);
+  toggle.addEventListener("click", () => setOpen(drawer.hidden));
+  container.appendChild(root);
+  return root;
+}
+var SUPPORT_SECTION_ID, SUPPORT_CONTAINER_CLASS, SUPPORT_TOGGLE_CLASS, SUPPORT_TOGGLE_LABEL_CLASS, SUPPORT_CHECK_CLASS, SUPPORT_DRAWER_CLASS, SUPPORT_QR_CLASS, SUPPORT_STAR_CLASS, SUPPORT_REPOSITORY_URL, CHEVRON_PATH, drawerIdCounter;
+var init_settings_support = __esm({
+  "src/settings-support.ts"() {
+    "use strict";
+    SUPPORT_SECTION_ID = "support";
+    SUPPORT_CONTAINER_CLASS = "dayline-settings-support";
+    SUPPORT_TOGGLE_CLASS = "dayline-settings-support-toggle";
+    SUPPORT_TOGGLE_LABEL_CLASS = "dayline-settings-support-toggle-label";
+    SUPPORT_CHECK_CLASS = "dayline-settings-support-check";
+    SUPPORT_DRAWER_CLASS = "dayline-settings-support-drawer";
+    SUPPORT_QR_CLASS = "dayline-settings-support-qr";
+    SUPPORT_STAR_CLASS = "dayline-settings-support-star";
+    SUPPORT_REPOSITORY_URL = "https://github.com/Haoo-7/Obsidian-Dayline";
+    CHEVRON_PATH = "M6 9l6 6 6-6";
+    drawerIdCounter = 0;
+  }
+});
+
+// src/plugin-update-check.ts
+function getRequest() {
+  if (!obsidianRequest) obsidianRequest = require("obsidian").requestUrl;
+  return obsidianRequest;
+}
+function parseVersion(value) {
+  const match = /^v?(\d+)\.(\d+)\.(\d+)/i.exec(String(value ?? "").trim());
+  if (!match) return null;
+  return [Number(match[1]), Number(match[2]), Number(match[3])];
+}
+function compareVersions(candidate, current) {
+  const a = parseVersion(candidate);
+  const b = parseVersion(current);
+  if (!a || !b) return 0;
+  for (let index = 0; index < 3; index += 1) {
+    if (a[index] > b[index]) return 1;
+    if (a[index] < b[index]) return -1;
+  }
+  return 0;
+}
+function latestPublishedVersion(stats, pluginId = PLUGIN_ID2) {
+  if (!stats || typeof stats !== "object") return null;
+  const entry = stats[pluginId];
+  if (!entry || typeof entry !== "object") return null;
+  let newest = null;
+  for (const key of Object.keys(entry)) {
+    if (!parseVersion(key)) continue;
+    if (newest === null || compareVersions(key, newest) > 0) newest = key;
+  }
+  return newest;
+}
+function describe(error) {
+  if (error && typeof error === "object" && "message" in error) {
+    return String(error.message);
+  }
+  return String(error ?? "unknown error");
+}
+function readJson(response) {
+  if (response.json && typeof response.json === "object") return response.json;
+  if (typeof response.text === "string" && response.text.trim() !== "") {
+    try {
+      return JSON.parse(response.text);
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+function withTimeout(promise, ms) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("timed out")), ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      }
+    );
+  });
+}
+async function checkForUpdate(currentVersion, pluginId = PLUGIN_ID2, request = getRequest(), now = Date.now()) {
+  let stats;
+  const fresh = cachedStats && now - cachedStats.at < STATS_CACHE_TTL_MS ? cachedStats.stats : null;
+  if (fresh) {
+    stats = fresh;
+  } else {
+    let response;
+    try {
+      response = await withTimeout(request({ url: COMMUNITY_STATS_URL, throw: false }), UPDATE_TIMEOUT_MS);
+    } catch (error) {
+      return { status: "error", error: describe(error) };
+    }
+    const status = typeof response?.status === "number" ? response.status : 0;
+    if (status >= 400) return { status: "error", error: `HTTP ${status}` };
+    stats = readJson(response ?? {});
+    if (!stats) return { status: "error", error: "unreadable response" };
+    cachedStats = { at: now, stats };
+  }
+  if (!stats[pluginId]) {
+    return { status: "error", error: "not listed in the community catalogue" };
+  }
+  const latest = latestPublishedVersion(stats, pluginId);
+  if (!latest) return { status: "error", error: "no published version" };
+  return compareVersions(latest, currentVersion) > 0 ? { status: "update", version: latest } : { status: "current", version: latest };
+}
+var COMMUNITY_STATS_URL, PLUGIN_ID2, STATS_CACHE_TTL_MS, UPDATE_TIMEOUT_MS, obsidianRequest, cachedStats;
+var init_plugin_update_check = __esm({
+  "src/plugin-update-check.ts"() {
+    "use strict";
+    COMMUNITY_STATS_URL = "https://raw.githubusercontent.com/obsidianmd/obsidian-releases/master/community-plugin-stats.json";
+    PLUGIN_ID2 = "dayline-journal";
+    STATS_CACHE_TTL_MS = 10 * 60 * 1e3;
+    UPDATE_TIMEOUT_MS = 15e3;
+    cachedStats = null;
+  }
+});
+
+// assets/sponsor-wechat.jpg
+var sponsor_wechat_default;
+var init_sponsor_wechat = __esm({
+  "assets/sponsor-wechat.jpg"() {
+    sponsor_wechat_default = "data:image/jpeg;base64,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3du445gcg/RlBB/A0ul+CvF+syiDTNFu52PGRCwX8WYAD8TX6v7RQFFfnsfBzCc93Vlbtp+Z9T/r7iOW3Ir9z4w+H37Nd1JPHqXj+RUhQhhZRNuZ/wDrq44A9Qv519j2ltb2cEVpaxrFDCoREUYVVUYAA7ACrG2lAxX6PknD2Fy+n7PDRt3fV+rPlMxzStip89Z3/QWiiivbPOCiiigAooooAKKKKACiiigD/9H9/KKKKACiiigAooooAKKKKACiiigAooooAKKKKAPmb9pT9k34TftV6PomjfFOO92eH7l7m1ksZ/s8g80BZEYlXBRwozxkYGCK988NeHNG8IeH9N8LeHbVLLS9ItorS1gQfLHBAgRFH0UCt2igBD0r5c+Hnxp/Zg/aE+JWq6X4LutM8TeMfh87K80tlm4tQJDGz2080YJQP8paJsZx6gn6jIzXz98Jv2W/gf8ABDxh4l8efDTw4uk614sYtfTCaWQEM5lZI0dmWNC53FUAGcdgMAH0BjHvRu7U6vlL9sjw/wDtF+Jvgrd6X+y/qY0vxkbu3YyCWOCV7RS3mpDLL8iOTtOTjKggHJoA+qlxninnjmvKPgdp/wAS9J+EnhPTfjJeR6h42trCJNWuIirLJcgfMdyhVYgYDMoAJyR1r1ZulAHxf4q/bm+EnhD9qHSv2VdTtb9vEOpm3i+2okZsobm7j8yCFyXEm5wV5CYBYD1I+0Ac1+N/7R37D/xo+If7fHgz9oDwSlmfCsFxo91qFzLOiyWraW6+YvknDPvRF2Fc8nnGM1+x460AV769tNNsrjUb+Vbe1tY3llkc4VI0BZmY9gAMmvFvgh+0j8G/2i7DVtS+EPiFNdh0ScW93iKWFo2cEodsqoSrgHaw4OD6V7Rf2NpqdjcabqES3FrdxvFLG4yrxuCrKR3BBINeJfAv9mn4Nfs4afq+m/CDQRokOuXC3F3meWdpGQEIu6VmIVATtUcDJ9aAPeK+Tf2hP2Lvgh+034j8OeK/idZXTal4a+WGSzn+z+fBvEnkT/K26MNkjG1hk4bk19ZUUARxRJCixRgKiABQOwHA/SpKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigD//S/fyiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKAA8jFNxTqKAExS0UUANC470uOc0tFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQB//T/fyiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigD/9T9/KKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKAP/2Q==";
+  }
+});
+
 // src/calendar-display.ts
 var calendar_display_exports = {};
 __export(calendar_display_exports, {
@@ -11340,6 +11875,10 @@ var init_settings_tab = __esm({
     init_dayline_wordmark_compact();
     init_dayline_logo();
     init_settings_brand();
+    init_settings_support();
+    init_plugin_update_check();
+    init_plugin_identity();
+    init_sponsor_wechat();
     init_calendar_display();
     init_journal_timeline_display();
     init_journal_source_settings();
@@ -11363,7 +11902,8 @@ var init_settings_tab = __esm({
       "weather",
       "media-privacy",
       "on-this-day",
-      "data-maintenance"
+      "data-maintenance",
+      SUPPORT_SECTION_ID
     ];
     SETTINGS_SECTION_LABEL_KEYS = {
       general: "settingsGeneral",
@@ -11372,7 +11912,8 @@ var init_settings_tab = __esm({
       weather: "settingsWeather",
       "media-privacy": "settingsMediaPrivacy",
       "on-this-day": "settingsOnThisDay",
-      "data-maintenance": "settingsDataMaintenance"
+      "data-maintenance": "settingsDataMaintenance",
+      [SUPPORT_SECTION_ID]: "settingsSupport"
     };
     SETTINGS_ACTION_ROWS = {
       journalTools: ["openTimeline", "detectImports"],
@@ -11567,6 +12108,22 @@ var init_settings_tab = __esm({
       _addSection(containerEl, id) {
         const setting = new import_obsidian5.Setting(containerEl).setName(t(this.plugin.settings, SETTINGS_SECTION_LABEL_KEYS[id])).setHeading();
         setting.settingEl.dataset.daylineSettingsSection = id;
+      }
+      /**
+       * Ask GitHub for the newest release and report it. Never throws: a failed
+       * check is a notice, not a broken settings pane.
+       */
+      async _checkForPluginUpdate() {
+        const result = await checkForUpdate(this.plugin.manifest.version, PLUGIN_ID);
+        if (result.status === "update") {
+          new import_obsidian5.Notice(t(this.plugin.settings, "supportUpdateAvailable", { version: result.version }));
+          return;
+        }
+        if (result.status === "current") {
+          new import_obsidian5.Notice(t(this.plugin.settings, "supportUpToDate", { version: this.plugin.manifest.version }));
+          return;
+        }
+        new import_obsidian5.Notice(result.error === "timed out" ? t(this.plugin.settings, "supportUpdateTimeout") : t(this.plugin.settings, "supportUpdateFailed", { error: result.error || "" }));
       }
       _addActionRow(setting, id) {
         setting.settingEl.addClass("dayline-settings-action-row");
@@ -11916,6 +12473,13 @@ var init_settings_tab = __esm({
             if (leaf?.view) leaf.view.startWeatherBackfill();
           }));
         }
+        this._addSection(containerEl, SUPPORT_SECTION_ID);
+        renderSupportSection(containerEl, {
+          localize: (key, values) => t(this.plugin.settings, key, values),
+          qrSrc: sponsor_wechat_default,
+          version: this.plugin.manifest.version,
+          checkUpdate: () => this._checkForPluginUpdate()
+        });
         if (keepScroll) restoreSettingsScroll(scrollHost, previousScrollTop);
       }
     };
@@ -27257,7 +27821,7 @@ __export(media_service_exports, {
   VIDEO_COVER_TIMEOUT_MS: () => VIDEO_COVER_TIMEOUT_MS,
   formatMediaMetadataForDisplay: () => formatMediaMetadataForDisplay,
   scaleVideoCoverDimensions: () => scaleVideoCoverDimensions,
-  withTimeout: () => withTimeout
+  withTimeout: () => withTimeout2
 });
 function loadMediaBunny() {
   const host = typeof window !== "undefined" ? window : void 0;
@@ -27272,7 +27836,7 @@ function loadMediaBunny() {
 function timerHost() {
   return typeof window !== "undefined" ? window : globalThis;
 }
-function withTimeout(promise, timeoutMs, label = "media operation") {
+function withTimeout2(promise, timeoutMs, label = "media operation") {
   return new Promise((resolve, reject) => {
     const host = timerHost();
     const timer = host.setTimeout(() => reject(new Error(`${label} timed out after ${timeoutMs}ms`)), timeoutMs);
@@ -27547,7 +28111,7 @@ var init_media_service = __esm({
         if (cached !== void 0) return cached;
         const pending = this.metadataPending.get(key);
         if (pending) return pending;
-        const promise = attachment.kind === "image" ? this.readMetadata(attachment) : withTimeout(this.readMetadata(attachment), VIDEO_COVER_TIMEOUT_MS);
+        const promise = attachment.kind === "image" ? this.readMetadata(attachment) : withTimeout2(this.readMetadata(attachment), VIDEO_COVER_TIMEOUT_MS);
         this.metadataPending.set(key, promise);
         try {
           const value = await promise;
@@ -27668,7 +28232,7 @@ var init_media_service = __esm({
         video.src = resource;
         let cleanup = () => void 0;
         try {
-          await withTimeout(new Promise((resolve, reject) => {
+          await withTimeout2(new Promise((resolve, reject) => {
             const loaded = () => {
               cleanup();
               resolve();
@@ -27775,7 +28339,7 @@ var init_media_service = __esm({
         let cleanupData = () => void 0;
         let cleanupSeek = () => void 0;
         try {
-          await withTimeout(new Promise((resolve, reject) => {
+          await withTimeout2(new Promise((resolve, reject) => {
             const loaded = () => {
               cleanupMetadata();
               resolve();
@@ -27794,7 +28358,7 @@ var init_media_service = __esm({
           const duration = Number.isFinite(video.duration) ? Math.max(0, video.duration) : 0;
           const timestamp = duration < 2 ? duration / 2 : 1;
           if (video.readyState < 2) {
-            await withTimeout(new Promise((resolve, reject) => {
+            await withTimeout2(new Promise((resolve, reject) => {
               const loaded = () => {
                 cleanupData();
                 resolve();
@@ -27812,7 +28376,7 @@ var init_media_service = __esm({
             }), VIDEO_COVER_TIMEOUT_MS);
           }
           if (timestamp > 0 && Math.abs(video.currentTime - timestamp) > 0.01) {
-            await withTimeout(new Promise((resolve, reject) => {
+            await withTimeout2(new Promise((resolve, reject) => {
               const seeked = () => {
                 cleanupSeek();
                 resolve();
@@ -28067,6 +28631,124 @@ var init_weather_cache = __esm({
   }
 });
 
+// src/weather-manual.ts
+var weather_manual_exports = {};
+__export(weather_manual_exports, {
+  MANUAL_TEMPERATURE_MAX_ABS_C: () => MANUAL_TEMPERATURE_MAX_ABS_C,
+  celsiusToDisplay: () => celsiusToDisplay,
+  clockTimeFromParts: () => clockTimeFromParts,
+  displayToCelsius: () => displayToCelsius,
+  formatManualTime: () => formatManualTime,
+  formatTemperatureValue: () => formatTemperatureValue,
+  hasManualTemperature: () => hasManualTemperature,
+  manualTemperatureRecord: () => manualTemperatureRecord,
+  mergeManualTemperatureMaps: () => mergeManualTemperatureMaps,
+  normalizeManualTime: () => normalizeManualTime,
+  normalizeWeatherUnits: () => normalizeWeatherUnits,
+  parseTemperatureInput: () => parseTemperatureInput,
+  resolveDisplayTemperature: () => resolveDisplayTemperature,
+  unitSymbolFor: () => unitSymbolFor
+});
+function asText(value) {
+  if (typeof value === "string") return value;
+  if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  return "";
+}
+function normalizeWeatherUnits(units) {
+  return units === "imperial" ? "imperial" : "metric";
+}
+function unitSymbolFor(units) {
+  return normalizeWeatherUnits(units) === "imperial" ? "\xB0F" : "\xB0C";
+}
+function displayToCelsius(value, units) {
+  const numeric = Number(value);
+  return normalizeWeatherUnits(units) === "imperial" ? (numeric - 32) * 5 / 9 : numeric;
+}
+function celsiusToDisplay(celsius, units) {
+  const numeric = Number(celsius);
+  return normalizeWeatherUnits(units) === "imperial" ? numeric * 9 / 5 + 32 : numeric;
+}
+function formatTemperatureValue(value) {
+  const numeric = Number(value);
+  if (value == null || !Number.isFinite(numeric)) return "";
+  const rounded = Math.round(numeric * 10) / 10;
+  if (rounded === 0) return "0";
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+}
+function parseTemperatureInput(raw, units) {
+  const text = asText(raw).trim();
+  if (text === "" || !DISPLAY_NUMBER_PATTERN.test(text)) {
+    return { ok: false, messageKey: "weatherTemperatureInvalid" };
+  }
+  const display = Number(text);
+  if (!Number.isFinite(display)) return { ok: false, messageKey: "weatherTemperatureInvalid" };
+  const celsius = displayToCelsius(display, units);
+  if (!Number.isFinite(celsius) || Math.abs(celsius) > MANUAL_TEMPERATURE_MAX_ABS_C) {
+    return { ok: false, messageKey: "weatherTemperatureInvalid" };
+  }
+  return { ok: true, celsius: Math.round(celsius * 10) / 10 };
+}
+function normalizeManualTime(raw, fallback) {
+  const text = asText(raw).trim();
+  const match = WALL_CLOCK_PATTERN.exec(text);
+  if (!match) return fallback;
+  return `${match[1].padStart(2, "0")}:${match[2]}`;
+}
+function formatManualTime(value) {
+  const text = asText(value).trim();
+  const match = WALL_CLOCK_PATTERN.exec(text);
+  return match ? `${match[1].padStart(2, "0")}:${match[2]}` : "";
+}
+function clockTimeFromParts(parts) {
+  const hour = Number(parts?.hour);
+  const minute = Number(parts?.minute);
+  if (!Number.isInteger(hour) || !Number.isInteger(minute)) return "00:00";
+  const safeHour = (hour % 24 + 24) % 24;
+  const safeMinute = Math.min(59, Math.max(0, minute));
+  return `${String(safeHour).padStart(2, "0")}:${String(safeMinute).padStart(2, "0")}`;
+}
+function manualTemperatureRecord(map, dateStr) {
+  if (!map || typeof map !== "object" || typeof dateStr !== "string" || dateStr === "") return null;
+  const entry = map[dateStr];
+  if (!entry || typeof entry !== "object") return null;
+  const record = entry;
+  const celsius = Number(record.celsius);
+  if (!Number.isFinite(celsius)) return null;
+  return {
+    celsius,
+    time: formatManualTime(record.time),
+    recordedAt: typeof record.recordedAt === "string" ? record.recordedAt : ""
+  };
+}
+function resolveDisplayTemperature(snapshot, record, units) {
+  if (record && Number.isFinite(Number(record.celsius))) {
+    return Math.round(celsiusToDisplay(Number(record.celsius), units) * 10) / 10;
+  }
+  const value = snapshot?.temperature;
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+function hasManualTemperature(map, dateStr) {
+  return manualTemperatureRecord(map, dateStr) !== null;
+}
+function mergeManualTemperatureMaps(diskValue, localValue, deletedDates) {
+  const disk = diskValue && typeof diskValue === "object" ? diskValue : {};
+  const local = localValue && typeof localValue === "object" ? localValue : {};
+  const merged = { ...disk, ...local };
+  if (deletedDates) {
+    for (const date of deletedDates) delete merged[date];
+  }
+  return merged;
+}
+var MANUAL_TEMPERATURE_MAX_ABS_C, DISPLAY_NUMBER_PATTERN, WALL_CLOCK_PATTERN;
+var init_weather_manual = __esm({
+  "src/weather-manual.ts"() {
+    "use strict";
+    MANUAL_TEMPERATURE_MAX_ABS_C = 100;
+    DISPLAY_NUMBER_PATTERN = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/;
+    WALL_CLOCK_PATTERN = /^([01]?\d|2[0-3]):([0-5]\d)$/;
+  }
+});
+
 // src/weather-service.ts
 var weather_service_exports = {};
 __export(weather_service_exports, {
@@ -28200,6 +28882,7 @@ var init_weather_service = __esm({
     init_media_service();
     init_weather_cache();
     init_geolocation();
+    init_weather_manual();
     WEATHER_MAX_ATTEMPTS = 3;
     WEATHER_RETRY_BASE_DELAY_MS = 250;
     WEATHER_RETRY_MAX_DELAY_MS = 2e3;
@@ -28477,7 +29160,7 @@ var init_weather_service = __esm({
       }
       async _requestWeather(url) {
         return requestWeatherWithRetry(
-          () => withTimeout(
+          () => withTimeout2(
             Promise.resolve(this._request({ url })),
             WEATHER_REQUEST_TIMEOUT_MS,
             "weather request"
@@ -28635,6 +29318,72 @@ var init_weather_service = __esm({
       hasCachedSnapshot(dateStr, sourcePath) {
         if (!this.plugin.settings.weatherEnabled) return false;
         return !!this.getCachedSnapshot(dateStr, sourcePath);
+      }
+      /* ============================================================
+         Manual weather readings
+         ============================================================ */
+      /**
+       * A user-entered reading lives outside `weatherCache` on purpose.
+       *
+       * The cache is a forecast projection: `_persistSnapshot` rebuilds it from a
+       * network response, `pruneWeatherCache` evicts by count, and a units or
+       * location change invalidates its `configKey`. A reading the user typed is
+       * journal data, so it must survive all three. Plugin data owns the map; this
+       * class only reads and writes it.
+       */
+      _manualMap() {
+        const plugin = this.plugin;
+        if (!plugin.weatherManualTemperature || typeof plugin.weatherManualTemperature !== "object") {
+          plugin.weatherManualTemperature = {};
+        }
+        return plugin.weatherManualTemperature;
+      }
+      /** Current wall clock in the configured weather timezone, as `HH:MM`. */
+      _currentClockTime() {
+        const timezone = this.plugin.settings?.weatherTimezone || "auto";
+        return clockTimeFromParts(getClockPartsInTimeZone(new Date(this._now()), timezone));
+      }
+      hasManualTemperature(dateStr) {
+        return hasManualTemperature(this._manualMap(), dateStr);
+      }
+      getManualTemperature(dateStr) {
+        return manualTemperatureRecord(this._manualMap(), dateStr);
+      }
+      /** Manual reading wins; the snapshot's unit-correct temperature is the fallback. */
+      resolveDisplayTemperature(dateStr, snapshot) {
+        return resolveDisplayTemperature(
+          snapshot,
+          this.getManualTemperature(dateStr),
+          this.plugin.settings?.weatherUnits
+        );
+      }
+      /**
+       * Store a manual reading, or delete it when `celsius` is null.
+       *
+       * `time` is the wall clock the reading refers to; when it is missing or not a
+       * usable `HH:MM` the current time in the weather timezone is recorded, so a
+       * record can never exist without the moment that makes it meaningful.
+       */
+      setManualTemperature(dateStr, celsius, time = null) {
+        if (typeof dateStr !== "string" || dateStr === "") return null;
+        const map = this._manualMap();
+        if (celsius == null) {
+          delete map[dateStr];
+          this.plugin._weatherManualDeleted?.add?.(dateStr);
+          this.plugin._saveWeatherCache?.();
+          return null;
+        }
+        const numeric = Number(celsius);
+        if (!Number.isFinite(numeric)) return null;
+        const record = {
+          celsius: Math.round(numeric * 10) / 10,
+          time: normalizeManualTime(time, this._currentClockTime()),
+          recordedAt: this._nowIso()
+        };
+        map[dateStr] = record;
+        this.plugin._weatherManualDeleted?.delete?.(dateStr);
+        this.plugin._saveWeatherCache?.();
+        return record;
       }
       /** Bulk-fetch weather for a list of dates with a delay between requests. */
       async bulkBackfill(dateStrs, onProgress) {
@@ -28971,6 +29720,260 @@ var init_weather_conditions = __esm({
           "\u0413\u0440\u043E\u0437\u0430 \u0441 \u0441\u0438\u043B\u044C\u043D\u044B\u043C \u0433\u0440\u0430\u0434\u043E\u043C"
         ],
         unknown: "\u041A\u043E\u0434 \u043F\u043E\u0433\u043E\u0434\u044B {code}"
+      }
+    };
+  }
+});
+
+// src/weather-temperature-modal.ts
+var weather_temperature_modal_exports = {};
+__export(weather_temperature_modal_exports, {
+  WEATHER_RAIL_MAX_C: () => WEATHER_RAIL_MAX_C,
+  WEATHER_RAIL_MIN_C: () => WEATHER_RAIL_MIN_C,
+  WEATHER_RAIL_TICKS_C: () => WEATHER_RAIL_TICKS_C,
+  WEATHER_TEMPERATURE_MODAL_CLASS: () => WEATHER_TEMPERATURE_MODAL_CLASS,
+  WeatherTemperatureModal: () => WeatherTemperatureModal
+});
+var import_obsidian6, WEATHER_TEMPERATURE_MODAL_CLASS, WEATHER_RAIL_MIN_C, WEATHER_RAIL_MAX_C, WEATHER_RAIL_TICKS_C, WeatherTemperatureModal;
+var init_weather_temperature_modal = __esm({
+  "src/weather-temperature-modal.ts"() {
+    "use strict";
+    import_obsidian6 = require("obsidian");
+    init_i18n();
+    init_mood_modal_viewport();
+    init_weather_manual();
+    WEATHER_TEMPERATURE_MODAL_CLASS = "dayline-weather-temperature-modal";
+    WEATHER_RAIL_MIN_C = -20;
+    WEATHER_RAIL_MAX_C = 45;
+    WEATHER_RAIL_TICKS_C = [-20, 0, 20, 40];
+    WeatherTemperatureModal = class _WeatherTemperatureModal extends import_obsidian6.Modal {
+      constructor(app, options = {}) {
+        super(app);
+        this.settings = options.settings || {};
+        this.dateStr = String(options.dateStr || "");
+        this.units = options.units === "imperial" ? "imperial" : "metric";
+        this.initialCelsius = Number.isFinite(Number(options.initialCelsius)) ? Number(options.initialCelsius) : null;
+        this.hasManual = options.hasManual === true;
+        this.defaultTime = typeof options.defaultTime === "string" && options.defaultTime ? options.defaultTime : _WeatherTemperatureModal.localClock();
+        this.initialTime = typeof options.initialTime === "string" && options.initialTime ? options.initialTime : this.defaultTime;
+        this.onSubmit = typeof options.onSubmit === "function" ? options.onSubmit : () => {
+        };
+        this.disposeViewport = null;
+        this.submitted = false;
+        this.dragging = false;
+        this.lastCelsius = this.initialCelsius;
+      }
+      static localClock() {
+        const now = /* @__PURE__ */ new Date();
+        return clockTimeFromParts({ hour: now.getHours(), minute: now.getMinutes() });
+      }
+      text(key, values) {
+        return t(this.settings, key, values);
+      }
+      onOpen() {
+        this.modalEl.addClass(WEATHER_TEMPERATURE_MODAL_CLASS);
+        const { contentEl } = this;
+        contentEl.empty();
+        this.disposeViewport = bindMoodModalViewport(this.modalEl, contentEl);
+        const dateLabel = formatJournalDate(this.dateStr, this.settings);
+        this.modalEl.setAttribute("aria-label", this.text("weatherTemperatureTitle", { date: dateLabel }));
+        const head = contentEl.createDiv({ cls: "cal-wt-head" });
+        head.createSpan({ cls: "cal-wt-date", text: dateLabel });
+        const readout = contentEl.createDiv({ cls: "cal-wt-readout" });
+        this.inputEl = readout.createEl("input", {
+          cls: "cal-wt-value dayline-weather-temp-input",
+          attr: {
+            type: "text",
+            inputmode: "decimal",
+            autocomplete: "off",
+            spellcheck: "false",
+            "aria-label": this.text("weatherTemperatureLabel"),
+            "aria-describedby": "dayline-weather-temp-error"
+          }
+        });
+        this.inputEl.value = this.initialCelsius == null ? "" : formatTemperatureValue(celsiusToDisplay(this.initialCelsius, this.units));
+        readout.createSpan({ cls: "cal-wt-unit", text: unitSymbolFor(this.units) });
+        const meta = readout.createSpan({ cls: "cal-wt-meta" });
+        meta.createSpan({ text: this.text("weatherTemperatureLabel") });
+        if (this.hasManual) meta.createSpan({ text: this.text("weatherManualBadge") });
+        this.railEl = contentEl.createDiv({
+          cls: "cal-wt-rail",
+          attr: {
+            role: "slider",
+            tabindex: "0",
+            "aria-label": this.text("weatherTemperatureLabel"),
+            "aria-valuemin": String(Math.round(celsiusToDisplay(WEATHER_RAIL_MIN_C, this.units))),
+            "aria-valuemax": String(Math.round(celsiusToDisplay(WEATHER_RAIL_MAX_C, this.units))),
+            title: this.text("weatherTemperatureDesc")
+          }
+        });
+        this.trackEl = this.railEl.createDiv({ cls: "cal-wt-track" });
+        this.thumbEl = this.railEl.createDiv({ cls: "cal-wt-thumb" });
+        const ticks = contentEl.createDiv({ cls: "cal-wt-ticks" });
+        WEATHER_RAIL_TICKS_C.forEach((celsius, index) => {
+          const tick = ticks.createSpan({
+            cls: index === 0 ? "cal-wt-tick is-first" : "cal-wt-tick",
+            text: String(Math.round(celsiusToDisplay(celsius, this.units)))
+          });
+          tick.style.left = `${this.ratioForCelsius(celsius) * 100}%`;
+        });
+        this.errorEl = contentEl.createDiv({
+          cls: "cal-wt-error dayline-weather-temp-error",
+          attr: { id: "dayline-weather-temp-error", role: "alert" }
+        });
+        this.errorEl.setText("");
+        const foot = contentEl.createDiv({ cls: "cal-wt-foot" });
+        const timeWrap = foot.createEl("label", { cls: "cal-wt-time" });
+        timeWrap.createSpan({ cls: "cal-wt-time-label", text: this.text("weatherTimeLabel") });
+        this.timeEl = timeWrap.createEl("input", {
+          cls: "dayline-weather-time-input",
+          attr: { type: "time", step: "60" }
+        });
+        this.timeEl.value = normalizeManualTime(this.initialTime, this.defaultTime);
+        const actions = foot.createDiv({ cls: "cal-wt-actions" });
+        if (this.hasManual) {
+          const clearBtn = actions.createEl("button", {
+            cls: "cal-wt-clear dayline-weather-temp-clear",
+            text: this.text("weatherClearManual")
+          });
+          clearBtn.addEventListener("click", () => this.submit(null));
+        }
+        const cancelBtn = actions.createEl("button", {
+          cls: "cal-wt-cancel",
+          text: this.text("cancel")
+        });
+        cancelBtn.addEventListener("click", () => this.close());
+        this.saveBtn = actions.createEl("button", {
+          cls: "cal-wt-save dayline-weather-temp-save",
+          text: this.text("weatherRecord")
+        });
+        this.saveBtn.addEventListener("click", () => this.submitCurrent());
+        this.bindEvents();
+        this.syncValueWidth();
+        this.syncRail();
+        this.refreshValidity();
+        window.setTimeout(() => {
+          if (this.railEl?.isConnected) this.railEl.focus();
+        }, 0);
+      }
+      bindEvents() {
+        const { contentEl } = this;
+        contentEl.addEventListener("keydown", (event) => {
+          if (event.key === "Escape") {
+            event.preventDefault();
+            this.close();
+          } else if (event.key === "Enter") {
+            event.preventDefault();
+            this.submitCurrent();
+          }
+        });
+        this.inputEl.addEventListener("input", () => {
+          this.syncValueWidth();
+          this.syncRail();
+          this.refreshValidity();
+        });
+        this.timeEl.addEventListener("input", () => this.refreshValidity());
+        this.railEl.addEventListener("keydown", (event) => this.onRailKeydown(event));
+        this.railEl.addEventListener("pointerdown", (event) => this.onRailPointerDown(event));
+        this.railEl.addEventListener("pointermove", (event) => this.onRailPointerMove(event));
+        this.railEl.addEventListener("pointerup", (event) => this.endRailDrag(event));
+        this.railEl.addEventListener("pointercancel", (event) => this.endRailDrag(event));
+      }
+      onRailPointerDown(event) {
+        if (typeof event.button === "number" && event.button !== 0) return;
+        this.dragging = true;
+        this.railEl.setPointerCapture?.(event.pointerId);
+        this.applyPointer(event.clientX);
+        event.preventDefault();
+      }
+      onRailPointerMove(event) {
+        if (!this.dragging) return;
+        this.applyPointer(event.clientX);
+        event.preventDefault();
+      }
+      endRailDrag(event) {
+        if (!this.dragging) return;
+        this.dragging = false;
+        this.railEl.releasePointerCapture?.(event.pointerId);
+      }
+      onRailKeydown(event) {
+        const step = event.shiftKey ? 5 : 1;
+        const current = this.parseInput().ok ? Number(this.inputEl.value) : 0;
+        let next = null;
+        if (event.key === "ArrowRight" || event.key === "ArrowUp") next = current + step;
+        else if (event.key === "ArrowLeft" || event.key === "ArrowDown") next = current - step;
+        else if (event.key === "PageUp") next = current + 10;
+        else if (event.key === "PageDown") next = current - 10;
+        else if (event.key === "Home") next = Math.round(celsiusToDisplay(WEATHER_RAIL_MIN_C, this.units));
+        else if (event.key === "End") next = Math.round(celsiusToDisplay(WEATHER_RAIL_MAX_C, this.units));
+        if (next === null) return;
+        event.preventDefault();
+        event.stopPropagation();
+        this.applyDisplayValue(next);
+      }
+      ratioForCelsius(celsius) {
+        const clamped = Math.min(WEATHER_RAIL_MAX_C, Math.max(WEATHER_RAIL_MIN_C, Number(celsius)));
+        return (clamped - WEATHER_RAIL_MIN_C) / (WEATHER_RAIL_MAX_C - WEATHER_RAIL_MIN_C);
+      }
+      applyPointer(clientX) {
+        const rect = this.trackEl?.getBoundingClientRect?.();
+        if (!rect || !rect.width) return;
+        const ratio = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
+        const celsius = WEATHER_RAIL_MIN_C + ratio * (WEATHER_RAIL_MAX_C - WEATHER_RAIL_MIN_C);
+        this.applyDisplayValue(Math.round(celsiusToDisplay(celsius, this.units)));
+      }
+      applyDisplayValue(display) {
+        this.inputEl.value = String(Math.round(display * 10) / 10);
+        this.syncValueWidth();
+        this.syncRail();
+        this.refreshValidity();
+      }
+      /** Ch-sized width so the huge number never leaves a fixed gutter. */
+      syncValueWidth() {
+        if (!this.inputEl) return;
+        const chars = Math.max(1, String(this.inputEl.value ?? "").length);
+        this.inputEl.style.width = `calc(${chars}ch + 6px)`;
+      }
+      /** Keep the thumb and the ARIA value in step with the field. */
+      syncRail() {
+        if (!this.railEl) return;
+        const parsed = this.parseInput();
+        if (parsed.ok) this.lastCelsius = parsed.celsius;
+        const celsius = Number.isFinite(this.lastCelsius) ? this.lastCelsius : 0;
+        this.railEl.style.setProperty("--wt-ratio", String(this.ratioForCelsius(celsius)));
+        const display = Number(this.inputEl?.value);
+        this.railEl.setAttribute("aria-valuenow", String(Number.isFinite(display) ? display : ""));
+      }
+      /** Validate without side effects; drives both the error text and Save's state. */
+      parseInput() {
+        return parseTemperatureInput(this.inputEl?.value, this.units);
+      }
+      refreshValidity() {
+        const parsed = this.parseInput();
+        if (this.saveBtn) this.saveBtn.disabled = !parsed.ok;
+        if (this.errorEl) {
+          this.errorEl.setText(parsed.ok ? "" : this.text(parsed.messageKey));
+          if (parsed.ok) this.errorEl.removeClass("is-visible");
+          else this.errorEl.addClass("is-visible");
+        }
+        return parsed;
+      }
+      submitCurrent() {
+        const parsed = this.refreshValidity();
+        if (!parsed.ok) return;
+        const time = normalizeManualTime(this.timeEl?.value, this.defaultTime);
+        this.submit(parsed.celsius, time);
+      }
+      submit(celsius, time = null) {
+        if (this.submitted) return;
+        this.submitted = true;
+        this.onSubmit(celsius, celsius == null ? null : time);
+        this.close();
+      }
+      onClose() {
+        this.disposeViewport?.();
+        this.disposeViewport = null;
+        this.contentEl.empty();
       }
     };
   }
@@ -31826,7 +32829,7 @@ var init_manifest = __esm({
     manifest_default = {
       id: "dayline-journal",
       name: "Dayline Journal",
-      version: "2.10.1",
+      version: "2.11.0",
       minAppVersion: "1.5.0",
       description: "A visual journal for calendars, timelines, moods, memories, weather, and photos. / \u96C6\u65E5\u5386\u3001\u65F6\u95F4\u7EBF\u3001\u5FC3\u60C5\u3001\u56DE\u987E\u3001\u5929\u6C14\u548C\u7167\u7247\u4E8E\u4E00\u4F53\u7684\u53EF\u89C6\u5316\u65E5\u8BB0\u5DE5\u5177.",
       author: "Haoo",
@@ -33205,8 +34208,8 @@ var init_mobile_diagnostics = __esm({
 });
 
 // src/plugin.ts
-var { Plugin, ItemView: ItemView2, TFile: TFile3, Notice: Notice5, Modal: Modal2, Menu, setIcon: setIcon5, Platform, normalizePath } = require("obsidian");
-var { PLUGIN_ID: PLUGIN_ID2, LEGACY_PLUGIN_IDS: LEGACY_PLUGIN_IDS2 } = (init_plugin_identity(), __toCommonJS(plugin_identity_exports));
+var { Plugin, ItemView: ItemView2, TFile: TFile3, Notice: Notice5, Modal: Modal3, Menu, setIcon: setIcon5, Platform, normalizePath } = require("obsidian");
+var { PLUGIN_ID: PLUGIN_ID3, LEGACY_PLUGIN_IDS: LEGACY_PLUGIN_IDS2 } = (init_plugin_identity(), __toCommonJS(plugin_identity_exports));
 var { JournalIndex: JournalIndex2, startJournalIndexLoad: startJournalIndexLoad2, waitForJournalIndexStartup: waitForJournalIndexStartup2 } = (init_journal_index(), __toCommonJS(journal_index_exports));
 var { subscribeJournalMetadataRefresh: subscribeJournalMetadataRefresh2 } = (init_journal_metadata_refresh(), __toCommonJS(journal_metadata_refresh_exports));
 var { MoodStore: MoodStore2 } = (init_mood_store(), __toCommonJS(mood_store_exports));
@@ -33242,6 +34245,14 @@ var badgeStormSvg = require_badge_storm();
 var { WeatherService: WeatherService2, lookupWeatherCode: lookupWeatherCode2, validateWeatherCoordinates: validateWeatherCoordinates2, weatherBadgeIcon: weatherBadgeIcon2 } = (init_weather_service(), __toCommonJS(weather_service_exports));
 var { pruneWeatherCache: pruneWeatherCache2, WEATHER_CACHE_MAX_ENTRIES: WEATHER_CACHE_MAX_ENTRIES2 } = (init_weather_cache(), __toCommonJS(weather_cache_exports));
 var { weatherConditionLabel: weatherConditionLabel2 } = (init_weather_conditions(), __toCommonJS(weather_conditions_exports));
+var {
+  clockTimeFromParts: clockTimeFromParts2,
+  displayToCelsius: displayToCelsius3,
+  formatManualTime: formatManualTime2,
+  formatTemperatureValue: formatTemperatureValue2,
+  mergeManualTemperatureMaps: mergeManualTemperatureMaps2
+} = (init_weather_manual(), __toCommonJS(weather_manual_exports));
+var { WeatherTemperatureModal: WeatherTemperatureModal2 } = (init_weather_temperature_modal(), __toCommonJS(weather_temperature_modal_exports));
 var { buildWeatherCardParts: buildWeatherCardParts2, buildWeatherStatus: buildWeatherStatus2, normalizeWeatherDisplayFields: normalizeWeatherDisplayFields2 } = (init_weather_display(), __toCommonJS(weather_display_exports));
 var { localize: _l } = (init_locale(), __toCommonJS(locale_exports));
 var { formatDateParts: formatDateParts2, getClockPartsInTimeZone: getClockPartsInTimeZone2, getTodayDate: getTodayDate2, isPathInFolder: isPathInFolder2, joinVaultPath: joinVaultPath2, normalizeVaultPath: normalizeVaultPath2, parentVaultPath: parentVaultPath2 } = (init_date_utils(), __toCommonJS(date_utils_exports));
@@ -33374,6 +34385,7 @@ var DaylinePlugin = class extends Plugin {
     this._journalWriteQueue = new SerialTaskQueue2();
     this._weatherSaveTimer = null;
     this._weatherCleanupTimer = null;
+    this._weatherManualDeleted = /* @__PURE__ */ new Set();
     this._geocoderSaveTimer = null;
     this._exifHoverToken = 0;
     this._exifTouchAnchor = null;
@@ -33465,6 +34477,14 @@ var DaylinePlugin = class extends Plugin {
         name: t2(this.settings, "refreshWeather"),
         callback: () => {
           void this.refreshActiveWeather();
+        }
+      }),
+      // Command: record the temperature the user felt on the active date
+      setWeatherTemperatureCommand: this.addCommand({
+        id: "set-weather-temperature",
+        name: t2(this.settings, "setWeatherTemperatureCommand"),
+        callback: () => {
+          void this.setActiveDateWeatherTemperature();
         }
       }),
       // Command: Open On This Day modal
@@ -33733,7 +34753,7 @@ var DaylinePlugin = class extends Plugin {
     if (!configDir) return;
     const dataPath = (pluginId) => `${configDir}/plugins/${pluginId}/data.json`;
     const manifestDir = String(this.manifest?.dir || "").replace(/[\\/]+$/, "");
-    const currentPath = manifestDir ? normalizePath(`${manifestDir}/data.json`) : dataPath(PLUGIN_ID2);
+    const currentPath = manifestDir ? normalizePath(`${manifestDir}/data.json`) : dataPath(PLUGIN_ID3);
     try {
       if (await adapter.exists(currentPath)) return;
       for (const legacyId of LEGACY_PLUGIN_IDS2) {
@@ -34590,6 +35610,8 @@ ${path}`)) return false;
     const hasPersistedSettings = Boolean(raw) && typeof raw === "object" && Object.keys(raw).length > 0;
     const data = raw || {};
     this.weatherCache = data.weatherCache || {};
+    this.weatherManualTemperature = data.weatherManualTemperature && typeof data.weatherManualTemperature === "object" ? data.weatherManualTemperature : {};
+    this._weatherManualDeleted = /* @__PURE__ */ new Set();
     this.geocoderCache = data.geocoderCache && typeof data.geocoderCache === "object" ? data.geocoderCache : {};
     this._cleanupWeatherCache();
     this.settings = Object.assign({}, DEFAULT_SETTINGS, data, normalizeViewVisibilitySettings2(data));
@@ -34606,6 +35628,7 @@ ${path}`)) return false;
     this.settings.onThisDayEntry = normalizeOnThisDayEntryMode2(this.settings);
     this.settings.onThisDayButton = this.settings.onThisDayEntry !== "off";
     delete this.settings.weatherCache;
+    delete this.settings.weatherManualTemperature;
     delete this.settings.geocoderCache;
   }
   async saveSettings() {
@@ -34621,6 +35644,7 @@ ${path}`)) return false;
     await this._enqueueDataWrite((data) => {
       Object.assign(data, settings);
       data.weatherCache = _mergeCacheByKey(data.weatherCache, this.weatherCache);
+      this._writeManualTemperature(data);
       data.geocoderCache = _mergeCacheByKey(data.geocoderCache, this.geocoderCache);
     });
   }
@@ -34659,6 +35683,22 @@ ${path}`)) return false;
     });
     return this._dataWriteQueue;
   }
+  /**
+   * Write the manual-reading map, honouring this session's deletions.
+   *
+   * An empty map with nothing on disk is left absent so a clean install never
+   * grows an empty key in `data.json`.
+   */
+  _writeManualTemperature(data) {
+    const merged = mergeManualTemperatureMaps2(
+      data.weatherManualTemperature,
+      this.weatherManualTemperature,
+      this._weatherManualDeleted
+    );
+    if (Object.keys(merged).length > 0 || data.weatherManualTemperature) {
+      data.weatherManualTemperature = merged;
+    }
+  }
   _flushWeatherCache() {
     if (this._weatherSaveTimer) {
       window.clearTimeout(this._weatherSaveTimer);
@@ -34666,6 +35706,7 @@ ${path}`)) return false;
     }
     return this._enqueueDataWrite((data) => {
       data.weatherCache = _mergeCacheByKey(data.weatherCache, this.weatherCache);
+      this._writeManualTemperature(data);
     });
   }
   /** Save reverse-geocoder cache without touching settings. */
@@ -34718,6 +35759,19 @@ ${path}`)) return false;
     } catch (error) {
       console.warn("[Dayline] Refresh weather failed:", error?.message || error);
     }
+  }
+  /**
+   * Open the manual temperature form for the active date. Mirrors
+   * `refreshActiveWeather`: a command with no calendar view explains itself
+   * instead of failing silently.
+   */
+  setActiveDateWeatherTemperature() {
+    const calendar = this.app.workspace.getLeavesOfType(VIEW_TYPE2)[0]?.view;
+    if (!calendar) {
+      new Notice5(t2(this.settings, "calendarViewRequired"));
+      return;
+    }
+    calendar.openTemperatureEditor(calendar.activeDate || _daylineDate(this.settings));
   }
   async activateView() {
     if (this._usesPhoneDaylineMode()) return this._activateMobileMode("calendar");
@@ -35529,7 +36583,24 @@ var CalendarView = class extends ItemView2 {
       iconEl.alt = t2(this.plugin.settings, "weatherIconAlt");
     }
     const infoEl = main.createDiv({ cls: "cal-weather-info" });
-    const tempEl = infoEl.createDiv({ cls: "cal-weather-temp" });
+    const tempRow = infoEl.createDiv({ cls: "cal-weather-temp-row" });
+    const tempEl = tempRow.createDiv({ cls: "cal-weather-temp" });
+    tempRow.createSpan({
+      cls: "cal-weather-manual-pill is-hidden",
+      text: t2(this.plugin.settings, "weatherManualBadge")
+    });
+    const editBtn = tempRow.createEl("button", {
+      cls: "cal-weather-edit-temp is-hidden",
+      attr: {
+        "aria-label": t2(this.plugin.settings, "weatherEditTemperature"),
+        title: t2(this.plugin.settings, "weatherEditTemperature")
+      }
+    });
+    setIcon5(editBtn, "pencil");
+    editBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      this.openTemperatureEditor(cardDate);
+    });
     const locationEl = shouldShowCalendarWeatherLocation2(s) ? infoEl.createDiv({ cls: "cal-weather-location" }) : null;
     infoEl.createDiv({ cls: "cal-weather-detail" });
     infoEl.createDiv({ cls: "cal-weather-extra" });
@@ -35684,6 +36755,7 @@ var CalendarView = class extends ItemView2 {
         iconEl2.alt = "\u26A0\uFE0F";
       }
       card.querySelector(".cal-weather-temp").setText(_l(lang, "unavailable"));
+      this._syncWeatherManualChrome(card, null, false);
       if (locationEl) locationEl.setText(`${_l(lang, "weatherLocation")}: ${this.plugin.settings.weatherLocationName || ""}`);
       if (detailEl) detailEl.setText(_l(lang, "checkSettings"));
       if (extraEl) extraEl.setText("");
@@ -35695,6 +36767,7 @@ var CalendarView = class extends ItemView2 {
       const iconEl2 = card.querySelector(".cal-weather-icon");
       if (iconEl2) iconEl2.src = _iconUrl("overcast.svg");
       card.querySelector(".cal-weather-temp").setText("\u2014");
+      this._syncWeatherManualChrome(card, null, false);
       if (locationEl) locationEl.setText(`${_l(lang, "weatherLocation")}: ${this.plugin.settings.weatherLocationName || ""}`);
       if (detailEl) detailEl.setText(_l(lang, "noData"));
       if (extraEl) extraEl.setText("");
@@ -35710,9 +36783,18 @@ var CalendarView = class extends ItemView2 {
     }
     const tempEl = card.querySelector(".cal-weather-temp");
     const unitSym = this._unitSymbol(snap.units);
-    const labelKey = snap.temperatureLabel === "Now" ? "now" : "high";
-    const label = _l(lang, labelKey);
-    tempEl.setText(`${label} ${snap.temperature ?? "?"}${unitSym}`);
+    const manualRecord = this.weather.getManualTemperature(this._weatherCardDate);
+    if (manualRecord) {
+      const displayTemperature = this.weather.resolveDisplayTemperature(this._weatherCardDate, snap);
+      const time = formatManualTime2(manualRecord.time);
+      const value = formatTemperatureValue2(displayTemperature);
+      tempEl.setText(time ? `${value}${unitSym} \xB7 ${time}` : `${value}${unitSym}`);
+    } else {
+      const labelKey = snap.temperatureLabel === "Now" ? "now" : "high";
+      const label = _l(lang, labelKey);
+      tempEl.setText(`${label} ${snap.temperature ?? "?"}${unitSym}`);
+    }
+    this._syncWeatherManualChrome(card, manualRecord, true);
     const labels = {
       feels: _l(lang, "feels"),
       humidity: _l(lang, "humidity"),
@@ -35744,6 +36826,79 @@ var CalendarView = class extends ItemView2 {
     if (extraEl) extraEl.setText(weatherParts.extra.join(" \xB7 "));
     if (statusEl) statusEl.setText(buildWeatherStatus2(snap, labels).join(" \xB7 "));
     card.querySelector(".cal-weather-main")?.removeAttribute("aria-live");
+  }
+  /* ----- Manual reading chrome: the "manual" badge and the edit affordance ----- */
+  _syncWeatherManualChrome(card, record, canEdit) {
+    if (!card) return;
+    const pill = card.querySelector(".cal-weather-manual-pill");
+    if (pill) {
+      if (record) {
+        pill.removeClass("is-hidden");
+        const time = formatManualTime2(record.time);
+        pill.title = time ? t2(this.plugin.settings, "weatherManualRecordedAt", {
+          date: this._weatherCardDate || "",
+          time
+        }) : "";
+      } else {
+        pill.addClass("is-hidden");
+        pill.title = "";
+      }
+    }
+    const editBtn = card.querySelector(".cal-weather-edit-temp");
+    if (editBtn) {
+      if (canEdit) editBtn.removeClass("is-hidden");
+      else editBtn.addClass("is-hidden");
+    }
+  }
+  /* ----- Temperature line shared by the overlay build and refresh paths ----- */
+  _weatherTemperatureText(snap, dateStr, unitSym) {
+    const lang = getDisplayLanguage2(this.plugin.settings);
+    const record = this.weather.getManualTemperature(dateStr);
+    if (record) {
+      const value = formatTemperatureValue2(this.weather.resolveDisplayTemperature(dateStr, snap));
+      const time = formatManualTime2(record.time);
+      return time ? `${value}${unitSym} \xB7 ${time}` : `${value}${unitSym}`;
+    }
+    const labelKey = snap.temperatureLabel === "Now" ? "now" : "high";
+    return `${_l(lang, labelKey)} ${snap.temperature ?? "?"}${unitSym}`;
+  }
+  /**
+   * Open the manual reading form for a date.
+   *
+   * `snapshot` is the value currently on screen when the card asks; the command
+   * path passes none and the cached snapshot supplies the prefill instead.
+   */
+  openTemperatureEditor(dateStr, snapshot = void 0) {
+    const settings = this.plugin.settings;
+    if (!settings.weatherEnabled) return;
+    const targetDate = dateStr || this.activeDate || _daylineDate(settings);
+    const currentSnap = snapshot === void 0 ? this.weather.getCachedSnapshot(targetDate) : snapshot;
+    const record = this.weather.getManualTemperature(targetDate);
+    const units = settings.weatherUnits;
+    const defaultTime = clockTimeFromParts2(
+      getClockPartsInTimeZone2(/* @__PURE__ */ new Date(), settings.weatherTimezone || "auto")
+    );
+    const snapshotTemperature = typeof currentSnap?.temperature === "number" ? displayToCelsius3(currentSnap.temperature, units) : null;
+    new WeatherTemperatureModal2(this.app, {
+      settings,
+      dateStr: targetDate,
+      units,
+      hasManual: Boolean(record),
+      initialCelsius: record ? record.celsius : snapshotTemperature,
+      initialTime: record?.time || defaultTime,
+      defaultTime,
+      onSubmit: (celsius, time) => {
+        if (celsius == null) {
+          this.weather.setManualTemperature(targetDate, null);
+          new Notice5(t2(settings, "weatherTemperatureCleared", { date: targetDate }));
+        } else {
+          this.weather.setManualTemperature(targetDate, celsius, time);
+          new Notice5(t2(settings, "weatherTemperatureSaved", { date: targetDate }));
+        }
+        this.render();
+        this._syncNoteOverlays();
+      }
+    }).open();
   }
   /* ----- Fetch weather for a date in the background ----- */
   async _fetchWeatherForDate(dateStr) {
@@ -36391,13 +37546,22 @@ var CalendarView = class extends ItemView2 {
     const detailEl = infoEl.createDiv({ cls: "cal-overlay-detail" });
     const lang = getDisplayLanguage2(this.plugin.settings);
     const unitSym = this._unitSymbol(snap.units);
-    const labelKey = snap.temperatureLabel === "Now" ? "now" : "high";
-    tempEl.setText(`${_l(lang, labelKey)} ${snap.temperature ?? "?"}${unitSym}`);
+    tempEl.setText(this._weatherTemperatureText(snap, dateStr, unitSym));
     const parts = [];
     if (snap.feelsLike != null) parts.push(`${_l(lang, "feels")} ${snap.feelsLike}${unitSym}`);
     if (snap.humidity != null) parts.push(`${_l(lang, "humidity")} ${snap.humidity}%`);
     detailEl.setText(parts.join(" \xB7 ") || "");
     detailEl.title = condition;
+    const editLabel = t2(this.plugin.settings, "weatherEditTemperature");
+    const editBtn = overlay.createEl("button", {
+      cls: "cal-overlay-edit-temp",
+      attr: { "aria-label": editLabel, title: editLabel }
+    });
+    setIcon5(editBtn, "pencil");
+    editBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      this.openTemperatureEditor(dateStr, snap);
+    });
     const refreshLabel = _l(lang, "refresh");
     const refreshBtn = overlay.createEl("button", {
       cls: "cal-overlay-refresh",
@@ -36442,8 +37606,7 @@ var CalendarView = class extends ItemView2 {
       const iconEl = overlayEl.querySelector(".cal-overlay-icon");
       const unitSym = this._unitSymbol(snap.units);
       const lang = getDisplayLanguage2(this.plugin.settings);
-      const labelKey = snap.temperatureLabel === "Now" ? "now" : "high";
-      if (tempEl) tempEl.textContent = `${_l(lang, labelKey)} ${snap.temperature ?? "?"}${unitSym}`;
+      if (tempEl) tempEl.textContent = this._weatherTemperatureText(snap, dateStr, unitSym);
       if (iconEl) {
         iconEl.src = _iconUrl(snap.icon) || "";
         iconEl.title = weatherConditionLabel2(snap, this.plugin.settings);
@@ -36573,7 +37736,7 @@ var MobileDaylineView = class extends ItemView2 {
     this.redirectTimer = null;
   }
 };
-var CreateNoteModal = class extends Modal2 {
+var CreateNoteModal = class extends Modal3 {
   constructor(app, settings, dateStr, onConfirm) {
     super(app);
     this.settings = settings;
