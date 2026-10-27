@@ -176,7 +176,13 @@ describe('nine-language key parity and count plurals', () => {
 
   it('keeps one identical key set and English-compatible placeholders in every language', () => {
     const englishKeys = Object.keys(STRINGS.en).sort();
-    expect(englishKeys).toHaveLength(304);
+    // 304 shipped keys plus the 13 manual-weather readings added by this build:
+    // title, description, temperature label, time label, invalid hint, saved and
+    // cleared notices, clear action, badge, edit action, recorded-at tooltip,
+    // the command name, and the record button. The settings support block adds
+    // the remaining 18: its section label, the two rows, the drawer copy, the
+    // toggle pair, and the update check with its four result notices.
+    expect(englishKeys).toHaveLength(335);
 
     for (const language of SUPPORTED_DISPLAY_LANGUAGES) {
       expect(Object.keys(STRINGS[language]).sort(), language).toEqual(englishKeys);

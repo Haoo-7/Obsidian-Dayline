@@ -19,7 +19,9 @@ await build({
   format: 'cjs',
   target: 'es2020',
   conditions: ['browser'],
-  loader: { '.svg': 'text' },
+  // The sponsor code is a raster image. Inlining it keeps the shipped plugin a
+  // main.js + styles.css pair on every platform, mobile included.
+  loader: { '.svg': 'text', '.jpg': 'dataurl' },
   external: ['obsidian'],
   outfile: 'main.js',
   sourcemap: false,

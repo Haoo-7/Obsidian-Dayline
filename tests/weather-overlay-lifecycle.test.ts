@@ -6,6 +6,7 @@ import ts from 'typescript';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { usesPhoneLayout } from '../src/platform-capabilities';
 import { weatherConditionLabel } from '../src/weather-conditions';
+import { formatManualTime, formatTemperatureValue } from '../src/weather-manual';
 
 // Execute the actual view class without booting Obsidian or loading optional codecs.
 const source = ts.createSourceFile('plugin.ts', readFileSync(join(process.cwd(), 'src/plugin.ts'), 'utf8'), ts.ScriptTarget.Latest, true);
@@ -41,6 +42,14 @@ const CalendarView = runInNewContext(ts.transpileModule(`${declaration.getText()
   _iconUrl: () => '', setIcon: () => {}, requestAnimationFrame: (callback: () => void) => callback(),
   usesPhoneLayout,
   weatherConditionLabel,
+  t: (_settings: any, key: string) => key,
+  formatTemperatureValue,
+  formatManualTime,
+  shouldShowCalendarWeatherCard: () => true,
+  shouldShowCalendarWeatherLocation: () => false,
+  normalizeWeatherDisplayFields: () => ['feels'],
+  buildWeatherCardParts: () => ({ detail: [], extra: [] }),
+  buildWeatherStatus: () => [],
   _daylineDate: (settings: any) => settings?.weatherToday || '2026-08-06',
 });
 
@@ -70,7 +79,15 @@ function fixture(getSnapshot: (date: string) => Promise<any>) {
     _overlayInFlight: new WeakMap(), _overlayVersions: new WeakMap(), _overlayDates: new WeakMap(),
     _overlayContainers: new Set(), _hostPositionMarkers: new Set(),
     _scheduleExifNoteAttach() {}, _ensureHostPosition() {},
-    weather: { getCachedSnapshot: () => null, getSnapshot, isSnapshotCompatible: () => true },
+    weather: {
+      getCachedSnapshot: () => null,
+      getSnapshot,
+      isSnapshotCompatible: () => true,
+      getManualTemperature: () => null,
+      resolveDisplayTemperature: (_date: string, snap: any) => (
+        typeof snap?.temperature === 'number' ? snap.temperature : null
+      ),
+    },
   });
   return { view, leaf, file, other, container };
 }
@@ -192,6 +209,28 @@ describe('weather overlay request lifecycle', () => {
     expect(getSnapshot).not.toHaveBeenCalled();
   });
 
+  /* Manual readings are a temperature at a moment, so the overlay prints the
+     time instead of the forecast's High/Now prefix. */
+  it('renders a manual reading with its recorded time', async () => {
+    const { view, container } = fixture(async () => ({ temperature: 24, units: 'metric', icon: 'clear-day.svg' }));
+    view.weather.getManualTemperature = () => ({ celsius: 18, time: '15:30', recordedAt: '' });
+    view.weather.resolveDisplayTemperature = () => 18;
+
+    view._syncNoteOverlays();
+    await settle();
+
+    expect(container.querySelector('.cal-overlay-temp')?.textContent).toBe('18\u00b0C \u00b7 15:30');
+  });
+
+  it('keeps the forecast label when the date has no manual reading', async () => {
+    const { view, container } = fixture(async () => ({ temperature: 24, units: 'metric', icon: 'clear-day.svg' }));
+
+    view._syncNoteOverlays();
+    await settle();
+
+    expect(container.querySelector('.cal-overlay-temp')?.textContent).toBe('high 24\u00b0C');
+  });
+
   /* W-04: the overlay knows its date, so archive history must not be refetched
      on the short TTL just because `fetchedAt` is old. */
   it('passes the overlay date into the staleness check', async () => {
@@ -251,5 +290,40 @@ describe('weather overlay request lifecycle', () => {
 
     expect(view._weatherSnapshot).toBeNull();
     expect(view._weatherError).toBe(false);
+  });
+});
+
+describe('weather card manual temperature', () => {
+  function cardFixture(manual: any) {
+    const { view, container } = fixture(async () => null);
+    view.activeDate = '2026-09-01';
+    view._weatherCardDate = '2026-09-01';
+    view._weatherSnapshot = {
+      date: '2026-09-01',
+      temperature: 24,
+      units: 'metric',
+      icon: 'clear-day.svg',
+      temperatureLabel: 'High',
+    };
+    view.weather.getManualTemperature = () => manual;
+    view.weather.resolveDisplayTemperature = () => (manual ? 18 : 24);
+    view._renderWeatherCard(container);
+    return { view, container };
+  }
+
+  it('prints the manual reading with its recorded time', () => {
+    const { container } = cardFixture({ celsius: 18, time: '15:30', recordedAt: '' });
+
+    expect(container.querySelector('.cal-weather-temp')?.textContent).toBe('18\u00b0C \u00b7 15:30');
+    expect(container.querySelector('.cal-weather-manual-pill')?.classList.contains('is-hidden')).toBe(false);
+    expect(container.querySelector('.cal-weather-edit-temp')?.classList.contains('is-hidden')).toBe(false);
+  });
+
+  it('keeps the forecast label and hides the manual chrome without a reading', () => {
+    const { container } = cardFixture(null);
+
+    expect(container.querySelector('.cal-weather-temp')?.textContent).toBe('high 24\u00b0C');
+    expect(container.querySelector('.cal-weather-manual-pill')?.classList.contains('is-hidden')).toBe(true);
+    expect(container.querySelector('.cal-weather-edit-temp')?.classList.contains('is-hidden')).toBe(false);
   });
 });

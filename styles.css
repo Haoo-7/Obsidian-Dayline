@@ -559,6 +559,277 @@ button.cal-weather-refresh:hover {
   opacity: 1;
   background: none !important;
 }
+
+/* --- Manual weather readings --- */
+.cal-weather-temp-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.cal-weather-manual-pill {
+  flex-shrink: 0;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--background-modifier-border);
+  color: var(--text-muted);
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 15px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.cal-weather-manual-pill.is-hidden,
+.cal-weather-edit-temp.is-hidden,
+.cal-overlay-edit-temp.is-hidden {
+  display: none !important;
+}
+button.cal-weather-edit-temp,
+.cal-note-overlay button.cal-overlay-edit-temp {
+  cursor: pointer;
+  padding: 0;
+  border: none;
+  background: none !important;
+  box-shadow: none !important;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.15s ease, color 0.15s ease;
+}
+button.cal-weather-edit-temp svg,
+.cal-note-overlay button.cal-overlay-edit-temp svg {
+  width: 13px;
+  height: 13px;
+}
+.cal-weather-card:hover button.cal-weather-edit-temp,
+.cal-note-overlay:hover button.cal-overlay-edit-temp,
+button.cal-weather-edit-temp:focus-visible,
+button.cal-overlay-edit-temp:focus-visible {
+  opacity: 0.8;
+}
+button.cal-weather-edit-temp:hover,
+.cal-note-overlay button.cal-overlay-edit-temp:hover {
+  color: var(--text-normal);
+  opacity: 1;
+  background: none !important;
+}
+/* Touch devices have no hover, so the affordance stays visible and gets a
+   thumb-sized hit area without inflating the card's line height. */
+@media (hover: none) {
+  button.cal-weather-edit-temp,
+  .cal-note-overlay button.cal-overlay-edit-temp {
+    opacity: 0.75;
+    position: relative;
+    min-width: 20px;
+    min-height: 20px;
+  }
+  button.cal-weather-edit-temp::after,
+  .cal-note-overlay button.cal-overlay-edit-temp::after {
+    content: '';
+    position: absolute;
+    inset: -12px;
+  }
+}
+/* --- Manual temperature: the readout is the hero, the rail gives it place --- */
+.dayline-weather-temperature-modal {
+  width: min(420px, calc(100vw - 32px));
+  max-width: 420px;
+  min-width: 0;
+}
+.dayline-weather-temperature-modal .modal-content {
+  padding: 18px 24px 18px;
+}
+.cal-wt-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 24px;
+}
+.cal-wt-date {
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+.cal-wt-readout {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  margin-top: 10px;
+}
+input.cal-wt-value {
+  width: 2.2ch;
+  height: auto;
+  min-height: 0;
+  padding: 0;
+  border: 0 !important;
+  border-radius: 0;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--text-normal);
+  font-size: 64px;
+  font-weight: 600;
+  line-height: 1.05;
+  letter-spacing: -0.035em;
+  font-variant-numeric: tabular-nums;
+  text-align: left;
+}
+input.cal-wt-value:focus-visible {
+  box-shadow: inset 0 -2px 0 var(--background-modifier-border) !important;
+}
+.cal-wt-unit {
+  padding-bottom: 8px;
+  font-size: 19px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+.cal-wt-meta {
+  margin-left: auto;
+  padding-bottom: 10px;
+  text-align: right;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+.cal-wt-meta span {
+  display: block;
+}
+.cal-wt-rail {
+  position: relative;
+  height: 28px;
+  margin: 18px 0 2px;
+  cursor: pointer;
+  touch-action: none;
+}
+.cal-wt-rail:focus-visible {
+  outline: none;
+}
+.cal-wt-track {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 11px;
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #6f9bf0 0%, #9fc0e8 26%, #e8d59a 55%, #efa96f 78%, #e8774c 100%);
+}
+.cal-wt-thumb {
+  position: absolute;
+  top: 4px;
+  left: calc(var(--wt-ratio, 0.5) * 100%);
+  width: 20px;
+  height: 20px;
+  margin-left: -10px;
+  border-radius: 50%;
+  background: var(--background-primary);
+  box-shadow: 0 0 0 2px var(--text-normal), 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+.cal-wt-rail:focus-visible .cal-wt-thumb {
+  box-shadow: 0 0 0 2px var(--text-normal), 0 0 0 5px var(--background-modifier-border);
+}
+.cal-wt-ticks {
+  position: relative;
+  height: 14px;
+}
+.cal-wt-tick {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  color: var(--text-muted);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+.cal-wt-tick.is-first {
+  transform: none;
+}
+.cal-wt-error {
+  display: none;
+  margin-top: 8px;
+  color: var(--text-error);
+  font-size: 11px;
+}
+.cal-wt-error.is-visible {
+  display: block;
+}
+.cal-wt-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 16px;
+}
+.cal-wt-time {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 10px;
+  border-radius: 9px;
+  background: var(--background-secondary);
+}
+.cal-wt-time-label {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.cal-wt-time input[type="time"] {
+  width: 7.2em;
+  height: auto;
+  padding: 0;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--text-normal);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.cal-wt-time input[type="time"]::-webkit-calendar-picker-indicator {
+  opacity: 0.45;
+  cursor: pointer;
+}
+.cal-wt-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.dayline-weather-temperature-modal .cal-wt-clear {
+  height: auto;
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+.cal-wt-clear:hover {
+  color: var(--text-normal);
+}
+.dayline-weather-temperature-modal .cal-wt-cancel {
+  height: 32px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--background-modifier-border);
+  color: var(--text-normal);
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.dayline-weather-temperature-modal .cal-wt-save {
+  height: 32px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 9px;
+  background: var(--text-normal);
+  color: var(--background-primary);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.cal-wt-save:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
 .cal-weather-setup {
   margin: 4px 2px 8px;
   padding: 8px 10px;
@@ -1935,3 +2206,54 @@ body.dayline-mobile.dayline-phone .is-compact-viewport .journal-mood-actions {
 .dayline-source-editor button:focus-visible, .dayline-source-editor summary:focus-visible { outline: 2px solid var(--interactive-accent); outline-offset: 2px; }
 @container (max-width: 400px) { .dayline-source-row { grid-template-columns: minmax(0, 1fr); } }
 @media (pointer: coarse) { .dayline-source-editor input:not([type=checkbox]), .dayline-source-editor select, .dayline-source-editor button { min-height: 44px; } .dayline-source-icon { flex-basis: 44px; width: 44px; height: 44px; } }
+
+/* Settings · support
+   One row that reads like every other setting, and a drawer that only opens on
+   request. Colours come from Obsidian's variables so both themes work without a
+   second palette. */
+/* The two rows are Obsidian's own `setting-item` markup, so the update button
+   keeps the theme's button styling and matches its neighbours. Only the
+   disclosure toggle, the drawer and the code need rules of their own. */
+/* Keep Obsidian's own row padding: matching the neighbours' inset is what keeps
+   the buttons inside the pane instead of hanging off its right edge. */
+.dayline-settings-support { padding-bottom: 16px; }
+.dayline-settings-support-toggle {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: auto; padding: 2px 2px 2px 6px;
+  border: 0; background: transparent; box-shadow: none;
+  color: var(--text-muted); font-size: var(--font-ui-small);
+  cursor: pointer;
+}
+.dayline-settings-support-toggle:hover { background: transparent; box-shadow: none; color: var(--text-normal); }
+.dayline-settings-support-toggle:focus-visible { outline: 2px solid var(--interactive-accent); outline-offset: 2px; }
+.dayline-settings-support-toggle svg { width: 14px; height: 14px; transition: transform 120ms ease; }
+.dayline-settings-support.is-open .dayline-settings-support-toggle svg { transform: rotate(180deg); }
+
+.dayline-settings-support-drawer {
+  display: flex; gap: 22px;
+  /* Aligned with the row text, not with the pane edge. */
+  margin: 2px var(--size-4-4, 16px) 12px; padding: 18px;
+  border: 1px solid var(--background-modifier-border); border-radius: var(--radius-m, 8px);
+  background: var(--background-secondary);
+}
+.dayline-settings-support-drawer[hidden] { display: none; }
+.dayline-settings-support-qr {
+  box-sizing: border-box; flex: 0 0 auto;
+  width: 152px; height: 152px; padding: 9px;
+  border: 1px solid var(--background-modifier-border); border-radius: var(--radius-s, 6px);
+  background: var(--background-primary);
+}
+.dayline-settings-support-detail { flex: 1; min-width: 0; }
+.dayline-settings-support-detail p { margin: 0; font-size: var(--font-ui-small); }
+.dayline-settings-support-detail .dayline-settings-support-title { color: var(--text-normal); font-weight: 600; }
+.dayline-settings-support-detail .dayline-settings-support-note { margin-top: 7px; color: var(--text-muted); line-height: 1.65; }
+.dayline-settings-support-detail .dayline-settings-support-uses { margin-top: 15px; padding-top: 13px; border-top: 1px solid var(--background-modifier-border); color: var(--text-normal); line-height: 1.6; }
+.dayline-settings-support-detail .dayline-settings-support-star { margin-top: 9px; }
+.dayline-settings-support-star a { color: var(--text-normal); text-decoration: underline; text-underline-offset: 3px; }
+.dayline-settings-support-star a:hover { color: var(--text-accent); }
+
+@media (max-width: 560px) {
+  .dayline-settings-support-drawer { flex-direction: column; gap: 16px; }
+  .dayline-settings-support-qr { width: 100%; max-width: 200px; height: auto; aspect-ratio: 1 / 1; }
+}
+@media (pointer: coarse) { .dayline-settings-support-toggle { min-height: 40px; padding-right: 8px; } }

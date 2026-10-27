@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { getTodayDate, joinVaultPath } from './date-utils';
+import { getClockPartsInTimeZone, getTodayDate, joinVaultPath } from './date-utils';
 import { withTimeout } from './media-service';
 import {
   weatherConfigKey,
@@ -15,6 +15,13 @@ import {
   toCanonicalWeatherSnapshot,
 } from './weather-cache';
 import { coordinatesMovedBeyondThreshold } from './geolocation';
+import {
+  clockTimeFromParts,
+  hasManualTemperature as hasManualTemperatureRecord,
+  manualTemperatureRecord,
+  normalizeManualTime,
+  resolveDisplayTemperature as resolveTemperatureForDisplay,
+} from './weather-manual';
 
 let _obsidianWeatherDeps;
 function getObsidianWeatherDeps() {
@@ -689,6 +696,81 @@ export class WeatherService {
   hasCachedSnapshot(dateStr, sourcePath) {
     if (!this.plugin.settings.weatherEnabled) return false;
     return !!this.getCachedSnapshot(dateStr, sourcePath);
+  }
+
+  /* ============================================================
+     Manual weather readings
+     ============================================================ */
+
+  /**
+   * A user-entered reading lives outside `weatherCache` on purpose.
+   *
+   * The cache is a forecast projection: `_persistSnapshot` rebuilds it from a
+   * network response, `pruneWeatherCache` evicts by count, and a units or
+   * location change invalidates its `configKey`. A reading the user typed is
+   * journal data, so it must survive all three. Plugin data owns the map; this
+   * class only reads and writes it.
+   */
+  _manualMap() {
+    const plugin = this.plugin;
+    if (!plugin.weatherManualTemperature || typeof plugin.weatherManualTemperature !== 'object') {
+      plugin.weatherManualTemperature = {};
+    }
+    return plugin.weatherManualTemperature;
+  }
+
+  /** Current wall clock in the configured weather timezone, as `HH:MM`. */
+  _currentClockTime() {
+    const timezone = this.plugin.settings?.weatherTimezone || 'auto';
+    return clockTimeFromParts(getClockPartsInTimeZone(new Date(this._now()), timezone));
+  }
+
+  hasManualTemperature(dateStr) {
+    return hasManualTemperatureRecord(this._manualMap(), dateStr);
+  }
+
+  getManualTemperature(dateStr) {
+    return manualTemperatureRecord(this._manualMap(), dateStr);
+  }
+
+  /** Manual reading wins; the snapshot's unit-correct temperature is the fallback. */
+  resolveDisplayTemperature(dateStr, snapshot) {
+    return resolveTemperatureForDisplay(
+      snapshot,
+      this.getManualTemperature(dateStr),
+      this.plugin.settings?.weatherUnits,
+    );
+  }
+
+  /**
+   * Store a manual reading, or delete it when `celsius` is null.
+   *
+   * `time` is the wall clock the reading refers to; when it is missing or not a
+   * usable `HH:MM` the current time in the weather timezone is recorded, so a
+   * record can never exist without the moment that makes it meaningful.
+   */
+  setManualTemperature(dateStr, celsius, time: string | null = null) {
+    if (typeof dateStr !== 'string' || dateStr === '') return null;
+    const map = this._manualMap();
+    if (celsius == null) {
+      delete map[dateStr];
+      // Remember the removal: the on-disk copy still holds this date until the
+      // debounced write runs, and a plain merge would resurrect it.
+      this.plugin._weatherManualDeleted?.add?.(dateStr);
+      this.plugin._saveWeatherCache?.();
+      return null;
+    }
+    const numeric = Number(celsius);
+    if (!Number.isFinite(numeric)) return null;
+    const record = {
+      celsius: Math.round(numeric * 10) / 10,
+      time: normalizeManualTime(time, this._currentClockTime()),
+      recordedAt: this._nowIso(),
+    };
+    map[dateStr] = record;
+    this.plugin._weatherManualDeleted?.delete?.(dateStr);
+    this.plugin._saveWeatherCache?.();
+    return record;
   }
 
   /** Bulk-fetch weather for a list of dates with a delay between requests. */

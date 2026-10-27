@@ -1,3 +1,9 @@
+/** The sponsor tip code, inlined as a data URL so it ships inside main.js. */
+declare module '*.jpg' {
+  const value: string;
+  export default value;
+}
+
 declare module '*.svg' {
   const value: string;
   export default value;

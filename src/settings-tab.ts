@@ -6,6 +6,10 @@ import { localize as _l } from './locale';
 import compactWordmarkSvg from '../assets/dayline-wordmark-compact.svg';
 import daylineLogoSvg from '../assets/dayline-logo.svg';
 import { renderSettingsBrand } from './settings-brand';
+import { renderSupportSection, SUPPORT_SECTION_ID } from './settings-support';
+import { checkForUpdate } from './plugin-update-check';
+import { PLUGIN_ID } from './plugin-identity';
+import sponsorWechatQr from '../assets/sponsor-wechat.jpg';
 import { calendarMoodMarker, shouldShowCalendarMoodStyle, shouldShowCalendarWrittenMarker } from './calendar-display';
 import { shouldShowTimelineMoodTrend, shouldShowTimelineTitles } from './journal-timeline-display';
 import { JournalSourceSettingsEditor } from './journal-source-settings';
@@ -147,6 +151,7 @@ export const SETTINGS_SECTION_IDS = [
   'media-privacy',
   'on-this-day',
   'data-maintenance',
+  SUPPORT_SECTION_ID,
 ];
 
 export const SETTINGS_SECTION_LABEL_KEYS = {
@@ -157,6 +162,7 @@ export const SETTINGS_SECTION_LABEL_KEYS = {
   'media-privacy': 'settingsMediaPrivacy',
   'on-this-day': 'settingsOnThisDay',
   'data-maintenance': 'settingsDataMaintenance',
+  [SUPPORT_SECTION_ID]: 'settingsSupport',
 };
 
 export const SETTINGS_ACTION_ROWS = {
@@ -478,6 +484,27 @@ export class DaylineSettingsTab extends PluginSettingTab {
       .setName(t(this.plugin.settings, SETTINGS_SECTION_LABEL_KEYS[id]))
       .setHeading();
     setting.settingEl.dataset.daylineSettingsSection = id;
+  }
+
+  /**
+   * Ask GitHub for the newest release and report it. Never throws: a failed
+   * check is a notice, not a broken settings pane.
+   */
+  async _checkForPluginUpdate() {
+    const result = await checkForUpdate(this.plugin.manifest.version, PLUGIN_ID);
+    if (result.status === 'update') {
+      // Obsidian owns the install path for a listed plugin, so point at its own
+      // updater instead of sending the user to a browser download.
+      new Notice(t(this.plugin.settings, 'supportUpdateAvailable', { version: result.version }));
+      return;
+    }
+    if (result.status === 'current') {
+      new Notice(t(this.plugin.settings, 'supportUpToDate', { version: this.plugin.manifest.version }));
+      return;
+    }
+    new Notice(result.error === 'timed out'
+      ? t(this.plugin.settings, 'supportUpdateTimeout')
+      : t(this.plugin.settings, 'supportUpdateFailed', { error: result.error || '' }));
   }
 
   _addActionRow(setting, id) {
@@ -1081,6 +1108,14 @@ export class DaylineSettingsTab extends PluginSettingTab {
             if (leaf?.view) leaf.view.startWeatherBackfill();
           }));
     }
+
+    this._addSection(containerEl, SUPPORT_SECTION_ID);
+    renderSupportSection(containerEl, {
+      localize: (key, values) => t(this.plugin.settings, key, values),
+      qrSrc: sponsorWechatQr,
+      version: this.plugin.manifest.version,
+      checkUpdate: () => this._checkForPluginUpdate(),
+    });
 
     if (keepScroll) restoreSettingsScroll(scrollHost, previousScrollTop);
   }

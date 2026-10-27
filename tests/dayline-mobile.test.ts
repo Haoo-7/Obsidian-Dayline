@@ -11,6 +11,7 @@ import * as noteMediaPress from '../src/note-media-press';
 import * as onThisDayEntry from '../src/on-this-day-entry';
 import * as viewVisibility from '../src/view-visibility-controller';
 import * as pluginIdentity from '../src/plugin-identity';
+import * as weatherManual from '../src/weather-manual';
 import {
   DAYLINE_VIEW_TYPES,
   MOBILE_DAYLINE_VIEW,
@@ -114,6 +115,8 @@ function loadPluginClass(overrides: PluginOverrides = {}): any {
     if (id === './plugin-identity') return pluginIdentity;
     if (id === './heic-thumb-store') return heicThumbStore;
     if (id === './note-media-press') return noteMediaPress;
+    if (id === './weather-manual') return weatherManual;
+    if (id === './weather-temperature-modal') return { WeatherTemperatureModal: class {} };
     if (id.endsWith('?raw')) return '';
     return {};
   };

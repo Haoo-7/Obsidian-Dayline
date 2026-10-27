@@ -43,6 +43,14 @@ const badgeStormSvg = require('../icons/badge-storm.svg?raw');
 const { WeatherService, lookupWeatherCode, validateWeatherCoordinates, weatherBadgeIcon } = require('./weather-service');
 const { pruneWeatherCache, WEATHER_CACHE_MAX_ENTRIES } = require('./weather-cache');
 const { weatherConditionLabel } = require('./weather-conditions');
+const {
+  clockTimeFromParts,
+  displayToCelsius,
+  formatManualTime,
+  formatTemperatureValue,
+  mergeManualTemperatureMaps,
+} = require('./weather-manual');
+const { WeatherTemperatureModal } = require('./weather-temperature-modal');
 const { buildWeatherCardParts, buildWeatherStatus, normalizeWeatherDisplayFields } = require('./weather-display');
 const { localize: _l } = require('./locale');
 const { formatDateParts, getClockPartsInTimeZone, getTodayDate, isPathInFolder, joinVaultPath, normalizeVaultPath, parentVaultPath } = require('./date-utils');
@@ -174,6 +182,7 @@ class DaylinePlugin extends Plugin {
     this._journalWriteQueue = new SerialTaskQueue();
     this._weatherSaveTimer = null;
     this._weatherCleanupTimer = null;
+    this._weatherManualDeleted = new Set();
     this._geocoderSaveTimer = null;
     this._exifHoverToken = 0;
     this._exifTouchAnchor = null;
@@ -303,6 +312,15 @@ class DaylinePlugin extends Plugin {
         name: t(this.settings, 'refreshWeather'),
         callback: () => {
           void this.refreshActiveWeather();
+        },
+      }),
+
+      // Command: record the temperature the user felt on the active date
+      setWeatherTemperatureCommand: this.addCommand({
+        id: 'set-weather-temperature',
+        name: t(this.settings, 'setWeatherTemperatureCommand'),
+        callback: () => {
+          void this.setActiveDateWeatherTemperature();
         },
       }),
 
@@ -1658,6 +1676,12 @@ class DaylinePlugin extends Plugin {
     const data = raw || {};
     // Extract weather cache separately so it doesn't get overwritten by saveSettings
     this.weatherCache = data.weatherCache || {};
+    // Manual readings are user data, not cache: they live in their own map so a
+    // forecast refresh, a cache prune, or a unit change can never erase them.
+    this.weatherManualTemperature = data.weatherManualTemperature
+      && typeof data.weatherManualTemperature === 'object'
+      ? data.weatherManualTemperature : {};
+    this._weatherManualDeleted = new Set();
     this.geocoderCache = data.geocoderCache && typeof data.geocoderCache === 'object' ? data.geocoderCache : {};
     // Delete stale cache entries to prevent data.json bloat
     this._cleanupWeatherCache();
@@ -1675,6 +1699,7 @@ class DaylinePlugin extends Plugin {
     this.settings.onThisDayEntry = normalizeOnThisDayEntryMode(this.settings);
     this.settings.onThisDayButton = this.settings.onThisDayEntry !== 'off';
     delete this.settings.weatherCache; // settings object shouldn't carry the cache
+    delete this.settings.weatherManualTemperature;
     delete this.settings.geocoderCache;
   }
 
@@ -1696,6 +1721,7 @@ class DaylinePlugin extends Plugin {
       // Merge by key: another device may have written cache entries through
       // Obsidian Sync since this instance loaded its copy.
       data.weatherCache = _mergeCacheByKey(data.weatherCache, this.weatherCache);
+      this._writeManualTemperature(data);
       data.geocoderCache = _mergeCacheByKey(data.geocoderCache, this.geocoderCache);
     });
   }
@@ -1739,6 +1765,23 @@ class DaylinePlugin extends Plugin {
     return this._dataWriteQueue;
   }
 
+  /**
+   * Write the manual-reading map, honouring this session's deletions.
+   *
+   * An empty map with nothing on disk is left absent so a clean install never
+   * grows an empty key in `data.json`.
+   */
+  _writeManualTemperature(data) {
+    const merged = mergeManualTemperatureMaps(
+      data.weatherManualTemperature,
+      this.weatherManualTemperature,
+      this._weatherManualDeleted,
+    );
+    if (Object.keys(merged).length > 0 || data.weatherManualTemperature) {
+      data.weatherManualTemperature = merged;
+    }
+  }
+
   _flushWeatherCache() {
     if (this._weatherSaveTimer) {
       window.clearTimeout(this._weatherSaveTimer);
@@ -1746,6 +1789,9 @@ class DaylinePlugin extends Plugin {
     }
     return this._enqueueDataWrite((data) => {
       data.weatherCache = _mergeCacheByKey(data.weatherCache, this.weatherCache);
+      // `setManualTemperature` reuses this debounce, so the reading is flushed
+      // through the same queue as the cache it supplements.
+      this._writeManualTemperature(data);
     });
   }
 
@@ -1804,6 +1850,20 @@ class DaylinePlugin extends Plugin {
     } catch (error) {
       console.warn('[Dayline] Refresh weather failed:', error?.message || error);
     }
+  }
+
+  /**
+   * Open the manual temperature form for the active date. Mirrors
+   * `refreshActiveWeather`: a command with no calendar view explains itself
+   * instead of failing silently.
+   */
+  setActiveDateWeatherTemperature() {
+    const calendar = this.app.workspace.getLeavesOfType(VIEW_TYPE)[0]?.view;
+    if (!calendar) {
+      new Notice(t(this.settings, 'calendarViewRequired'));
+      return;
+    }
+    calendar.openTemperatureEditor(calendar.activeDate || _daylineDate(this.settings));
   }
 
   async activateView() {
@@ -2812,7 +2872,26 @@ class CalendarView extends ItemView {
     else { iconEl.src = _iconUrl('overcast.svg'); iconEl.alt = t(this.plugin.settings, 'weatherIconAlt'); }
 
     const infoEl = main.createDiv({ cls: 'cal-weather-info' });
-    const tempEl = infoEl.createDiv({ cls: 'cal-weather-temp' });
+    const tempRow = infoEl.createDiv({ cls: 'cal-weather-temp-row' });
+    const tempEl = tempRow.createDiv({ cls: 'cal-weather-temp' });
+    // A manual reading is marked in place: the pill says the number came from
+    // the user, and the pencil is how another reading gets recorded.
+    tempRow.createSpan({
+      cls: 'cal-weather-manual-pill is-hidden',
+      text: t(this.plugin.settings, 'weatherManualBadge'),
+    });
+    const editBtn = tempRow.createEl('button', {
+      cls: 'cal-weather-edit-temp is-hidden',
+      attr: {
+        'aria-label': t(this.plugin.settings, 'weatherEditTemperature'),
+        title: t(this.plugin.settings, 'weatherEditTemperature'),
+      },
+    });
+    setIcon(editBtn, 'pencil');
+    editBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.openTemperatureEditor(cardDate);
+    });
     const locationEl = shouldShowCalendarWeatherLocation(s)
       ? infoEl.createDiv({ cls: 'cal-weather-location' })
       : null;
@@ -2998,6 +3077,7 @@ class CalendarView extends ItemView {
       const iconEl = card.querySelector('.cal-weather-icon');
       if (iconEl) { iconEl.src = ''; iconEl.alt = '⚠️'; }
       card.querySelector('.cal-weather-temp').setText(_l(lang, 'unavailable'));
+      this._syncWeatherManualChrome(card, null, false);
       if (locationEl) locationEl.setText(`${_l(lang, 'weatherLocation')}: ${this.plugin.settings.weatherLocationName || ''}`);
       if (detailEl) detailEl.setText(_l(lang, 'checkSettings'));
       if (extraEl) extraEl.setText('');
@@ -3010,6 +3090,7 @@ class CalendarView extends ItemView {
       const iconEl = card.querySelector('.cal-weather-icon');
       if (iconEl) iconEl.src = _iconUrl('overcast.svg');
       card.querySelector('.cal-weather-temp').setText('—');
+      this._syncWeatherManualChrome(card, null, false);
       if (locationEl) locationEl.setText(`${_l(lang, 'weatherLocation')}: ${this.plugin.settings.weatherLocationName || ''}`);
       if (detailEl) detailEl.setText(_l(lang, 'noData'));
       if (extraEl) extraEl.setText('');
@@ -3027,9 +3108,20 @@ class CalendarView extends ItemView {
 
     const tempEl = card.querySelector('.cal-weather-temp');
     const unitSym = this._unitSymbol(snap.units);
-    const labelKey = snap.temperatureLabel === 'Now' ? 'now' : 'high';
-    const label = _l(lang, labelKey);
-    tempEl.setText(`${label} ${snap.temperature ?? '?'}${unitSym}`);
+    const manualRecord = this.weather.getManualTemperature(this._weatherCardDate);
+    if (manualRecord) {
+      // The number is a reading at a moment, not the day's high, so the
+      // "High/Now" prefix is replaced by the time it refers to.
+      const displayTemperature = this.weather.resolveDisplayTemperature(this._weatherCardDate, snap);
+      const time = formatManualTime(manualRecord.time);
+      const value = formatTemperatureValue(displayTemperature);
+      tempEl.setText(time ? `${value}${unitSym} · ${time}` : `${value}${unitSym}`);
+    } else {
+      const labelKey = snap.temperatureLabel === 'Now' ? 'now' : 'high';
+      const label = _l(lang, labelKey);
+      tempEl.setText(`${label} ${snap.temperature ?? '?'}${unitSym}`);
+    }
+    this._syncWeatherManualChrome(card, manualRecord, true);
 
     const labels = {
       feels: _l(lang, 'feels'),
@@ -3063,6 +3155,90 @@ class CalendarView extends ItemView {
     if (statusEl) statusEl.setText(buildWeatherStatus(snap, labels).join(' · '));
 
     card.querySelector('.cal-weather-main')?.removeAttribute('aria-live');
+  }
+
+  /* ----- Manual reading chrome: the "manual" badge and the edit affordance ----- */
+  _syncWeatherManualChrome(card, record, canEdit) {
+    if (!card) return;
+    const pill = card.querySelector('.cal-weather-manual-pill');
+    if (pill) {
+      if (record) {
+        pill.removeClass('is-hidden');
+        const time = formatManualTime(record.time);
+        pill.title = time
+          ? t(this.plugin.settings, 'weatherManualRecordedAt', {
+            date: this._weatherCardDate || '',
+            time,
+          })
+          : '';
+      } else {
+        pill.addClass('is-hidden');
+        pill.title = '';
+      }
+    }
+    const editBtn = card.querySelector('.cal-weather-edit-temp');
+    if (editBtn) {
+      if (canEdit) editBtn.removeClass('is-hidden');
+      else editBtn.addClass('is-hidden');
+    }
+  }
+
+  /* ----- Temperature line shared by the overlay build and refresh paths ----- */
+  _weatherTemperatureText(snap, dateStr, unitSym) {
+    const lang = getDisplayLanguage(this.plugin.settings);
+    const record = this.weather.getManualTemperature(dateStr);
+    if (record) {
+      const value = formatTemperatureValue(this.weather.resolveDisplayTemperature(dateStr, snap));
+      const time = formatManualTime(record.time);
+      return time ? `${value}${unitSym} · ${time}` : `${value}${unitSym}`;
+    }
+    const labelKey = snap.temperatureLabel === 'Now' ? 'now' : 'high';
+    return `${_l(lang, labelKey)} ${snap.temperature ?? '?'}${unitSym}`;
+  }
+
+  /**
+   * Open the manual reading form for a date.
+   *
+   * `snapshot` is the value currently on screen when the card asks; the command
+   * path passes none and the cached snapshot supplies the prefill instead.
+   */
+  openTemperatureEditor(dateStr, snapshot = undefined) {
+    const settings = this.plugin.settings;
+    if (!settings.weatherEnabled) return;
+    const targetDate = dateStr || this.activeDate || _daylineDate(settings);
+    const currentSnap = snapshot === undefined
+      ? this.weather.getCachedSnapshot(targetDate)
+      : snapshot;
+    const record = this.weather.getManualTemperature(targetDate);
+    const units = settings.weatherUnits;
+    const defaultTime = clockTimeFromParts(
+      getClockPartsInTimeZone(new Date(), settings.weatherTimezone || 'auto'),
+    );
+    const snapshotTemperature = typeof currentSnap?.temperature === 'number'
+      ? displayToCelsius(currentSnap.temperature, units)
+      : null;
+    new WeatherTemperatureModal(this.app, {
+      settings,
+      dateStr: targetDate,
+      units,
+      hasManual: Boolean(record),
+      initialCelsius: record ? record.celsius : snapshotTemperature,
+      initialTime: record?.time || defaultTime,
+      defaultTime,
+      onSubmit: (celsius, time) => {
+        if (celsius == null) {
+          this.weather.setManualTemperature(targetDate, null);
+          new Notice(t(settings, 'weatherTemperatureCleared', { date: targetDate }));
+        } else {
+          this.weather.setManualTemperature(targetDate, celsius, time);
+          new Notice(t(settings, 'weatherTemperatureSaved', { date: targetDate }));
+        }
+        // The reading lives in plugin data, so a redraw is enough; the overlay
+        // and the card both re-read it through WeatherService.
+        this.render();
+        this._syncNoteOverlays();
+      },
+    }).open();
   }
 
   /* ----- Fetch weather for a date in the background ----- */
@@ -3896,14 +4072,25 @@ class CalendarView extends ItemView {
 
     const lang = getDisplayLanguage(this.plugin.settings);
     const unitSym = this._unitSymbol(snap.units);
-    const labelKey = snap.temperatureLabel === 'Now' ? 'now' : 'high';
-    tempEl.setText(`${_l(lang, labelKey)} ${snap.temperature ?? '?'}${unitSym}`);
+    tempEl.setText(this._weatherTemperatureText(snap, dateStr, unitSym));
 
     const parts = [];
     if (snap.feelsLike != null) parts.push(`${_l(lang, 'feels')} ${snap.feelsLike}${unitSym}`);
     if (snap.humidity != null) parts.push(`${_l(lang, 'humidity')} ${snap.humidity}%`);
     detailEl.setText(parts.join(' · ') || '');
     detailEl.title = condition;
+
+    // Record/edit the reading, then refresh the forecast.
+    const editLabel = t(this.plugin.settings, 'weatherEditTemperature');
+    const editBtn = overlay.createEl('button', {
+      cls: 'cal-overlay-edit-temp',
+      attr: { 'aria-label': editLabel, title: editLabel },
+    });
+    setIcon(editBtn, 'pencil');
+    editBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.openTemperatureEditor(dateStr, snap);
+    });
 
     // Refresh button inside overlay
     const refreshLabel = _l(lang, 'refresh');
@@ -3957,8 +4144,7 @@ class CalendarView extends ItemView {
       const iconEl = overlayEl.querySelector('.cal-overlay-icon');
       const unitSym = this._unitSymbol(snap.units);
       const lang = getDisplayLanguage(this.plugin.settings);
-      const labelKey = snap.temperatureLabel === 'Now' ? 'now' : 'high';
-      if (tempEl) tempEl.textContent = `${_l(lang, labelKey)} ${snap.temperature ?? '?'}${unitSym}`;
+      if (tempEl) tempEl.textContent = this._weatherTemperatureText(snap, dateStr, unitSym);
       if (iconEl) {
         iconEl.src = _iconUrl(snap.icon) || '';
         iconEl.title = weatherConditionLabel(snap, this.plugin.settings);
