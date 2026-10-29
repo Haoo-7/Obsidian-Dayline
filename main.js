@@ -37509,7 +37509,7 @@ var CalendarView = class extends ItemView2 {
   async _onJournalIndexChanged(change) {
     if (change?.type !== "file") {
       await this.refresh();
-      this._scheduleHeicThumbPrewarm();
+      this.plugin._scheduleHeicThumbPrewarm();
       return;
     }
     const entries = [change.previous, change.entry].filter(Boolean);

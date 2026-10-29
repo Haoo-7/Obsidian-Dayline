@@ -2667,7 +2667,10 @@ class CalendarView extends ItemView {
   async _onJournalIndexChanged(change) {
     if (change?.type !== 'file') {
       await this.refresh();
-      this._scheduleHeicThumbPrewarm();
+      // The pre-warm timer and its running guard belong to the plugin instance,
+      // not to this view: one sweep serves every calendar view and it must not
+      // restart while another is still running.
+      this.plugin._scheduleHeicThumbPrewarm();
       return;
     }
 
