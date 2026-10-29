@@ -2905,9 +2905,9 @@ var init_fluid_mood_control = __esm({
         const presentedScore = this.activePointerId === null && this.selectedScore !== null ? this.selectedScore : nearest;
         const label = this.selectedScore === null && this.activePointerId === null ? this.options.emptyLabel : this.options.labelForScore(presentedScore);
         const color = interpolateMoodColor(this.displayValue);
-        const position = (this.displayValue + 2) / 4 * 100;
+        const position2 = (this.displayValue + 2) / 4 * 100;
         this.root.style.setProperty("--journal-mood-active", color);
-        this.root.style.setProperty("--journal-mood-position", `${position}%`);
+        this.root.style.setProperty("--journal-mood-position", `${position2}%`);
         if (color !== this.lastPreviewColor) {
           this.lastPreviewColor = color;
           this.options.onPreview?.(this.displayValue, color);
@@ -3305,6 +3305,36 @@ var init_i18n = __esm({
         noMood: "\u6682\u65E0\u5FC3\u60C5\u8BB0\u5F55",
         noResults: "\u6CA1\u6709\u7B26\u5408\u6761\u4EF6\u7684\u65E5\u8BB0",
         onThisDayLoadFailed: "\u52A0\u8F7D\u53BB\u5E74\u4ECA\u65E5\u5931\u8D25\uFF1A{error}",
+        onboardingAriaLabel: "\u65B0\u624B\u5F15\u5BFC",
+        onboardingBack: "\u4E0A\u4E00\u6B65",
+        onboardingFinish: "\u5199\u4ECA\u5929",
+        onboardingNext: "\u4E0B\u4E00\u6B65",
+        onboardingReplay: "\u91CD\u770B\u65B0\u624B\u5F15\u5BFC",
+        onboardingReplayCommand: "\u663E\u793A\u65B0\u624B\u5F15\u5BFC",
+        onboardingReplayDesc: "\u518D\u8D70\u4E00\u904D\u65E5\u5386\u3001\u5FC3\u60C5\u3001\u5929\u6C14\u3001\u65F6\u95F4\u7EBF\u548C\u8BBE\u7F6E\u3002",
+        onboardingSkip: "\u8DF3\u8FC7",
+        onboardingStepCalendarBody: "Dayline \u5DF2\u8FDE\u4E0A {folder}\uFF0C\u627E\u5230 {days} \u5929\u3002\u5199\u8FC7\u7684\u65E5\u5B50\u4F1A\u4EAE\u8D77\u6765\uFF0C\u6709\u7167\u7247\u7684\u4F1A\u94FA\u6EE1\u6574\u683C\u3002",
+        onboardingStepCalendarTitle: "\u4F60\u7684\u65E5\u5B50\uFF0C\u90FD\u5728\u8FD9\u4E00\u683C\u91CC",
+        onboardingStepDayBody: "\u6709\u7167\u7247\u7684\u65E5\u5B50\u4F1A\u94FA\u6EE1\u6574\u683C\uFF1B\u5DE6\u4E0B\u89D2\u7684\u5C0F\u5706\u70B9\u662F\u90A3\u5929\u7684\u5FC3\u60C5\uFF0C\u70B9\u4E00\u4E0B\u5C31\u80FD\u8BB0\u3002\u540C\u4E00\u5929\u5199\u4E86\u591A\u7BC7\uFF0C\u53F3\u4E0B\u89D2\u4F1A\u51FA\u73B0 +1\u3002",
+        onboardingStepDayTitle: "\u7167\u7247\u662F\u5C01\u9762\uFF0C\u5706\u70B9\u662F\u5FC3\u60C5",
+        onboardingStepFolderBody: "\u73B0\u5728\u8FD8\u6CA1\u6709\u65E5\u8BB0\u3002\u76EE\u5F55\u9ED8\u8BA4\u662F {folder}\uFF0C\u53EF\u4EE5\u5728\u300C\u8BBE\u7F6E \u2192 Dayline\u300D\u91CC\u6362\uFF1B\u5199\u4E0B\u7B2C\u4E00\u7BC7\uFF0C\u65E5\u5386\u5C31\u4F1A\u4EAE\u8D77\u6765\u3002",
+        onboardingStepFolderTitle: "\u5148\u8FDE\u4E0A\u4F60\u7684\u65E5\u8BB0\u76EE\u5F55",
+        onboardingStepMoodBody: "\u4E94\u4E2A\u989C\u8272\uFF0C\u4ECE\u5F88\u4F4E\u5230\u5F88\u597D\uFF1B\u8FD8\u80FD\u8865\u4E00\u53E5\u5907\u6CE8\u3002\u65E5\u8BB0\u683C\u5B50\u5DE6\u4E0B\u89D2\u90A3\u4E2A\u70B9\uFF0C\u5C31\u662F\u5B83\u3002",
+        onboardingStepMoodTitle: "\u5FC3\u60C5\uFF0C\u53EF\u4EE5\u8BB0\u5230\u989C\u8272\u91CC",
+        onboardingStepSearchBody: "\u641C\u7D22\u4F1A\u540C\u65F6\u627E\u6807\u9898\u3001\u6B63\u6587\u548C\u5FC3\u60C5\u5907\u6CE8\uFF1B\u8F93\u5165\u65F6\u7ED3\u679C\u4F1A\u8DDF\u7740\u53D8\u3002",
+        onboardingStepSearchTitle: "\u5148\u641C\uFF0C\u518D\u7B5B",
+        onboardingStepSettingsBody: "\u8BBE\u7F6E \u2192 Dayline\uFF1A\u76EE\u5F55\u5DF2\u7ECF\u81EA\u52A8\u8FDE\u4E0A {folder}\uFF1B\u5929\u6C14\u9ED8\u8BA4\u5173\u95ED\uFF1BEXIF \u7684 GPS \u5730\u540D\u89E3\u6790\u4E5F\u9ED8\u8BA4\u5173\u95ED\u3002",
+        onboardingStepSettingsTitle: "\u8BED\u8A00\u3001\u76EE\u5F55\u3001\u5929\u6C14\u3001\u9690\u79C1\u90FD\u5728\u8BBE\u7F6E\u91CC",
+        onboardingStepTimelineEntryBody: "\u70B9\u8FD9\u4E2A Dayline \u56FE\u6807\uFF0C\u6253\u5F00\u65E5\u8BB0\u65F6\u95F4\u7EBF\u3002\u4E0B\u4E00\u6B65\u5C31\u5E26\u4F60\u8FDB\u53BB\u3002",
+        onboardingStepTimelineEntryTitle: "\u7FFB\u65E7\u65E5\u5B50\uFF0C\u7528\u65E5\u8BB0\u65F6\u95F4\u7EBF",
+        onboardingStepTimelineListBody: "\u5DE6\u8FB9\u662F\u661F\u671F\u548C\u65E5\u671F\uFF0C\u4E2D\u95F4\u662F\u6807\u9898\u3001\u6458\u8981\u548C\u66F4\u65B0\u65F6\u95F4\uFF0C\u53F3\u8FB9\u662F\u5F53\u5929\u7684\u5C01\u9762\u3002",
+        onboardingStepTimelineListTitle: "\u540C\u4E00\u6279\u7B14\u8BB0\uFF0C\u6309\u5929\u6392\u6210\u4E00\u6761\u7EBF",
+        onboardingStepTodayBody: "\u4ECA\u5929\u6709\u63CF\u8FB9\u3002\u70B9\u5B83\u5199\u4E0B\u4ECA\u5929\u7684\u4E8B\uFF1B\u5199\u8FC7\u7684\u65E5\u5B50\u4F1A\u7ACB\u523B\u4EAE\u8D77\u6765\u3002",
+        onboardingStepTodayTitle: "\u4ECE\u4ECA\u5929\u5F00\u59CB",
+        onboardingStepWeatherBody: "\u6253\u5F00\u540E\u8FD9\u91CC\u663E\u793A\u5F53\u5929\u7684\u6C14\u6E29\u3001\u4F53\u611F\u548C\u6E7F\u5EA6\uFF1B\u5750\u6807\u3001\u5355\u4F4D\u548C\u65F6\u533A\u90FD\u5728\u8BBE\u7F6E\u91CC\u3002\u9ED8\u8BA4\u662F\u5173\u95ED\u7684\u3002",
+        onboardingStepWeatherOffBody: "\u60F3\u8981\u7684\u8BDD\uFF0C\u5728\u300C\u8BBE\u7F6E \u2192 Dayline \u2192 \u5929\u6C14\u300D\u91CC\u6253\u5F00\uFF0C\u586B\u4E0A\u5750\u6807\u5C31\u80FD\u770B\u5230\u5F53\u5929\u7684\u6C14\u6E29\u3001\u4F53\u611F\u548C\u6E7F\u5EA6\u3002",
+        onboardingStepWeatherOffTitle: "\u5929\u6C14\u9ED8\u8BA4\u5173\u7740",
+        onboardingStepWeatherTitle: "\u5929\u6C14\u662F\u53EF\u9009\u7684",
         openCalendar: "\u6253\u5F00 Dayline",
         openFilters: "\u6253\u5F00\u7B5B\u9009",
         openNoteFailed: "\u6253\u5F00\u7B14\u8BB0\u5931\u8D25\uFF1A{error}",
@@ -3642,6 +3672,36 @@ var init_i18n = __esm({
         noMood: "\u66AB\u7121\u5FC3\u60C5\u8A18\u9304",
         noResults: "\u6C92\u6709\u7B26\u5408\u689D\u4EF6\u7684\u65E5\u8A18",
         onThisDayLoadFailed: "\u8F09\u5165\u5F80\u5E74\u4ECA\u65E5\u5931\u6557\uFF1A{error}",
+        onboardingAriaLabel: "\u65B0\u624B\u5F15\u5C0E",
+        onboardingBack: "\u4E0A\u4E00\u6B65",
+        onboardingFinish: "\u5BEB\u4ECA\u5929",
+        onboardingNext: "\u4E0B\u4E00\u6B65",
+        onboardingReplay: "\u91CD\u770B\u65B0\u624B\u5F15\u5C0E",
+        onboardingReplayCommand: "\u986F\u793A\u65B0\u624B\u5F15\u5C0E",
+        onboardingReplayDesc: "\u518D\u8D70\u4E00\u904D\u65E5\u66C6\u3001\u5FC3\u60C5\u3001\u5929\u6C23\u3001\u6642\u9593\u8EF8\u548C\u8A2D\u5B9A\u3002",
+        onboardingSkip: "\u8DF3\u904E",
+        onboardingStepCalendarBody: "Dayline \u5DF2\u9023\u4E0A {folder}\uFF0C\u627E\u5230 {days} \u5929\u3002\u5BEB\u904E\u7684\u65E5\u5B50\u6703\u4EAE\u8D77\u4F86\uFF0C\u6709\u7167\u7247\u7684\u6703\u92EA\u6EFF\u6574\u683C\u3002",
+        onboardingStepCalendarTitle: "\u4F60\u7684\u65E5\u5B50\uFF0C\u90FD\u5728\u9019\u4E00\u683C\u88E1",
+        onboardingStepDayBody: "\u6709\u7167\u7247\u7684\u65E5\u5B50\u6703\u92EA\u6EFF\u6574\u683C\uFF1B\u5DE6\u4E0B\u89D2\u7684\u5C0F\u5713\u9EDE\u662F\u90A3\u5929\u7684\u5FC3\u60C5\uFF0C\u9EDE\u4E00\u4E0B\u5C31\u80FD\u8A18\u3002\u540C\u4E00\u5929\u5BEB\u4E86\u591A\u7BC7\uFF0C\u53F3\u4E0B\u89D2\u6703\u51FA\u73FE +1\u3002",
+        onboardingStepDayTitle: "\u7167\u7247\u662F\u5C01\u9762\uFF0C\u5713\u9EDE\u662F\u5FC3\u60C5",
+        onboardingStepFolderBody: "\u73FE\u5728\u9084\u6C92\u6709\u65E5\u8A18\u3002\u8CC7\u6599\u593E\u9810\u8A2D\u662F {folder}\uFF0C\u53EF\u4EE5\u5728\u300C\u8A2D\u5B9A \u2192 Dayline\u300D\u88E1\u66F4\u63DB\uFF1B\u5BEB\u4E0B\u7B2C\u4E00\u7BC7\uFF0C\u65E5\u66C6\u5C31\u6703\u4EAE\u8D77\u4F86\u3002",
+        onboardingStepFolderTitle: "\u5148\u9023\u4E0A\u4F60\u7684\u65E5\u8A18\u8CC7\u6599\u593E",
+        onboardingStepMoodBody: "\u4E94\u7A2E\u984F\u8272\uFF0C\u5F9E\u5F88\u4F4E\u5230\u5F88\u597D\uFF1B\u9084\u80FD\u88DC\u4E00\u53E5\u5099\u8A3B\u3002\u65E5\u8A18\u683C\u5B50\u5DE6\u4E0B\u89D2\u90A3\u500B\u9EDE\uFF0C\u5C31\u662F\u5B83\u3002",
+        onboardingStepMoodTitle: "\u5FC3\u60C5\uFF0C\u53EF\u4EE5\u8A18\u5230\u984F\u8272\u88E1",
+        onboardingStepSearchBody: "\u641C\u5C0B\u6703\u540C\u6642\u627E\u6A19\u984C\u3001\u6B63\u6587\u548C\u5FC3\u60C5\u5099\u8A3B\uFF1B\u8F38\u5165\u6642\u7D50\u679C\u6703\u8DDF\u8457\u8B8A\u3002",
+        onboardingStepSearchTitle: "\u5148\u641C\uFF0C\u518D\u7BE9",
+        onboardingStepSettingsBody: "\u8A2D\u5B9A \u2192 Dayline\uFF1A\u8CC7\u6599\u593E\u5DF2\u7D93\u81EA\u52D5\u9023\u4E0A {folder}\uFF1B\u5929\u6C23\u9810\u8A2D\u95DC\u9589\uFF1BEXIF \u7684 GPS \u5730\u540D\u89E3\u6790\u4E5F\u9810\u8A2D\u95DC\u9589\u3002",
+        onboardingStepSettingsTitle: "\u8A9E\u8A00\u3001\u8CC7\u6599\u593E\u3001\u5929\u6C23\u3001\u96B1\u79C1\u90FD\u5728\u8A2D\u5B9A\u88E1",
+        onboardingStepTimelineEntryBody: "\u9EDE\u9019\u500B Dayline \u5716\u793A\uFF0C\u958B\u555F\u65E5\u8A18\u6642\u9593\u8EF8\u3002\u4E0B\u4E00\u6B65\u5C31\u5E36\u4F60\u9032\u53BB\u3002",
+        onboardingStepTimelineEntryTitle: "\u7FFB\u820A\u65E5\u5B50\uFF0C\u7528\u65E5\u8A18\u6642\u9593\u8EF8",
+        onboardingStepTimelineListBody: "\u5DE6\u908A\u662F\u661F\u671F\u548C\u65E5\u671F\uFF0C\u4E2D\u9593\u662F\u6A19\u984C\u3001\u6458\u8981\u548C\u66F4\u65B0\u6642\u9593\uFF0C\u53F3\u908A\u662F\u7576\u5929\u7684\u5C01\u9762\u3002",
+        onboardingStepTimelineListTitle: "\u540C\u4E00\u6279\u7B46\u8A18\uFF0C\u6309\u5929\u6392\u6210\u4E00\u689D\u7DDA",
+        onboardingStepTodayBody: "\u4ECA\u5929\u6709\u63CF\u908A\u3002\u9EDE\u5B83\u5BEB\u4E0B\u4ECA\u5929\u7684\u4E8B\uFF1B\u5BEB\u904E\u7684\u65E5\u5B50\u6703\u7ACB\u523B\u4EAE\u8D77\u4F86\u3002",
+        onboardingStepTodayTitle: "\u5F9E\u4ECA\u5929\u958B\u59CB",
+        onboardingStepWeatherBody: "\u958B\u555F\u5F8C\u9019\u88E1\u986F\u793A\u7576\u5929\u7684\u6C23\u6EAB\u3001\u9AD4\u611F\u8207\u6FD5\u5EA6\uFF1B\u5EA7\u6A19\u3001\u55AE\u4F4D\u548C\u6642\u5340\u90FD\u5728\u8A2D\u5B9A\u88E1\u3002\u9810\u8A2D\u662F\u95DC\u9589\u7684\u3002",
+        onboardingStepWeatherOffBody: "\u60F3\u8981\u7684\u8A71\uFF0C\u5728\u300C\u8A2D\u5B9A \u2192 Dayline \u2192 \u5929\u6C23\u300D\u88E1\u958B\u555F\uFF0C\u586B\u4E0A\u5EA7\u6A19\u5C31\u80FD\u770B\u5230\u7576\u5929\u7684\u6C23\u6EAB\u3001\u9AD4\u611F\u8207\u6FD5\u5EA6\u3002",
+        onboardingStepWeatherOffTitle: "\u5929\u6C23\u9810\u8A2D\u95DC\u8457",
+        onboardingStepWeatherTitle: "\u5929\u6C23\u662F\u53EF\u9078\u7684",
         openCalendar: "\u958B\u555F Dayline",
         openFilters: "\u958B\u555F\u7BE9\u9078",
         openNoteFailed: "\u958B\u555F\u7B46\u8A18\u5931\u6557\uFF1A{error}",
@@ -3979,6 +4039,36 @@ var init_i18n = __esm({
         noMood: "No mood records",
         noResults: "No journal entries match the filters",
         onThisDayLoadFailed: "Failed to load On This Day: {error}",
+        onboardingAriaLabel: "Onboarding tour",
+        onboardingBack: "Back",
+        onboardingFinish: "Write today",
+        onboardingNext: "Next",
+        onboardingReplay: "Replay the onboarding tour",
+        onboardingReplayCommand: "Show the onboarding tour",
+        onboardingReplayDesc: "Walk through the calendar, moods, weather, the timeline and settings again.",
+        onboardingSkip: "Skip",
+        onboardingStepCalendarBody: "Dayline is connected to {folder} and found {days} days. Days you wrote are lit up; days with photos fill the whole cell.",
+        onboardingStepCalendarTitle: "Your days live in these cells",
+        onboardingStepDayBody: "A day with a photo fills its whole cell; the small dot in the bottom-left corner is that day's mood \u2014 tap it to record one. Several notes on one day show a +1 in the bottom-right.",
+        onboardingStepDayTitle: "The photo is the cover, the dot is the mood",
+        onboardingStepFolderBody: "There are no journal entries yet. The folder is {folder} by default and can be changed in Settings \u2192 Dayline; write your first entry and the calendar lights up.",
+        onboardingStepFolderTitle: "Connect your journal folder first",
+        onboardingStepMoodBody: "Five colors, from very low to very good, plus an optional note. The dot in the corner of a day cell is this.",
+        onboardingStepMoodTitle: "Moods live in color",
+        onboardingStepSearchBody: "Search looks at titles, body text and mood notes at the same time; results follow what you type.",
+        onboardingStepSearchTitle: "Search first, then filter",
+        onboardingStepSettingsBody: "Settings \u2192 Dayline: the folder is already connected to {folder}; weather is off by default; EXIF GPS place lookup is off by default too.",
+        onboardingStepSettingsTitle: "Language, folder, weather and privacy all live in settings",
+        onboardingStepTimelineEntryBody: "Click this Dayline icon to open the journal timeline. The next step walks you through it.",
+        onboardingStepTimelineEntryTitle: "Look back with the journal timeline",
+        onboardingStepTimelineListBody: "Weekday and date on the left, title, excerpt and update time in the middle, that day's cover on the right.",
+        onboardingStepTimelineListTitle: "The same notes, one line per day",
+        onboardingStepTodayBody: "Today has an outline. Click it to write about today; days you write light up right away.",
+        onboardingStepTodayTitle: "Start with today",
+        onboardingStepWeatherBody: "Once enabled, this shows the day's temperature, feels-like and humidity; coordinates, units and the time zone live in settings. It is off by default.",
+        onboardingStepWeatherOffBody: "To use it, turn it on in Settings \u2192 Dayline \u2192 Weather and set coordinates; the card then shows the day's temperature, feels-like and humidity.",
+        onboardingStepWeatherOffTitle: "Weather is off by default",
+        onboardingStepWeatherTitle: "Weather is optional",
         openCalendar: "Open Dayline",
         openFilters: "Open filters",
         openNoteFailed: "Failed to open note: {error}",
@@ -4316,6 +4406,36 @@ var init_i18n = __esm({
         noMood: "\u6C17\u5206\u306E\u8A18\u9332\u306A\u3057",
         noResults: "\u4E00\u81F4\u3059\u308B\u65E5\u8A18\u306F\u898B\u3064\u304B\u308A\u307E\u305B\u3093\u3067\u3057\u305F",
         onThisDayLoadFailed: "\u300C\u904E\u53BB\u306E\u4ECA\u65E5\u300D\u306E\u8AAD\u307F\u8FBC\u307F\u306B\u5931\u6557\u3057\u307E\u3057\u305F\uFF1A{error}",
+        onboardingAriaLabel: "\u521D\u56DE\u30AC\u30A4\u30C9",
+        onboardingBack: "\u623B\u308B",
+        onboardingFinish: "\u4ECA\u65E5\u3092\u66F8\u304F",
+        onboardingNext: "\u6B21\u3078",
+        onboardingReplay: "\u521D\u56DE\u30AC\u30A4\u30C9\u3092\u3082\u3046\u4E00\u5EA6\u898B\u308B",
+        onboardingReplayCommand: "\u521D\u56DE\u30AC\u30A4\u30C9\u3092\u8868\u793A",
+        onboardingReplayDesc: "\u30AB\u30EC\u30F3\u30C0\u30FC\u3001\u6C17\u5206\u3001\u5929\u6C17\u3001\u30BF\u30A4\u30E0\u30E9\u30A4\u30F3\u3001\u8A2D\u5B9A\u3092\u3082\u3046\u4E00\u5EA6\u305F\u3069\u308A\u307E\u3059\u3002",
+        onboardingSkip: "\u30B9\u30AD\u30C3\u30D7",
+        onboardingStepCalendarBody: "Dayline \u306F {folder} \u306B\u63A5\u7D9A\u3057\u3001{days} \u65E5\u5206\u3092\u898B\u3064\u3051\u307E\u3057\u305F\u3002\u66F8\u3044\u305F\u65E5\u306F\u660E\u308B\u304F\u5149\u308A\u3001\u5199\u771F\u306E\u3042\u308B\u65E5\u306F\u30DE\u30B9\u3044\u3063\u3071\u3044\u306B\u5E83\u304C\u308A\u307E\u3059\u3002",
+        onboardingStepCalendarTitle: "\u3042\u306A\u305F\u306E\u65E5\u3005\u306F\u3001\u3053\u306E\u30DE\u30B9\u306E\u4E2D\u306B",
+        onboardingStepDayBody: "\u5199\u771F\u306E\u3042\u308B\u65E5\u306F\u30DE\u30B9\u3044\u3063\u3071\u3044\u306B\u8868\u793A\u3055\u308C\u307E\u3059\u3002\u5DE6\u4E0B\u306E\u5C0F\u3055\u306A\u70B9\u304C\u305D\u306E\u65E5\u306E\u6C17\u5206\u3067\u3001\u62BC\u3059\u3068\u8A18\u9332\u3067\u304D\u307E\u3059\u3002\u540C\u3058\u65E5\u306B\u8907\u6570\u306E\u30CE\u30FC\u30C8\u304C\u3042\u308B\u3068\u53F3\u4E0B\u306B +1 \u304C\u51FA\u307E\u3059\u3002",
+        onboardingStepDayTitle: "\u5199\u771F\u306F\u8868\u7D19\u3001\u70B9\u306F\u6C17\u5206",
+        onboardingStepFolderBody: "\u307E\u3060\u65E5\u8A18\u304C\u3042\u308A\u307E\u305B\u3093\u3002\u30D5\u30A9\u30EB\u30C0\u30FC\u306F\u65E2\u5B9A\u3067 {folder} \u3067\u3001\u300C\u8A2D\u5B9A \u2192 Dayline\u300D\u3067\u5909\u66F4\u3067\u304D\u307E\u3059\u3002\u6700\u521D\u306E\u4E00\u7BC7\u3092\u66F8\u3051\u3070\u30AB\u30EC\u30F3\u30C0\u30FC\u304C\u5149\u308A\u307E\u3059\u3002",
+        onboardingStepFolderTitle: "\u307E\u305A\u65E5\u8A18\u306E\u30D5\u30A9\u30EB\u30C0\u30FC\u3092\u63A5\u7D9A\u3057\u307E\u3059",
+        onboardingStepMoodBody: "\u3068\u3066\u3082\u4F4E\u3044\u304B\u3089\u3068\u3066\u3082\u826F\u3044\u307E\u3067\u306E\u4E94\u8272\u3068\u3001\u3072\u3068\u3053\u3068\u30E1\u30E2\u3002\u65E5\u8A18\u30DE\u30B9\u306E\u5DE6\u4E0B\u306E\u70B9\u304C\u3053\u308C\u3067\u3059\u3002",
+        onboardingStepMoodTitle: "\u6C17\u5206\u306F\u8272\u3067\u6B8B\u305B\u307E\u3059",
+        onboardingStepSearchBody: "\u691C\u7D22\u306F\u30BF\u30A4\u30C8\u30EB\u30FB\u672C\u6587\u30FB\u6C17\u5206\u30E1\u30E2\u3092\u540C\u6642\u306B\u898B\u307E\u3059\u3002\u5165\u529B\u3059\u308B\u3068\u7D50\u679C\u304C\u3059\u3050\u5909\u308F\u308A\u307E\u3059\u3002",
+        onboardingStepSearchTitle: "\u307E\u305A\u691C\u7D22\u3001\u305D\u308C\u304B\u3089\u7D5E\u308A\u8FBC\u307F",
+        onboardingStepSettingsBody: "\u8A2D\u5B9A \u2192 Dayline\uFF1A\u30D5\u30A9\u30EB\u30C0\u30FC\u306F {folder} \u306B\u81EA\u52D5\u3067\u63A5\u7D9A\u6E08\u307F\u3001\u5929\u6C17\u306F\u65E2\u5B9A\u3067\u30AA\u30D5\u3001EXIF \u306E GPS \u5730\u540D\u89E3\u6C7A\u3082\u65E2\u5B9A\u3067\u30AA\u30D5\u3067\u3059\u3002",
+        onboardingStepSettingsTitle: "\u8A00\u8A9E\u30FB\u30D5\u30A9\u30EB\u30C0\u30FC\u30FB\u5929\u6C17\u30FB\u30D7\u30E9\u30A4\u30D0\u30B7\u30FC\u306F\u8A2D\u5B9A\u306B",
+        onboardingStepTimelineEntryBody: "\u3053\u306E Dayline \u30A2\u30A4\u30B3\u30F3\u3092\u62BC\u3059\u3068\u65E5\u8A18\u30BF\u30A4\u30E0\u30E9\u30A4\u30F3\u304C\u958B\u304D\u307E\u3059\u3002\u6B21\u306E\u30B9\u30C6\u30C3\u30D7\u3067\u6848\u5185\u3057\u307E\u3059\u3002",
+        onboardingStepTimelineEntryTitle: "\u904E\u53BB\u306E\u65E5\u3005\u306F\u65E5\u8A18\u30BF\u30A4\u30E0\u30E9\u30A4\u30F3\u3067",
+        onboardingStepTimelineListBody: "\u5DE6\u306B\u66DC\u65E5\u3068\u65E5\u4ED8\u3001\u4E2D\u592E\u306B\u30BF\u30A4\u30C8\u30EB\u30FB\u629C\u7C8B\u30FB\u66F4\u65B0\u6642\u523B\u3001\u53F3\u306B\u305D\u306E\u65E5\u306E\u8868\u7D19\u3002",
+        onboardingStepTimelineListTitle: "\u540C\u3058\u30CE\u30FC\u30C8\u3092\u3001\u65E5\u3054\u3068\u306B\u4E00\u5217\u306B",
+        onboardingStepTodayBody: "\u4ECA\u65E5\u306B\u306F\u67A0\u7DDA\u304C\u4ED8\u3044\u3066\u3044\u307E\u3059\u3002\u62BC\u3057\u3066\u4ECA\u65E5\u306E\u3053\u3068\u3092\u66F8\u304D\u307E\u3057\u3087\u3046\u3002\u66F8\u3044\u305F\u65E5\u306F\u3059\u3050\u306B\u660E\u308B\u304F\u306A\u308A\u307E\u3059\u3002",
+        onboardingStepTodayTitle: "\u4ECA\u65E5\u304B\u3089\u59CB\u3081\u307E\u3059",
+        onboardingStepWeatherBody: "\u30AA\u30F3\u306B\u3059\u308B\u3068\u3001\u305D\u306E\u65E5\u306E\u6C17\u6E29\u30FB\u4F53\u611F\u30FB\u6E7F\u5EA6\u304C\u3053\u3053\u306B\u51FA\u307E\u3059\u3002\u5EA7\u6A19\u30FB\u5358\u4F4D\u30FB\u30BF\u30A4\u30E0\u30BE\u30FC\u30F3\u306F\u8A2D\u5B9A\u306B\u3042\u308A\u307E\u3059\u3002\u65E2\u5B9A\u3067\u306F\u30AA\u30D5\u3067\u3059\u3002",
+        onboardingStepWeatherOffBody: "\u4F7F\u3046\u3068\u304D\u306F\u300C\u8A2D\u5B9A \u2192 Dayline \u2192 \u5929\u6C17\u300D\u3067\u30AA\u30F3\u306B\u3057\u3066\u5EA7\u6A19\u3092\u5165\u308C\u3066\u304F\u3060\u3055\u3044\u3002\u305D\u306E\u65E5\u306E\u6C17\u6E29\u30FB\u4F53\u611F\u30FB\u6E7F\u5EA6\u304C\u3053\u3053\u306B\u51FA\u307E\u3059\u3002",
+        onboardingStepWeatherOffTitle: "\u5929\u6C17\u306F\u65E2\u5B9A\u3067\u30AA\u30D5\u3067\u3059",
+        onboardingStepWeatherTitle: "\u5929\u6C17\u306F\u4EFB\u610F\u3067\u3059",
         openCalendar: "Dayline \u3092\u958B\u304F",
         openFilters: "\u30D5\u30A3\u30EB\u30BF\u30FC\u3092\u958B\u304F",
         openNoteFailed: "\u30CE\u30FC\u30C8\u3092\u958B\u3051\u307E\u305B\u3093\u3067\u3057\u305F\uFF1A{error}",
@@ -4653,6 +4773,36 @@ var init_i18n = __esm({
         noMood: "\uAE30\uBD84 \uAE30\uB85D \uC5C6\uC74C",
         noResults: "\uD544\uD130\uC640 \uC77C\uCE58\uD558\uB294 \uC800\uB110\uC774 \uC5C6\uC2B5\uB2C8\uB2E4",
         onThisDayLoadFailed: "\uC791\uB144 \uC624\uB298 \uB85C\uB4DC \uC2E4\uD328: {error}",
+        onboardingAriaLabel: "\uCCAB \uC0AC\uC6A9 \uC548\uB0B4",
+        onboardingBack: "\uC774\uC804",
+        onboardingFinish: "\uC624\uB298 \uC4F0\uAE30",
+        onboardingNext: "\uB2E4\uC74C",
+        onboardingReplay: "\uCCAB \uC0AC\uC6A9 \uC548\uB0B4 \uB2E4\uC2DC \uBCF4\uAE30",
+        onboardingReplayCommand: "\uCCAB \uC0AC\uC6A9 \uC548\uB0B4 \uD45C\uC2DC",
+        onboardingReplayDesc: "\uB2EC\uB825, \uAE30\uBD84, \uB0A0\uC528, \uD0C0\uC784\uB77C\uC778, \uC124\uC815\uC744 \uB2E4\uC2DC \uB458\uB7EC\uBD05\uB2C8\uB2E4.",
+        onboardingSkip: "\uAC74\uB108\uB6F0\uAE30",
+        onboardingStepCalendarBody: "Dayline\uC774 {folder}\uC5D0 \uC5F0\uACB0\uB418\uC5B4 {days}\uC77C\uC744 \uCC3E\uC558\uC2B5\uB2C8\uB2E4. \uC4F4 \uB0A0\uC740 \uBC1D\uAC8C \uBE5B\uB098\uACE0, \uC0AC\uC9C4\uC774 \uC788\uB294 \uB0A0\uC740 \uCE78\uC744 \uAC00\uB4DD \uCC44\uC6C1\uB2C8\uB2E4.",
+        onboardingStepCalendarTitle: "\uB2F9\uC2E0\uC758 \uB0A0\uB4E4\uC740 \uC774 \uCE78\uCE78\uC5D0",
+        onboardingStepDayBody: "\uC0AC\uC9C4\uC774 \uC788\uB294 \uB0A0\uC740 \uCE78\uC744 \uAC00\uB4DD \uCC44\uC6C1\uB2C8\uB2E4. \uC67C\uCABD \uC544\uB798 \uC791\uC740 \uC810\uC774 \uADF8\uB0A0\uC758 \uAE30\uBD84\uC774\uACE0, \uB20C\uB7EC\uC11C \uAE30\uB85D\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4. \uAC19\uC740 \uB0A0 \uC5EC\uB7EC \uAC1C\uB97C \uC4F0\uBA74 \uC624\uB978\uCABD \uC544\uB798\uC5D0 +1\uC774 \uD45C\uC2DC\uB429\uB2C8\uB2E4.",
+        onboardingStepDayTitle: "\uC0AC\uC9C4\uC740 \uD45C\uC9C0, \uC810\uC740 \uAE30\uBD84",
+        onboardingStepFolderBody: "\uC544\uC9C1 \uC77C\uAE30\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4. \uAE30\uBCF8 \uD3F4\uB354\uB294 {folder}\uC774\uBA70 '\uC124\uC815 \u2192 Dayline'\uC5D0\uC11C \uBC14\uAFC0 \uC218 \uC788\uC2B5\uB2C8\uB2E4. \uCCAB \uAE00\uC744 \uC4F0\uBA74 \uB2EC\uB825\uC774 \uBC1D\uC544\uC9D1\uB2C8\uB2E4.",
+        onboardingStepFolderTitle: "\uBA3C\uC800 \uC77C\uAE30 \uD3F4\uB354\uB97C \uC5F0\uACB0\uD558\uC138\uC694",
+        onboardingStepMoodBody: "\uC544\uC8FC \uB0AE\uC74C\uBD80\uD130 \uC544\uC8FC \uC88B\uC74C\uAE4C\uC9C0 \uB2E4\uC12F \uAC00\uC9C0 \uC0C9\uACFC \uD55C \uC904 \uBA54\uBAA8. \uC77C\uAE30 \uCE78 \uC67C\uCABD \uC544\uB798\uC758 \uC810\uC774 \uBC14\uB85C \uC774\uAC83\uC785\uB2C8\uB2E4.",
+        onboardingStepMoodTitle: "\uAE30\uBD84\uC740 \uC0C9\uC73C\uB85C \uB0A8\uAE41\uB2C8\uB2E4",
+        onboardingStepSearchBody: "\uAC80\uC0C9\uC740 \uC81C\uBAA9, \uBCF8\uBB38, \uAE30\uBD84 \uBA54\uBAA8\uB97C \uD568\uAED8 \uCC3E\uC2B5\uB2C8\uB2E4. \uC785\uB825\uD558\uBA74 \uACB0\uACFC\uAC00 \uBC14\uB85C \uBC14\uB01D\uB2C8\uB2E4.",
+        onboardingStepSearchTitle: "\uBA3C\uC800 \uAC80\uC0C9\uD558\uACE0, \uADF8\uB2E4\uC74C \uAC78\uB7EC\uB0C5\uB2C8\uB2E4",
+        onboardingStepSettingsBody: "\uC124\uC815 \u2192 Dayline: \uD3F4\uB354\uB294 {folder}\uC5D0 \uC790\uB3D9 \uC5F0\uACB0\uB418\uC5B4 \uC788\uACE0, \uB0A0\uC528\uB294 \uAE30\uBCF8\uC73C\uB85C \uAEBC\uC838 \uC788\uC73C\uBA70, EXIF GPS \uC9C0\uBA85 \uC870\uD68C\uB3C4 \uAE30\uBCF8\uC73C\uB85C \uAEBC\uC838 \uC788\uC2B5\uB2C8\uB2E4.",
+        onboardingStepSettingsTitle: "\uC5B8\uC5B4\xB7\uD3F4\uB354\xB7\uB0A0\uC528\xB7\uAC1C\uC778\uC815\uBCF4\uB294 \uC124\uC815\uC5D0",
+        onboardingStepTimelineEntryBody: "\uC774 Dayline \uC544\uC774\uCF58\uC744 \uB204\uB974\uBA74 \uC77C\uAE30 \uD0C0\uC784\uB77C\uC778\uC774 \uC5F4\uB9BD\uB2C8\uB2E4. \uB2E4\uC74C \uB2E8\uACC4\uC5D0\uC11C \uC548\uB0B4\uD569\uB2C8\uB2E4.",
+        onboardingStepTimelineEntryTitle: "\uC9C0\uB09C \uB0A0\uC740 \uC77C\uAE30 \uD0C0\uC784\uB77C\uC778\uC73C\uB85C",
+        onboardingStepTimelineListBody: "\uC67C\uCABD\uC5D0 \uC694\uC77C\uACFC \uB0A0\uC9DC, \uAC00\uC6B4\uB370\uC5D0 \uC81C\uBAA9\xB7\uBC1C\uCDCC\xB7\uC218\uC815 \uC2DC\uAC04, \uC624\uB978\uCABD\uC5D0 \uADF8\uB0A0\uC758 \uD45C\uC9C0.",
+        onboardingStepTimelineListTitle: "\uAC19\uC740 \uB178\uD2B8\uB97C \uD558\uB8E8\uC529 \uD55C \uC904\uB85C",
+        onboardingStepTodayBody: "\uC624\uB298\uC5D0\uB294 \uD14C\uB450\uB9AC\uAC00 \uC788\uC2B5\uB2C8\uB2E4. \uB20C\uB7EC\uC11C \uC624\uB298\uC758 \uC77C\uC744 \uC4F0\uC138\uC694. \uC4F4 \uB0A0\uC740 \uACE7\uBC14\uB85C \uBC1D\uC544\uC9D1\uB2C8\uB2E4.",
+        onboardingStepTodayTitle: "\uC624\uB298\uBD80\uD130 \uC2DC\uC791\uD569\uB2C8\uB2E4",
+        onboardingStepWeatherBody: "\uCF1C\uBA74 \uADF8\uB0A0\uC758 \uAE30\uC628, \uCCB4\uAC10, \uC2B5\uB3C4\uAC00 \uC5EC\uAE30\uC5D0 \uD45C\uC2DC\uB429\uB2C8\uB2E4. \uC88C\uD45C\xB7\uB2E8\uC704\xB7\uC2DC\uAC04\uB300\uB294 \uC124\uC815\uC5D0 \uC788\uC2B5\uB2C8\uB2E4. \uAE30\uBCF8\uAC12\uC740 \uAEBC\uC9D0\uC785\uB2C8\uB2E4.",
+        onboardingStepWeatherOffBody: "\uC0AC\uC6A9\uD558\uB824\uBA74 '\uC124\uC815 \u2192 Dayline \u2192 \uB0A0\uC528'\uC5D0\uC11C \uCF1C\uACE0 \uC88C\uD45C\uB97C \uC785\uB825\uD558\uC138\uC694. \uADF8\uB0A0\uC758 \uAE30\uC628\xB7\uCCB4\uAC10\xB7\uC2B5\uB3C4\uAC00 \uC5EC\uAE30\uC5D0 \uD45C\uC2DC\uB429\uB2C8\uB2E4.",
+        onboardingStepWeatherOffTitle: "\uB0A0\uC528\uB294 \uAE30\uBCF8\uC801\uC73C\uB85C \uAEBC\uC838 \uC788\uC2B5\uB2C8\uB2E4",
+        onboardingStepWeatherTitle: "\uB0A0\uC528\uB294 \uC120\uD0DD \uC0AC\uD56D\uC785\uB2C8\uB2E4",
         openCalendar: "Dayline \uC5F4\uAE30",
         openFilters: "\uD544\uD130 \uC5F4\uAE30",
         openNoteFailed: "\uB178\uD2B8\uB97C \uC5F4\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4: {error}",
@@ -4990,6 +5140,36 @@ var init_i18n = __esm({
         noMood: "Aucune humeur enregistr\xE9e",
         noResults: "Aucune entr\xE9e ne correspond aux filtres",
         onThisDayLoadFailed: "Impossible de charger Ce jour-l\xE0 : {error}",
+        onboardingAriaLabel: "Visite guid\xE9e",
+        onboardingBack: "Retour",
+        onboardingFinish: "\xC9crire aujourd'hui",
+        onboardingNext: "Suivant",
+        onboardingReplay: "Revoir la visite guid\xE9e",
+        onboardingReplayCommand: "Afficher la visite guid\xE9e",
+        onboardingReplayDesc: "Parcourir \xE0 nouveau le calendrier, les humeurs, la m\xE9t\xE9o, la chronologie et les r\xE9glages.",
+        onboardingSkip: "Ignorer",
+        onboardingStepCalendarBody: "Dayline est reli\xE9 \xE0 {folder} et a trouv\xE9 {days} jours. Les jours \xE9crits s'allument ; ceux avec une photo remplissent toute la case.",
+        onboardingStepCalendarTitle: "Vos journ\xE9es, une case \xE0 la fois",
+        onboardingStepDayBody: "Un jour avec photo remplit toute la case ; le petit point en bas \xE0 gauche est l'humeur de ce jour, cliquez pour l'enregistrer. Plusieurs notes le m\xEAme jour affichent +1 en bas \xE0 droite.",
+        onboardingStepDayTitle: "La photo est la couverture, le point est l'humeur",
+        onboardingStepFolderBody: "Il n'y a pas encore d'entr\xE9es. Le dossier est {folder} par d\xE9faut et se change dans R\xE9glages \u2192 Dayline ; \xE9crivez la premi\xE8re et le calendrier s'allumera.",
+        onboardingStepFolderTitle: "Reliez d'abord votre dossier de journal",
+        onboardingStepMoodBody: "Cinq couleurs, de tr\xE8s bas \xE0 tr\xE8s bon, et une note facultative. Le point au coin de la case, c'est cela.",
+        onboardingStepMoodTitle: "L'humeur s'enregistre en couleur",
+        onboardingStepSearchBody: "La recherche porte \xE0 la fois sur les titres, le texte et les notes d'humeur ; les r\xE9sultats suivent la frappe.",
+        onboardingStepSearchTitle: "Cherchez d'abord, filtrez ensuite",
+        onboardingStepSettingsBody: "R\xE9glages \u2192 Dayline : le dossier est d\xE9j\xE0 reli\xE9 \xE0 {folder} ; la m\xE9t\xE9o est d\xE9sactiv\xE9e par d\xE9faut ; la r\xE9solution GPS EXIF aussi.",
+        onboardingStepSettingsTitle: "Langue, dossier, m\xE9t\xE9o et confidentialit\xE9 sont dans les r\xE9glages",
+        onboardingStepTimelineEntryBody: "Cliquez sur cette ic\xF4ne Dayline pour ouvrir la chronologie du journal. L'\xE9tape suivante vous y emm\xE8ne.",
+        onboardingStepTimelineEntryTitle: "Remontez le temps avec la chronologie",
+        onboardingStepTimelineListBody: "Le jour et la date \xE0 gauche, le titre, l'extrait et l'heure de mise \xE0 jour au milieu, la couverture du jour \xE0 droite.",
+        onboardingStepTimelineListTitle: "Les m\xEAmes notes, une ligne par jour",
+        onboardingStepTodayBody: "Aujourd'hui a un contour. Cliquez dessus pour \xE9crire la journ\xE9e ; les jours \xE9crits s'allument aussit\xF4t.",
+        onboardingStepTodayTitle: "Commencez par aujourd'hui",
+        onboardingStepWeatherBody: "Une fois activ\xE9e, elle affiche ici la temp\xE9rature, le ressenti et l'humidit\xE9 du jour ; coordonn\xE9es, unit\xE9s et fuseau horaire sont dans les r\xE9glages. D\xE9sactiv\xE9e par d\xE9faut.",
+        onboardingStepWeatherOffBody: "Pour l'utiliser, activez-la dans R\xE9glages \u2192 Dayline \u2192 M\xE9t\xE9o et saisissez des coordonn\xE9es ; la carte affichera la temp\xE9rature, le ressenti et l'humidit\xE9.",
+        onboardingStepWeatherOffTitle: "La m\xE9t\xE9o est d\xE9sactiv\xE9e par d\xE9faut",
+        onboardingStepWeatherTitle: "La m\xE9t\xE9o est facultative",
         openCalendar: "Ouvrir Dayline",
         openFilters: "Ouvrir les filtres",
         openNoteFailed: "Impossible d'ouvrir la note : {error}",
@@ -5327,6 +5507,36 @@ var init_i18n = __esm({
         noMood: "Keine Stimmung erfasst",
         noResults: "Keine passenden Journaleintr\xE4ge gefunden",
         onThisDayLoadFailed: "\u201EAn diesem Tag\u201C konnte nicht geladen werden: {error}",
+        onboardingAriaLabel: "Einf\xFChrung",
+        onboardingBack: "Zur\xFCck",
+        onboardingFinish: "Heute schreiben",
+        onboardingNext: "Weiter",
+        onboardingReplay: "Einf\xFChrung erneut ansehen",
+        onboardingReplayCommand: "Einf\xFChrung anzeigen",
+        onboardingReplayDesc: "Kalender, Stimmung, Wetter, Zeitleiste und Einstellungen noch einmal durchgehen.",
+        onboardingSkip: "\xDCberspringen",
+        onboardingStepCalendarBody: "Dayline ist mit {folder} verbunden und hat {days} Tage gefunden. Geschriebene Tage leuchten auf; Tage mit Foto f\xFCllen die Zelle.",
+        onboardingStepCalendarTitle: "Deine Tage, Zelle f\xFCr Zelle",
+        onboardingStepDayBody: "Ein Tag mit Foto f\xFCllt die ganze Zelle; der kleine Punkt unten links ist die Stimmung dieses Tages, ein Klick gen\xFCgt. Mehrere Notizen an einem Tag zeigen unten rechts +1.",
+        onboardingStepDayTitle: "Das Foto ist der Umschlag, der Punkt die Stimmung",
+        onboardingStepFolderBody: "Es gibt noch keine Eintr\xE4ge. Der Ordner ist standardm\xE4\xDFig {folder} und l\xE4sst sich unter Einstellungen \u2192 Dayline \xE4ndern; schreibe den ersten, dann leuchtet der Kalender.",
+        onboardingStepFolderTitle: "Verbinde zuerst deinen Tagebuchordner",
+        onboardingStepMoodBody: "F\xFCnf Farben, von sehr niedrig bis sehr gut, plus ein optionaler Satz. Der Punkt in der Ecke der Tageszelle ist das.",
+        onboardingStepMoodTitle: "Stimmungen werden zu Farben",
+        onboardingStepSearchBody: "Die Suche findet Titel, Text und Stimmungsnotizen zugleich; die Treffer \xE4ndern sich beim Tippen.",
+        onboardingStepSearchTitle: "Erst suchen, dann filtern",
+        onboardingStepSettingsBody: "Einstellungen \u2192 Dayline: der Ordner ist bereits mit {folder} verbunden; das Wetter ist aus; auch die EXIF-GPS-Ortssuche ist aus.",
+        onboardingStepSettingsTitle: "Sprache, Ordner, Wetter und Datenschutz liegen in den Einstellungen",
+        onboardingStepTimelineEntryBody: "Klicke auf dieses Dayline-Symbol, um den Zeitstrahl zu \xF6ffnen. Der n\xE4chste Schritt f\xFChrt hinein.",
+        onboardingStepTimelineEntryTitle: "Alte Tage im Journal-Zeitstrahl",
+        onboardingStepTimelineListBody: "Links Wochentag und Datum, in der Mitte Titel, Auszug und \xC4nderungszeit, rechts das Titelbild des Tages.",
+        onboardingStepTimelineListTitle: "Dieselben Notizen, ein Tag pro Zeile",
+        onboardingStepTodayBody: "Heute hat einen Rahmen. Klicke darauf und schreibe \xFCber heute; geschriebene Tage leuchten sofort.",
+        onboardingStepTodayTitle: "Fang mit heute an",
+        onboardingStepWeatherBody: "Wenn aktiviert, stehen hier Temperatur, gef\xFChlte Temperatur und Luftfeuchte des Tages; Koordinaten, Einheiten und Zeitzone liegen in den Einstellungen. Standardm\xE4\xDFig aus.",
+        onboardingStepWeatherOffBody: "Zum Nutzen unter Einstellungen \u2192 Dayline \u2192 Wetter einschalten und Koordinaten eintragen; dann erscheinen Temperatur, gef\xFChlte Temperatur und Luftfeuchte.",
+        onboardingStepWeatherOffTitle: "Das Wetter ist standardm\xE4\xDFig aus",
+        onboardingStepWeatherTitle: "Das Wetter ist optional",
         openCalendar: "Dayline \xF6ffnen",
         openFilters: "Filter \xF6ffnen",
         openNoteFailed: "Notiz konnte nicht ge\xF6ffnet werden: {error}",
@@ -5664,6 +5874,36 @@ var init_i18n = __esm({
         noMood: "Sin registro de estado de \xE1nimo",
         noResults: "No se encontraron entradas coincidentes",
         onThisDayLoadFailed: "Error al cargar Un d\xEDa como hoy: {error}",
+        onboardingAriaLabel: "Gu\xEDa inicial",
+        onboardingBack: "Atr\xE1s",
+        onboardingFinish: "Escribir hoy",
+        onboardingNext: "Siguiente",
+        onboardingReplay: "Volver a ver la gu\xEDa inicial",
+        onboardingReplayCommand: "Mostrar la gu\xEDa inicial",
+        onboardingReplayDesc: "Recorrer otra vez el calendario, el \xE1nimo, el tiempo, la cronolog\xEDa y los ajustes.",
+        onboardingSkip: "Saltar",
+        onboardingStepCalendarBody: "Dayline est\xE1 conectado a {folder} y encontr\xF3 {days} d\xEDas. Los d\xEDas escritos se iluminan; los que tienen foto llenan la celda.",
+        onboardingStepCalendarTitle: "Tus d\xEDas, celda a celda",
+        onboardingStepDayBody: "Un d\xEDa con foto llena toda la celda; el punto peque\xF1o de la esquina inferior izquierda es el \xE1nimo de ese d\xEDa, t\xF3calo para registrarlo. Varias notas el mismo d\xEDa muestran +1 abajo a la derecha.",
+        onboardingStepDayTitle: "La foto es la portada, el punto es el \xE1nimo",
+        onboardingStepFolderBody: "Todav\xEDa no hay entradas. La carpeta es {folder} por defecto y se cambia en Ajustes \u2192 Dayline; escribe la primera y el calendario se iluminar\xE1.",
+        onboardingStepFolderTitle: "Primero conecta tu carpeta de diario",
+        onboardingStepMoodBody: "Cinco colores, de muy bajo a muy bueno, y una nota opcional. El punto de la esquina de la celda es esto.",
+        onboardingStepMoodTitle: "El \xE1nimo se guarda en color",
+        onboardingStepSearchBody: "La b\xFAsqueda mira t\xEDtulos, texto y notas de \xE1nimo a la vez; los resultados cambian mientras escribes.",
+        onboardingStepSearchTitle: "Primero busca, luego filtra",
+        onboardingStepSettingsBody: "Ajustes \u2192 Dayline: la carpeta ya est\xE1 conectada a {folder}; el tiempo est\xE1 desactivado por defecto; la b\xFAsqueda de lugares por GPS EXIF tambi\xE9n.",
+        onboardingStepSettingsTitle: "Idioma, carpeta, tiempo y privacidad est\xE1n en los ajustes",
+        onboardingStepTimelineEntryBody: "Haz clic en este icono de Dayline para abrir la cronolog\xEDa del diario. El siguiente paso te lleva dentro.",
+        onboardingStepTimelineEntryTitle: "Vuelve al pasado con la cronolog\xEDa",
+        onboardingStepTimelineListBody: "D\xEDa y fecha a la izquierda, t\xEDtulo, extracto y hora de actualizaci\xF3n en el centro, portada del d\xEDa a la derecha.",
+        onboardingStepTimelineListTitle: "Las mismas notas, un d\xEDa por l\xEDnea",
+        onboardingStepTodayBody: "Hoy tiene un contorno. Haz clic para escribir sobre hoy; los d\xEDas escritos se iluminan al instante.",
+        onboardingStepTodayTitle: "Empieza por hoy",
+        onboardingStepWeatherBody: "Al activarlo, aqu\xED aparecen la temperatura, la sensaci\xF3n y la humedad del d\xEDa; coordenadas, unidades y zona horaria est\xE1n en los ajustes. Desactivado por defecto.",
+        onboardingStepWeatherOffBody: "Para usarlo, act\xEDvalo en Ajustes \u2192 Dayline \u2192 Tiempo y escribe las coordenadas; la tarjeta mostrar\xE1 temperatura, sensaci\xF3n y humedad.",
+        onboardingStepWeatherOffTitle: "El tiempo est\xE1 desactivado por defecto",
+        onboardingStepWeatherTitle: "El tiempo es opcional",
         openCalendar: "Abrir Dayline",
         openFilters: "Abrir filtros",
         openNoteFailed: "Error al abrir la nota: {error}",
@@ -6001,6 +6241,36 @@ var init_i18n = __esm({
         noMood: "\u041D\u0435\u0442 \u0437\u0430\u043F\u0438\u0441\u0435\u0439 \u043D\u0430\u0441\u0442\u0440\u043E\u0435\u043D\u0438\u044F",
         noResults: "\u041F\u043E\u0434\u0445\u043E\u0434\u044F\u0449\u0438\u0445 \u0437\u0430\u043F\u0438\u0441\u0435\u0439 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D\u043E",
         onThisDayLoadFailed: "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0437\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044C \xAB\u0412 \u044D\u0442\u043E\u0442 \u0434\u0435\u043D\u044C\xBB: {error}",
+        onboardingAriaLabel: "\u0417\u043D\u0430\u043A\u043E\u043C\u0441\u0442\u0432\u043E",
+        onboardingBack: "\u041D\u0430\u0437\u0430\u0434",
+        onboardingFinish: "\u0417\u0430\u043F\u0438\u0441\u0430\u0442\u044C \u0441\u0435\u0433\u043E\u0434\u043D\u044F",
+        onboardingNext: "\u0414\u0430\u043B\u0435\u0435",
+        onboardingReplay: "\u041F\u043E\u0441\u043C\u043E\u0442\u0440\u0435\u0442\u044C \u0437\u043D\u0430\u043A\u043E\u043C\u0441\u0442\u0432\u043E \u0441\u043D\u043E\u0432\u0430",
+        onboardingReplayCommand: "\u041F\u043E\u043A\u0430\u0437\u0430\u0442\u044C \u0437\u043D\u0430\u043A\u043E\u043C\u0441\u0442\u0432\u043E",
+        onboardingReplayDesc: "\u0415\u0449\u0451 \u0440\u0430\u0437 \u043F\u0440\u043E\u0439\u0442\u0438 \u043A\u0430\u043B\u0435\u043D\u0434\u0430\u0440\u044C, \u043D\u0430\u0441\u0442\u0440\u043E\u0435\u043D\u0438\u0435, \u043F\u043E\u0433\u043E\u0434\u0443, \u043B\u0435\u043D\u0442\u0443 \u0438 \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438.",
+        onboardingSkip: "\u041F\u0440\u043E\u043F\u0443\u0441\u0442\u0438\u0442\u044C",
+        onboardingStepCalendarBody: "Dayline \u043F\u043E\u0434\u043A\u043B\u044E\u0447\u0451\u043D \u043A {folder} \u0438 \u043D\u0430\u0448\u0451\u043B {days} \u0434\u043D. \u0417\u0430\u043F\u0438\u0441\u0430\u043D\u043D\u044B\u0435 \u0434\u043D\u0438 \u043F\u043E\u0434\u0441\u0432\u0435\u0447\u0438\u0432\u0430\u044E\u0442\u0441\u044F, \u0430 \u0434\u043D\u0438 \u0441 \u0444\u043E\u0442\u043E \u0437\u0430\u043F\u043E\u043B\u043D\u044F\u044E\u0442 \u044F\u0447\u0435\u0439\u043A\u0443 \u0446\u0435\u043B\u0438\u043A\u043E\u043C.",
+        onboardingStepCalendarTitle: "\u0412\u0430\u0448\u0438 \u0434\u043D\u0438 \u2014 \u0432 \u044D\u0442\u0438\u0445 \u044F\u0447\u0435\u0439\u043A\u0430\u0445",
+        onboardingStepDayBody: "\u0414\u0435\u043D\u044C \u0441 \u0444\u043E\u0442\u043E \u0437\u0430\u043F\u043E\u043B\u043D\u044F\u0435\u0442 \u0432\u0441\u044E \u044F\u0447\u0435\u0439\u043A\u0443; \u043C\u0430\u043B\u0435\u043D\u044C\u043A\u0430\u044F \u0442\u043E\u0447\u043A\u0430 \u0432 \u043B\u0435\u0432\u043E\u043C \u043D\u0438\u0436\u043D\u0435\u043C \u0443\u0433\u043B\u0443 \u2014 \u043D\u0430\u0441\u0442\u0440\u043E\u0435\u043D\u0438\u0435 \u044D\u0442\u043E\u0433\u043E \u0434\u043D\u044F, \u043D\u0430\u0436\u043C\u0438\u0442\u0435, \u0447\u0442\u043E\u0431\u044B \u0437\u0430\u043F\u0438\u0441\u0430\u0442\u044C. \u0415\u0441\u043B\u0438 \u0437\u0430\u043F\u0438\u0441\u0435\u0439 \u043D\u0435\u0441\u043A\u043E\u043B\u044C\u043A\u043E, \u0441\u043F\u0440\u0430\u0432\u0430 \u0432\u043D\u0438\u0437\u0443 \u043F\u043E\u044F\u0432\u0438\u0442\u0441\u044F +1.",
+        onboardingStepDayTitle: "\u0424\u043E\u0442\u043E \u2014 \u043E\u0431\u043B\u043E\u0436\u043A\u0430, \u0442\u043E\u0447\u043A\u0430 \u2014 \u043D\u0430\u0441\u0442\u0440\u043E\u0435\u043D\u0438\u0435",
+        onboardingStepFolderBody: "\u0417\u0430\u043F\u0438\u0441\u0435\u0439 \u043F\u043E\u043A\u0430 \u043D\u0435\u0442. \u041F\u0430\u043F\u043A\u0430 \u043F\u043E \u0443\u043C\u043E\u043B\u0447\u0430\u043D\u0438\u044E \u2014 {folder}, \u0435\u0451 \u043C\u043E\u0436\u043D\u043E \u0441\u043C\u0435\u043D\u0438\u0442\u044C \u0432 \xAB\u041D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438 \u2192 Dayline\xBB; \u043D\u0430\u043F\u0438\u0448\u0438\u0442\u0435 \u043F\u0435\u0440\u0432\u0443\u044E \u0437\u0430\u043F\u0438\u0441\u044C, \u0438 \u043A\u0430\u043B\u0435\u043D\u0434\u0430\u0440\u044C \u0437\u0430\u0433\u043E\u0440\u0438\u0442\u0441\u044F.",
+        onboardingStepFolderTitle: "\u0421\u043D\u0430\u0447\u0430\u043B\u0430 \u043F\u043E\u0434\u043A\u043B\u044E\u0447\u0438\u0442\u0435 \u043F\u0430\u043F\u043A\u0443 \u0434\u043D\u0435\u0432\u043D\u0438\u043A\u0430",
+        onboardingStepMoodBody: "\u041F\u044F\u0442\u044C \u0446\u0432\u0435\u0442\u043E\u0432, \u043E\u0442 \u043E\u0447\u0435\u043D\u044C \u043D\u0438\u0437\u043A\u043E\u0433\u043E \u0434\u043E \u043E\u0447\u0435\u043D\u044C \u0445\u043E\u0440\u043E\u0448\u0435\u0433\u043E, \u0438 \u043D\u0435\u043E\u0431\u044F\u0437\u0430\u0442\u0435\u043B\u044C\u043D\u0430\u044F \u0437\u0430\u043C\u0435\u0442\u043A\u0430. \u0422\u043E\u0447\u043A\u0430 \u0432 \u0443\u0433\u043B\u0443 \u044F\u0447\u0435\u0439\u043A\u0438 \u2014 \u044D\u0442\u043E \u043E\u043D\u043E.",
+        onboardingStepMoodTitle: "\u041D\u0430\u0441\u0442\u0440\u043E\u0435\u043D\u0438\u0435 \u0445\u0440\u0430\u043D\u0438\u0442\u0441\u044F \u0432 \u0446\u0432\u0435\u0442\u0435",
+        onboardingStepSearchBody: "\u041F\u043E\u0438\u0441\u043A \u0438\u0449\u0435\u0442 \u043F\u043E \u0437\u0430\u0433\u043E\u043B\u043E\u0432\u043A\u0430\u043C, \u0442\u0435\u043A\u0441\u0442\u0443 \u0438 \u0437\u0430\u043C\u0435\u0442\u043A\u0430\u043C \u043E \u043D\u0430\u0441\u0442\u0440\u043E\u0435\u043D\u0438\u0438 \u043E\u0434\u043D\u043E\u0432\u0440\u0435\u043C\u0435\u043D\u043D\u043E; \u0440\u0435\u0437\u0443\u043B\u044C\u0442\u0430\u0442\u044B \u043C\u0435\u043D\u044F\u044E\u0442\u0441\u044F \u043F\u043E \u043C\u0435\u0440\u0435 \u0432\u0432\u043E\u0434\u0430.",
+        onboardingStepSearchTitle: "\u0421\u043D\u0430\u0447\u0430\u043B\u0430 \u043F\u043E\u0438\u0441\u043A, \u043F\u043E\u0442\u043E\u043C \u0444\u0438\u043B\u044C\u0442\u0440\u044B",
+        onboardingStepSettingsBody: "\xAB\u041D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438 \u2192 Dayline\xBB: \u043F\u0430\u043F\u043A\u0430 \u0443\u0436\u0435 \u043F\u043E\u0434\u043A\u043B\u044E\u0447\u0435\u043D\u0430 \u043A {folder}; \u043F\u043E\u0433\u043E\u0434\u0430 \u043F\u043E \u0443\u043C\u043E\u043B\u0447\u0430\u043D\u0438\u044E \u0432\u044B\u043A\u043B\u044E\u0447\u0435\u043D\u0430; \u043E\u043F\u0440\u0435\u0434\u0435\u043B\u0435\u043D\u0438\u0435 \u043C\u0435\u0441\u0442\u0430 \u043F\u043E GPS \u0438\u0437 EXIF \u0442\u043E\u0436\u0435 \u0432\u044B\u043A\u043B\u044E\u0447\u0435\u043D\u043E.",
+        onboardingStepSettingsTitle: "\u042F\u0437\u044B\u043A, \u043F\u0430\u043F\u043A\u0430, \u043F\u043E\u0433\u043E\u0434\u0430 \u0438 \u043F\u0440\u0438\u0432\u0430\u0442\u043D\u043E\u0441\u0442\u044C \u2014 \u0432 \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0430\u0445",
+        onboardingStepTimelineEntryBody: "\u041D\u0430\u0436\u043C\u0438\u0442\u0435 \u044D\u0442\u043E\u0442 \u0437\u043D\u0430\u0447\u043E\u043A Dayline, \u0447\u0442\u043E\u0431\u044B \u043E\u0442\u043A\u0440\u044B\u0442\u044C \u043B\u0435\u043D\u0442\u0443 \u0434\u043D\u0435\u0432\u043D\u0438\u043A\u0430. \u0421\u043B\u0435\u0434\u0443\u044E\u0449\u0438\u0439 \u0448\u0430\u0433 \u043F\u0440\u043E\u0432\u0435\u0434\u0451\u0442 \u0432\u043D\u0443\u0442\u0440\u044C.",
+        onboardingStepTimelineEntryTitle: "\u041F\u0440\u0435\u0436\u043D\u0438\u0435 \u0434\u043D\u0438 \u2014 \u0432 \u043B\u0435\u043D\u0442\u0435 \u0434\u043D\u0435\u0432\u043D\u0438\u043A\u0430",
+        onboardingStepTimelineListBody: "\u0421\u043B\u0435\u0432\u0430 \u0434\u0435\u043D\u044C \u043D\u0435\u0434\u0435\u043B\u0438 \u0438 \u0434\u0430\u0442\u0430, \u0432 \u0446\u0435\u043D\u0442\u0440\u0435 \u0437\u0430\u0433\u043E\u043B\u043E\u0432\u043E\u043A, \u043E\u0442\u0440\u044B\u0432\u043E\u043A \u0438 \u0432\u0440\u0435\u043C\u044F \u043E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u0438\u044F, \u0441\u043F\u0440\u0430\u0432\u0430 \u043E\u0431\u043B\u043E\u0436\u043A\u0430 \u0434\u043D\u044F.",
+        onboardingStepTimelineListTitle: "\u0422\u0435 \u0436\u0435 \u0437\u0430\u043C\u0435\u0442\u043A\u0438, \u043F\u043E \u0441\u0442\u0440\u043E\u043A\u0435 \u043D\u0430 \u0434\u0435\u043D\u044C",
+        onboardingStepTodayBody: "\u0423 \u0441\u0435\u0433\u043E\u0434\u043D\u044F\u0448\u043D\u0435\u0433\u043E \u0434\u043D\u044F \u0435\u0441\u0442\u044C \u043E\u0431\u0432\u043E\u0434\u043A\u0430. \u041D\u0430\u0436\u043C\u0438\u0442\u0435 \u043D\u0430 \u043D\u0435\u0433\u043E \u0438 \u043D\u0430\u043F\u0438\u0448\u0438\u0442\u0435 \u043E \u0441\u0435\u0433\u043E\u0434\u043D\u044F\u0448\u043D\u0435\u043C \u0434\u043D\u0435; \u0437\u0430\u043F\u0438\u0441\u0430\u043D\u043D\u044B\u0435 \u0434\u043D\u0438 \u0441\u0440\u0430\u0437\u0443 \u043F\u043E\u0434\u0441\u0432\u0435\u0442\u044F\u0442\u0441\u044F.",
+        onboardingStepTodayTitle: "\u041D\u0430\u0447\u043D\u0438\u0442\u0435 \u0441 \u0441\u0435\u0433\u043E\u0434\u043D\u044F",
+        onboardingStepWeatherBody: "\u041F\u043E\u0441\u043B\u0435 \u0432\u043A\u043B\u044E\u0447\u0435\u043D\u0438\u044F \u0437\u0434\u0435\u0441\u044C \u0432\u0438\u0434\u043D\u044B \u0442\u0435\u043C\u043F\u0435\u0440\u0430\u0442\u0443\u0440\u0430, \u043E\u0449\u0443\u0449\u0430\u0435\u043C\u0430\u044F \u0442\u0435\u043C\u043F\u0435\u0440\u0430\u0442\u0443\u0440\u0430 \u0438 \u0432\u043B\u0430\u0436\u043D\u043E\u0441\u0442\u044C \u0434\u043D\u044F; \u043A\u043E\u043E\u0440\u0434\u0438\u043D\u0430\u0442\u044B, \u0435\u0434\u0438\u043D\u0438\u0446\u044B \u0438 \u0447\u0430\u0441\u043E\u0432\u043E\u0439 \u043F\u043E\u044F\u0441 \u2014 \u0432 \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0430\u0445. \u041F\u043E \u0443\u043C\u043E\u043B\u0447\u0430\u043D\u0438\u044E \u0432\u044B\u043A\u043B\u044E\u0447\u0435\u043D\u043E.",
+        onboardingStepWeatherOffBody: "\u0427\u0442\u043E\u0431\u044B \u0432\u043A\u043B\u044E\u0447\u0438\u0442\u044C, \u043E\u0442\u043A\u0440\u043E\u0439\u0442\u0435 \xAB\u041D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438 \u2192 Dayline \u2192 \u041F\u043E\u0433\u043E\u0434\u0430\xBB \u0438 \u0443\u043A\u0430\u0436\u0438\u0442\u0435 \u043A\u043E\u043E\u0440\u0434\u0438\u043D\u0430\u0442\u044B; \u043A\u0430\u0440\u0442\u043E\u0447\u043A\u0430 \u043F\u043E\u043A\u0430\u0436\u0435\u0442 \u0442\u0435\u043C\u043F\u0435\u0440\u0430\u0442\u0443\u0440\u0443, \u043E\u0449\u0443\u0449\u0430\u0435\u043C\u0443\u044E \u0442\u0435\u043C\u043F\u0435\u0440\u0430\u0442\u0443\u0440\u0443 \u0438 \u0432\u043B\u0430\u0436\u043D\u043E\u0441\u0442\u044C.",
+        onboardingStepWeatherOffTitle: "\u041F\u043E\u0433\u043E\u0434\u0430 \u043F\u043E \u0443\u043C\u043E\u043B\u0447\u0430\u043D\u0438\u044E \u0432\u044B\u043A\u043B\u044E\u0447\u0435\u043D\u0430",
+        onboardingStepWeatherTitle: "\u041F\u043E\u0433\u043E\u0434\u0430 \u043D\u0435\u043E\u0431\u044F\u0437\u0430\u0442\u0435\u043B\u044C\u043D\u0430",
         openCalendar: "\u041E\u0442\u043A\u0440\u044B\u0442\u044C Dayline",
         openFilters: "\u041E\u0442\u043A\u0440\u044B\u0442\u044C \u0444\u0438\u043B\u044C\u0442\u0440\u044B",
         openNoteFailed: "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043E\u0442\u043A\u0440\u044B\u0442\u044C \u0437\u0430\u043C\u0435\u0442\u043A\u0443: {error}",
@@ -6512,18 +6782,18 @@ var init_mood_picker_modal = __esm({
         super.close();
         if (this.opener?.isConnected) this.opener.focus();
       }
-      resetContent(step) {
+      resetContent(step2) {
         this.ownerWindow.clearTimeout(this.focusTimer);
         this.fluidControl?.destroy();
         this.fluidControl = null;
         this.dateInput = null;
-        this.step = step;
+        this.step = step2;
         this.contentEl.empty();
         this.contentEl.scrollTop = 0;
         this.errorEl = null;
         this.saveButton = null;
-        this.contentEl.classList.toggle("is-scale-step", step === 1);
-        this.contentEl.classList.toggle("is-label-step", step === 2);
+        this.contentEl.classList.toggle("is-scale-step", step2 === 1);
+        this.contentEl.classList.toggle("is-label-step", step2 === 2);
         this.setActiveColor(getMoodColor(this.score ?? 0));
       }
       setActiveColor(color) {
@@ -8149,12 +8419,12 @@ var init_journal_timeline_view = __esm({
           chip.createSpan({ text: item.label });
           (0, import_obsidian2.setIcon)(chip.createSpan({ cls: "journal-filter-chip-remove", attr: { "aria-hidden": "true" } }), "x");
           chip.addEventListener("click", () => {
-            const position = active.indexOf(item);
+            const position2 = active.indexOf(item);
             delete this.filter[item.key];
             this.syncFilterControls();
             this.updateResults();
             const chips = this.contentEl.querySelectorAll(".journal-filter-chip");
-            (chips[Math.min(position, chips.length - 1)] || this.filterButton)?.focus();
+            (chips[Math.min(position2, chips.length - 1)] || this.filterButton)?.focus();
           });
         }
       }
@@ -8545,6 +8815,805 @@ var init_journal_timeline_view = __esm({
         } catch (error) {
           console.warn("[Dayline] Open timeline entry failed:", error?.message || error);
           new import_obsidian2.Notice(t(this.plugin.settings, "timelineOpenFailed", { error: error?.message || error }));
+        }
+      }
+    };
+  }
+});
+
+// src/onboarding-tour.ts
+var onboarding_tour_exports = {};
+__export(onboarding_tour_exports, {
+  ONBOARDING_TOUR_VERSION: () => ONBOARDING_TOUR_VERSION,
+  OnboardingTourState: () => OnboardingTourState,
+  TOUR_CARD_GAP: () => TOUR_CARD_GAP,
+  TOUR_CARD_MIN_WIDTH: () => TOUR_CARD_MIN_WIDTH,
+  TOUR_CARD_WIDTH: () => TOUR_CARD_WIDTH,
+  TOUR_HOLE_PADDING: () => TOUR_HOLE_PADDING,
+  TOUR_SHEET_INSET: () => TOUR_SHEET_INSET,
+  TOUR_VIEWPORT_EDGE: () => TOUR_VIEWPORT_EDGE,
+  buildOnboardingSteps: () => buildOnboardingSteps,
+  computeTourBands: () => computeTourBands,
+  computeTourPlacement: () => computeTourPlacement,
+  isOnboardingSeen: () => isOnboardingSeen,
+  pickFeaturedDay: () => pickFeaturedDay,
+  resolveOnboardingStart: () => resolveOnboardingStart,
+  tourHoleRect: () => tourHoleRect
+});
+function step(id, placement, titleKey, bodyKey) {
+  return { id, placement, titleKey, bodyKey };
+}
+function buildOnboardingSteps(options) {
+  if (!options.hasEntries) {
+    return [
+      step("calendar", "right", "onboardingStepFolderTitle", "onboardingStepFolderBody"),
+      step("today", "below", "onboardingStepTodayTitle", "onboardingStepTodayBody")
+    ];
+  }
+  const weatherStep = options.weatherVisible ? step("weather", "right", "onboardingStepWeatherTitle", "onboardingStepWeatherBody") : step("weather", "right", "onboardingStepWeatherOffTitle", "onboardingStepWeatherOffBody");
+  if (options.surface === "mobile") {
+    return [
+      step("calendar", "right", "onboardingStepCalendarTitle", "onboardingStepCalendarBody"),
+      step("day", "below", "onboardingStepDayTitle", "onboardingStepDayBody"),
+      step("mood", "left", "onboardingStepMoodTitle", "onboardingStepMoodBody"),
+      step("timeline-list", "left", "onboardingStepTimelineListTitle", "onboardingStepTimelineListBody"),
+      step("today", "below", "onboardingStepTodayTitle", "onboardingStepTodayBody")
+    ];
+  }
+  return [
+    step("calendar", "right", "onboardingStepCalendarTitle", "onboardingStepCalendarBody"),
+    step("day", "below", "onboardingStepDayTitle", "onboardingStepDayBody"),
+    step("mood", "left", "onboardingStepMoodTitle", "onboardingStepMoodBody"),
+    weatherStep,
+    step("timeline-entry", "right", "onboardingStepTimelineEntryTitle", "onboardingStepTimelineEntryBody"),
+    step("timeline-list", "left", "onboardingStepTimelineListTitle", "onboardingStepTimelineListBody"),
+    step("timeline-search", "left", "onboardingStepSearchTitle", "onboardingStepSearchBody"),
+    step("settings", "left", "onboardingStepSettingsTitle", "onboardingStepSettingsBody"),
+    step("today", "below", "onboardingStepTodayTitle", "onboardingStepTodayBody")
+  ];
+}
+function resolveOnboardingStart(options) {
+  if (isOnboardingSeen(options.seenVersion)) return "skip";
+  return options.hasPersistedSettings ? "mark-seen" : "show";
+}
+function isOnboardingSeen(value) {
+  if (typeof value === "number") return Number.isFinite(value) && value >= 1;
+  if (typeof value === "string") return value.trim().length > 0;
+  return false;
+}
+function clamp(value, min, max) {
+  if (max < min) return min;
+  return Math.min(Math.max(value, min), max);
+}
+function overlaps(a, b) {
+  return a.left < b.left + b.width && a.left + a.width > b.left && a.top < b.top + b.height && a.top + a.height > b.top;
+}
+function tourHoleRect(target) {
+  return {
+    left: target.left - TOUR_HOLE_PADDING,
+    top: target.top - TOUR_HOLE_PADDING,
+    width: target.width + TOUR_HOLE_PADDING * 2,
+    height: target.height + TOUR_HOLE_PADDING * 2
+  };
+}
+function computeTourPlacement(input) {
+  const hole = tourHoleRect(input.target);
+  const edge = TOUR_VIEWPORT_EDGE;
+  const width = Math.max(0, Math.min(input.card.width, input.viewport.width - edge * 2));
+  const height = Math.max(0, Math.min(input.card.height, input.viewport.height - edge * 2));
+  const maxLeft = input.viewport.width - width - edge;
+  const maxTop = input.viewport.height - height - edge;
+  const centreX = input.target.left + input.target.width / 2;
+  const centreY = input.target.top + input.target.height / 2;
+  if (input.sheet) {
+    const sheetLeft = TOUR_SHEET_INSET;
+    const sheetWidth = Math.max(0, input.viewport.width - TOUR_SHEET_INSET * 2);
+    const bottom = input.viewport.height - height - TOUR_SHEET_INSET;
+    const top2 = overlaps(
+      { left: sheetLeft, top: bottom, width: sheetWidth, height },
+      hole
+    ) ? TOUR_SHEET_INSET : bottom;
+    return {
+      left: sheetLeft,
+      top: clamp(top2, TOUR_SHEET_INSET, Math.max(TOUR_SHEET_INSET, input.viewport.height - height - TOUR_SHEET_INSET)),
+      width: sheetWidth,
+      mode: "sheet"
+    };
+  }
+  const attempt = (mode2, cardWidth) => {
+    const raw = rawPlacement(mode2, {
+      hole,
+      width: cardWidth,
+      height,
+      centreX,
+      centreY,
+      gap: TOUR_CARD_GAP
+    });
+    const candidateLeft = input.viewport.width - cardWidth - edge;
+    const left2 = clamp(raw.left, edge, candidateLeft);
+    const top2 = clamp(raw.top, edge, maxTop);
+    const rect2 = { left: left2, top: top2, width: cardWidth, height };
+    if (overlaps(rect2, hole)) return null;
+    return decorate(mode2, rect2, hole, centreX, centreY);
+  };
+  for (const mode2 of PLACEMENT_ORDER[input.preferred]) {
+    const placement = attempt(mode2, width);
+    if (placement) return placement;
+  }
+  for (const mode2 of PLACEMENT_ORDER[input.preferred]) {
+    if (mode2 !== "left" && mode2 !== "right") continue;
+    const available = mode2 === "left" ? hole.left - TOUR_CARD_GAP - edge : input.viewport.width - (hole.left + hole.width) - TOUR_CARD_GAP - edge;
+    const narrowed = Math.min(width, Math.floor(available));
+    if (narrowed < TOUR_CARD_MIN_WIDTH || narrowed >= width) continue;
+    const placement = attempt(mode2, narrowed);
+    if (placement) return placement;
+  }
+  const left = clamp(centreX - width / 2, edge, maxLeft);
+  const top = clamp(hole.top + hole.height + TOUR_CARD_GAP, edge, maxTop);
+  const rect = { left, top, width, height };
+  const mode = top <= hole.top ? "above" : "below";
+  return decorate(mode, rect, hole, centreX, centreY);
+}
+function rawPlacement(mode, geometry) {
+  const { hole, width, height, centreX, centreY, gap } = geometry;
+  if (mode === "right") {
+    return { left: hole.left + hole.width + gap, top: centreY - height / 2 };
+  }
+  if (mode === "left") {
+    return { left: hole.left - gap - width, top: centreY - height / 2 };
+  }
+  if (mode === "below") {
+    return { left: centreX - width / 2, top: hole.top + hole.height + gap };
+  }
+  return { left: centreX - width / 2, top: hole.top - gap - height };
+}
+function decorate(mode, rect, hole, centreX, centreY) {
+  const base = { left: rect.left, top: rect.top, width: rect.width, mode };
+  if (mode === "left" || mode === "right") {
+    const cardEdge = mode === "left" ? rect.left + rect.width + 2 : rect.left - 2;
+    const targetEdge = mode === "left" ? hole.left - 2 : hole.left + hole.width + 2;
+    const attachY = clamp(centreY, rect.top + CONNECTOR_INSET, rect.top + rect.height - CONNECTOR_INSET);
+    return {
+      ...base,
+      leader: { x1: targetEdge, y1: centreY, x2: cardEdge, y2: attachY }
+    };
+  }
+  const arrow = clamp(centreX - rect.left, CONNECTOR_INSET, Math.max(CONNECTOR_INSET, rect.width - CONNECTOR_INSET));
+  return { ...base, arrow };
+}
+function computeTourBands(hole, viewport) {
+  const left = clamp(hole.left, 0, viewport.width);
+  const top = clamp(hole.top, 0, viewport.height);
+  const right = clamp(hole.left + hole.width, left, viewport.width);
+  const bottom = clamp(hole.top + hole.height, top, viewport.height);
+  return {
+    top: { left: 0, top: 0, width: viewport.width, height: top },
+    bottom: { left: 0, top: bottom, width: viewport.width, height: Math.max(0, viewport.height - bottom) },
+    left: { left: 0, top, width: left, height: bottom - top },
+    right: { left: right, top, width: Math.max(0, viewport.width - right), height: bottom - top }
+  };
+}
+function pickFeaturedDay(candidates, today) {
+  const photoAndMore = candidates.find((candidate) => candidate.hasPhoto && candidate.multipleEntries);
+  if (photoAndMore) return photoAndMore.date;
+  const photo = candidates.find((candidate) => candidate.hasPhoto);
+  if (photo) return photo.date;
+  return today;
+}
+var ONBOARDING_TOUR_VERSION, OnboardingTourState, TOUR_HOLE_PADDING, TOUR_CARD_GAP, TOUR_VIEWPORT_EDGE, TOUR_CARD_WIDTH, TOUR_CARD_MIN_WIDTH, TOUR_SHEET_INSET, CONNECTOR_INSET, PLACEMENT_ORDER;
+var init_onboarding_tour = __esm({
+  "src/onboarding-tour.ts"() {
+    "use strict";
+    ONBOARDING_TOUR_VERSION = 1;
+    OnboardingTourState = class {
+      constructor(steps) {
+        __publicField(this, "stepList");
+        __publicField(this, "cursor", 0);
+        __publicField(this, "outcome", null);
+        if (!steps.length) throw new Error("An onboarding tour needs at least one step");
+        this.stepList = [...steps];
+      }
+      get steps() {
+        return this.stepList;
+      }
+      get total() {
+        return this.stepList.length;
+      }
+      get index() {
+        return this.cursor;
+      }
+      get step() {
+        return this.stepList[this.cursor];
+      }
+      get isFirst() {
+        return this.cursor === 0;
+      }
+      get isLast() {
+        return this.cursor === this.stepList.length - 1;
+      }
+      get result() {
+        return this.outcome;
+      }
+      get done() {
+        return this.outcome !== null;
+      }
+      /** Move forward; moving past the last step finishes the tour. */
+      next() {
+        if (this.done) return false;
+        if (this.isLast) {
+          this.outcome = "finished";
+          return false;
+        }
+        this.cursor += 1;
+        return true;
+      }
+      /** Move back; the first step has nowhere to go. */
+      back() {
+        if (this.done || this.isFirst) return false;
+        this.cursor -= 1;
+        return true;
+      }
+      /** Jump to a step index. Returns false for an out-of-range index. */
+      goTo(index) {
+        if (this.done) return false;
+        if (!Number.isInteger(index) || index < 0 || index >= this.stepList.length) return false;
+        this.cursor = index;
+        return true;
+      }
+      /** "写今天": the last step's primary button ends the tour here. */
+      finish() {
+        if (this.done) return false;
+        this.outcome = "finished";
+        return true;
+      }
+      skip() {
+        if (this.done) return false;
+        this.outcome = "skipped";
+        return true;
+      }
+      /** Closed by the host (plugin unload, a vanished target, an unexpected error). */
+      abandon() {
+        if (this.done) return false;
+        this.outcome = "abandoned";
+        return true;
+      }
+    };
+    TOUR_HOLE_PADDING = 7;
+    TOUR_CARD_GAP = 16;
+    TOUR_VIEWPORT_EDGE = 14;
+    TOUR_CARD_WIDTH = 300;
+    TOUR_CARD_MIN_WIDTH = 220;
+    TOUR_SHEET_INSET = 10;
+    CONNECTOR_INSET = 18;
+    PLACEMENT_ORDER = {
+      right: ["right", "below", "left", "above"],
+      left: ["left", "right", "below", "above"],
+      below: ["below", "above", "right", "left"],
+      above: ["above", "below", "right", "left"]
+    };
+  }
+});
+
+// src/onboarding-tour-overlay.ts
+var onboarding_tour_overlay_exports = {};
+__export(onboarding_tour_overlay_exports, {
+  OnboardingTourOverlay: () => OnboardingTourOverlay,
+  TOUR_CARD_DEFAULT_HEIGHT: () => TOUR_CARD_DEFAULT_HEIGHT,
+  TOUR_HOLE_PADDING: () => TOUR_HOLE_PADDING,
+  waitForElement: () => waitForElement
+});
+function createElement(doc, tag, className, text) {
+  const el = doc.createElement(tag);
+  if (className) el.className = className;
+  if (text !== void 0) el.textContent = text;
+  return el;
+}
+function position(el, rect) {
+  el.style.left = `${Math.round(rect.left)}px`;
+  el.style.top = `${Math.round(rect.top)}px`;
+  el.style.width = `${Math.round(rect.width)}px`;
+  el.style.height = `${Math.round(rect.height)}px`;
+}
+function errorText(error) {
+  return error instanceof Error ? error.message : String(error);
+}
+function sameRect(a, b) {
+  if (!a || !b) return a === b;
+  return Math.abs(a.left - b.left) < 0.5 && Math.abs(a.top - b.top) < 0.5 && Math.abs(a.width - b.width) < 0.5 && Math.abs(a.height - b.height) < 0.5;
+}
+function waitForElement(doc, selector, options = {}) {
+  const root = options.root ?? doc;
+  const timeoutMs = options.timeoutMs ?? 2e3;
+  const intervalMs = options.intervalMs ?? 40;
+  const existing = root.querySelector(selector);
+  if (existing instanceof HTMLElement) return Promise.resolve(existing);
+  const win = doc.defaultView;
+  return new Promise((resolve) => {
+    let timer = null;
+    let poll = null;
+    let observer = null;
+    let settled = false;
+    const finish = (value) => {
+      if (settled) return;
+      settled = true;
+      if (timer !== null) win?.clearTimeout(timer);
+      if (poll !== null) win?.clearInterval(poll);
+      observer?.disconnect();
+      resolve(value);
+    };
+    if (win) timer = win.setTimeout(() => finish(null), Math.max(0, timeoutMs));
+    else timer = window.setTimeout(() => finish(null), Math.max(0, timeoutMs));
+    const MutationObserverCtor = win?.MutationObserver;
+    if (MutationObserverCtor) {
+      observer = new MutationObserverCtor(() => {
+        const found = root.querySelector(selector);
+        if (found instanceof HTMLElement) finish(found);
+      });
+      try {
+        observer.observe(root === doc ? doc.documentElement : root, { childList: true, subtree: true });
+      } catch {
+        observer = null;
+      }
+    }
+    if (!observer) {
+      const sample = () => {
+        const found = root.querySelector(selector);
+        if (found instanceof HTMLElement) finish(found);
+      };
+      poll = win ? win.setInterval(sample, intervalMs) : window.setInterval(sample, intervalMs);
+    }
+  });
+}
+var TOUR_CARD_DEFAULT_HEIGHT, CARD_FADE_MS, GEOMETRY_POLL_MS, overlayCount, OnboardingTourOverlay;
+var init_onboarding_tour_overlay = __esm({
+  "src/onboarding-tour-overlay.ts"() {
+    "use strict";
+    init_onboarding_tour();
+    TOUR_CARD_DEFAULT_HEIGHT = 132;
+    CARD_FADE_MS = 70;
+    GEOMETRY_POLL_MS = 400;
+    overlayCount = 0;
+    OnboardingTourOverlay = class {
+      constructor(options) {
+        __publicField(this, "host");
+        __publicField(this, "state");
+        __publicField(this, "sheet");
+        __publicField(this, "doc");
+        __publicField(this, "win");
+        __publicField(this, "reduceMotion");
+        __publicField(this, "root", null);
+        __publicField(this, "card", null);
+        __publicField(this, "titleEl", null);
+        __publicField(this, "bodyEl", null);
+        __publicField(this, "dotsEl", null);
+        __publicField(this, "backButton", null);
+        __publicField(this, "nextButton", null);
+        __publicField(this, "arrowEl", null);
+        __publicField(this, "leaderEl", null);
+        __publicField(this, "leaderPath", null);
+        __publicField(this, "leaderDot", null);
+        __publicField(this, "bands", /* @__PURE__ */ new Map());
+        __publicField(this, "holeEl", null);
+        __publicField(this, "renderedIndex", 0);
+        __publicField(this, "renderedStep", null);
+        __publicField(this, "currentAnchor", null);
+        __publicField(this, "currentTarget", null);
+        __publicField(this, "busy", false);
+        /** Set when a target vanished mid-step; honoured once the current move ends. */
+        __publicField(this, "advancePending", false);
+        __publicField(this, "started", false);
+        __publicField(this, "closed", false);
+        __publicField(this, "restoreFocus", null);
+        __publicField(this, "timers", /* @__PURE__ */ new Set());
+        __publicField(this, "geometryTimer", null);
+        __publicField(this, "frame", null);
+        __publicField(this, "swallow", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+        });
+        __publicField(this, "onKeyDown", (event) => {
+          if (!this.active) return;
+          if (event.key === "Escape") {
+            event.preventDefault();
+            event.stopPropagation();
+            this.skip();
+            return;
+          }
+          if (event.key !== "Enter" && event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
+          const target = event.target instanceof Element ? event.target : null;
+          if (target?.closest('input, textarea, select, [contenteditable="true"]')) return;
+          event.preventDefault();
+          event.stopPropagation();
+          if (event.key === "ArrowLeft") this.back();
+          else this.next();
+        });
+        __publicField(this, "onGeometryChange", () => {
+          if (!this.active || this.frame !== null) return;
+          if (typeof this.win.requestAnimationFrame !== "function") {
+            this.syncGeometry();
+            return;
+          }
+          this.frame = this.win.requestAnimationFrame(() => {
+            this.frame = null;
+            this.syncGeometry();
+          });
+        });
+        this.host = options.host;
+        this.state = new OnboardingTourState(options.steps);
+        this.sheet = options.sheet === true;
+        this.doc = options.doc ?? document;
+        this.win = options.win ?? this.doc.defaultView ?? window;
+        this.reduceMotion = Boolean(this.win.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches);
+      }
+      get active() {
+        return this.started && !this.closed;
+      }
+      get index() {
+        return this.renderedIndex;
+      }
+      get total() {
+        return this.state.total;
+      }
+      /** Mount the overlay and show the first step that can be prepared. */
+      start() {
+        if (this.started) return;
+        this.started = true;
+        this.mount();
+        void this.moveTo(1, 0);
+      }
+      next() {
+        if (!this.active || this.busy) return;
+        if (this.renderedIndex >= this.state.total - 1) {
+          this.finish();
+          return;
+        }
+        void this.moveTo(1, this.renderedIndex + 1);
+      }
+      back() {
+        if (!this.active || this.busy || this.renderedIndex <= 0) return;
+        void this.moveTo(-1, this.renderedIndex - 1);
+      }
+      skip() {
+        if (!this.active) return;
+        this.state.skip();
+        this.end();
+      }
+      /** Remove the overlay without reporting an outcome change (used by unload). */
+      destroy() {
+        if (this.closed) return;
+        this.state.abandon();
+        this.end({ notify: false });
+      }
+      finish() {
+        if (!this.active) return;
+        this.state.finish();
+        this.end();
+      }
+      /* ----- Step flow ----- */
+      /**
+       * Walk toward the requested step until one of them can actually be shown.
+       * A step whose view is missing (weather card disabled, timeline refused to
+       * open) is skipped rather than throwing the whole tour away.
+       */
+      async moveTo(direction, from) {
+        if (!this.active || this.busy) return;
+        this.busy = true;
+        try {
+          const steps = this.state.steps;
+          let index = from;
+          while (index >= 0 && index < steps.length) {
+            const candidate = steps[index];
+            const anchor = await this.host.prepareStep(candidate);
+            if (this.closed) return;
+            if (anchor) {
+              const leaving = this.renderedStep;
+              if (leaving && leaving !== candidate) await this.host.teardownStep(leaving);
+              if (this.closed) return;
+              this.state.goTo(index);
+              this.renderedIndex = index;
+              this.renderedStep = candidate;
+              this.currentAnchor = anchor;
+              this.updateChrome(candidate);
+              await this.delay(CARD_FADE_MS);
+              if (this.closed) return;
+              this.place();
+              this.reveal();
+              return;
+            }
+            await this.host.teardownStep(candidate);
+            if (this.closed) return;
+            index += direction;
+          }
+          if (direction <= 0) {
+            this.state.goTo(this.renderedIndex);
+          } else if (this.renderedStep) {
+            this.finish();
+          } else {
+            this.state.abandon();
+            this.end();
+          }
+        } finally {
+          this.busy = false;
+        }
+        this.flushPendingAdvance();
+      }
+      /**
+       * A step whose target disappeared must move on, but the poll that noticed can
+       * fire while another step is still opening. Remember the request and run it
+       * once the overlay is free instead of dropping it.
+       */
+      flushPendingAdvance() {
+        if (!this.advancePending || !this.active || this.busy) return;
+        this.advancePending = false;
+        this.next();
+      }
+      delay(ms) {
+        return new Promise((resolve) => {
+          const timer = this.win.setTimeout(() => {
+            this.timers.delete(timer);
+            resolve();
+          }, ms);
+          this.timers.add(timer);
+        });
+      }
+      /* ----- Chrome ----- */
+      mount() {
+        const doc = this.doc;
+        const root = createElement(doc, "div", "dayline-tour");
+        root.setAttribute("data-dayline-tour", "root");
+        if (this.sheet) root.classList.add("is-sheet");
+        if (this.reduceMotion) root.classList.add("is-reduced-motion");
+        root.style.zIndex = String(2e3 + ++overlayCount);
+        for (const side of ["top", "bottom", "left", "right"]) {
+          const band = createElement(doc, "div", `dayline-tour-band is-${side}`);
+          band.setAttribute("aria-hidden", "true");
+          band.addEventListener("pointerdown", this.swallow, true);
+          band.addEventListener("click", this.swallow, true);
+          root.appendChild(band);
+          this.bands.set(side, band);
+        }
+        const hole = createElement(doc, "div", "dayline-tour-hole");
+        hole.setAttribute("aria-hidden", "true");
+        root.appendChild(hole);
+        this.holeEl = hole;
+        const svgNs = "http://www.w3.org/2000/svg";
+        const leader = doc.createElementNS(svgNs, "svg");
+        leader.setAttribute("class", "dayline-tour-leader");
+        leader.setAttribute("aria-hidden", "true");
+        const path = doc.createElementNS(svgNs, "path");
+        const dot = doc.createElementNS(svgNs, "circle");
+        dot.setAttribute("r", "2.5");
+        leader.appendChild(path);
+        leader.appendChild(dot);
+        root.appendChild(leader);
+        this.leaderEl = leader;
+        this.leaderPath = path;
+        this.leaderDot = dot;
+        const card = createElement(doc, "div", "dayline-tour-card");
+        card.setAttribute("role", "dialog");
+        card.setAttribute("aria-modal", "true");
+        card.setAttribute("aria-labelledby", "dayline-tour-title");
+        card.setAttribute("data-dayline-tour", "card");
+        const arrow = createElement(doc, "span", "dayline-tour-arrow");
+        arrow.setAttribute("aria-hidden", "true");
+        card.appendChild(arrow);
+        this.arrowEl = arrow;
+        const top = createElement(doc, "div", "dayline-tour-top");
+        const dots = createElement(doc, "span", "dayline-tour-dots");
+        dots.setAttribute("aria-hidden", "true");
+        top.appendChild(dots);
+        this.dotsEl = dots;
+        const skip = createElement(doc, "button", "dayline-tour-skip", this.host.localize("onboardingSkip"));
+        skip.type = "button";
+        skip.addEventListener("click", () => this.skip());
+        top.appendChild(skip);
+        card.appendChild(top);
+        const title = createElement(doc, "h2", "dayline-tour-title");
+        title.id = "dayline-tour-title";
+        card.appendChild(title);
+        this.titleEl = title;
+        const body = createElement(doc, "p", "dayline-tour-body");
+        card.appendChild(body);
+        this.bodyEl = body;
+        const actions = createElement(doc, "div", "dayline-tour-actions");
+        const back = createElement(doc, "button", "dayline-tour-back", this.host.localize("onboardingBack"));
+        back.type = "button";
+        back.addEventListener("click", () => this.back());
+        actions.appendChild(back);
+        this.backButton = back;
+        const next = createElement(doc, "button", "dayline-tour-next", this.host.localize("onboardingNext"));
+        next.type = "button";
+        next.addEventListener("click", () => this.next());
+        actions.appendChild(next);
+        this.nextButton = next;
+        card.appendChild(actions);
+        root.appendChild(card);
+        this.card = card;
+        doc.addEventListener("keydown", this.onKeyDown, true);
+        this.win.addEventListener("resize", this.onGeometryChange);
+        doc.addEventListener("scroll", this.onGeometryChange, true);
+        this.restoreFocus = doc.activeElement instanceof HTMLElement ? doc.activeElement : null;
+        doc.body.appendChild(root);
+        this.root = root;
+        this.geometryTimer = this.win.setInterval(() => this.syncGeometry(), GEOMETRY_POLL_MS);
+      }
+      /** Re-measure and repaint; a target that left the window skips its step. */
+      syncGeometry() {
+        if (!this.active || !this.currentAnchor) return;
+        const target = this.measure(this.currentAnchor);
+        if (!target) {
+          this.currentAnchor = null;
+          this.advancePending = true;
+          this.flushPendingAdvance();
+          return;
+        }
+        if (!this.busy && !sameRect(target, this.currentTarget)) this.place();
+      }
+      measure(anchor) {
+        let rect = null;
+        try {
+          rect = anchor();
+        } catch (error) {
+          console.warn("[Dayline] Onboarding target could not be measured:", errorText(error));
+          return null;
+        }
+        if (!rect || rect.width <= 0 && rect.height <= 0) return null;
+        const viewport = this.viewport();
+        const left = Math.max(0, rect.left);
+        const top = Math.max(0, rect.top);
+        const right = Math.min(viewport.width, rect.left + rect.width);
+        const bottom = Math.min(viewport.height, rect.top + rect.height);
+        if (right <= left || bottom <= top) return null;
+        return { left, top, width: right - left, height: bottom - top };
+      }
+      viewport() {
+        const view = this.win;
+        const width = view.visualViewport?.width || this.win.innerWidth || this.doc.documentElement?.clientWidth || 0;
+        const height = view.visualViewport?.height || this.win.innerHeight || this.doc.documentElement?.clientHeight || 0;
+        return { width, height };
+      }
+      place() {
+        if (!this.card || !this.holeEl) return;
+        const target = this.currentAnchor ? this.measure(this.currentAnchor) : null;
+        if (!target) return;
+        this.currentTarget = target;
+        const viewport = this.viewport();
+        const cardHeight = this.card.offsetHeight || this.card.getBoundingClientRect?.().height || TOUR_CARD_DEFAULT_HEIGHT;
+        const placement = computeTourPlacement({
+          target,
+          viewport,
+          card: { width: TOUR_CARD_WIDTH, height: cardHeight },
+          preferred: this.renderedStep?.placement ?? "right",
+          sheet: this.sheet
+        });
+        const hole = tourHoleRect(target);
+        const bands = computeTourBands(hole, viewport);
+        for (const [side, band] of this.bands) position(band, bands[side]);
+        position(this.holeEl, hole);
+        this.card.style.width = `${Math.round(placement.width)}px`;
+        this.card.classList.toggle("is-sheet", placement.mode === "sheet");
+        this.card.style.left = `${Math.round(placement.left)}px`;
+        this.card.style.top = `${Math.round(placement.top)}px`;
+        const arrow = this.arrowEl;
+        if (arrow) {
+          const showArrow = placement.mode === "below" || placement.mode === "above";
+          arrow.style.display = showArrow ? "block" : "none";
+          if (showArrow && placement.arrow !== void 0) {
+            arrow.style.left = `${Math.round(placement.arrow) - 5}px`;
+            arrow.classList.toggle("is-above", placement.mode === "above");
+          }
+        }
+        const leader = this.leaderEl;
+        if (leader && this.leaderPath && this.leaderDot) {
+          const show = Boolean(placement.leader);
+          leader.style.display = show ? "block" : "none";
+          if (placement.leader) {
+            const { x1, y1, x2, y2 } = placement.leader;
+            this.leaderPath.setAttribute("d", `M ${x1} ${y1} L ${x2} ${y2}`);
+            this.leaderDot.setAttribute("cx", String(x1));
+            this.leaderDot.setAttribute("cy", String(y1));
+          }
+        }
+      }
+      updateChrome(step2) {
+        const card = this.card;
+        if (!card) return;
+        card.classList.remove("is-visible");
+        if (this.titleEl) this.titleEl.textContent = this.host.localize(step2.titleKey);
+        if (this.bodyEl) this.bodyEl.textContent = this.host.localize(step2.bodyKey);
+        if (this.dotsEl) {
+          this.dotsEl.replaceChildren();
+          for (let index = 0; index < this.state.total; index += 1) {
+            const dot = this.doc.createElement("i");
+            if (index === this.renderedIndex) dot.className = "is-current";
+            if (index < this.renderedIndex) dot.className = dot.className ? `${dot.className} is-past` : "is-past";
+            this.dotsEl.appendChild(dot);
+          }
+        }
+        if (this.backButton) this.backButton.hidden = this.renderedIndex === 0;
+        if (this.nextButton) {
+          this.nextButton.textContent = this.host.localize(
+            this.renderedIndex >= this.state.total - 1 ? "onboardingFinish" : "onboardingNext"
+          );
+        }
+      }
+      reveal() {
+        const card = this.card;
+        const next = this.nextButton;
+        card?.classList.add("is-visible");
+        const focus = () => next?.focus({ preventScroll: true });
+        if (typeof this.win.requestAnimationFrame === "function") this.win.requestAnimationFrame(focus);
+        else focus();
+      }
+      end(options = {}) {
+        const outcome = this.state.result ?? "abandoned";
+        const leaving = this.renderedStep;
+        this.renderedStep = null;
+        this.currentAnchor = null;
+        this.close();
+        try {
+          if (leaving) void Promise.resolve(this.host.teardownStep(leaving)).catch(() => void 0);
+        } catch {
+        }
+        if (options.notify === false) {
+          this.host.destroy?.();
+          return;
+        }
+        try {
+          this.host.destroy?.();
+        } catch {
+        }
+        if (outcome === "finished") {
+          try {
+            this.host.onFinish();
+          } catch (error) {
+            console.warn("[Dayline] Could not open today's note after the tour:", errorText(error));
+          }
+        }
+        try {
+          this.host.onEnd(outcome);
+        } catch (error) {
+          console.warn("[Dayline] Onboarding tour teardown failed:", errorText(error));
+        }
+      }
+      close() {
+        if (this.closed) return;
+        this.closed = true;
+        this.advancePending = false;
+        for (const timer of this.timers) this.win.clearTimeout(timer);
+        this.timers.clear();
+        if (this.geometryTimer !== null) {
+          this.win.clearInterval(this.geometryTimer);
+          this.geometryTimer = null;
+        }
+        if (this.frame !== null) {
+          this.win.cancelAnimationFrame?.(this.frame);
+          this.frame = null;
+        }
+        this.doc.removeEventListener("keydown", this.onKeyDown, true);
+        this.win.removeEventListener("resize", this.onGeometryChange);
+        this.doc.removeEventListener("scroll", this.onGeometryChange, true);
+        this.root?.remove();
+        this.root = null;
+        this.card = null;
+        this.titleEl = null;
+        this.bodyEl = null;
+        this.dotsEl = null;
+        this.backButton = null;
+        this.nextButton = null;
+        this.arrowEl = null;
+        this.leaderEl = null;
+        this.leaderPath = null;
+        this.leaderDot = null;
+        this.holeEl = null;
+        this.bands.clear();
+        const restore = this.restoreFocus;
+        this.restoreFocus = null;
+        if (restore?.isConnected) {
+          try {
+            restore.focus({ preventScroll: true });
+          } catch {
+          }
         }
       }
     };
@@ -10478,13 +11547,13 @@ function requestCurrentCoordinates(navigatorOverride, options = {}) {
     };
     try {
       provider.getCurrentPosition(
-        (position) => finish(() => {
-          const coords = normalizeCoordinates(position?.coords?.latitude, position?.coords?.longitude);
+        (position2) => finish(() => {
+          const coords = normalizeCoordinates(position2?.coords?.latitude, position2?.coords?.longitude);
           if (!coords) {
             reject(new Error("invalid"));
             return;
           }
-          const accuracy = Number(position?.coords?.accuracy);
+          const accuracy = Number(position2?.coords?.accuracy);
           resolve(Number.isFinite(accuracy) && accuracy >= 0 ? { ...coords, accuracy } : coords);
         }),
         (error) => finish(() => {
@@ -12158,6 +13227,9 @@ var init_settings_tab = __esm({
           if (!await this._saveSettings()) return;
           this._refreshCalendarView();
         }));
+        this._addActionRow(new import_obsidian5.Setting(containerEl).setName(t(this.plugin.settings, "onboardingAriaLabel")).setDesc(t(this.plugin.settings, "onboardingReplayDesc")), "onboardingReplay").addButton((button) => button.setButtonText(t(this.plugin.settings, "onboardingReplay")).onClick(() => {
+          void this.plugin.startOnboardingTour({ replay: true });
+        }));
         this._addSection(containerEl, "calendar-journal");
         new import_obsidian5.Setting(containerEl).setName(t(this.plugin.settings, "journalSources"));
         this.sourceEditor ?? (this.sourceEditor = new JournalSourceSettingsEditor(this.plugin, {
@@ -12591,10 +13663,10 @@ var require_badge_storm = __commonJS({
   }
 });
 
-// node_modules/mediabunny/dist/modules/shared/bitstream.js
+// ../../../../node_modules/mediabunny/dist/modules/shared/bitstream.js
 var Bitstream;
 var init_bitstream = __esm({
-  "node_modules/mediabunny/dist/modules/shared/bitstream.js"() {
+  "../../../../node_modules/mediabunny/dist/modules/shared/bitstream.js"() {
     Bitstream = class _Bitstream {
       constructor(bytes) {
         this.bytes = bytes;
@@ -12658,10 +13730,10 @@ var init_bitstream = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/shared/aac-misc.js
+// ../../../../node_modules/mediabunny/dist/modules/shared/aac-misc.js
 var aacFrequencyTable, aacChannelMap, parseAacAudioSpecificConfig;
 var init_aac_misc = __esm({
-  "node_modules/mediabunny/dist/modules/shared/aac-misc.js"() {
+  "../../../../node_modules/mediabunny/dist/modules/shared/aac-misc.js"() {
     init_bitstream();
     aacFrequencyTable = [
       96e3,
@@ -12713,10 +13785,10 @@ var init_aac_misc = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/logging.js
+// ../../../../node_modules/mediabunny/dist/modules/src/logging.js
 var LogLevel, Logging;
 var init_logging = __esm({
-  "node_modules/mediabunny/dist/modules/src/logging.js"() {
+  "../../../../node_modules/mediabunny/dist/modules/src/logging.js"() {
     init_misc();
     (function(LogLevel2) {
       LogLevel2[LogLevel2["Silent"] = 0] = "Silent";
@@ -12772,15 +13844,15 @@ var init_logging = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/misc.js
+// ../../../../node_modules/mediabunny/dist/modules/src/misc.js
 function assert(x) {
   if (!x) {
     throw new Error("Assertion failed.");
   }
 }
-var normalizeRotation, last, readExpGolomb, readSignedExpGolomb, toUint8Array, toDataView, textDecoder, invertObject, COLOR_PRIMARIES_MAP, COLOR_PRIMARIES_MAP_INVERSE, TRANSFER_CHARACTERISTICS_MAP, TRANSFER_CHARACTERISTICS_MAP_INVERSE, MATRIX_COEFFICIENTS_MAP, MATRIX_COEFFICIENTS_MAP_INVERSE, AsyncMutex, HEX_STRING_REGEX, bytesToHexString, hexStringToBytes, reverseBitsU32, binarySearchExact, binarySearchLessOrEqual, promiseWithResolvers, removeItem, findLast, findLastIndex, assertNever, getUint24, clamp, UNDETERMINED_LANGUAGE, roundIfAlmostInteger, roundToMultiple, roundToDivisor, ilog, ISO_639_2_REGEX, isIso639Dash2LanguageCode, SECOND_TO_MICROSECOND_FACTOR, mergeRequestInit, normalizeHeaders, retriedFetch, isChromiumCache, isChromium, chromiumVersionCache, getChromiumVersion, coalesceIndex, closedIntervalsOverlap, base64ToBytes, uint8ArraysAreEqual, polyfillSymbolDispose, isNumber, arrayCount, arrayArgmin, simplifyRational, wait, EventEmitter;
+var normalizeRotation, last, readExpGolomb, readSignedExpGolomb, toUint8Array, toDataView, textDecoder, invertObject, COLOR_PRIMARIES_MAP, COLOR_PRIMARIES_MAP_INVERSE, TRANSFER_CHARACTERISTICS_MAP, TRANSFER_CHARACTERISTICS_MAP_INVERSE, MATRIX_COEFFICIENTS_MAP, MATRIX_COEFFICIENTS_MAP_INVERSE, AsyncMutex, HEX_STRING_REGEX, bytesToHexString, hexStringToBytes, reverseBitsU32, binarySearchExact, binarySearchLessOrEqual, promiseWithResolvers, removeItem, findLast, findLastIndex, assertNever, getUint24, clamp2, UNDETERMINED_LANGUAGE, roundIfAlmostInteger, roundToMultiple, roundToDivisor, ilog, ISO_639_2_REGEX, isIso639Dash2LanguageCode, SECOND_TO_MICROSECOND_FACTOR, mergeRequestInit, normalizeHeaders, retriedFetch, isChromiumCache, isChromium, chromiumVersionCache, getChromiumVersion, coalesceIndex, closedIntervalsOverlap, base64ToBytes, uint8ArraysAreEqual, polyfillSymbolDispose, isNumber, arrayCount, arrayArgmin, simplifyRational, wait, EventEmitter;
 var init_misc = __esm({
-  "node_modules/mediabunny/dist/modules/src/misc.js"() {
+  "../../../../node_modules/mediabunny/dist/modules/src/misc.js"() {
     init_logging();
     normalizeRotation = (rotation) => {
       const mappedRotation = (rotation % 360 + 360) % 360;
@@ -12994,7 +14066,7 @@ var init_misc = __esm({
         return byte1 << 16 | byte2 << 8 | byte3;
       }
     };
-    clamp = (value, min, max) => {
+    clamp2 = (value, min, max) => {
       return Math.max(min, Math.min(max, value));
     };
     UNDETERMINED_LANGUAGE = "und";
@@ -13216,10 +14288,10 @@ var init_misc = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/codec.js
+// ../../../../node_modules/mediabunny/dist/modules/src/codec.js
 var PCM_AUDIO_CODECS, NON_PCM_AUDIO_CODECS, AUDIO_CODECS, AVC_LEVEL_TABLE, VP9_LEVEL_TABLE, VP9_DEFAULT_SUFFIX, AV1_DEFAULT_SUFFIX, PRORES_FOURCCS, extractVideoCodecString, extractAudioCodecString, OPUS_SAMPLE_RATE, PCM_CODEC_REGEX, parsePcmCodec, VALID_VIDEO_CODEC_STRING_PREFIXES;
 var init_codec = __esm({
-  "node_modules/mediabunny/dist/modules/src/codec.js"() {
+  "../../../../node_modules/mediabunny/dist/modules/src/codec.js"() {
     init_aac_misc();
     init_misc();
     PCM_AUDIO_CODECS = [
@@ -13529,19 +14601,19 @@ var init_codec = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/shared/ac3-misc.js
+// ../../../../node_modules/mediabunny/dist/modules/shared/ac3-misc.js
 var AC3_SAMPLE_RATES, EAC3_REDUCED_SAMPLE_RATES;
 var init_ac3_misc = __esm({
-  "node_modules/mediabunny/dist/modules/shared/ac3-misc.js"() {
+  "../../../../node_modules/mediabunny/dist/modules/shared/ac3-misc.js"() {
     AC3_SAMPLE_RATES = [48e3, 44100, 32e3];
     EAC3_REDUCED_SAMPLE_RATES = [24e3, 22050, 16e3];
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/codec-data.js
+// ../../../../node_modules/mediabunny/dist/modules/src/codec-data.js
 var AvcNalUnitType, HevcNalUnitType, iterateNalUnitsInAnnexB, iterateNalUnitsInLengthPrefixed, iterateAvcNalUnits, extractNalUnitTypeForAvc, removeEmulationPreventionBytes, ANNEX_B_START_CODE, extractAvcDecoderConfigurationRecord, AVC_HEVC_ASPECT_RATIO_IDC_TABLE, parseAvcSps, skipAvcHrdParameters, iterateHevcNalUnits, extractNalUnitTypeForHevc, parseHevcSps, extractHevcDecoderConfigurationRecord, parseProfileTierLevel, skipScalingListData, skipAllStRefPicSets, skipStRefPicSet, parseHevcVui, skipHevcHrdParameters, skipSubLayerHrdParameters, HevcNaluOrderState, extractVp9CodecInfoFromPacket, iterateAv1PacketObus, extractAv1CodecInfoFromPacket, parseOpusIdentificationHeader, OPUS_FRAME_DURATION_TABLE, parseOpusTocByte, parseModesFromVorbisSetupPacket, determineVideoPacketType, FlacBlockType, readVorbisComments, AC3_ACMOD_CHANNEL_COUNTS, AC3_FRAME_SIZES, AC3_REGISTRATION_DESCRIPTOR, EAC3_REGISTRATION_DESCRIPTOR, parseEac3Config, getEac3SampleRate, getEac3ChannelCount;
 var init_codec_data = __esm({
-  "node_modules/mediabunny/dist/modules/src/codec-data.js"() {
+  "../../../../node_modules/mediabunny/dist/modules/src/codec-data.js"() {
     init_codec();
     init_misc();
     init_logging();
@@ -15328,10 +16400,10 @@ var init_codec_data = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/demuxer.js
+// ../../../../node_modules/mediabunny/dist/modules/src/demuxer.js
 var Demuxer;
 var init_demuxer = __esm({
-  "node_modules/mediabunny/dist/modules/src/demuxer.js"() {
+  "../../../../node_modules/mediabunny/dist/modules/src/demuxer.js"() {
     Demuxer = class {
       constructor(input) {
         this.input = input;
@@ -15342,10 +16414,10 @@ var init_demuxer = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/packet.js
+// ../../../../node_modules/mediabunny/dist/modules/src/packet.js
 var PLACEHOLDER_DATA, EncodedPacket;
 var init_packet = __esm({
-  "node_modules/mediabunny/dist/modules/src/packet.js"() {
+  "../../../../node_modules/mediabunny/dist/modules/src/packet.js"() {
     init_misc();
     PLACEHOLDER_DATA = /* @__PURE__ */ new Uint8Array(0);
     EncodedPacket = class _EncodedPacket {
@@ -15509,10 +16581,10 @@ var init_packet = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/isobmff/isobmff-misc.js
+// ../../../../node_modules/mediabunny/dist/modules/src/isobmff/isobmff-misc.js
 var buildIsobmffMimeType, parsePsshBoxContents, psshBoxesAreEqual;
 var init_isobmff_misc = __esm({
-  "node_modules/mediabunny/dist/modules/src/isobmff/isobmff-misc.js"() {
+  "../../../../node_modules/mediabunny/dist/modules/src/isobmff/isobmff-misc.js"() {
     init_misc();
     buildIsobmffMimeType = (info) => {
       const base = info.hasVideo ? "video/" : info.hasAudio ? "audio/" : "application/";
@@ -15555,10 +16627,10 @@ var init_isobmff_misc = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/metadata.js
+// ../../../../node_modules/mediabunny/dist/modules/src/metadata.js
 var RichImageData, AttachedFile, DEFAULT_TRACK_DISPOSITION;
 var init_metadata = __esm({
-  "node_modules/mediabunny/dist/modules/src/metadata.js"() {
+  "../../../../node_modules/mediabunny/dist/modules/src/metadata.js"() {
     RichImageData = class {
       /** Creates a new {@link RichImageData}. */
       constructor(data, mimeType) {
@@ -15605,10 +16677,10 @@ var init_metadata = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/source.js
+// ../../../../node_modules/mediabunny/dist/modules/src/source.js
 var DEFAULT_MIN_READ_POSITION, DEFAULT_MAX_READ_POSITION, sourceFinalizationRegistry, Source, SourceRef, PathedSource, sourceRequestsAreEqual, URL_SOURCE_MIN_LOAD_AMOUNT, DEFAULT_RETRY_DELAY, warnedOrigins, UrlSource, BYTE_RANGE_REGEX, parseByteRangeHeader, PREFETCH_PROFILES, ReadOrchestrator, RangedSource;
 var init_source = __esm({
-  "node_modules/mediabunny/dist/modules/src/source.js"() {
+  "../../../../node_modules/mediabunny/dist/modules/src/source.js"() {
     init_misc();
     init_input();
     init_logging();
@@ -15894,7 +16966,7 @@ var init_source = __esm({
         if (baseSize === null) {
           return this._length !== null ? this._length : null;
         }
-        return clamp(baseSize - this._offset, 0, this._length ?? Infinity);
+        return clamp2(baseSize - this._offset, 0, this._length ?? Infinity);
       }
       /** @internal */
       _read(start, end, minReadPosition, maxReadPosition) {
@@ -16575,7 +17647,7 @@ var init_source = __esm({
             return null;
           }
         }
-        return clamp(baseSize - this._offset, 0, this._length ?? Infinity);
+        return clamp2(baseSize - this._offset, 0, this._length ?? Infinity);
       }
       /** @internal */
       _read(start, end, minReadPosition, maxReadPosition) {
@@ -16608,10 +17680,10 @@ var init_source = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/reader.js
+// ../../../../node_modules/mediabunny/dist/modules/src/reader.js
 var Reader, FileSlice, checkIsInRange, readBytes, readU8, readU16, readU16Be, readU24Be, readI16Be, readU32, readU32Be, readU32Le, readI32Be, readI32Le, readU64, readU64Be, readI64Be, readI64Le, readF32Be, readF64Be, readAscii;
 var init_reader = __esm({
-  "node_modules/mediabunny/dist/modules/src/reader.js"() {
+  "../../../../node_modules/mediabunny/dist/modules/src/reader.js"() {
     init_input();
     init_misc();
     init_source();
@@ -16667,7 +17739,7 @@ var init_reader = __esm({
           return null;
         }
         if (this.fileSizeNonStrict !== null) {
-          return this.requestSlice(start, clamp(this.fileSizeNonStrict - start, minLength, maxLength));
+          return this.requestSlice(start, clamp2(this.fileSizeNonStrict - start, minLength, maxLength));
         } else {
           const promisedAttempt = this.requestSlice(start, maxLength);
           const handleAttempt = (attempt) => {
@@ -16675,7 +17747,7 @@ var init_reader = __esm({
               return attempt;
             }
             assert(this.fileSizeNonStrict !== null);
-            return this.requestSlice(start, clamp(this.fileSizeNonStrict - start, minLength, maxLength));
+            return this.requestSlice(start, clamp2(this.fileSizeNonStrict - start, minLength, maxLength));
           };
           if (promisedAttempt instanceof Promise) {
             return promisedAttempt.then(handleAttempt);
@@ -16871,10 +17943,10 @@ var init_reader = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/isobmff/isobmff-reader.js
+// ../../../../node_modules/mediabunny/dist/modules/src/isobmff/isobmff-reader.js
 var MIN_BOX_HEADER_SIZE, MAX_BOX_HEADER_SIZE, readBoxHeader, readFixed_16_16, readFixed_2_30, readIsomVariableInteger, readMetadataStringShort, readDataBox;
 var init_isobmff_reader = __esm({
-  "node_modules/mediabunny/dist/modules/src/isobmff/isobmff-reader.js"() {
+  "../../../../node_modules/mediabunny/dist/modules/src/isobmff/isobmff-reader.js"() {
     init_metadata();
     init_misc();
     init_reader();
@@ -16950,10 +18022,10 @@ var init_isobmff_reader = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/aes.js
+// ../../../../node_modules/mediabunny/dist/modules/src/aes.js
 var AES_128_BLOCK_SIZE, Te4, Td0, Td1, Td2, Td3, Td4, rcon, tablesGenerated, generateAesTables, Aes128CbcContext;
 var init_aes = __esm({
-  "node_modules/mediabunny/dist/modules/src/aes.js"() {
+  "../../../../node_modules/mediabunny/dist/modules/src/aes.js"() {
     init_misc();
     AES_128_BLOCK_SIZE = 16;
     Te4 = new Uint32Array(256);
@@ -17087,10 +18159,10 @@ var init_aes = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/isobmff/isobmff-demuxer.js
+// ../../../../node_modules/mediabunny/dist/modules/src/isobmff/isobmff-demuxer.js
 var IsobmffDemuxer, IsobmffTrackBacking, IsobmffVideoTrackBacking, IsobmffAudioTrackBacking, getSampleIndexForTimestamp, getKeyframeSampleIndexForTimestamp, getSampleInfo, getNextKeyframeIndexForSample, offsetFragmentTrackDataByTimestamp, extractRotationFromMatrix, sampleTableIsEmpty, getOrCreateEncryptionAuxInfo, resolveEncryptionAuxInfo, decryptSample, decryptCtr, decryptCbcs, collectCryptRanges;
 var init_isobmff_demuxer = __esm({
-  "node_modules/mediabunny/dist/modules/src/isobmff/isobmff-demuxer.js"() {
+  "../../../../node_modules/mediabunny/dist/modules/src/isobmff/isobmff-demuxer.js"() {
     init_aac_misc();
     init_codec();
     init_codec_data();
@@ -20022,7 +21094,7 @@ var init_isobmff_demuxer = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/matroska/ebml.js
+// ../../../../node_modules/mediabunny/dist/modules/src/matroska/ebml.js
 function assertDefinedSize(size) {
   if (size === void 0) {
     throw new Error("Undefined element size is used in a place where it is not supported.");
@@ -20030,7 +21102,7 @@ function assertDefinedSize(size) {
 }
 var EBMLId, LEVEL_0_EBML_IDS, LEVEL_1_EBML_IDS, LEVEL_0_AND_1_EBML_IDS, MAX_VAR_INT_SIZE, MIN_HEADER_SIZE, MAX_HEADER_SIZE, readVarIntSize, readVarInt, readUnsignedInt, readUnsignedBigInt, readElementId, readElementSize, readElementHeader, readAsciiString, readUnicodeString, readFloat, searchForNextElementId, resync, CODEC_STRING_MAP;
 var init_ebml = __esm({
-  "node_modules/mediabunny/dist/modules/src/matroska/ebml.js"() {
+  "../../../../node_modules/mediabunny/dist/modules/src/matroska/ebml.js"() {
     init_misc();
     init_reader();
     (function(EBMLId2) {
@@ -20366,10 +21438,10 @@ var init_ebml = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/matroska/matroska-misc.js
+// ../../../../node_modules/mediabunny/dist/modules/src/matroska/matroska-misc.js
 var buildMatroskaMimeType;
 var init_matroska_misc = __esm({
-  "node_modules/mediabunny/dist/modules/src/matroska/matroska-misc.js"() {
+  "../../../../node_modules/mediabunny/dist/modules/src/matroska/matroska-misc.js"() {
     buildMatroskaMimeType = (info) => {
       const base = info.hasVideo ? "video/" : info.hasAudio ? "audio/" : "application/";
       let string = base + (info.isWebM ? "webm" : "x-matroska");
@@ -20382,10 +21454,10 @@ var init_matroska_misc = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/matroska/matroska-demuxer.js
+// ../../../../node_modules/mediabunny/dist/modules/src/matroska/matroska-demuxer.js
 var BlockLacing, ContentEncodingScope, ContentCompAlgo, METADATA_ELEMENTS, MAX_RESYNC_LENGTH, MatroskaDemuxer, MatroskaTrackBacking, MatroskaVideoTrackBacking, MatroskaAudioTrackBacking;
 var init_matroska_demuxer = __esm({
-  "node_modules/mediabunny/dist/modules/src/matroska/matroska-demuxer.js"() {
+  "../../../../node_modules/mediabunny/dist/modules/src/matroska/matroska-demuxer.js"() {
     init_codec_data();
     init_codec();
     init_demuxer();
@@ -22433,10 +23505,10 @@ var init_matroska_demuxer = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/shared/mp3-misc.js
+// ../../../../node_modules/mediabunny/dist/modules/shared/mp3-misc.js
 var MP3_FRAME_HEADER_SIZE, SAMPLING_RATES, KILOBIT_RATES, XING, INFO, computeMp3FrameSize, computeAverageMp3FrameSize, getXingOffset, readMp3FrameHeader, decodeSynchsafe, XingFlags, getMp3ChannelCount;
 var init_mp3_misc = __esm({
-  "node_modules/mediabunny/dist/modules/shared/mp3-misc.js"() {
+  "../../../../node_modules/mediabunny/dist/modules/shared/mp3-misc.js"() {
     MP3_FRAME_HEADER_SIZE = 4;
     SAMPLING_RATES = [44100, 48e3, 32e3];
     KILOBIT_RATES = [
@@ -22703,10 +23775,10 @@ var init_mp3_misc = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/id3.js
+// ../../../../node_modules/mediabunny/dist/modules/src/id3.js
 var Id3V2HeaderFlags, Id3V2TextEncoding, ID3_V1_TAG_SIZE, ID3_V2_HEADER_SIZE, ID3_V1_GENRES, parseId3V1Tag, readId3V1String, readId3V2Header, parseId3V2Tag, Id3V2Reader;
 var init_id3 = __esm({
-  "node_modules/mediabunny/dist/modules/src/id3.js"() {
+  "../../../../node_modules/mediabunny/dist/modules/src/id3.js"() {
     init_mp3_misc();
     init_logging();
     init_misc();
@@ -23407,10 +24479,10 @@ var init_id3 = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/mp3/mp3-reader.js
+// ../../../../node_modules/mediabunny/dist/modules/src/mp3/mp3-reader.js
 var readNextMp3FrameHeader;
 var init_mp3_reader = __esm({
-  "node_modules/mediabunny/dist/modules/src/mp3/mp3-reader.js"() {
+  "../../../../node_modules/mediabunny/dist/modules/src/mp3/mp3-reader.js"() {
     init_mp3_misc();
     init_reader();
     readNextMp3FrameHeader = async (reader, startPos, until, ref = null) => {
@@ -23442,10 +24514,10 @@ var init_mp3_reader = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/mp3/mp3-demuxer.js
+// ../../../../node_modules/mediabunny/dist/modules/src/mp3/mp3-demuxer.js
 var Mp3Demuxer, Mp3AudioTrackBacking;
 var init_mp3_demuxer = __esm({
-  "node_modules/mediabunny/dist/modules/src/mp3/mp3-demuxer.js"() {
+  "../../../../node_modules/mediabunny/dist/modules/src/mp3/mp3-demuxer.js"() {
     init_demuxer();
     init_metadata();
     init_misc();
@@ -23753,10 +24825,10 @@ var init_mp3_demuxer = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/ogg/ogg-misc.js
+// ../../../../node_modules/mediabunny/dist/modules/src/ogg/ogg-misc.js
 var OGGS, OGG_CRC_POLYNOMIAL, OGG_CRC_TABLE, computeOggPageCrc, extractSampleMetadata, buildOggMimeType;
 var init_ogg_misc = __esm({
-  "node_modules/mediabunny/dist/modules/src/ogg/ogg-misc.js"() {
+  "../../../../node_modules/mediabunny/dist/modules/src/ogg/ogg-misc.js"() {
     init_codec_data();
     init_misc();
     OGGS = 1399285583;
@@ -23824,10 +24896,10 @@ var init_ogg_misc = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/ogg/ogg-reader.js
+// ../../../../node_modules/mediabunny/dist/modules/src/ogg/ogg-reader.js
 var MIN_PAGE_HEADER_SIZE, MAX_PAGE_HEADER_SIZE, MAX_PAGE_SIZE, readPageHeader, findNextPageHeader;
 var init_ogg_reader = __esm({
-  "node_modules/mediabunny/dist/modules/src/ogg/ogg-reader.js"() {
+  "../../../../node_modules/mediabunny/dist/modules/src/ogg/ogg-reader.js"() {
     init_reader();
     init_ogg_misc();
     MIN_PAGE_HEADER_SIZE = 27;
@@ -23888,10 +24960,10 @@ var init_ogg_reader = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/ogg/ogg-demuxer.js
+// ../../../../node_modules/mediabunny/dist/modules/src/ogg/ogg-demuxer.js
 var OggDemuxer, OggAudioTrackBacking, findPacketStartPosition, findPreviousPacketEndPosition;
 var init_ogg_demuxer = __esm({
-  "node_modules/mediabunny/dist/modules/src/ogg/ogg-demuxer.js"() {
+  "../../../../node_modules/mediabunny/dist/modules/src/ogg/ogg-demuxer.js"() {
     init_codec();
     init_codec_data();
     init_demuxer();
@@ -24579,10 +25651,10 @@ var init_ogg_demuxer = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/wave/wave-demuxer.js
+// ../../../../node_modules/mediabunny/dist/modules/src/wave/wave-demuxer.js
 var WaveFormat, WaveDemuxer, PACKET_SIZE_IN_FRAMES, WaveAudioTrackBacking;
 var init_wave_demuxer = __esm({
-  "node_modules/mediabunny/dist/modules/src/wave/wave-demuxer.js"() {
+  "../../../../node_modules/mediabunny/dist/modules/src/wave/wave-demuxer.js"() {
     init_demuxer();
     init_metadata();
     init_misc();
@@ -25036,10 +26108,10 @@ var init_wave_demuxer = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/adts/adts-reader.js
+// ../../../../node_modules/mediabunny/dist/modules/src/adts/adts-reader.js
 var MIN_ADTS_FRAME_HEADER_SIZE, MAX_ADTS_FRAME_HEADER_SIZE, readAdtsFrameHeader;
 var init_adts_reader = __esm({
-  "node_modules/mediabunny/dist/modules/src/adts/adts-reader.js"() {
+  "../../../../node_modules/mediabunny/dist/modules/src/adts/adts-reader.js"() {
     init_bitstream();
     init_reader();
     MIN_ADTS_FRAME_HEADER_SIZE = 7;
@@ -25097,10 +26169,10 @@ var init_adts_reader = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/adts/adts-demuxer.js
+// ../../../../node_modules/mediabunny/dist/modules/src/adts/adts-demuxer.js
 var SAMPLES_PER_AAC_FRAME, AdtsDemuxer, AdtsAudioTrackBacking;
 var init_adts_demuxer = __esm({
-  "node_modules/mediabunny/dist/modules/src/adts/adts-demuxer.js"() {
+  "../../../../node_modules/mediabunny/dist/modules/src/adts/adts-demuxer.js"() {
     init_aac_misc();
     init_demuxer();
     init_id3();
@@ -25369,10 +26441,10 @@ var init_adts_demuxer = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/flac/flac-misc.js
+// ../../../../node_modules/mediabunny/dist/modules/src/flac/flac-misc.js
 var getBlockSizeOrUncommon, getSampleRateOrUncommon, readCodedNumber, readBlockSize, readSampleRate, calculateCrc8;
 var init_flac_misc = __esm({
-  "node_modules/mediabunny/dist/modules/src/flac/flac-misc.js"() {
+  "../../../../node_modules/mediabunny/dist/modules/src/flac/flac-misc.js"() {
     init_bitstream();
     init_misc();
     init_reader();
@@ -25505,10 +26577,10 @@ var init_flac_misc = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/flac/flac-demuxer.js
+// ../../../../node_modules/mediabunny/dist/modules/src/flac/flac-demuxer.js
 var FlacDemuxer, FlacAudioTrackBacking;
 var init_flac_demuxer = __esm({
-  "node_modules/mediabunny/dist/modules/src/flac/flac-demuxer.js"() {
+  "../../../../node_modules/mediabunny/dist/modules/src/flac/flac-demuxer.js"() {
     init_codec_data();
     init_demuxer();
     init_misc();
@@ -25982,10 +27054,10 @@ var init_flac_demuxer = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/input-format.js
+// ../../../../node_modules/mediabunny/dist/modules/src/input-format.js
 var InputFormat, IsobmffInputFormat, Mp4InputFormat, QuickTimeInputFormat, MatroskaInputFormat, Mp3InputFormat, WaveInputFormat, OggInputFormat, FlacInputFormat, AdtsInputFormat, MP4, QTFF, MATROSKA, MP3, WAVE, OGG, ADTS, FLAC, validateInputFormatOptions;
 var init_input_format = __esm({
-  "node_modules/mediabunny/dist/modules/src/input-format.js"() {
+  "../../../../node_modules/mediabunny/dist/modules/src/input-format.js"() {
     init_isobmff_demuxer();
     init_ebml();
     init_matroska_demuxer();
@@ -26373,19 +27445,19 @@ var init_input_format = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/custom-coder.js
+// ../../../../node_modules/mediabunny/dist/modules/src/custom-coder.js
 var customVideoDecoders, customAudioDecoders;
 var init_custom_coder = __esm({
-  "node_modules/mediabunny/dist/modules/src/custom-coder.js"() {
+  "../../../../node_modules/mediabunny/dist/modules/src/custom-coder.js"() {
     customVideoDecoders = [];
     customAudioDecoders = [];
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/media-sink.js
+// ../../../../node_modules/mediabunny/dist/modules/src/media-sink.js
 var validatePacketRetrievalOptions, validateTimestamp, maybeFixPacketType, EncodedPacketSink;
 var init_media_sink = __esm({
-  "node_modules/mediabunny/dist/modules/src/media-sink.js"() {
+  "../../../../node_modules/mediabunny/dist/modules/src/media-sink.js"() {
     init_input();
     init_input_track();
     init_misc();
@@ -26647,10 +27719,10 @@ var init_media_sink = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/input-track.js
+// ../../../../node_modules/mediabunny/dist/modules/src/input-track.js
 var InputTrack, requireSync, toValidatedPredicate, InputVideoTrack, InputAudioTrack, desc, prefer, toValidatedInputTrackQuery, mergeInputTrackQueries, queryInputTracks;
 var init_input_track = __esm({
-  "node_modules/mediabunny/dist/modules/src/input-track.js"() {
+  "../../../../node_modules/mediabunny/dist/modules/src/input-track.js"() {
     init_codec_data();
     init_custom_coder();
     init_logging();
@@ -27419,10 +28491,10 @@ var init_input_track = __esm({
   }
 });
 
-// node_modules/mediabunny/dist/modules/src/input.js
+// ../../../../node_modules/mediabunny/dist/modules/src/input.js
 var DEFAULT_SOURCE_CACHE_GROUP, Input, UnsupportedInputFormatError, InputDisposedError;
 var init_input = __esm({
-  "node_modules/mediabunny/dist/modules/src/input.js"() {
+  "../../../../node_modules/mediabunny/dist/modules/src/input.js"() {
     init_input_format();
     init_input_track();
     init_misc();
@@ -29897,11 +30969,11 @@ var init_weather_temperature_modal = __esm({
         this.railEl.releasePointerCapture?.(event.pointerId);
       }
       onRailKeydown(event) {
-        const step = event.shiftKey ? 5 : 1;
+        const step2 = event.shiftKey ? 5 : 1;
         const current = this.parseInput().ok ? Number(this.inputEl.value) : 0;
         let next = null;
-        if (event.key === "ArrowRight" || event.key === "ArrowUp") next = current + step;
-        else if (event.key === "ArrowLeft" || event.key === "ArrowDown") next = current - step;
+        if (event.key === "ArrowRight" || event.key === "ArrowUp") next = current + step2;
+        else if (event.key === "ArrowLeft" || event.key === "ArrowDown") next = current - step2;
         else if (event.key === "PageUp") next = current + 10;
         else if (event.key === "PageDown") next = current - 10;
         else if (event.key === "Home") next = Math.round(celsiusToDisplay(WEATHER_RAIL_MIN_C, this.units));
@@ -34216,6 +35288,14 @@ var { MoodStore: MoodStore2 } = (init_mood_store(), __toCommonJS(mood_store_expo
 var { MoodPickerModal: MoodPickerModal2, MoodRecoveryModal: MoodRecoveryModal2 } = (init_mood_picker_modal(), __toCommonJS(mood_picker_modal_exports));
 var { saveMoodExport: saveMoodExport2, serializeMoodCsv: serializeMoodCsv2, serializeMoodJson: serializeMoodJson2 } = (init_mood_export(), __toCommonJS(mood_export_exports));
 var { JournalTimelineView: JournalTimelineView2, JOURNAL_TIMELINE_VIEW: JOURNAL_TIMELINE_VIEW2 } = (init_journal_timeline_view(), __toCommonJS(journal_timeline_view_exports));
+var {
+  ONBOARDING_TOUR_VERSION: ONBOARDING_TOUR_VERSION2,
+  buildOnboardingSteps: buildOnboardingSteps2,
+  isOnboardingSeen: isOnboardingSeen2,
+  pickFeaturedDay: pickFeaturedDay2,
+  resolveOnboardingStart: resolveOnboardingStart2
+} = (init_onboarding_tour(), __toCommonJS(onboarding_tour_exports));
+var { OnboardingTourOverlay: OnboardingTourOverlay2, waitForElement: waitForElement2 } = (init_onboarding_tour_overlay(), __toCommonJS(onboarding_tour_overlay_exports));
 var { OnThisDayProvider: OnThisDayProvider2, OnThisDayModal: OnThisDayModal2, closeOnThisDayModal: closeOnThisDayModal2 } = (init_on_this_day(), __toCommonJS(on_this_day_exports));
 var {
   normalizeOnThisDayEntryMode: normalizeOnThisDayEntryMode2,
@@ -34401,6 +35481,13 @@ var DaylinePlugin = class extends Plugin {
     this._heicThumbPrewarmTimer = null;
     this._heicThumbPrewarmRunning = false;
     this._heicThumbPrewarmCancelled = false;
+    this._onboardingTour = null;
+    this._onboardingAttempted = false;
+    this._onboardingMoodModal = null;
+    this._onboardingOpenedSettings = false;
+    this._onboardingStartedFresh = false;
+    this._onboardingSuppressVisibilityPersist = false;
+    this._hasPersistedSettings = false;
     this._exifPersistInFlight = /* @__PURE__ */ new Map();
     this._exifPersistPending = /* @__PURE__ */ new Set();
     await this._migrateLegacyData();
@@ -34515,6 +35602,13 @@ var DaylinePlugin = class extends Plugin {
         id: "copy-mobile-diagnostics",
         name: t2(this.settings, "copyDiagnosticsCommand"),
         callback: () => this._copyMobileDiagnostics()
+      }),
+      onboardingReplayCommand: this.addCommand({
+        id: "show-onboarding-tour",
+        name: t2(this.settings, "onboardingReplayCommand"),
+        callback: () => {
+          void this.startOnboardingTour({ replay: true });
+        }
       })
     };
     this.addSettingTab(new DaylineSettingsTab2(this.app, this));
@@ -34529,6 +35623,7 @@ var DaylinePlugin = class extends Plugin {
       this._syncDaylineRibbon();
       this._syncAllOverlays();
       this._mobileQuickEntry?.sync();
+      void this._maybeStartOnboardingTour();
     });
     this.registerEvent(
       this.app.workspace.on("file-open", () => {
@@ -34586,6 +35681,10 @@ var DaylinePlugin = class extends Plugin {
     this._endExifHover();
     this._removeAllOverlays();
     closeOnThisDayModal2?.();
+    this._onboardingTour?.destroy();
+    this._onboardingTour = null;
+    this._onboardingMoodModal = null;
+    this._onboardingOpenedSettings = false;
     this._unbindCapabilityRefresh();
     this._mobileQuickEntry?.dispose();
     this._mobileQuickEntry = null;
@@ -34610,6 +35709,7 @@ var DaylinePlugin = class extends Plugin {
     }
   }
   _persistViewVisibility(kind, visible) {
+    if (this._onboardingSuppressVisibilityPersist) return Promise.resolve();
     const key = kind === "calendar" ? "showCalendarView" : "showTimelineView";
     this.settings[key] = visible;
     return this.saveSettings();
@@ -34928,6 +36028,412 @@ var DaylinePlugin = class extends Plugin {
       new Notice5(t2(this.settings, "createNoteFailed", { error: error?.message || error }));
     }
   }
+  /* ============================================================
+     Onboarding tour
+     ============================================================ */
+  /**
+   * Offer the spotlight tour once, on a brand-new install.
+   *
+   * The distinction that matters: no `data.json` at all is a first launch and
+   * may be interrupted, while an existing `data.json` without the marker is an
+   * upgrade — that user already knows the calendar, so the marker is written
+   * and the tour stays away.
+   */
+  async _maybeStartOnboardingTour() {
+    if (this._onboardingAttempted || this._onboardingTour) return;
+    this._onboardingAttempted = true;
+    const decision = resolveOnboardingStart2({
+      seenVersion: this.settings.onboardingSeenVersion,
+      hasPersistedSettings: this._hasPersistedSettings === true
+    });
+    if (decision === "skip") return;
+    if (decision === "mark-seen") {
+      await this.markOnboardingSeen();
+      return;
+    }
+    if (typeof document === "undefined" || !document.body) return;
+    if (this.app.workspace.containerEl?.ownerDocument !== document) return;
+    await this._waitAtMost(this.ensureJournalIndexReady(), 1e4);
+    this._onboardingStartedFresh = true;
+    this._onboardingSuppressVisibilityPersist = true;
+    const started = await this.startOnboardingTour({ replay: false });
+    if (!started) {
+      this._onboardingStartedFresh = false;
+      this._onboardingSuppressVisibilityPersist = false;
+    }
+  }
+  /** Command and settings entry point; also the fresh-install path. */
+  async startOnboardingTour(options = {}) {
+    if (this._onboardingTour) return false;
+    if (options.replay === true) {
+      try {
+        this.app.setting?.close?.();
+      } catch (error) {
+        console.warn("[Dayline] Could not close settings before the tour:", error?.message || error);
+      }
+    }
+    const mobile = this._usesPhoneDaylineMode();
+    const entries = this.journalIndex?.getEntries?.() || [];
+    const steps = buildOnboardingSteps2({
+      surface: mobile ? "mobile" : "desktop",
+      hasEntries: entries.length > 0,
+      weatherVisible: Boolean(this.settings.weatherEnabled && this.settings.showCalendarWeatherCard !== false)
+    });
+    const overlay = new OnboardingTourOverlay2({
+      host: this._createOnboardingHost(),
+      steps,
+      sheet: mobile
+    });
+    this._onboardingTour = overlay;
+    overlay.start();
+    return true;
+  }
+  /**
+   * End of a first-run tour: save the marker together with the view visibility
+   * the tour changed, so the very first `data.json` write already says "seen".
+   * An interrupted tour therefore writes nothing and is offered again.
+   */
+  async _finishFirstRunOnboarding() {
+    this._onboardingStartedFresh = false;
+    this._onboardingSuppressVisibilityPersist = false;
+    const preferences = this.viewVisibilityController?.getPreferences?.();
+    if (preferences) {
+      this.settings.showCalendarView = preferences.showCalendarView !== false;
+      this.settings.showTimelineView = preferences.showTimelineView === true;
+    }
+    this.settings.onboardingSeenVersion = ONBOARDING_TOUR_VERSION2;
+    await this.saveSettings();
+  }
+  /** Persist "already seen". Written after skipping as well as after finishing. */
+  async markOnboardingSeen() {
+    if (isOnboardingSeen2(this.settings.onboardingSeenVersion)) return;
+    this.settings.onboardingSeenVersion = ONBOARDING_TOUR_VERSION2;
+    await this.saveSettings();
+  }
+  _createOnboardingHost() {
+    const copy = this._onboardingCopyValues();
+    return {
+      localize: (key, values) => t2(this.settings, key, { ...copy, ...values }),
+      prepareStep: (step2) => this._prepareOnboardingStep(step2),
+      teardownStep: (step2) => this._teardownOnboardingStep(step2),
+      onFinish: () => {
+        void this._finishOnboardingTour();
+      },
+      onEnd: (outcome) => {
+        this._onboardingTour = null;
+        const ended = outcome === "skipped" || outcome === "finished";
+        if (this._onboardingStartedFresh) {
+          if (ended) void this._finishFirstRunOnboarding();
+          else this._onboardingSuppressVisibilityPersist = false;
+          return;
+        }
+        if (ended) void this.markOnboardingSeen();
+      },
+      destroy: () => {
+        this._onboardingMoodModal = null;
+        this._onboardingOpenedSettings = false;
+        this._onboardingTour = null;
+      }
+    };
+  }
+  /**
+   * Bring one step's target on screen and report where it is.
+   *
+   * Every asynchronous surface — the timeline, the mood picker, the settings
+   * modal, the calendar after a month jump — is opened here and waited for. A
+   * `null` answer means the step is dropped, never that the tour failed.
+   */
+  async _prepareOnboardingStep(step2) {
+    switch (step2?.id) {
+      case "calendar":
+        return this._onboardingCalendarAnchor(5e3);
+      case "day":
+        return this._onboardingDayAnchor();
+      case "mood":
+        return this._onboardingMoodAnchor();
+      case "weather":
+        return this._onboardingWeatherAnchor();
+      case "timeline-entry":
+        return this._onboardingRibbonAnchor();
+      case "timeline-list":
+        return this._onboardingTimelineAnchor(".journal-timeline-list");
+      case "timeline-search":
+        return this._onboardingTimelineAnchor('.journal-timeline-filter-row input[type="search"]');
+      case "settings":
+        return this._onboardingSettingsAnchor();
+      case "today":
+        return this._onboardingTodayAnchor();
+      default:
+        return null;
+    }
+  }
+  /** Close what a step opened. The timeline deliberately stays open. */
+  async _teardownOnboardingStep(step2) {
+    if (step2?.id === "mood") {
+      const modal = this._onboardingMoodModal;
+      this._onboardingMoodModal = null;
+      try {
+        modal?.close?.();
+      } catch (error) {
+        console.warn("[Dayline] Could not close the mood picker after the tour step:", error?.message || error);
+      }
+      return;
+    }
+    if (step2?.id === "settings") {
+      if (!this._onboardingOpenedSettings) return;
+      this._onboardingOpenedSettings = false;
+      try {
+        this.app.setting?.close?.();
+      } catch (error) {
+        console.warn("[Dayline] Could not close settings after the tour step:", error?.message || error);
+      }
+      await this._waitFor(() => !document.querySelector(".modal-container .dayline-settings-container"), 600);
+    }
+  }
+  /**
+   * Every anchor is a resolver, not a captured node: Obsidian rebuilds the
+   * calendar grid on most workspace events, so a node captured while waiting can
+   * already be detached by paint time. A resolver re-queries and answers `null`
+   * when the target really left the window, which is what makes the tour skip a
+   * step instead of pointing at nothing.
+   */
+  _onboardingElementRect(element) {
+    if (!element || !element.isConnected) return null;
+    const rect = element.getBoundingClientRect();
+    if (!rect || rect.width <= 0 && rect.height <= 0) return null;
+    return { left: rect.left, top: rect.top, width: rect.width, height: rect.height };
+  }
+  _onboardingSelectorAnchor(...selectors) {
+    return () => {
+      for (const selector of selectors) {
+        const rect = this._onboardingElementRect(document.querySelector(selector));
+        if (rect) return rect;
+      }
+      return null;
+    };
+  }
+  async _onboardingCalendarAnchor(timeoutMs = 4e3) {
+    try {
+      await this.activateView();
+    } catch (error) {
+      console.warn("[Dayline] Could not open the calendar for the tour:", error?.message || error);
+    }
+    const grid = await waitForElement2(document, ".cal-sidebar .cal-grid", { timeoutMs });
+    return grid ? this._onboardingSelectorAnchor(".cal-sidebar .cal-grid") : null;
+  }
+  _onboardingCopyValues() {
+    const dates = /* @__PURE__ */ new Set();
+    for (const entry of this.journalIndex?.getEntries?.() || []) {
+      if (entry?.date) dates.add(entry.date);
+    }
+    return {
+      folder: this.settings.dailyFolder || "Calendar/Daily",
+      days: dates.size,
+      today: _daylineDate(this.settings)
+    };
+  }
+  _onboardingEntryCounts() {
+    const counts = /* @__PURE__ */ new Map();
+    for (const entry of this.journalIndex?.getEntries?.() || []) {
+      const date = entry?.date;
+      if (!date) continue;
+      counts.set(date, (counts.get(date) || 0) + 1);
+    }
+    return counts;
+  }
+  /**
+   * The example day: a cell with a photo and more than one note if the month has
+   * one, otherwise any photo, otherwise today. Counting notes from the index
+   * rather than the "+1" badge keeps this working when that badge is off.
+   */
+  async _onboardingDayAnchor() {
+    const anchor = await this._onboardingCalendarAnchor(4e3);
+    if (!anchor) return null;
+    const today = _daylineDate(this.settings);
+    const counts = this._onboardingEntryCounts();
+    const cells = Array.from(document.querySelectorAll('.cal-sidebar .cal-day[data-calendar-focus^="day-"]'));
+    const dateOf = (cell) => String(cell.getAttribute("data-calendar-focus") || "").slice(4);
+    const candidates = cells.map((cell) => ({
+      date: dateOf(cell),
+      hasPhoto: cell.classList.contains("cal-has-image"),
+      multipleEntries: (counts.get(dateOf(cell)) || 0) > 1
+    }));
+    const featured = pickFeaturedDay2(candidates, today);
+    return this._onboardingSelectorAnchor(
+      '.cal-sidebar .cal-day[data-calendar-focus="day-' + featured + '"]',
+      ".cal-sidebar .cal-day.cal-today",
+      '.cal-sidebar .cal-day[data-calendar-focus^="day-"]'
+    );
+  }
+  async _onboardingMoodAnchor() {
+    const date = _daylineDate(this.settings);
+    const path = joinVaultPath2(this.settings.dailyFolder, date + ".md");
+    try {
+      this._onboardingMoodModal = await this.openMoodPicker(path, {
+        allowDateSelection: true,
+        ensureFile: false
+      });
+    } catch (error) {
+      console.warn("[Dayline] Could not open the mood picker for the tour:", error?.message || error);
+      return null;
+    }
+    if (!this._onboardingMoodModal) return null;
+    const modal = await waitForElement2(document, ".journal-mood-picker-modal", { timeoutMs: 1500 });
+    return modal ? this._onboardingSelectorAnchor(".journal-mood-picker-modal") : null;
+  }
+  /**
+   * The weather card when it is on screen, otherwise the empty slot where it
+   * would be: the step's copy explains that weather is off by default, and an
+   * undefined highlight would point at nothing.
+   */
+  async _onboardingWeatherAnchor() {
+    const cardVisible = this.settings.weatherEnabled && this.settings.showCalendarWeatherCard !== false && this.app.workspace.getLeavesOfType(VIEW_TYPE2).length > 0;
+    if (cardVisible) {
+      const card = await waitForElement2(document, ".cal-sidebar .cal-weather-card", { timeoutMs: 1500 });
+      if (card) return this._onboardingSelectorAnchor(".cal-sidebar .cal-weather-card");
+    }
+    return () => {
+      const content = document.querySelector(".cal-sidebar .view-content");
+      if (!content) return null;
+      const bounds = content.getBoundingClientRect();
+      if (!bounds || bounds.width <= 0) return null;
+      const header = document.querySelector(".cal-sidebar .cal-header");
+      const headerBottom = header ? header.getBoundingClientRect().bottom : bounds.top;
+      return {
+        left: bounds.left + 8,
+        top: Math.max(bounds.top + 2, headerBottom + 6),
+        width: Math.max(120, bounds.width - 16),
+        height: 56
+      };
+    };
+  }
+  _onboardingRibbonAnchor() {
+    const ribbon = this._daylineRibbonEl;
+    if (ribbon?.isConnected) return () => this._onboardingElementRect(ribbon);
+    const fallback = document.querySelector('.side-dock-ribbon-action[aria-label="Dayline"]');
+    if (!fallback) return null;
+    return () => this._onboardingElementRect(document.querySelector('.side-dock-ribbon-action[aria-label="Dayline"]'));
+  }
+  async _onboardingTimelineAnchor(selector) {
+    try {
+      await this.activateTimeline();
+    } catch (error) {
+      console.warn("[Dayline] Could not open the timeline for the tour:", error?.message || error);
+      return null;
+    }
+    const element = await waitForElement2(document, ".journal-timeline-view " + selector, { timeoutMs: 3e3 });
+    return element ? this._onboardingSelectorAnchor(".journal-timeline-view " + selector) : null;
+  }
+  /**
+   * Obsidian 1.14 opens settings in its own OS window. This overlay lives in the
+   * app window, so it can neither dim nor point at that pane; the step is
+   * dropped there rather than opening a window the tour cannot explain. Older
+   * versions keep settings inside the app window and get the full highlight.
+   */
+  _onboardingSettingsInPlace() {
+    const setting = this.app.setting;
+    if (!setting || typeof setting.open !== "function") return false;
+    return !setting.win || setting.win === window;
+  }
+  async _onboardingSettingsAnchor() {
+    if (!this._onboardingSettingsInPlace()) return null;
+    const setting = this.app.setting;
+    try {
+      setting.open();
+      this._onboardingOpenedSettings = true;
+      if (typeof setting.openTabById === "function") setting.openTabById(PLUGIN_ID3);
+    } catch (error) {
+      console.warn("[Dayline] Could not open settings for the tour:", error?.message || error);
+      return null;
+    }
+    const pane = await waitForElement2(document, ".dayline-settings-container", { timeoutMs: 3e3 });
+    return pane ? this._onboardingSelectorAnchor(".dayline-settings-container") : null;
+  }
+  async _onboardingTodayAnchor() {
+    const today = _daylineDate(this.settings);
+    const selector = '.cal-sidebar .cal-day[data-calendar-focus="day-' + today + '"]';
+    let cell = document.querySelector(selector);
+    if (!cell) {
+      await this.activateView();
+      cell = document.querySelector(selector);
+    }
+    if (!cell) {
+      const view = this.app.workspace.getLeavesOfType(VIEW_TYPE2)[0]?.view;
+      view?._goToToday?.();
+      cell = await waitForElement2(document, selector, { timeoutMs: 2e3 });
+    }
+    return cell ? this._onboardingSelectorAnchor(selector) : null;
+  }
+  /** "写今天": pulse the cell, open (or create) today's note, leave the caret in it. */
+  async _finishOnboardingTour() {
+    this._pulseTodayCell();
+    await this.createDailyNoteForToday();
+    await this._focusTodayNoteBody();
+  }
+  _pulseTodayCell() {
+    const today = _daylineDate(this.settings);
+    const cell = document.querySelector('.cal-sidebar .cal-day[data-calendar-focus="day-' + today + '"]');
+    if (!cell) return;
+    cell.classList.remove("is-onboarding-pulse");
+    void cell.offsetWidth;
+    cell.classList.add("is-onboarding-pulse");
+    window.setTimeout(() => cell.classList.remove("is-onboarding-pulse"), 2400);
+  }
+  /**
+   * Opening a note is asynchronous, so the editor may not exist on the first
+   * frame. The tour only moves the caret into existing content; it never writes
+   * to the note.
+   */
+  async _focusTodayNoteBody() {
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      const view = this.app.workspace.activeLeaf?.view;
+      const editor = view?.editor;
+      if (editor && typeof editor.setCursor === "function" && typeof editor.lineCount === "function") {
+        try {
+          const line = Math.max(0, editor.lineCount() - 1);
+          const text = typeof editor.getLine === "function" ? editor.getLine(line) : "";
+          editor.setCursor({ line, ch: String(text || "").length });
+          editor.focus?.();
+          return true;
+        } catch (error) {
+          console.warn("[Dayline] Could not place the caret in today note:", error?.message || error);
+          return false;
+        }
+      }
+      await new Promise((resolve) => window.setTimeout(resolve, 60));
+    }
+    return false;
+  }
+  /** Poll a predicate; resolves true when it held, false on timeout. */
+  _waitFor(predicate, timeoutMs = 500) {
+    return new Promise((resolve) => {
+      const started = Date.now();
+      const tick = () => {
+        let done = false;
+        try {
+          done = Boolean(predicate());
+        } catch {
+          done = true;
+        }
+        if (done || Date.now() - started >= timeoutMs) {
+          resolve(done);
+          return;
+        }
+        window.setTimeout(tick, 40);
+      };
+      tick();
+    });
+  }
+  /** Resolve when the promise settles or after the timeout, whichever is first. */
+  _waitAtMost(promise, ms) {
+    let timer = null;
+    const timeout = new Promise((resolve) => {
+      timer = window.setTimeout(resolve, ms);
+    });
+    return Promise.race([Promise.resolve(promise).catch(() => void 0), timeout]).finally(() => {
+      if (timer !== null) window.clearTimeout(timer);
+    });
+  }
   async recordCurrentMood() {
     const activeFile = this.app.workspace.activeLeaf?.view?.file;
     const sources = this.journalIndex.resolveSources(this.settings);
@@ -34980,11 +36486,16 @@ var DaylinePlugin = class extends Plugin {
     new Notice5(t2(this.settings, "moodMetadataReadOnly"));
     return true;
   }
+  /**
+   * Open the mood picker and return the modal instance. Callers that only show
+   * it ignore the value; the onboarding tour needs it to close the picker when
+   * the tour moves on, because a modal belongs to its opener, not to the DOM.
+   */
   async openMoodPicker(path, options = {}) {
-    if (this._warnIfMoodStoreReadOnly()) return;
+    if (this._warnIfMoodStoreReadOnly()) return null;
     if (path && options.ensureFile !== false) await this._ensureMoodJournalFile(path);
     const entry = this.journalIndex.getEntries().find((item) => item.path === path);
-    new MoodPickerModal2(this.app, {
+    const modal = new MoodPickerModal2(this.app, {
       filePath: path,
       initial: this.moodStore.get(path) || entry?.mood,
       customLabels: this.moodStore.getCustomLabels(),
@@ -35006,7 +36517,9 @@ var DaylinePlugin = class extends Plugin {
         await this.journalIndex.refreshFile(targetPath, this.settings);
         new Notice5(`${t2(this.settings, "moodSaved")}: ${targetPath}`);
       }
-    }).open();
+    });
+    modal.open();
+    return modal;
   }
   openMoodRecovery() {
     if (this._warnIfMoodStoreReadOnly()) return;
@@ -35608,6 +37121,7 @@ ${path}`)) return false;
   async loadSettings() {
     const raw = await this.loadData();
     const hasPersistedSettings = Boolean(raw) && typeof raw === "object" && Object.keys(raw).length > 0;
+    this._hasPersistedSettings = hasPersistedSettings;
     const data = raw || {};
     this.weatherCache = data.weatherCache || {};
     this.weatherManualTemperature = data.weatherManualTemperature && typeof data.weatherManualTemperature === "object" ? data.weatherManualTemperature : {};

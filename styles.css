@@ -2257,3 +2257,225 @@ body.dayline-mobile.dayline-phone .is-compact-viewport .journal-mood-actions {
   .dayline-settings-support-qr { width: 100%; max-width: 200px; height: auto; aspect-ratio: 1 / 1; }
 }
 @media (pointer: coarse) { .dayline-settings-support-toggle { min-height: 40px; padding-right: 8px; } }
+
+/* Onboarding tour (spotlight)
+   The dim is four panels around the highlight rather than a full-screen sheet:
+   the hole is empty, so the highlighted control keeps its own clicks while
+   everything around it is inert — that is also what lets the card sit above the
+   mask without being dimmed by it. Colours come from the theme so both light
+   and dark stay legible without a second palette. */
+.dayline-tour {
+  --dayline-tour-dim: rgba(0, 0, 0, 0.55);
+  --dayline-tour-ring: rgba(255, 255, 255, 0.9);
+  --dayline-tour-line: rgba(255, 255, 255, 0.4);
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  pointer-events: none;
+}
+/* A flat black at 55% reads as a dead screen on a dark theme. */
+body.theme-dark .dayline-tour,
+body.is-dark .dayline-tour {
+  --dayline-tour-dim: rgba(0, 0, 0, 0.45);
+}
+
+.dayline-tour-band {
+  position: absolute;
+  background: var(--dayline-tour-dim);
+  pointer-events: auto;
+  transition: left 280ms cubic-bezier(0.2, 0.8, 0.2, 1), top 280ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    width 280ms cubic-bezier(0.2, 0.8, 0.2, 1), height 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.dayline-tour-hole {
+  position: absolute;
+  border-radius: 10px;
+  box-shadow: 0 0 0 1px var(--dayline-tour-ring);
+  pointer-events: none;
+  transition: left 280ms cubic-bezier(0.2, 0.8, 0.2, 1), top 280ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    width 280ms cubic-bezier(0.2, 0.8, 0.2, 1), height 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.dayline-tour-leader {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+.dayline-tour-leader path {
+  fill: none;
+  stroke: var(--dayline-tour-line);
+  stroke-width: 1;
+}
+.dayline-tour-leader circle {
+  fill: rgba(255, 255, 255, 0.85);
+}
+
+.dayline-tour-card {
+  position: absolute;
+  box-sizing: border-box;
+  width: 300px;
+  padding: 13px 15px 12px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 10px;
+  background: var(--background-primary);
+  color: var(--text-normal);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.32);
+  pointer-events: auto;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 180ms ease, transform 180ms ease,
+    left 280ms cubic-bezier(0.2, 0.8, 0.2, 1), top 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.dayline-tour-card.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+.dayline-tour-card.is-sheet {
+  border-radius: 14px;
+  box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.28);
+}
+
+.dayline-tour-arrow {
+  position: absolute;
+  display: none;
+  width: 10px;
+  height: 10px;
+  border-left: 1px solid var(--background-modifier-border);
+  border-top: 1px solid var(--background-modifier-border);
+  background: var(--background-primary);
+  transform: rotate(45deg);
+}
+.dayline-tour-arrow.is-above {
+  border-left: 0;
+  border-top: 0;
+  border-right: 1px solid var(--background-modifier-border);
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.dayline-tour-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 7px;
+}
+.dayline-tour-dots {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.dayline-tour-dots i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--text-faint);
+}
+.dayline-tour-dots i.is-current {
+  background: var(--text-normal);
+}
+
+/* The card owns its own buttons: Obsidian's button chrome (padding, shadow,
+   height) is reset so these stay 12px type inside a 300px card. The selectors
+   are scoped to the overlay because Obsidian styles bare `button` elements
+   with a class-level rule that outranks a lone class. */
+.dayline-tour .dayline-tour-skip,
+.dayline-tour .dayline-tour-back {
+  height: auto;
+  padding: 2px 4px;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.dayline-tour .dayline-tour-skip:hover,
+.dayline-tour .dayline-tour-back:hover {
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-normal);
+}
+.dayline-tour .dayline-tour-skip {
+  font-size: 11px;
+}
+.dayline-tour .dayline-tour-back {
+  font-size: 11.5px;
+}
+.dayline-tour .dayline-tour-back[hidden] {
+  display: none;
+}
+.dayline-tour-title {
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.45;
+  color: var(--text-normal);
+}
+.dayline-tour-body {
+  margin: 7px 0 0;
+  font-size: 13px;
+  line-height: 1.68;
+  color: var(--text-muted);
+}
+.dayline-tour-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 14px;
+  margin-top: 12px;
+}
+.dayline-tour .dayline-tour-next {
+  height: auto;
+  padding: 6px 14px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--text-normal);
+  box-shadow: none;
+  color: var(--background-primary);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.2px;
+  cursor: pointer;
+}
+.dayline-tour .dayline-tour-next:hover {
+  background: var(--text-normal);
+  color: var(--background-primary);
+}
+.dayline-tour .dayline-tour-next:active {
+  transform: translateY(1px);
+}
+.dayline-tour .dayline-tour-skip:focus-visible,
+.dayline-tour .dayline-tour-back:focus-visible,
+.dayline-tour .dayline-tour-next:focus-visible {
+  outline: 2px solid var(--interactive-accent);
+  outline-offset: 2px;
+}
+
+/* Completion cue: today's cell pulses twice after "写今天". */
+.cal-day.is-onboarding-pulse {
+  animation: dayline-onboarding-pulse 1.1s ease 2;
+}
+@keyframes dayline-onboarding-pulse {
+  0%,
+  100% {
+    box-shadow: inset 0 0 0 2px var(--interactive-accent);
+  }
+  50% {
+    box-shadow: inset 0 0 0 2px var(--interactive-accent), 0 0 0 5px rgba(120, 82, 238, 0.28);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dayline-tour-band,
+  .dayline-tour-hole,
+  .dayline-tour-card {
+    transition: none;
+  }
+}
+.dayline-tour.is-reduced-motion .dayline-tour-band,
+.dayline-tour.is-reduced-motion .dayline-tour-hole,
+.dayline-tour.is-reduced-motion .dayline-tour-card {
+  transition: none;
+}

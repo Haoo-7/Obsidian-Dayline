@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "project": "Dayline 新手引导",
+  "brief": "插件第一次启用后的引导。三种做法共用同一组事实：2026 年 10 月、已找到 214 天、这个月有 9 天、今天 29 号还没有记录。日历本身保持产品原样，只比较引导出现在哪里、要几步、谁在做事。",
+  "round": "01",
+  "lang": "zh",
+  "candidates": [
+    {
+      "id": "live",
+      "name": "A 亮起来",
+      "concept": "先看到自己的那一天，说明后到：一行连接状态加一次心情提示，不新增任何页面。",
+      "typography": "系统界面字体；状态行 11.5px，月份 12.5px 600，日期 11px",
+      "palette": [
+        "#ffffff",
+        "#f6f6f6",
+        "#232323",
+        "#7852ee",
+        "#55b6c9"
+      ],
+      "traits": [
+        "0 步接入",
+        "顶部一行状态",
+        "悬停时的心情提示",
+        "不加页面"
+      ],
+      "source": "explore/a.html",
+      "nativeViewport": "460x720"
+    },
+    {
+      "id": "titlepage",
+      "name": "B 扉页",
+      "concept": "把第一次打开做成日记的扉页：一句用你自己的数据写的话，三行马上能做的事。",
+      "typography": "标题宋体 31px；正文系统字体 12.5px；步骤编号等宽 10.5px",
+      "palette": [
+        "#ffffff",
+        "#1e1e1e",
+        "#6f6f6f",
+        "#e8e8e8",
+        "#232323"
+      ],
+      "traits": [
+        "一次性弹窗",
+        "520px 宽",
+        "衬线标题",
+        "两个出口"
+      ],
+      "source": "explore/b.html",
+      "nativeViewport": "980x720"
+    },
+    {
+      "id": "indexcard",
+      "name": "C 索引卡",
+      "concept": "侧栏顶部一张三行卡：接目录、写今天、记心情，三项完成后自动收起。",
+      "typography": "系统界面字体；卡片标题 12px 600，行值 12px，行标签 11px",
+      "palette": [
+        "#ffffff",
+        "#f6f6f6",
+        "#232323",
+        "#7852ee",
+        "#f0b34f"
+      ],
+      "traits": [
+        "常驻三行清单",
+        "进度 1/3",
+        "逐项完成",
+        "完成后收起"
+      ],
+      "source": "explore/c.html",
+      "nativeViewport": "460x720"
+    }
+  ]
+}

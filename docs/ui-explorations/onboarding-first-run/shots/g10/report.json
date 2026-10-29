@@ -1,0 +1,28 @@
+[
+  {
+    "file": "page.png",
+    "state": null,
+    "size": "1420x860",
+    "zoom": 1,
+    "animationWaitMs": 1095,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "contrastLow",
+        "label": "文字对比度不达标（正文低于 4.5:1，大字低于 3:1）",
+        "count": 1,
+        "examples": [
+          "span.count「+1」（1.08:1）"
+        ]
+      },
+      {
+        "rule": "sourceSplit",
+        "label": "本地页面文件较大或有超长行，适合按功能拆分",
+        "count": 1,
+        "examples": [
+          "spotlight.html（47 KiB）"
+        ]
+      }
+    ]
+  }
+]

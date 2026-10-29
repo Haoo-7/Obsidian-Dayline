@@ -1,0 +1,468 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>新手引导 · 聚光灯</title>
+<link rel="stylesheet" href="frame.css">
+<style>
+body{background:#e7e7e7;display:flex;align-items:center;justify-content:center;min-height:100vh}
+.page{position:relative;padding:30px}
+.window{position:relative;width:1360px;height:800px;display:flex;border-radius:10px;overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,.22);background:#fff}
+.ribbon{flex:0 0 44px;display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 0;background:#f4f4f4;border-right:1px solid var(--line)}
+.ribbon button{width:32px;height:32px;display:flex;align-items:center;justify-content:center;border:0;border-radius:6px;background:transparent;color:#7a7a7a;cursor:pointer}
+.ribbon button.active{background:var(--accent-weak);color:var(--accent)}
+.ribbon .spacer{flex:1}
+.sidebar{flex:0 0 460px;width:460px;height:800px;border-right:1px solid var(--line)}
+.connect{flex:0 0 auto;display:flex;align-items:center;gap:6px;height:34px;padding:0 12px;border-bottom:1px solid var(--line);color:var(--muted);font-size:11.5px}
+.connect .ok{display:flex;color:var(--faint);margin-top:1px;flex:0 0 auto}
+.connect .txt{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.connect b{font-weight:600;color:var(--text)}
+.connect .link{margin-left:auto;flex:0 0 auto;background:none;border:0;padding:0;font:inherit;font-size:11.5px;color:var(--accent);cursor:pointer}
+.connect .dismiss{flex:0 0 auto;display:flex;background:none;border:0;padding:2px;color:var(--faint);cursor:pointer}
+.editor{flex:1;min-width:0;padding:48px 56px;background:#fff;transition:padding .3s}
+.editor h1{margin:0;font-size:23px;font-weight:600;letter-spacing:.2px}
+.editor .meta{margin-top:8px;font-size:11.5px;color:var(--muted)}
+.editor .body{margin-top:28px;font-size:14px;line-height:1.9;color:#333}
+.caret{display:none;width:2px;height:20px;background:#2a2a2a;vertical-align:-4px;animation:blink 1.1s steps(1) infinite}
+.editor.editing .caret{display:inline-block}
+@keyframes blink{50%{opacity:0}}
+
+/* right sidebar: journal timeline */
+.right{position:relative;z-index:0;flex:0 0 0;width:0;overflow:hidden;background:#fafafa;border-left:1px solid var(--line);transition:flex-basis .38s cubic-bezier(.2,.8,.2,1),width .38s cubic-bezier(.2,.8,.2,1)}
+.right.open{flex:0 0 380px;width:380px}
+.right-inner{width:380px;height:800px;padding:18px 18px 0;box-sizing:border-box;display:flex;flex-direction:column}
+.tl-head{display:flex;align-items:baseline;gap:7px;margin-bottom:10px;flex:0 0 auto}
+.tl-head h2{margin:0;font-size:17px;font-weight:600}
+.tl-count{font-size:12px;color:var(--muted)}
+.tl-actions{margin-left:auto;display:flex;gap:4px;color:var(--muted)}
+.tl-filter-row{display:flex;gap:6px;align-items:center;margin-bottom:6px;flex:0 0 auto}
+.tl-search{flex:1;min-width:0;height:30px;font-size:12.5px;padding:0 10px;border:1px solid var(--line-strong);border-radius:6px;background:#fff;color:var(--text)}
+.tl-filter-btn{width:28px;height:28px;display:flex;align-items:center;justify-content:center;border:0;border-radius:5px;background:transparent;color:var(--muted)}
+.tl-menu{display:grid;grid-template-columns:1fr 1fr;gap:10px 8px;padding:12px 0;margin-bottom:8px;border-bottom:1px solid var(--line);flex:0 0 auto}
+.tl-menu[hidden]{display:none}
+.tl-field{display:flex;flex-direction:column;gap:4px;font-size:11px;color:var(--muted)}
+.tl-field input,.tl-field select{height:26px;font-size:11.5px;border:1px solid var(--line-strong);border-radius:5px;background:#fff;color:var(--text);padding:0 6px}
+.tl-fav{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted)}
+.tl-clear{justify-self:end;background:none;border:0;font:inherit;font-size:11.5px;color:var(--accent)}
+.tl-stats{border-bottom:1px solid var(--line);padding:6px 0 8px;flex:0 0 auto}
+.tl-stats summary{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted);list-style:none}
+.tl-stats summary::-webkit-details-marker{display:none}
+.tl-list{flex:1;overflow:hidden;padding-top:4px}
+.tl-month{margin:14px 0 2px;font-size:13px;font-weight:600}
+.tl-month:first-child{margin-top:0}
+.tl-entry{display:grid;grid-template-columns:30px minmax(0,1fr) 88px;gap:10px;padding:12px 0;border-bottom:1px solid var(--line);align-items:start}
+.tl-entry.no-thumb{grid-template-columns:30px minmax(0,1fr)}
+.tl-date{display:flex;flex-direction:column;align-items:flex-start;color:var(--muted);padding-top:2px}
+.tl-date::after{content:'';width:6px;height:6px;margin-top:8px;border-radius:50%;background:var(--m)}
+.tl-wd{font-size:10.5px;font-weight:600;margin-bottom:4px}
+.tl-day{font-size:19px;font-weight:600;color:var(--text);line-height:1.2}
+.tl-title{margin:0 0 4px;font-size:14.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tl-excerpt{font-size:12.5px;line-height:1.5;color:var(--muted);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.tl-meta{margin-top:6px;font-size:11px;color:var(--muted)}
+.tl-thumb{width:88px;height:88px;border-radius:6px;background-size:cover;background-position:center;background-color:var(--bg-2)}
+
+/* settings modal */
+.set-scrim[hidden],.set-modal[hidden]{display:none}
+.set-scrim{position:absolute;inset:0;background:rgba(20,20,20,.35);z-index:90}
+.set-modal{position:absolute;left:330px;top:130px;width:700px;height:540px;background:#fff;border-radius:10px;box-shadow:0 30px 80px rgba(0,0,0,.3);z-index:91;display:flex;overflow:hidden}
+.set-nav{flex:0 0 170px;background:#f6f6f6;padding:18px 10px;border-right:1px solid var(--line)}
+.set-nav-item{padding:6px 10px;border-radius:5px;font-size:12.5px;color:var(--muted)}
+.set-nav-item.active{background:#f0ecfd;color:#5a38c9;font-weight:600}
+.set-content{flex:1;padding:22px 26px}
+.set-brand svg{display:block;width:90px;height:13px;color:#2a2a2a}
+.set-section{margin:20px 0 8px;font-size:13px;font-weight:600}
+.set-row{display:flex;justify-content:space-between;gap:16px;padding:9px 0;border-bottom:1px solid var(--line);font-size:12.5px}
+.set-value{color:var(--muted)}
+
+/* mood modal */
+.mood-scrim[hidden],.mood-modal[hidden]{display:none}
+.mood-scrim{position:absolute;inset:0;background:rgba(20,20,20,.35);z-index:88}
+.mood-modal{position:absolute;left:450px;top:240px;width:520px;background:#fff;border-radius:10px;box-shadow:0 30px 80px rgba(0,0,0,.3);z-index:89;padding:24px 26px 20px}
+.mood-head h2{margin:0;font-size:16px;font-weight:600}
+.mood-sub{margin-top:6px;font-size:11.5px;color:var(--muted)}
+.mood-levels{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:22px}
+.mood-lv{display:flex;flex-direction:column;align-items:center;gap:8px;padding:12px 4px 10px;border:1px solid transparent;border-radius:8px;background:#fafafa;cursor:pointer;font:inherit}
+.mood-lv i{width:24px;height:24px;border-radius:50%}
+.mood-lv span{font-size:11.5px;color:var(--muted)}
+.mood-lv.on{border-color:#55b6c9;background:#f4fbfc}
+.mood-lv.on span{color:var(--text)}
+.mood-note{display:block;margin-top:20px}
+.mood-note span{display:block;font-size:11px;color:var(--muted);margin-bottom:6px}
+.mood-note input{width:100%;height:32px;border:1px solid var(--line-strong);border-radius:6px;padding:0 10px;font:inherit;font-size:12.5px}
+.mood-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:20px}
+.mood-cancel{background:none;border:0;font:inherit;font-size:12px;color:var(--muted);padding:6px 8px;cursor:pointer}
+.mood-save{background:#232323;color:#fff;border:0;border-radius:6px;padding:7px 16px;font:inherit;font-size:12px;cursor:pointer}
+
+/* tour */
+.tour{position:fixed;inset:0;z-index:9999;background:transparent}
+.tour[hidden]{display:none}
+.leader{position:absolute;inset:0;z-index:101;pointer-events:none;overflow:visible}
+.dimlayer{position:fixed;inset:0;z-index:9998;pointer-events:none}
+.dimband{position:absolute;background:rgba(0,0,0,.55)}
+.hole{position:absolute;border-radius:10px;box-shadow:0 0 0 1px rgba(255,255,255,.9),0 0 0 9999px rgba(0,0,0,.55)}
+.card{position:absolute;width:300px;background:#fff;border-radius:10px;padding:13px 15px 12px;box-shadow:0 18px 44px rgba(0,0,0,.32);border:1px solid rgba(0,0,0,.05);opacity:0;transform:translateY(4px);transition:opacity .18s ease,transform .18s ease}
+.card.in{opacity:1;transform:translateY(0)}
+.card-arrow{position:absolute;width:10px;height:10px;background:#fff;transform:rotate(45deg)}
+.card-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:7px}
+.dots{display:flex;align-items:center;gap:5px}
+.dots i{width:5px;height:5px;border-radius:50%;background:#d9d9d9}
+.dots i.on{background:#232323}
+.skip{background:none;border:0;padding:0;font:inherit;font-size:11px;color:var(--muted);cursor:pointer}
+.card h2{margin:0;font-size:13.5px;font-weight:600;line-height:1.45}
+.card p{margin:7px 0 0;font-size:13px;line-height:1.68;color:#555}
+.card-actions{display:flex;align-items:center;justify-content:flex-end;gap:14px;margin-top:12px}
+.back{background:none;border:0;padding:0;font:inherit;font-size:11.5px;color:var(--muted);cursor:pointer}
+.next{background:#232323;color:#fff;border:0;border-radius:6px;padding:6px 14px;font:inherit;font-size:12px;font-weight:500;letter-spacing:.2px;cursor:pointer}
+.next:active{transform:translateY(1px)}
+.pulse{animation:cellpulse 1.1s ease 2}
+@keyframes cellpulse{0%,100%{box-shadow:inset 0 0 0 2px var(--accent)}50%{box-shadow:inset 0 0 0 2px var(--accent),0 0 0 5px rgba(120,82,238,.28)}}
+.replay{position:absolute;right:30px;bottom:2px;background:#fff;border:1px solid #d6d6d6;border-radius:6px;padding:5px 10px;font:inherit;font-size:11px;color:#555;cursor:pointer}
+.replay[hidden]{display:none}
+@media (prefers-reduced-motion: reduce){.hole,.card,.right{transition:none}.pulse,.caret{animation:none}}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="window" id="win">
+    <div class="ribbon">
+      <button aria-label="文件"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M15 2v5h5"/></svg></button>
+      <button aria-label="搜索"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></button>
+      <button aria-label="关系图谱"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="18" cy="6" r="3"/><circle cx="12" cy="18" r="3"/><path d="M8.5 7.5 11 15"/><path d="M15.5 7.5 13 15"/></svg></button>
+      <button class="active" data-ribbon="dayline" aria-label="Dayline"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/><path d="M8 18h.01"/><path d="M12 18h.01"/><path d="M16 18h.01"/></svg></button>
+      <span class="spacer"></span>
+      <button data-ribbon="settings" aria-label="设置"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg></button>
+    </div>
+    <div class="sidebar">
+      <div class="side-head"><span class="side-tab"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/><path d="M8 18h.01"/><path d="M12 18h.01"/><path d="M16 18h.01"/></svg></span><span class="side-tools"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M15 3v18"/></svg></span></div>
+      <div class="connect">
+        <span class="ok"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+        <span class="txt">已连接 <b>Calendar/Daily</b> · 找到 214 天</span>
+        <button class="link">更换</button>
+        <button class="dismiss" aria-label="关闭提示"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+      </div>
+      <div class="cal">
+        <div class="cal-month"><span class="cal-nav"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></span><span class="cal-title">2026 年 10 月</span><span class="cal-nav"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></span></div>
+        <div class="wx">
+          <div class="wx-top"><span class="wx-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="M20 12h2"/><path d="m19.07 4.93-1.41 1.41"/><path d="M15.947 12.65a4 4 0 0 0-5.925-4.128"/><path d="M13 22H7a5 5 0 1 1 4.9-6H13a3 3 0 0 1 0 6Z"/></svg></span><span class="wx-now">现在 27°C</span><span class="wx-refresh"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg></span></div>
+          <div class="wx-loc">天气位置：Guangzhou, China</div>
+          <div class="wx-detail">体感 30° · 湿度 64%</div>
+        </div>
+        <div class="weekdays"><span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span></div>
+        <div class="grid" id="grid"><div class="cell" aria-hidden="true" style="background:transparent"></div><div class="cell" aria-hidden="true" style="background:transparent"></div><div class="cell" aria-hidden="true" style="background:transparent"></div><div class="cell" aria-hidden="true" style="background:transparent"></div><div class="cell" data-day="1" role="button" aria-label="10 月 1 日"><span class="wxb" style="color:#FBBF24"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg></span><span class="num">1</span><span class="mood m0" title="心情"></span></div><div class="cell" data-day="2" role="button" aria-label="10 月 2 日"><span class="wxb" style="color:#FBBF24"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg></span><span class="num">2</span></div><div class="cell has-img" data-day="3" role="button" aria-label="10 月 3 日，1 篇日记"><span class="img" style="background-image:url(assets/p1.jpg)"></span><span class="veil"></span><span class="wxb" style="color:#FBBF24"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg></span><span class="num">3</span><span class="mood m1" title="心情"></span></div><div class="cell" data-day="4" role="button" aria-label="10 月 4 日"><span class="num">4</span></div><div class="cell has-img" data-day="5" role="button" aria-label="10 月 5 日，1 篇日记"><span class="img" style="background-image:url(assets/p2.jpg)"></span><span class="veil"></span><span class="wxb" style="color:#FBBF24"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg></span><span class="num">5</span><span class="mood m0" title="心情"></span></div><div class="cell" data-day="6" role="button" aria-label="10 月 6 日"><span class="wxb" style="color:#FBBF24"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg></span><span class="num">6</span><span class="mood m1" title="心情"></span></div><div class="cell" data-day="7" role="button" aria-label="10 月 7 日"><span class="wxb" style="color:#94A3B8"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="M20 12h2"/><path d="m19.07 4.93-1.41 1.41"/><path d="M15.947 12.65a4 4 0 0 0-5.925-4.128"/><path d="M13 22H7a5 5 0 1 1 4.9-6H13a3 3 0 0 1 0 6Z"/></svg></span><span class="num">7</span></div><div class="cell has-img" data-day="8" role="button" aria-label="10 月 8 日，1 篇日记"><span class="img" style="background-image:url(assets/p5.jpg)"></span><span class="veil"></span><span class="wxb" style="color:#FBBF24"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg></span><span class="num">8</span><span class="mood mn1" title="心情"></span></div><div class="cell" data-day="9" role="button" aria-label="10 月 9 日"><span class="wxb" style="color:#FBBF24"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg></span><span class="num">9</span></div><div class="cell" data-day="10" role="button" aria-label="10 月 10 日"><span class="wxb" style="color:#94A3B8"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="M20 12h2"/><path d="m19.07 4.93-1.41 1.41"/><path d="M15.947 12.65a4 4 0 0 0-5.925-4.128"/><path d="M13 22H7a5 5 0 1 1 4.9-6H13a3 3 0 0 1 0 6Z"/></svg></span><span class="num">10</span><span class="mood m0" title="心情"></span></div><div class="cell" data-day="11" role="button" aria-label="10 月 11 日"><span class="wxb" style="color:#94A3B8"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg></span><span class="num">11</span></div><div class="cell has-img" data-day="12" role="button" aria-label="10 月 12 日，1 篇日记"><span class="img" style="background-image:url(assets/p3.jpg)"></span><span class="veil"></span><span class="num">12</span><span class="mood m2" title="心情"></span></div><div class="cell" data-day="13" role="button" aria-label="10 月 13 日"><span class="num">13</span></div><div class="cell has-img" data-day="14" role="button" aria-label="10 月 14 日，1 篇日记"><span class="img" style="background-image:url(assets/p4.jpg)"></span><span class="veil"></span><span class="num">14</span><span class="mood m1" title="心情"></span></div><div class="cell" data-day="15" role="button" aria-label="10 月 15 日"><span class="num">15</span></div><div class="cell" data-day="16" role="button" aria-label="10 月 16 日"><span class="num">16</span></div><div class="cell" data-day="17" role="button" aria-label="10 月 17 日，2 篇日记"><span class="wxb" style="color:#FBBF24"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg></span><span class="num">17</span><span class="mood m1" title="心情"></span><span class="count">+1</span></div><div class="cell has-img" data-day="18" role="button" aria-label="10 月 18 日，1 篇日记"><span class="img" style="background-image:url(assets/p6.jpg)"></span><span class="veil"></span><span class="wxb" style="color:#FBBF24"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg></span><span class="num">18</span><span class="mood m0" title="心情"></span></div><div class="cell" data-day="19" role="button" aria-label="10 月 19 日"><span class="num">19</span></div><div class="cell" data-day="20" role="button" aria-label="10 月 20 日"><span class="num">20</span></div><div class="cell" data-day="21" role="button" aria-label="10 月 21 日"><span class="wxb" style="color:#94A3B8"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg></span><span class="num">21</span><span class="mood mn1" title="心情"></span></div><div class="cell has-img" data-day="22" role="button" aria-label="10 月 22 日，1 篇日记"><span class="img" style="background-image:url(assets/p1.jpg)"></span><span class="veil"></span><span class="wxb" style="color:#94A3B8"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="M20 12h2"/><path d="m19.07 4.93-1.41 1.41"/><path d="M15.947 12.65a4 4 0 0 0-5.925-4.128"/><path d="M13 22H7a5 5 0 1 1 4.9-6H13a3 3 0 0 1 0 6Z"/></svg></span><span class="num">22</span><span class="mood mn2" title="心情"></span></div><div class="cell" data-day="23" role="button" aria-label="10 月 23 日"><span class="num">23</span></div><div class="cell" data-day="24" role="button" aria-label="10 月 24 日"><span class="wxb" style="color:#94A3B8"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg></span><span class="num">24</span><span class="mood m0" title="心情"></span></div><div class="cell has-img" data-day="25" role="button" aria-label="10 月 25 日，2 篇日记"><span class="img" style="background-image:url(assets/p4.jpg)"></span><span class="veil"></span><span class="wxb" style="color:#94A3B8"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg></span><span class="num">25</span><span class="mood m1" title="心情"></span><span class="count">+1</span></div><div class="cell" data-day="26" role="button" aria-label="10 月 26 日"><span class="wxb" style="color:#94A3B8"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="M20 12h2"/><path d="m19.07 4.93-1.41 1.41"/><path d="M15.947 12.65a4 4 0 0 0-5.925-4.128"/><path d="M13 22H7a5 5 0 1 1 4.9-6H13a3 3 0 0 1 0 6Z"/></svg></span><span class="num">26</span></div><div class="cell" data-day="27" role="button" aria-label="10 月 27 日"><span class="wxb" style="color:#94A3B8"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg></span><span class="num">27</span><span class="mood m1" title="心情"></span></div><div class="cell has-img" data-day="28" role="button" aria-label="10 月 28 日，1 篇日记"><span class="img" style="background-image:url(assets/p2.jpg)"></span><span class="veil"></span><span class="wxb" style="color:#94A3B8"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="M20 12h2"/><path d="m19.07 4.93-1.41 1.41"/><path d="M15.947 12.65a4 4 0 0 0-5.925-4.128"/><path d="M13 22H7a5 5 0 1 1 4.9-6H13a3 3 0 0 1 0 6Z"/></svg></span><span class="num">28</span><span class="mood m0" title="心情"></span></div><div class="cell today" data-day="29" role="button" aria-label="10 月 29 日"><span class="wxb" style="color:#94A3B8"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="M20 12h2"/><path d="m19.07 4.93-1.41 1.41"/><path d="M15.947 12.65a4 4 0 0 0-5.925-4.128"/><path d="M13 22H7a5 5 0 1 1 4.9-6H13a3 3 0 0 1 0 6Z"/></svg></span><span class="num">29</span><span class="mood empty" title="心情"></span></div><div class="cell" data-day="30" role="button" aria-label="10 月 30 日"><span class="wxb" style="color:#FBBF24"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg></span><span class="num">30</span></div><div class="cell" data-day="31" role="button" aria-label="10 月 31 日"><span class="num">31</span></div></div>
+      </div>
+    </div>
+    <div class="editor" id="editor">
+      <h1>2026 年 10 月 29 日</h1>
+      <div class="meta">星期四 · 晴 27°C</div>
+      <div class="body"><span class="caret"></span></div>
+    </div>
+    <aside class="right" id="timeline"><div class="right-inner">
+  <div class="tl-head">
+    <h2>日记时间线</h2><span class="tl-count">32</span>
+    <div class="tl-actions"><button aria-label="记录心情"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></button><button aria-label="创建今天的日记"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M15 2v5h5"/><path d="M12 18v-6"/><path d="M9 15h6"/></svg></button></div>
+  </div>
+  <div class="tl-filter-row">
+    <input class="tl-search" type="search" placeholder="搜索日记" aria-label="搜索日记">
+    <button class="tl-filter-btn" id="tlFilterBtn" aria-label="筛选"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M7 12h10"/><path d="M10 18h4"/></svg></button>
+  </div>
+  <div class="tl-menu" id="tlMenu" hidden>
+    <label class="tl-field"><span>起始日期</span><input type="date" value="2026-09-01"></label>
+    <label class="tl-field"><span>结束日期</span><input type="date" value="2026-10-29"></label>
+    <label class="tl-field"><span>来源</span><select><option>全部来源</option></select></label>
+    <label class="tl-field"><span>心情</span><select><option>全部心情</option></select></label>
+    <label class="tl-field"><span>媒体类型</span><select><option>图片</option></select></label>
+    <label class="tl-field"><span>位置</span><select><option>全部位置</option></select></label>
+    <label class="tl-field"><span>标签</span><select><option>全部标签</option></select></label>
+    <label class="tl-fav"><input type="checkbox"><span>仅收藏</span></label>
+    <button class="tl-clear">清除筛选</button>
+  </div>
+  <details class="tl-stats"><summary><span>全部日记统计</span><span>本月完成 3%</span></summary></details>
+  <div class="tl-list" id="tlList">
+    <h3 class="tl-month">2026 年 10 月</h3>
+    <article class="tl-entry" tabindex="0">
+    <div class="tl-date" style="--m:#4d6fb8"><span class="tl-wd">周四</span><span class="tl-day">8</span></div>
+    <div class="tl-body">
+      <h3 class="tl-title">把夏天收进抽屉</h3>
+      <div class="tl-excerpt">下午把上周的照片整理了一下，只留下三张。</div>
+      <div class="tl-meta">更新于 2026 年 10 月 8 日 15:03</div>
+    </div>
+    <div class="tl-thumb" style="background-image:url(assets/p5.jpg)"></div>
+  </article>
+    <article class="tl-entry" tabindex="0">
+    <div class="tl-date" style="--m:#55b6c9"><span class="tl-wd">周一</span><span class="tl-day">5</span></div>
+    <div class="tl-body">
+      <h3 class="tl-title">湖边</h3>
+      <div class="tl-excerpt">风把水面吹得很碎，桂花的味道从围墙那边飘过来。</div>
+      <div class="tl-meta">更新于 2026 年 10 月 6 日 09:12</div>
+    </div>
+    <div class="tl-thumb" style="background-image:url(assets/p2.jpg)"></div>
+  </article>
+    <article class="tl-entry" tabindex="0">
+    <div class="tl-date" style="--m:#f0b34f"><span class="tl-wd">周六</span><span class="tl-day">3</span></div>
+    <div class="tl-body">
+      <h3 class="tl-title">落日</h3>
+      <div class="tl-excerpt">走回家的路上，天忽然烧起来了。</div>
+      <div class="tl-meta">更新于 2026 年 10 月 3 日 21:40</div>
+    </div>
+    <div class="tl-thumb" style="background-image:url(assets/p1.jpg)"></div>
+  </article>
+    <h3 class="tl-month">2026 年 9 月</h3>
+    <article class="tl-entry" tabindex="0">
+    <div class="tl-date" style="--m:#55b6c9"><span class="tl-wd">周二</span><span class="tl-day">29</span></div>
+    <div class="tl-body">
+      <h3 class="tl-title">Freewrite</h3>
+      
+      <div class="tl-meta">更新于 2026 年 9 月 29 日 23:05</div>
+    </div>
+    
+  </article>
+    <article class="tl-entry" tabindex="0">
+    <div class="tl-date" style="--m:#4d6fb8"><span class="tl-wd">周一</span><span class="tl-day">28</span></div>
+    <div class="tl-body">
+      <h3 class="tl-title">周末</h3>
+      <div class="tl-excerpt">睡到自然醒，煮了面。</div>
+      <div class="tl-meta">更新于 2026 年 9 月 28 日 18:22</div>
+    </div>
+    
+  </article>
+  </div></div></aside>
+    
+  
+  <div class="mood-scrim" id="moodScrim" hidden></div>
+  <div class="mood-modal" id="moodModal" role="dialog" aria-label="记录心情" hidden>
+    <div class="mood-head"><h2>今天的心情</h2><div class="mood-sub">2026 年 10 月 29 日 · 星期四</div></div>
+    <div class="mood-levels">
+      <button class="mood-lv" data-score="-2"><i style="background:#7652c7"></i><span>很低</span></button>
+      <button class="mood-lv" data-score="-1"><i style="background:#4d6fb8"></i><span>低落</span></button>
+      <button class="mood-lv on" data-score="0"><i style="background:#55b6c9"></i><span>平稳</span></button>
+      <button class="mood-lv" data-score="1"><i style="background:#f0b34f"></i><span>不错</span></button>
+      <button class="mood-lv" data-score="2"><i style="background:#ee6a54"></i><span>很好</span></button>
+    </div>
+    <label class="mood-note"><span>备注（可选）</span><input type="text" placeholder="今天发生了什么"></label>
+    <div class="mood-actions"><button class="mood-cancel">取消</button><button class="mood-save">保存</button></div>
+  </div>
+  <div class="set-scrim" id="setScrim" hidden></div>
+  <div class="set-modal" id="setModal" role="dialog" aria-label="Obsidian 设置" hidden>
+    <div class="set-nav">
+      <div class="set-nav-item">通用</div><div class="set-nav-item">编辑器</div><div class="set-nav-item">文件与链接</div>
+      <div class="set-nav-item">外观</div><div class="set-nav-item">快捷键</div><div class="set-nav-item">第三方插件</div>
+      <div class="set-nav-item active">Dayline</div>
+    </div>
+    <div class="set-content">
+      <div class="set-brand"><svg xmlns="http://www.w3.org/2000/svg"  viewBox="0 0 250 36" aria-hidden="true">
+  <title id="dayline-compact-title">Dayline</title>
+  <desc id="dayline-compact-desc">Dayline wordmark.</desc>
+  <g fill="currentColor" fill-rule="nonzero">
+    <path d="M 35.232 17.088 Q 35.232 12.624 33.576 9.384 Q 31.920 6.144 29.208 4.056 Q 26.496 1.968 23.088 0.984 Q 19.680 0.000 16.176 0.000 L 3.504 0.000 L 3.504 33.984 L 15.792 33.984 Q 19.392 33.984 22.896 33.144 Q 26.400 32.304 29.136 30.360 Q 31.872 28.416 33.552 25.152 Q 35.232 21.888 35.232 17.088 Z M 26.688 17.088 Q 26.688 19.968 25.752 21.864 Q 24.816 23.760 23.256 24.888 Q 21.696 26.016 19.704 26.496 Q 17.712 26.976 15.600 26.976 L 11.520 26.976 L 11.520 7.104 L 15.408 7.104 Q 17.616 7.104 19.656 7.608 Q 21.696 8.112 23.256 9.264 Q 24.816 10.416 25.752 12.336 Q 26.688 14.256 26.688 17.088 Z" transform="translate(14.5 35) scale(1 -1)" />
+    <path d="M 26.544 0.000 L 23.904 6.672 L 10.752 6.672 L 8.256 0.000 L -0.672 0.000 L 13.584 33.984 L 21.552 33.984 L 35.664 0.000 Z M 17.424 24.912 L 13.104 13.248 L 21.648 13.248 Z" transform="translate(52.552 35) scale(1 -1)" />
+    <path d="M 20.016 14.400 L 20.016 0.000 L 11.808 0.000 L 11.808 14.400 L -0.960 33.984 L 8.976 33.984 L 16.224 21.408 L 23.472 33.984 L 33.072 33.984 Z" transform="translate(88.444 35) scale(1 -1)" />
+    <path d="M 3.504 0.000 L 3.504 33.984 L 11.760 33.984 L 11.760 7.152 L 24.912 7.152 L 24.912 0.000 Z" transform="translate(121.456 35) scale(1 -1)" />
+    <path d="M 3.504 0.000 L 3.504 33.984 L 11.760 33.984 L 11.760 0.000 Z" transform="translate(147.604 35) scale(1 -1)" />
+    <path d="M 25.104 0.000 L 11.424 22.224 L 11.280 22.224 L 11.472 0.000 L 3.504 0.000 L 3.504 33.984 L 12.864 33.984 L 26.496 11.808 L 26.640 11.808 L 26.448 33.984 L 34.416 33.984 L 34.416 0.000 Z" transform="translate(163.768 35) scale(1 -1)" />
+    <path d="M 3.504 0.000 L 3.504 33.984 L 26.352 33.984 L 26.352 27.024 L 11.424 27.024 L 11.424 20.640 L 25.536 20.640 L 25.536 14.064 L 11.424 14.064 L 11.424 7.008 L 27.216 7.008 L 27.216 0.000 Z" transform="translate(202.588 35) scale(1 -1)" />
+  </g>
+</svg>
+</div>
+      <div class="set-section">常规</div>
+      <div class="set-row"><div class="set-name">显示语言</div><div class="set-value">简体中文</div></div>
+      <div class="set-row"><div class="set-name">每周起始日</div><div class="set-value">跟随系统</div></div>
+      <div class="set-section">日历和日记</div>
+      <div class="set-row" id="setFolder"><div class="set-name">日记来源目录</div><div class="set-value">Calendar/Daily</div></div>
+      <div class="set-section">天气</div>
+      <div class="set-row"><div class="set-name">启用天气</div><div class="set-value">关闭</div></div>
+      <div class="set-section">媒体元数据与隐私</div>
+      <div class="set-row"><div class="set-name">解析 GPS 地点</div><div class="set-value">关闭</div></div>
+    </div>
+  </div>
+
+  </div>
+  <button class="replay" id="replay" hidden>重播引导</button>
+<div class="tour" id="tour" hidden>
+      <svg class="leader" id="leader"><path id="leaderPath" fill="none" stroke="rgba(255,255,255,.4)" stroke-width="1"></path><circle id="leaderDot" r="2.5" fill="rgba(255,255,255,.85)"></circle></svg>
+      <div class="hole" id="hole"></div>
+      <div class="card" id="card" role="dialog" aria-modal="true" aria-label="新手引导">
+        <span class="card-arrow" id="arrow"></span>
+        <div class="card-top"><span class="dots" id="dots"><i class="on"></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><button class="skip" id="skip">跳过</button></div>
+        <h2 id="title"></h2>
+        <p id="body"></p>
+        <div class="card-actions"><button class="back" id="back">上一步</button><button class="next" id="next">下一步</button></div>
+      </div>
+    </div>
+    </div>
+    <script>
+(function(){
+  var steps = [
+    {sel:'#grid', mode:'side', title:'你的日子，都在这一格格里', body:'Dayline 已连上 Calendar/Daily，找到 214 天。写过的日子会亮起来，有照片的会铺满整格。'},
+    {sel:'[data-day="25"]', mode:'below', title:'照片是封面，圆点是心情', body:'有照片的日子会铺满整格；左下角的小圆点是那天的心情，点一下就能记。同一天写了多篇，右下角会出现 +1。'},
+    {sel:'#moodModal', mode:'left', wait:260, prepare:function(){ return openMood(); }, title:'心情，可以记到颜色里', body:'五个颜色，从很低到很好；还能补一句备注。日记格子左下角那个点，就是它。'},
+    {sel:'.wx', mode:'side', wait:220, prepare:function(){ return closeMood(); }, title:'天气是可选的', body:'打开后这里显示当天的气温、体感和湿度；坐标、单位和时区都在设置里。默认是关闭的。'},
+    {sel:'[data-ribbon="dayline"]', mode:'right', title:'翻旧日子，用日记时间线', body:'点这个 Dayline 图标，打开日记时间线。下一步就带你进去。'},
+    {sel:'#tlList', mode:'left', wait:420, prepare:function(){ return openTimeline(); }, title:'同一批笔记，按天排成一条线', body:'左边是星期和日期，中间是标题、摘要和更新时间，右边是当天的封面。'},
+    {sel:'.tl-search', mode:'left', title:'先搜，再筛', body:'搜索会同时找标题、正文和心情备注；输入时结果会跟着变。'},
+    {sel:'#setModal', mode:'left', wait:300, prepare:function(){ closeFilter(); return openSettings(); }, title:'语言、目录、天气、隐私都在设置里', body:'设置 → Dayline：目录已经自动连上 Calendar/Daily；天气默认关闭；EXIF 的 GPS 地名解析也默认关闭。'},
+    {sel:'[data-day="29"]', mode:'below', wait:360, prepare:function(){ return closeSettings(); }, title:'从今天开始', body:'今天有描边。点它写下今天的事；写过的日子会立刻亮起来。', cta:'写今天'}
+  ];
+  var win = document.getElementById('win'), tour = document.getElementById('tour'),
+      hole = document.getElementById('hole'), card = document.getElementById('card'),
+      arrow = document.getElementById('arrow'), title = document.getElementById('title'),
+      body = document.getElementById('body'), dots = document.getElementById('dots'),
+      next = document.getElementById('next'), back = document.getElementById('back'),
+      skip = document.getElementById('skip'), replay = document.getElementById('replay'),
+      leader = document.getElementById('leader'), lp = document.getElementById('leaderPath'),
+      ld = document.getElementById('leaderDot'), editor = document.getElementById('editor'),
+      timeline = document.getElementById('timeline'), tlMenu = document.getElementById('tlMenu'),
+      setScrim = document.getElementById('setScrim'), setModal = document.getElementById('setModal');
+  var i = 0, open = false, busy = false;
+
+  function sleep(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
+  function openTimeline(){ timeline.classList.add('open'); return sleep(420); }
+  function openFilter(){ tlMenu.hidden = false; }
+  function closeFilter(){ tlMenu.hidden = true; }
+  function openMood(){ var s=document.getElementById('moodScrim'), m=document.getElementById('moodModal'); if(s){s.hidden=false;m.hidden=false;} return sleep(220); }
+  function closeMood(){ var s=document.getElementById('moodScrim'), m=document.getElementById('moodModal'); if(s){s.hidden=true;m.hidden=true;} return sleep(180); }
+  function openSettings(){ setScrim.hidden = false; setModal.hidden = false; return sleep(260); }
+  function closeSettings(){ setScrim.hidden = true; setModal.hidden = true; return sleep(220); }
+
+  function place(){
+    var st = steps[i], el = document.querySelector(st.sel);
+    if(!el) return;
+    var r = el.getBoundingClientRect(), W = window.innerWidth, H = window.innerHeight;
+    var pad = 7;
+    var hl = Math.round(r.left) - pad, ht = Math.round(r.top) - pad;
+    var hw = Math.round(r.width) + pad*2, hh = Math.round(r.height) + pad*2;
+    hole.style.left = hl + 'px';
+    hole.style.top = ht + 'px';
+    hole.style.width = hw + 'px';
+    hole.style.height = hh + 'px';
+    var pageEl = document.querySelector('.page');
+    var prev = document.querySelector('.tour-target');
+    if(prev) prev.classList.remove('tour-target');
+    if(pageEl){ pageEl.classList.add('dimmed'); }
+    el.classList.add('tour-target');
+    var cw = 300, ch;
+    card.style.width = cw + 'px';
+    ch = card.offsetHeight;
+    var cy = r.top + r.height/2;
+    var left, top, mode = st.mode;
+    if(mode === 'side'){
+      left = 44 + 460 + 48;
+      top = Math.max(14, Math.min(cy - ch/2, H - ch - 14));
+    } else if(mode === 'right'){
+      left = r.left + r.width + 16;
+      top = Math.max(14, Math.min(cy - ch/2, H - ch - 14));
+    } else if(mode === 'left'){
+      left = r.left - cw - 16;
+      top = Math.max(14, Math.min(cy - ch/2, H - ch - 14));
+    } else {
+      left = Math.max(14, Math.min(r.left + r.width/2 - cw/2, W - cw - 14));
+      top = r.top + r.height + 16;
+      if(top + ch > H - 14) top = Math.max(14, r.top - ch - 16);
+    }
+    card.style.left = left + 'px';
+    card.style.top = top + 'px';
+
+    if(mode === 'below'){
+      leader.style.display = 'none';
+      arrow.style.display = 'block';
+      var ax = Math.max(18, Math.min(r.left + r.width/2 - left, cw - 26));
+      arrow.style.left = (ax - 5) + 'px';
+      arrow.style.top = '-5px';
+      arrow.style.boxShadow = 'inset 1px 1px 0 rgba(0,0,0,.06)';
+    } else {
+      arrow.style.display = 'none';
+      leader.style.display = 'block';
+      var ay = Math.max(18, Math.min(cy - top, ch - 20));
+      var x1, x2;
+      if(mode === 'left'){ x1 = r.left - 6; x2 = left + cw + 3; }
+      else { x1 = r.left + r.width + 6; x2 = left - 3; }
+      var y1 = cy, y2 = top + ay;
+      lp.setAttribute('d', 'M ' + x1 + ' ' + y1 + ' L ' + x2 + ' ' + y2);
+      ld.setAttribute('cx', x1); ld.setAttribute('cy', y1);
+    }
+  }
+
+  function setContent(){
+    var st = steps[i];
+    title.textContent = st.title;
+    body.textContent = st.body;
+    for(var k=0;k<dots.children.length;k++) dots.children[k].className = k===i ? 'on' : '';
+    back.style.visibility = i === 0 ? 'hidden' : 'visible';
+    next.textContent = st.cta || '下一步';
+  }
+
+  async function show(n){
+    if(busy) return;
+    busy = true;
+    var st = steps[n];
+    i = n;
+    if(st.prepare) await st.prepare();
+    card.classList.remove('in');
+    await sleep(110);
+    setContent();
+    await sleep(st.wait || 40);
+    place();
+    card.classList.add('in');
+    next.focus({preventScroll:true});
+    busy = false;
+  }
+
+  function start(){
+    i = 0; open = true;
+    tour.hidden = false; replay.hidden = true;
+    editor.classList.remove('editing');
+    timeline.classList.remove('open'); tlMenu.hidden = true;
+    setScrim.hidden = true; setModal.hidden = true;
+    show(0);
+  }
+  function clearDim(){
+    var pageEl = document.querySelector('.page'); if(pageEl) pageEl.classList.remove('dimmed');
+    var t = document.querySelector('.tour-target'); if(t) t.classList.remove('tour-target');
+  }
+  function finish(){
+    open = false;
+    clearDim();
+    tour.hidden = true; replay.hidden = false;
+    var t = document.querySelector('[data-day="29"]');
+    if(t){ t.classList.remove('pulse'); void t.offsetWidth; t.classList.add('pulse'); }
+    editor.classList.add('editing');
+  }
+  function skipTour(){
+    open = false; clearDim(); tour.hidden = true; replay.hidden = false;
+    setScrim.hidden = true; setModal.hidden = true; tlMenu.hidden = true;
+  }
+  function go(n){
+    if(!open) return;
+    if(n < 0){ show(0); return; }
+    if(n >= steps.length){ finish(); return; }
+    show(n);
+  }
+
+  next.addEventListener('click', function(){ go(i+1); });
+  back.addEventListener('click', function(){ go(i-1); });
+  skip.addEventListener('click', skipTour);
+  replay.addEventListener('click', start);
+  window.addEventListener('resize', function(){ if(open) place(); });
+  document.addEventListener('keydown', function(e){
+    if(!open) return;
+    if(e.key === 'Escape') skipTour();
+    else if(e.key === 'ArrowRight' || e.key === 'Enter'){ e.preventDefault(); go(i+1); }
+    else if(e.key === 'ArrowLeft'){ e.preventDefault(); go(i-1); }
+  });
+  function jumpTo(n){
+    i = n; open = true;
+    tour.hidden = false; replay.hidden = true;
+    if(n >= 5){ timeline.classList.add('open'); }
+    if(n === 2){ document.getElementById('moodScrim').hidden = false; document.getElementById('moodModal').hidden = false; }
+    if(n === 7){ setScrim.hidden = false; setModal.hidden = false; }
+    if(n === 8){ setScrim.hidden = true; setModal.hidden = true; }
+    setContent();
+    requestAnimationFrame(function(){ requestAnimationFrame(function(){ place(); card.classList.add('in'); next.focus({preventScroll:true}); }); });
+  }
+  var qs = new URLSearchParams(location.search), jump = qs.get('step');
+  if(jump){ jumpTo(Math.max(0, Math.min(steps.length - 1, (parseInt(jump, 10) || 1) - 1))); } else { start(); }
+})();
+</script>
+
+</body>
+</html>

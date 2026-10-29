@@ -182,7 +182,10 @@ describe('nine-language key parity and count plurals', () => {
     // the command name, and the record button. The settings support block adds
     // the remaining 18: its section label, the two rows, the drawer copy, the
     // toggle pair, and the update check with its four result notices.
-    expect(englishKeys).toHaveLength(335);
+    // The first-run onboarding tour adds the last 30: nine step titles and
+    // bodies, the empty-library folder step, the weather-off variant, the four
+    // navigation labels, the replay command and its settings row.
+    expect(englishKeys).toHaveLength(365);
 
     for (const language of SUPPORTED_DISPLAY_LANGUAGES) {
       expect(Object.keys(STRINGS[language]).sort(), language).toEqual(englishKeys);

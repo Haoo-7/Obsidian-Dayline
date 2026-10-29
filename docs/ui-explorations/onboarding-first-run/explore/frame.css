@@ -1,0 +1,49 @@
+/* Shared frame: a Dayline sidebar as it appears in Obsidian. Held constant
+   across candidates so the comparison isolates the onboarding surface. */
+:root{
+  --bg:#ffffff; --bg-2:#f6f6f6; --hover:#efefef;
+  --text:#232323; --muted:#686868; --faint:#9e9e9e;
+  --line:#e8e8e8; --line-strong:#dcdcdc;
+  --accent:#7852ee; --accent-weak:rgba(120,82,238,.12);
+  --mood-2:#ee6a54; --mood-1:#f0b34f; --mood-0:#55b6c9; --mood-n1:#4d6fb8; --mood-n2:#7652c7;
+  --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  --serif:"Songti SC","STSong","Noto Serif CJK SC","Source Han Serif SC",Georgia,serif;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:var(--bg)}
+body{font-family:var(--font);color:var(--text);-webkit-font-smoothing:antialiased}
+.sidebar{position:relative;width:460px;height:720px;background:var(--bg);display:flex;flex-direction:column;overflow:hidden;border-right:1px solid var(--line)}
+.side-head{flex:0 0 auto;height:42px;display:flex;align-items:center;justify-content:space-between;padding:0 10px}
+.side-tab{display:flex;align-items:center;justify-content:center;width:34px;height:28px;border-radius:6px;background:var(--bg-2);color:var(--muted)}
+.side-tools{display:flex;align-items:center;gap:10px;color:var(--faint)}
+.cal{position:relative;flex:1;min-height:0;display:flex;flex-direction:column;padding:0 14px 14px}
+.cal-month{flex:0 0 auto;display:flex;align-items:center;gap:4px;height:46px}
+.cal-nav{display:flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:5px;color:var(--muted)}
+.cal-title{flex:1;text-align:center;font-size:12.5px;font-weight:600;padding:5px 0;background:var(--bg-2);border-radius:6px;letter-spacing:.2px}
+.wx{flex:0 0 auto;background:var(--bg-2);border-radius:8px;padding:9px 12px 10px;margin:0 0 8px}
+.wx-top{display:flex;align-items:center;gap:7px}
+.wx-ico{display:flex;color:#93a1b1}
+.wx-now{font-size:13.5px;font-weight:600;letter-spacing:.1px}
+.wx-refresh{margin-left:auto;display:flex;color:var(--faint)}
+.wx-loc{margin-top:4px;font-size:10.5px;color:var(--muted)}
+.wx-detail{margin-top:2px;font-size:10.5px;color:var(--muted)}
+.weekdays{flex:0 0 auto;display:grid;grid-template-columns:repeat(7,1fr);gap:2px;padding:2px 0 5px;text-align:center;font-size:10px;font-weight:500;color:var(--muted)}
+.grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.cell{position:relative;aspect-ratio:1;border-radius:6px;background:var(--bg-2);display:flex;align-items:center;justify-content:center;overflow:hidden}
+.cell .num{position:relative;z-index:3;font-size:11px;font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums}
+.cell.has-img .num{color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.7)}
+.cell .img{position:absolute;inset:0;background-size:cover;background-position:center}
+.cell .veil{position:absolute;inset:0;background:rgba(0,0,0,.22)}
+.cell.today{box-shadow:inset 0 0 0 2px var(--accent)}
+.cell.today .num{color:var(--text)}
+.mood{position:absolute;left:2px;bottom:2px;z-index:4;width:10px;height:10px;border-radius:50%;border:2px solid rgba(255,255,255,.78);background:var(--m);box-shadow:0 1px 3px rgba(0,0,0,.22)}
+.m2{--m:var(--mood-2)} .m1{--m:var(--mood-1)} .m0{--m:var(--mood-0)} .mn1{--m:var(--mood-n1)} .mn2{--m:var(--mood-n2)}
+.count{position:absolute;right:4px;bottom:3px;z-index:4;font-size:8.5px;font-weight:600;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.65)}
+.wxb{position:absolute;top:3px;right:3px;z-index:3;width:12px;height:12px;color:#94a3b8;display:block}
+.wxb svg{display:block;width:12px;height:12px}
+.wx-ico svg{display:block;width:18px;height:18px}
+.wx-refresh svg,.cal-nav svg,.side-tab svg,.side-tools svg{display:block}
+.cell.has-img .wxb{filter:drop-shadow(0 0 1px rgba(0,0,0,.9))}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.mood.empty{background:transparent;border:1px solid #a9a9a9;box-shadow:none}
