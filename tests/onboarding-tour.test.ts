@@ -20,7 +20,7 @@ import {
 const desktopSteps = () => buildOnboardingSteps({ surface: 'desktop', hasEntries: true, weatherVisible: true });
 
 describe('onboarding step sequence', () => {
-  it('walks the nine desktop stops in the documented order', () => {
+  it('walks the eight desktop stops in the documented order', () => {
     const ids = desktopSteps().map((step) => step.id);
     expect(ids).toEqual([
       'calendar',
@@ -30,7 +30,6 @@ describe('onboarding step sequence', () => {
       'timeline-entry',
       'timeline-list',
       'timeline-search',
-      'settings',
       'today',
     ]);
   });
@@ -78,7 +77,7 @@ describe('onboarding state machine', () => {
   it('starts on the first step with no way back', () => {
     const state = new OnboardingTourState(desktopSteps());
     expect(state.index).toBe(0);
-    expect(state.total).toBe(9);
+    expect(state.total).toBe(8);
     expect(state.isFirst).toBe(true);
     expect(state.isLast).toBe(false);
     expect(state.step.id).toBe('calendar');
@@ -106,7 +105,7 @@ describe('onboarding state machine', () => {
     while (state.next()) {
       // walk to the end
     }
-    expect(state.index).toBe(8);
+    expect(state.index).toBe(7);
     expect(state.isLast).toBe(true);
     expect(state.result).toBe('finished');
     expect(state.done).toBe(true);
@@ -129,12 +128,12 @@ describe('onboarding state machine', () => {
 
   it('reports the last-step label through isLast, and keeps goTo bounded', () => {
     const state = new OnboardingTourState(desktopSteps());
-    expect(state.goTo(8)).toBe(true);
+    expect(state.goTo(7)).toBe(true);
     expect(state.isLast).toBe(true);
-    expect(state.goTo(9)).toBe(false);
+    expect(state.goTo(8)).toBe(false);
     expect(state.goTo(-1)).toBe(false);
     expect(state.goTo(1.5)).toBe(false);
-    expect(state.index).toBe(8);
+    expect(state.index).toBe(7);
   });
 
   it('abandons without pretending the user finished', () => {

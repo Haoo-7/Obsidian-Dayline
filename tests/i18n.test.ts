@@ -185,7 +185,7 @@ describe('nine-language key parity and count plurals', () => {
     // The first-run onboarding tour adds the last 30: nine step titles and
     // bodies, the empty-library folder step, the weather-off variant, the four
     // navigation labels, the replay command and its settings row.
-    expect(englishKeys).toHaveLength(365);
+    expect(englishKeys).toHaveLength(363);
 
     for (const language of SUPPORTED_DISPLAY_LANGUAGES) {
       expect(Object.keys(STRINGS[language]).sort(), language).toEqual(englishKeys);

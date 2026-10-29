@@ -2279,18 +2279,24 @@ body.is-dark .dayline-tour {
   --dayline-tour-dim: rgba(0, 0, 0, 0.45);
 }
 
+/* The four panels only intercept clicks; they paint nothing. Rectangle edges
+   cannot follow a radius, so painting the dim here made a square notch with a
+   rounded ring floating inside it — the corners looked like neither shape. */
 .dayline-tour-band {
   position: absolute;
-  background: var(--dayline-tour-dim);
+  background: transparent;
   pointer-events: auto;
   transition: left 280ms cubic-bezier(0.2, 0.8, 0.2, 1), top 280ms cubic-bezier(0.2, 0.8, 0.2, 1),
     width 280ms cubic-bezier(0.2, 0.8, 0.2, 1), height 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
+/* The ring and the dim are two shadows on the hole itself, so both follow the
+   same 10px radius and the highlight reads as one rounded cut-out. Shadows do
+   not take pointer events, which is why the panels above still exist. */
 .dayline-tour-hole {
   position: absolute;
   border-radius: 10px;
-  box-shadow: 0 0 0 1px var(--dayline-tour-ring);
+  box-shadow: 0 0 0 1px var(--dayline-tour-ring), 0 0 0 200vmax var(--dayline-tour-dim);
   pointer-events: none;
   transition: left 280ms cubic-bezier(0.2, 0.8, 0.2, 1), top 280ms cubic-bezier(0.2, 0.8, 0.2, 1),
     width 280ms cubic-bezier(0.2, 0.8, 0.2, 1), height 280ms cubic-bezier(0.2, 0.8, 0.2, 1);

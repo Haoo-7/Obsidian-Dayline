@@ -28,7 +28,6 @@ export type OnboardingStepId =
   | 'timeline-entry'
   | 'timeline-list'
   | 'timeline-search'
-  | 'settings'
   | 'today';
 
 /** Preferred side of the target for the card. */
@@ -63,8 +62,14 @@ function step(
 /**
  * The order is deliberate: look at what is already on screen (calendar, a day,
  * the mood picker, the weather card), then leave the sidebar to meet the entry
- * point and the views it opens (timeline, search, settings), then come back to
- * today and start writing.
+ * point and the views it opens (timeline, search), then come back to today and
+ * start writing.
+ *
+ * There is deliberately no settings stop. Settings is where the folder,
+ * language and privacy switches live, but Obsidian 1.14 opens it in its own OS
+ * window, and a single-window overlay can neither dim nor point at that. Rather
+ * than open a window the tour cannot explain, the settings copy moved into the
+ * step about the journal folder.
  */
 export function buildOnboardingSteps(options: OnboardingSequenceOptions): OnboardingStep[] {
   if (!options.hasEntries) {
@@ -100,7 +105,6 @@ export function buildOnboardingSteps(options: OnboardingSequenceOptions): Onboar
     step('timeline-entry', 'right', 'onboardingStepTimelineEntryTitle', 'onboardingStepTimelineEntryBody'),
     step('timeline-list', 'left', 'onboardingStepTimelineListTitle', 'onboardingStepTimelineListBody'),
     step('timeline-search', 'left', 'onboardingStepSearchTitle', 'onboardingStepSearchBody'),
-    step('settings', 'left', 'onboardingStepSettingsTitle', 'onboardingStepSettingsBody'),
     step('today', 'below', 'onboardingStepTodayTitle', 'onboardingStepTodayBody'),
   ];
 }

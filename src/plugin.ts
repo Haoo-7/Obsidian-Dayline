@@ -211,8 +211,6 @@ class DaylinePlugin extends Plugin {
     this._onboardingTour = null;
     this._onboardingAttempted = false;
     this._onboardingMoodModal = null;
-    // Only a settings pane this tour opened may be closed by it.
-    this._onboardingOpenedSettings = false;
     // A first-run tour defers its one and only data.json write to the end.
     this._onboardingStartedFresh = false;
     this._onboardingSuppressVisibilityPersist = false;
@@ -479,7 +477,6 @@ class DaylinePlugin extends Plugin {
     this._onboardingTour?.destroy();
     this._onboardingTour = null;
     this._onboardingMoodModal = null;
-    this._onboardingOpenedSettings = false;
     this._unbindCapabilityRefresh();
     this._mobileQuickEntry?.dispose();
     this._mobileQuickEntry = null;
@@ -1026,7 +1023,6 @@ class DaylinePlugin extends Plugin {
       },
       destroy: () => {
         this._onboardingMoodModal = null;
-        this._onboardingOpenedSettings = false;
         this._onboardingTour = null;
       },
     };
@@ -1035,9 +1031,9 @@ class DaylinePlugin extends Plugin {
   /**
    * Bring one step's target on screen and report where it is.
    *
-   * Every asynchronous surface — the timeline, the mood picker, the settings
-   * modal, the calendar after a month jump — is opened here and waited for. A
-   * `null` answer means the step is dropped, never that the tour failed.
+   * Every asynchronous surface — the timeline, the mood picker, the calendar
+   * after a month jump — is opened here and waited for. A `null` answer means
+   * the step is dropped, never that the tour failed.
    */
   async _prepareOnboardingStep(step) {
     switch (step?.id) {
@@ -1055,8 +1051,6 @@ class DaylinePlugin extends Plugin {
         return this._onboardingTimelineAnchor('.journal-timeline-list');
       case 'timeline-search':
         return this._onboardingTimelineAnchor('.journal-timeline-filter-row input[type="search"]');
-      case 'settings':
-        return this._onboardingSettingsAnchor();
       case 'today':
         return this._onboardingTodayAnchor();
       default:
@@ -1075,17 +1069,6 @@ class DaylinePlugin extends Plugin {
         console.warn('[Dayline] Could not close the mood picker after the tour step:', error?.message || error);
       }
       return;
-    }
-    if (step?.id === 'settings') {
-      if (!this._onboardingOpenedSettings) return;
-      this._onboardingOpenedSettings = false;
-      try {
-        this.app.setting?.close?.();
-      } catch (error) {
-        console.warn('[Dayline] Could not close settings after the tour step:', error?.message || error);
-      }
-      // The next step measures the calendar; the modal must be gone first.
-      await this._waitFor(() => !document.querySelector('.modal-container .dayline-settings-container'), 600);
     }
   }
 
@@ -1235,33 +1218,6 @@ class DaylinePlugin extends Plugin {
     return element ? this._onboardingSelectorAnchor('.journal-timeline-view ' + selector) : null;
   }
 
-  /**
-   * Obsidian 1.14 opens settings in its own OS window. This overlay lives in the
-   * app window, so it can neither dim nor point at that pane; the step is
-   * dropped there rather than opening a window the tour cannot explain. Older
-   * versions keep settings inside the app window and get the full highlight.
-   */
-  _onboardingSettingsInPlace() {
-    const setting = this.app.setting;
-    if (!setting || typeof setting.open !== 'function') return false;
-    return !setting.win || setting.win === window;
-  }
-
-  async _onboardingSettingsAnchor() {
-    if (!this._onboardingSettingsInPlace()) return null;
-    const setting = this.app.setting;
-    try {
-      setting.open();
-      this._onboardingOpenedSettings = true;
-      if (typeof setting.openTabById === 'function') setting.openTabById(PLUGIN_ID);
-    } catch (error) {
-      console.warn('[Dayline] Could not open settings for the tour:', error?.message || error);
-      return null;
-    }
-    const pane = await waitForElement(document, '.dayline-settings-container', { timeoutMs: 3000 });
-    return pane ? this._onboardingSelectorAnchor('.dayline-settings-container') : null;
-  }
-
   async _onboardingTodayAnchor() {
     const today = _daylineDate(this.settings);
     const selector = '.cal-sidebar .cal-day[data-calendar-focus="day-' + today + '"]';
@@ -1322,27 +1278,6 @@ class DaylinePlugin extends Plugin {
       await new Promise((resolve) => window.setTimeout(resolve, 60));
     }
     return false;
-  }
-
-  /** Poll a predicate; resolves true when it held, false on timeout. */
-  _waitFor(predicate, timeoutMs = 500) {
-    return new Promise((resolve) => {
-      const started = Date.now();
-      const tick = () => {
-        let done = false;
-        try {
-          done = Boolean(predicate());
-        } catch {
-          done = true;
-        }
-        if (done || Date.now() - started >= timeoutMs) {
-          resolve(done);
-          return;
-        }
-        window.setTimeout(tick, 40);
-      };
-      tick();
-    });
   }
 
   /** Resolve when the promise settles or after the timeout, whichever is first. */

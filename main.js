@@ -3323,8 +3323,6 @@ var init_i18n = __esm({
         onboardingStepMoodTitle: "\u5FC3\u60C5\uFF0C\u53EF\u4EE5\u8BB0\u5230\u989C\u8272\u91CC",
         onboardingStepSearchBody: "\u641C\u7D22\u4F1A\u540C\u65F6\u627E\u6807\u9898\u3001\u6B63\u6587\u548C\u5FC3\u60C5\u5907\u6CE8\uFF1B\u8F93\u5165\u65F6\u7ED3\u679C\u4F1A\u8DDF\u7740\u53D8\u3002",
         onboardingStepSearchTitle: "\u5148\u641C\uFF0C\u518D\u7B5B",
-        onboardingStepSettingsBody: "\u8BBE\u7F6E \u2192 Dayline\uFF1A\u76EE\u5F55\u5DF2\u7ECF\u81EA\u52A8\u8FDE\u4E0A {folder}\uFF1B\u5929\u6C14\u9ED8\u8BA4\u5173\u95ED\uFF1BEXIF \u7684 GPS \u5730\u540D\u89E3\u6790\u4E5F\u9ED8\u8BA4\u5173\u95ED\u3002",
-        onboardingStepSettingsTitle: "\u8BED\u8A00\u3001\u76EE\u5F55\u3001\u5929\u6C14\u3001\u9690\u79C1\u90FD\u5728\u8BBE\u7F6E\u91CC",
         onboardingStepTimelineEntryBody: "\u70B9\u8FD9\u4E2A Dayline \u56FE\u6807\uFF0C\u6253\u5F00\u65E5\u8BB0\u65F6\u95F4\u7EBF\u3002\u4E0B\u4E00\u6B65\u5C31\u5E26\u4F60\u8FDB\u53BB\u3002",
         onboardingStepTimelineEntryTitle: "\u7FFB\u65E7\u65E5\u5B50\uFF0C\u7528\u65E5\u8BB0\u65F6\u95F4\u7EBF",
         onboardingStepTimelineListBody: "\u5DE6\u8FB9\u662F\u661F\u671F\u548C\u65E5\u671F\uFF0C\u4E2D\u95F4\u662F\u6807\u9898\u3001\u6458\u8981\u548C\u66F4\u65B0\u65F6\u95F4\uFF0C\u53F3\u8FB9\u662F\u5F53\u5929\u7684\u5C01\u9762\u3002",
@@ -3690,8 +3688,6 @@ var init_i18n = __esm({
         onboardingStepMoodTitle: "\u5FC3\u60C5\uFF0C\u53EF\u4EE5\u8A18\u5230\u984F\u8272\u88E1",
         onboardingStepSearchBody: "\u641C\u5C0B\u6703\u540C\u6642\u627E\u6A19\u984C\u3001\u6B63\u6587\u548C\u5FC3\u60C5\u5099\u8A3B\uFF1B\u8F38\u5165\u6642\u7D50\u679C\u6703\u8DDF\u8457\u8B8A\u3002",
         onboardingStepSearchTitle: "\u5148\u641C\uFF0C\u518D\u7BE9",
-        onboardingStepSettingsBody: "\u8A2D\u5B9A \u2192 Dayline\uFF1A\u8CC7\u6599\u593E\u5DF2\u7D93\u81EA\u52D5\u9023\u4E0A {folder}\uFF1B\u5929\u6C23\u9810\u8A2D\u95DC\u9589\uFF1BEXIF \u7684 GPS \u5730\u540D\u89E3\u6790\u4E5F\u9810\u8A2D\u95DC\u9589\u3002",
-        onboardingStepSettingsTitle: "\u8A9E\u8A00\u3001\u8CC7\u6599\u593E\u3001\u5929\u6C23\u3001\u96B1\u79C1\u90FD\u5728\u8A2D\u5B9A\u88E1",
         onboardingStepTimelineEntryBody: "\u9EDE\u9019\u500B Dayline \u5716\u793A\uFF0C\u958B\u555F\u65E5\u8A18\u6642\u9593\u8EF8\u3002\u4E0B\u4E00\u6B65\u5C31\u5E36\u4F60\u9032\u53BB\u3002",
         onboardingStepTimelineEntryTitle: "\u7FFB\u820A\u65E5\u5B50\uFF0C\u7528\u65E5\u8A18\u6642\u9593\u8EF8",
         onboardingStepTimelineListBody: "\u5DE6\u908A\u662F\u661F\u671F\u548C\u65E5\u671F\uFF0C\u4E2D\u9593\u662F\u6A19\u984C\u3001\u6458\u8981\u548C\u66F4\u65B0\u6642\u9593\uFF0C\u53F3\u908A\u662F\u7576\u5929\u7684\u5C01\u9762\u3002",
@@ -4057,8 +4053,6 @@ var init_i18n = __esm({
         onboardingStepMoodTitle: "Moods live in color",
         onboardingStepSearchBody: "Search looks at titles, body text and mood notes at the same time; results follow what you type.",
         onboardingStepSearchTitle: "Search first, then filter",
-        onboardingStepSettingsBody: "Settings \u2192 Dayline: the folder is already connected to {folder}; weather is off by default; EXIF GPS place lookup is off by default too.",
-        onboardingStepSettingsTitle: "Language, folder, weather and privacy all live in settings",
         onboardingStepTimelineEntryBody: "Click this Dayline icon to open the journal timeline. The next step walks you through it.",
         onboardingStepTimelineEntryTitle: "Look back with the journal timeline",
         onboardingStepTimelineListBody: "Weekday and date on the left, title, excerpt and update time in the middle, that day's cover on the right.",
@@ -4424,8 +4418,6 @@ var init_i18n = __esm({
         onboardingStepMoodTitle: "\u6C17\u5206\u306F\u8272\u3067\u6B8B\u305B\u307E\u3059",
         onboardingStepSearchBody: "\u691C\u7D22\u306F\u30BF\u30A4\u30C8\u30EB\u30FB\u672C\u6587\u30FB\u6C17\u5206\u30E1\u30E2\u3092\u540C\u6642\u306B\u898B\u307E\u3059\u3002\u5165\u529B\u3059\u308B\u3068\u7D50\u679C\u304C\u3059\u3050\u5909\u308F\u308A\u307E\u3059\u3002",
         onboardingStepSearchTitle: "\u307E\u305A\u691C\u7D22\u3001\u305D\u308C\u304B\u3089\u7D5E\u308A\u8FBC\u307F",
-        onboardingStepSettingsBody: "\u8A2D\u5B9A \u2192 Dayline\uFF1A\u30D5\u30A9\u30EB\u30C0\u30FC\u306F {folder} \u306B\u81EA\u52D5\u3067\u63A5\u7D9A\u6E08\u307F\u3001\u5929\u6C17\u306F\u65E2\u5B9A\u3067\u30AA\u30D5\u3001EXIF \u306E GPS \u5730\u540D\u89E3\u6C7A\u3082\u65E2\u5B9A\u3067\u30AA\u30D5\u3067\u3059\u3002",
-        onboardingStepSettingsTitle: "\u8A00\u8A9E\u30FB\u30D5\u30A9\u30EB\u30C0\u30FC\u30FB\u5929\u6C17\u30FB\u30D7\u30E9\u30A4\u30D0\u30B7\u30FC\u306F\u8A2D\u5B9A\u306B",
         onboardingStepTimelineEntryBody: "\u3053\u306E Dayline \u30A2\u30A4\u30B3\u30F3\u3092\u62BC\u3059\u3068\u65E5\u8A18\u30BF\u30A4\u30E0\u30E9\u30A4\u30F3\u304C\u958B\u304D\u307E\u3059\u3002\u6B21\u306E\u30B9\u30C6\u30C3\u30D7\u3067\u6848\u5185\u3057\u307E\u3059\u3002",
         onboardingStepTimelineEntryTitle: "\u904E\u53BB\u306E\u65E5\u3005\u306F\u65E5\u8A18\u30BF\u30A4\u30E0\u30E9\u30A4\u30F3\u3067",
         onboardingStepTimelineListBody: "\u5DE6\u306B\u66DC\u65E5\u3068\u65E5\u4ED8\u3001\u4E2D\u592E\u306B\u30BF\u30A4\u30C8\u30EB\u30FB\u629C\u7C8B\u30FB\u66F4\u65B0\u6642\u523B\u3001\u53F3\u306B\u305D\u306E\u65E5\u306E\u8868\u7D19\u3002",
@@ -4791,8 +4783,6 @@ var init_i18n = __esm({
         onboardingStepMoodTitle: "\uAE30\uBD84\uC740 \uC0C9\uC73C\uB85C \uB0A8\uAE41\uB2C8\uB2E4",
         onboardingStepSearchBody: "\uAC80\uC0C9\uC740 \uC81C\uBAA9, \uBCF8\uBB38, \uAE30\uBD84 \uBA54\uBAA8\uB97C \uD568\uAED8 \uCC3E\uC2B5\uB2C8\uB2E4. \uC785\uB825\uD558\uBA74 \uACB0\uACFC\uAC00 \uBC14\uB85C \uBC14\uB01D\uB2C8\uB2E4.",
         onboardingStepSearchTitle: "\uBA3C\uC800 \uAC80\uC0C9\uD558\uACE0, \uADF8\uB2E4\uC74C \uAC78\uB7EC\uB0C5\uB2C8\uB2E4",
-        onboardingStepSettingsBody: "\uC124\uC815 \u2192 Dayline: \uD3F4\uB354\uB294 {folder}\uC5D0 \uC790\uB3D9 \uC5F0\uACB0\uB418\uC5B4 \uC788\uACE0, \uB0A0\uC528\uB294 \uAE30\uBCF8\uC73C\uB85C \uAEBC\uC838 \uC788\uC73C\uBA70, EXIF GPS \uC9C0\uBA85 \uC870\uD68C\uB3C4 \uAE30\uBCF8\uC73C\uB85C \uAEBC\uC838 \uC788\uC2B5\uB2C8\uB2E4.",
-        onboardingStepSettingsTitle: "\uC5B8\uC5B4\xB7\uD3F4\uB354\xB7\uB0A0\uC528\xB7\uAC1C\uC778\uC815\uBCF4\uB294 \uC124\uC815\uC5D0",
         onboardingStepTimelineEntryBody: "\uC774 Dayline \uC544\uC774\uCF58\uC744 \uB204\uB974\uBA74 \uC77C\uAE30 \uD0C0\uC784\uB77C\uC778\uC774 \uC5F4\uB9BD\uB2C8\uB2E4. \uB2E4\uC74C \uB2E8\uACC4\uC5D0\uC11C \uC548\uB0B4\uD569\uB2C8\uB2E4.",
         onboardingStepTimelineEntryTitle: "\uC9C0\uB09C \uB0A0\uC740 \uC77C\uAE30 \uD0C0\uC784\uB77C\uC778\uC73C\uB85C",
         onboardingStepTimelineListBody: "\uC67C\uCABD\uC5D0 \uC694\uC77C\uACFC \uB0A0\uC9DC, \uAC00\uC6B4\uB370\uC5D0 \uC81C\uBAA9\xB7\uBC1C\uCDCC\xB7\uC218\uC815 \uC2DC\uAC04, \uC624\uB978\uCABD\uC5D0 \uADF8\uB0A0\uC758 \uD45C\uC9C0.",
@@ -5158,8 +5148,6 @@ var init_i18n = __esm({
         onboardingStepMoodTitle: "L'humeur s'enregistre en couleur",
         onboardingStepSearchBody: "La recherche porte \xE0 la fois sur les titres, le texte et les notes d'humeur ; les r\xE9sultats suivent la frappe.",
         onboardingStepSearchTitle: "Cherchez d'abord, filtrez ensuite",
-        onboardingStepSettingsBody: "R\xE9glages \u2192 Dayline : le dossier est d\xE9j\xE0 reli\xE9 \xE0 {folder} ; la m\xE9t\xE9o est d\xE9sactiv\xE9e par d\xE9faut ; la r\xE9solution GPS EXIF aussi.",
-        onboardingStepSettingsTitle: "Langue, dossier, m\xE9t\xE9o et confidentialit\xE9 sont dans les r\xE9glages",
         onboardingStepTimelineEntryBody: "Cliquez sur cette ic\xF4ne Dayline pour ouvrir la chronologie du journal. L'\xE9tape suivante vous y emm\xE8ne.",
         onboardingStepTimelineEntryTitle: "Remontez le temps avec la chronologie",
         onboardingStepTimelineListBody: "Le jour et la date \xE0 gauche, le titre, l'extrait et l'heure de mise \xE0 jour au milieu, la couverture du jour \xE0 droite.",
@@ -5525,8 +5513,6 @@ var init_i18n = __esm({
         onboardingStepMoodTitle: "Stimmungen werden zu Farben",
         onboardingStepSearchBody: "Die Suche findet Titel, Text und Stimmungsnotizen zugleich; die Treffer \xE4ndern sich beim Tippen.",
         onboardingStepSearchTitle: "Erst suchen, dann filtern",
-        onboardingStepSettingsBody: "Einstellungen \u2192 Dayline: der Ordner ist bereits mit {folder} verbunden; das Wetter ist aus; auch die EXIF-GPS-Ortssuche ist aus.",
-        onboardingStepSettingsTitle: "Sprache, Ordner, Wetter und Datenschutz liegen in den Einstellungen",
         onboardingStepTimelineEntryBody: "Klicke auf dieses Dayline-Symbol, um den Zeitstrahl zu \xF6ffnen. Der n\xE4chste Schritt f\xFChrt hinein.",
         onboardingStepTimelineEntryTitle: "Alte Tage im Journal-Zeitstrahl",
         onboardingStepTimelineListBody: "Links Wochentag und Datum, in der Mitte Titel, Auszug und \xC4nderungszeit, rechts das Titelbild des Tages.",
@@ -5892,8 +5878,6 @@ var init_i18n = __esm({
         onboardingStepMoodTitle: "El \xE1nimo se guarda en color",
         onboardingStepSearchBody: "La b\xFAsqueda mira t\xEDtulos, texto y notas de \xE1nimo a la vez; los resultados cambian mientras escribes.",
         onboardingStepSearchTitle: "Primero busca, luego filtra",
-        onboardingStepSettingsBody: "Ajustes \u2192 Dayline: la carpeta ya est\xE1 conectada a {folder}; el tiempo est\xE1 desactivado por defecto; la b\xFAsqueda de lugares por GPS EXIF tambi\xE9n.",
-        onboardingStepSettingsTitle: "Idioma, carpeta, tiempo y privacidad est\xE1n en los ajustes",
         onboardingStepTimelineEntryBody: "Haz clic en este icono de Dayline para abrir la cronolog\xEDa del diario. El siguiente paso te lleva dentro.",
         onboardingStepTimelineEntryTitle: "Vuelve al pasado con la cronolog\xEDa",
         onboardingStepTimelineListBody: "D\xEDa y fecha a la izquierda, t\xEDtulo, extracto y hora de actualizaci\xF3n en el centro, portada del d\xEDa a la derecha.",
@@ -6259,8 +6243,6 @@ var init_i18n = __esm({
         onboardingStepMoodTitle: "\u041D\u0430\u0441\u0442\u0440\u043E\u0435\u043D\u0438\u0435 \u0445\u0440\u0430\u043D\u0438\u0442\u0441\u044F \u0432 \u0446\u0432\u0435\u0442\u0435",
         onboardingStepSearchBody: "\u041F\u043E\u0438\u0441\u043A \u0438\u0449\u0435\u0442 \u043F\u043E \u0437\u0430\u0433\u043E\u043B\u043E\u0432\u043A\u0430\u043C, \u0442\u0435\u043A\u0441\u0442\u0443 \u0438 \u0437\u0430\u043C\u0435\u0442\u043A\u0430\u043C \u043E \u043D\u0430\u0441\u0442\u0440\u043E\u0435\u043D\u0438\u0438 \u043E\u0434\u043D\u043E\u0432\u0440\u0435\u043C\u0435\u043D\u043D\u043E; \u0440\u0435\u0437\u0443\u043B\u044C\u0442\u0430\u0442\u044B \u043C\u0435\u043D\u044F\u044E\u0442\u0441\u044F \u043F\u043E \u043C\u0435\u0440\u0435 \u0432\u0432\u043E\u0434\u0430.",
         onboardingStepSearchTitle: "\u0421\u043D\u0430\u0447\u0430\u043B\u0430 \u043F\u043E\u0438\u0441\u043A, \u043F\u043E\u0442\u043E\u043C \u0444\u0438\u043B\u044C\u0442\u0440\u044B",
-        onboardingStepSettingsBody: "\xAB\u041D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438 \u2192 Dayline\xBB: \u043F\u0430\u043F\u043A\u0430 \u0443\u0436\u0435 \u043F\u043E\u0434\u043A\u043B\u044E\u0447\u0435\u043D\u0430 \u043A {folder}; \u043F\u043E\u0433\u043E\u0434\u0430 \u043F\u043E \u0443\u043C\u043E\u043B\u0447\u0430\u043D\u0438\u044E \u0432\u044B\u043A\u043B\u044E\u0447\u0435\u043D\u0430; \u043E\u043F\u0440\u0435\u0434\u0435\u043B\u0435\u043D\u0438\u0435 \u043C\u0435\u0441\u0442\u0430 \u043F\u043E GPS \u0438\u0437 EXIF \u0442\u043E\u0436\u0435 \u0432\u044B\u043A\u043B\u044E\u0447\u0435\u043D\u043E.",
-        onboardingStepSettingsTitle: "\u042F\u0437\u044B\u043A, \u043F\u0430\u043F\u043A\u0430, \u043F\u043E\u0433\u043E\u0434\u0430 \u0438 \u043F\u0440\u0438\u0432\u0430\u0442\u043D\u043E\u0441\u0442\u044C \u2014 \u0432 \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0430\u0445",
         onboardingStepTimelineEntryBody: "\u041D\u0430\u0436\u043C\u0438\u0442\u0435 \u044D\u0442\u043E\u0442 \u0437\u043D\u0430\u0447\u043E\u043A Dayline, \u0447\u0442\u043E\u0431\u044B \u043E\u0442\u043A\u0440\u044B\u0442\u044C \u043B\u0435\u043D\u0442\u0443 \u0434\u043D\u0435\u0432\u043D\u0438\u043A\u0430. \u0421\u043B\u0435\u0434\u0443\u044E\u0449\u0438\u0439 \u0448\u0430\u0433 \u043F\u0440\u043E\u0432\u0435\u0434\u0451\u0442 \u0432\u043D\u0443\u0442\u0440\u044C.",
         onboardingStepTimelineEntryTitle: "\u041F\u0440\u0435\u0436\u043D\u0438\u0435 \u0434\u043D\u0438 \u2014 \u0432 \u043B\u0435\u043D\u0442\u0435 \u0434\u043D\u0435\u0432\u043D\u0438\u043A\u0430",
         onboardingStepTimelineListBody: "\u0421\u043B\u0435\u0432\u0430 \u0434\u0435\u043D\u044C \u043D\u0435\u0434\u0435\u043B\u0438 \u0438 \u0434\u0430\u0442\u0430, \u0432 \u0446\u0435\u043D\u0442\u0440\u0435 \u0437\u0430\u0433\u043E\u043B\u043E\u0432\u043E\u043A, \u043E\u0442\u0440\u044B\u0432\u043E\u043A \u0438 \u0432\u0440\u0435\u043C\u044F \u043E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u0438\u044F, \u0441\u043F\u0440\u0430\u0432\u0430 \u043E\u0431\u043B\u043E\u0436\u043A\u0430 \u0434\u043D\u044F.",
@@ -8868,7 +8850,6 @@ function buildOnboardingSteps(options) {
     step("timeline-entry", "right", "onboardingStepTimelineEntryTitle", "onboardingStepTimelineEntryBody"),
     step("timeline-list", "left", "onboardingStepTimelineListTitle", "onboardingStepTimelineListBody"),
     step("timeline-search", "left", "onboardingStepSearchTitle", "onboardingStepSearchBody"),
-    step("settings", "left", "onboardingStepSettingsTitle", "onboardingStepSettingsBody"),
     step("today", "below", "onboardingStepTodayTitle", "onboardingStepTodayBody")
   ];
 }
@@ -35484,7 +35465,6 @@ var DaylinePlugin = class extends Plugin {
     this._onboardingTour = null;
     this._onboardingAttempted = false;
     this._onboardingMoodModal = null;
-    this._onboardingOpenedSettings = false;
     this._onboardingStartedFresh = false;
     this._onboardingSuppressVisibilityPersist = false;
     this._hasPersistedSettings = false;
@@ -35684,7 +35664,6 @@ var DaylinePlugin = class extends Plugin {
     this._onboardingTour?.destroy();
     this._onboardingTour = null;
     this._onboardingMoodModal = null;
-    this._onboardingOpenedSettings = false;
     this._unbindCapabilityRefresh();
     this._mobileQuickEntry?.dispose();
     this._mobileQuickEntry = null;
@@ -36131,7 +36110,6 @@ var DaylinePlugin = class extends Plugin {
       },
       destroy: () => {
         this._onboardingMoodModal = null;
-        this._onboardingOpenedSettings = false;
         this._onboardingTour = null;
       }
     };
@@ -36139,9 +36117,9 @@ var DaylinePlugin = class extends Plugin {
   /**
    * Bring one step's target on screen and report where it is.
    *
-   * Every asynchronous surface — the timeline, the mood picker, the settings
-   * modal, the calendar after a month jump — is opened here and waited for. A
-   * `null` answer means the step is dropped, never that the tour failed.
+   * Every asynchronous surface — the timeline, the mood picker, the calendar
+   * after a month jump — is opened here and waited for. A `null` answer means
+   * the step is dropped, never that the tour failed.
    */
   async _prepareOnboardingStep(step2) {
     switch (step2?.id) {
@@ -36159,8 +36137,6 @@ var DaylinePlugin = class extends Plugin {
         return this._onboardingTimelineAnchor(".journal-timeline-list");
       case "timeline-search":
         return this._onboardingTimelineAnchor('.journal-timeline-filter-row input[type="search"]');
-      case "settings":
-        return this._onboardingSettingsAnchor();
       case "today":
         return this._onboardingTodayAnchor();
       default:
@@ -36178,16 +36154,6 @@ var DaylinePlugin = class extends Plugin {
         console.warn("[Dayline] Could not close the mood picker after the tour step:", error?.message || error);
       }
       return;
-    }
-    if (step2?.id === "settings") {
-      if (!this._onboardingOpenedSettings) return;
-      this._onboardingOpenedSettings = false;
-      try {
-        this.app.setting?.close?.();
-      } catch (error) {
-        console.warn("[Dayline] Could not close settings after the tour step:", error?.message || error);
-      }
-      await this._waitFor(() => !document.querySelector(".modal-container .dayline-settings-container"), 600);
     }
   }
   /**
@@ -36324,31 +36290,6 @@ var DaylinePlugin = class extends Plugin {
     const element = await waitForElement2(document, ".journal-timeline-view " + selector, { timeoutMs: 3e3 });
     return element ? this._onboardingSelectorAnchor(".journal-timeline-view " + selector) : null;
   }
-  /**
-   * Obsidian 1.14 opens settings in its own OS window. This overlay lives in the
-   * app window, so it can neither dim nor point at that pane; the step is
-   * dropped there rather than opening a window the tour cannot explain. Older
-   * versions keep settings inside the app window and get the full highlight.
-   */
-  _onboardingSettingsInPlace() {
-    const setting = this.app.setting;
-    if (!setting || typeof setting.open !== "function") return false;
-    return !setting.win || setting.win === window;
-  }
-  async _onboardingSettingsAnchor() {
-    if (!this._onboardingSettingsInPlace()) return null;
-    const setting = this.app.setting;
-    try {
-      setting.open();
-      this._onboardingOpenedSettings = true;
-      if (typeof setting.openTabById === "function") setting.openTabById(PLUGIN_ID3);
-    } catch (error) {
-      console.warn("[Dayline] Could not open settings for the tour:", error?.message || error);
-      return null;
-    }
-    const pane = await waitForElement2(document, ".dayline-settings-container", { timeoutMs: 3e3 });
-    return pane ? this._onboardingSelectorAnchor(".dayline-settings-container") : null;
-  }
   async _onboardingTodayAnchor() {
     const today = _daylineDate(this.settings);
     const selector = '.cal-sidebar .cal-day[data-calendar-focus="day-' + today + '"]';
@@ -36403,26 +36344,6 @@ var DaylinePlugin = class extends Plugin {
       await new Promise((resolve) => window.setTimeout(resolve, 60));
     }
     return false;
-  }
-  /** Poll a predicate; resolves true when it held, false on timeout. */
-  _waitFor(predicate, timeoutMs = 500) {
-    return new Promise((resolve) => {
-      const started = Date.now();
-      const tick = () => {
-        let done = false;
-        try {
-          done = Boolean(predicate());
-        } catch {
-          done = true;
-        }
-        if (done || Date.now() - started >= timeoutMs) {
-          resolve(done);
-          return;
-        }
-        window.setTimeout(tick, 40);
-      };
-      tick();
-    });
   }
   /** Resolve when the promise settles or after the timeout, whichever is first. */
   _waitAtMost(promise, ms) {

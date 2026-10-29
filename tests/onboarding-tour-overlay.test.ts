@@ -109,7 +109,7 @@ describe('onboarding overlay mounting', () => {
     expect(panel.getAttribute('aria-modal')).toBe('true');
     expect(document.querySelector('.dayline-tour-title')?.textContent).toBe('onboardingStepCalendarTitle');
     expect(document.querySelector('.dayline-tour-body')?.textContent).toBe('onboardingStepCalendarBody');
-    expect(document.querySelectorAll('.dayline-tour-dots i')).toHaveLength(9);
+    expect(document.querySelectorAll('.dayline-tour-dots i')).toHaveLength(8);
     expect(currentDot()).not.toBeNull();
     expect(document.querySelector('.dayline-tour-next')?.textContent).toBe('onboardingNext');
     expect(document.querySelector('.dayline-tour-back')?.hasAttribute('hidden')).toBe(true);
@@ -180,7 +180,7 @@ describe('onboarding overlay stepping', () => {
     }
     expect(document.querySelector('.dayline-tour-next')?.textContent).toBe('onboardingFinish');
     expect(document.querySelectorAll('.dayline-tour-dots .is-current')[0]).toBe(
-      document.querySelectorAll('.dayline-tour-dots i')[8],
+      document.querySelectorAll('.dayline-tour-dots i')[7],
     );
 
     (document.querySelector('.dayline-tour-next') as HTMLButtonElement).click();
