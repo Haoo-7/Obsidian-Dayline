@@ -290,10 +290,17 @@ describe('weather temperature header and meta', () => {
   });
 
   it('marks the reading as manual only when one exists', () => {
+    // The unit already says it is a temperature, so a plain reading has no meta.
     const plain = mount({ settings: { displayLanguage: 'zh' } });
-    expect(plain.root.querySelector('.cal-wt-meta')?.textContent).toBe('温度');
+    expect(plain.root.querySelector('.cal-wt-meta')).toBeNull();
 
     const manual = mount({ settings: { displayLanguage: 'zh' }, hasManual: true });
-    expect(manual.root.querySelector('.cal-wt-meta')?.textContent).toBe('温度手动');
+    expect(manual.root.querySelector('.cal-wt-meta')?.textContent).toBe('手动');
+  });
+
+  it('uses Obsidian\'s primary button for record', () => {
+    const { root } = mount({ settings: { displayLanguage: 'zh' } });
+    expect(root.querySelector('.cal-wt-save')?.classList.contains('mod-cta')).toBe(true);
+    expect(root.querySelector('.cal-wt-cancel')?.classList.contains('mod-cta')).toBe(false);
   });
 });

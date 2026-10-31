@@ -183,7 +183,13 @@ describe('nine-language key parity and count plurals', () => {
     // the remaining 18: its section label, the two rows, the drawer copy, the
     // toggle pair, and the update check with its four result notices. The last
     // two are the mood question for a past date and the restore-backup confirm.
-    expect(englishKeys).toHaveLength(337);
+    // The collapsed Advanced section adds its label and description, and the
+    // reminder hour dropdown made the window.prompt text obsolete (-1). The
+    // month figure became a written-day count: `thisMonth` gave way to a label
+    // plus a one/other pair each for the folded line and the card (+4).
+    expect(englishKeys).toHaveLength(342);
+    expect(englishKeys).not.toContain('reminderHourPrompt');
+    expect(englishKeys).not.toContain('thisMonth');
 
     for (const language of SUPPORTED_DISPLAY_LANGUAGES) {
       expect(Object.keys(STRINGS[language]).sort(), language).toEqual(englishKeys);

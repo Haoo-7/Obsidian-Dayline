@@ -190,6 +190,35 @@ describe('calendar compact cell layout', () => {
     expect(strip).toContain('min-height: 36px');
   });
 
+  it('keeps the header buttons bare and the month title left-aligned', () => {
+    // Obsidian's default button background outranks a bare class, so the header
+    // scope has to clear it or the title and arrows read as four grey blocks.
+    const bare = cssRule(styles, '.cal-header button.cal-title-button,');
+    expect(bare).toContain('background: transparent');
+    expect(bare).toContain('box-shadow: none');
+    expect(cssRule(styles, '\n.cal-title {')).toContain('text-align: left');
+    expect(cssRule(styles, '.cal-weather-location {')).toContain('color: var(--text-muted)');
+  });
+
+  it('draws the timeline mood dot large enough to tell the levels apart', () => {
+    const dot = cssRule(styles, '.journal-timeline-entry:not(.mood-score-none) .journal-timeline-entry-date-column::after {');
+    expect(dot).toContain('width: 10px');
+    expect(dot).toContain('height: 10px');
+  });
+
+  it('gives On This Day the same backdrop and panel as Obsidian modals', () => {
+    const cover = cssRule(styles, '.cal-otd-modal {').replace(/\/\*[\s\S]*?\*\//g, '');
+    expect(cover).toContain('background: var(--background-modifier-cover)');
+    expect(cover).not.toContain('backdrop-filter');
+    expect(cssRule(styles, '.cal-otd-panel {')).toContain('var(--modal-radius');
+    expect(styles).not.toContain('.theme-light .cal-otd-panel');
+    expect(cssRule(styles, '.cal-otd-header button.cal-otd-close {')).toContain('background: transparent');
+  });
+
+  it('hides the folded stats line once the panel is open', () => {
+    expect(cssRule(styles, '.journal-timeline-stats-details[open] .journal-timeline-stats-summary {')).toContain('display: none');
+  });
+
   it('keeps dates centered and draws a bottom mood bar in bar style', () => {
     const dateRule = cssRule(styles, '.cal-sidebar.cal-mood-marker-bar .cal-day-num {');
     const buttonRule = cssRule(styles, '.cal-sidebar.cal-mood-marker-bar button.cal-mood-button,');

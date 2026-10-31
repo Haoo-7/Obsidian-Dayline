@@ -7,6 +7,8 @@ export interface JournalStats {
   currentStreak: number;
   longestStreak: number;
   monthCompletionRate: number;
+  /** Dates written so far this month, up to and including today. */
+  monthRecordedDays: number;
   moodDistribution: Record<string, number>;
   labelCounts: Record<string, number>;
   trend: Array<{ date: string; score?: number }>;
@@ -160,6 +162,7 @@ export function calculateJournalStats(
     currentStreak,
     longestStreak,
     monthCompletionRate,
+    monthRecordedDays: recordedThisMonth,
     moodDistribution,
     labelCounts,
     trend: entries

@@ -248,13 +248,22 @@ describe('timeline rendered behavior', () => {
         { ...makeEntry(1), date: '2026-05-01' },
         { ...makeEntry(2), date: '2026-05-02' },
         { ...makeEntry(3), date: '2026-05-03' },
+        { ...makeEntry(4), date: '2026-05-04' },
       ];
       const { view } = makeView(entries);
       view.plugin.settings.weatherTimezone = 'Pacific/Kiritimati';
       view.render();
 
-      // 2026-05-04 in UTC+14, so the three elapsed days are a full month to date.
-      expect(view.contentEl.querySelector('.journal-timeline-stats-summary').textContent).toContain('75%');
+      // It is already 2026-05-04 in UTC+14, so the 4th counts as written today.
+      expect(view.contentEl.querySelector('.journal-timeline-stats-summary').textContent).toBe('4 days this month');
+      const card = [...view.contentEl.querySelectorAll('.journal-stat')].at(-1);
+      expect(card.querySelector('.journal-stat-value').textContent).toBe('4 days');
+      expect(card.querySelector('.journal-stat-label').textContent).toBe('Written this month');
+
+      view.plugin.settings.weatherTimezone = 'Pacific/Midway';
+      view.render();
+      // Still 2026-05-03 in UTC-11: the 4th is in the future and not counted.
+      expect(view.contentEl.querySelector('.journal-timeline-stats-summary').textContent).toBe('3 days this month');
     } finally {
       vi.useRealTimers();
     }

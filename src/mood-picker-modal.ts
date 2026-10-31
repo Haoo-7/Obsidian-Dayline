@@ -342,8 +342,9 @@ export class MoodPickerModal extends Modal {
     summaryCopy.createEl('strong', { text: moodLabel(this.settings, this.score) });
 
     const form = this.contentEl.createDiv({ cls: 'journal-mood-form' });
+    // No field label here: the step subtitle above already says "choose all that
+    // apply", and the chip group carries its own accessible name.
     const feelings = form.createDiv({ cls: 'journal-mood-field-group' });
-    feelings.createEl('label', { cls: 'journal-mood-field-label', text: t(this.settings, 'chooseFeelings') });
     const group = feelings.createDiv({ cls: 'journal-mood-labels', attr: { role: 'group', 'aria-label': t(this.settings, 'addFeelings') } });
     const labelButtons = new Map();
     const updateLabel = (button, id) => {

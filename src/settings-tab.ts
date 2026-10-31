@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { Notice, PluginSettingTab, Setting, SuggestModal, TFolder } from 'obsidian';
+import { Notice, PluginSettingTab, Setting, SuggestModal, TFolder, setIcon } from 'obsidian';
 import { DISPLAY_LANGUAGE_ENDONYMS, DISPLAY_LANGUAGE_OPTIONS, getDisplayLanguage, t } from './i18n';
 import { applyDeviceLocation, geolocationFailureKey, requestCurrentCoordinates } from './geolocation';
 import { localize as _l } from './locale';
@@ -150,7 +150,7 @@ export const SETTINGS_SECTION_IDS = [
   'weather',
   'media-privacy',
   'on-this-day',
-  'data-maintenance',
+  'advanced',
   SUPPORT_SECTION_ID,
 ];
 
@@ -161,9 +161,26 @@ export const SETTINGS_SECTION_LABEL_KEYS = {
   weather: 'settingsWeather',
   'media-privacy': 'settingsMediaPrivacy',
   'on-this-day': 'settingsOnThisDay',
-  'data-maintenance': 'settingsDataMaintenance',
+  advanced: 'settingsAdvanced',
   [SUPPORT_SECTION_ID]: 'settingsSupport',
 };
+
+/** Groups inside the collapsed Advanced fold, in render order. */
+export const SETTINGS_ADVANCED_GROUP_IDS = [
+  'calendar-journal',
+  'weather',
+  'media-privacy',
+  'data-maintenance',
+];
+
+export const SETTINGS_ADVANCED_GROUP_LABEL_KEYS = {
+  'calendar-journal': 'settingsCalendarJournal',
+  weather: 'settingsWeather',
+  'media-privacy': 'settingsMediaPrivacy',
+  'data-maintenance': 'settingsDataMaintenance',
+};
+
+const ADVANCED_BODY_ID = 'dayline-settings-advanced-body';
 
 export const SETTINGS_ACTION_ROWS = {
   journalTools: ['openTimeline', 'detectImports'],
@@ -308,6 +325,9 @@ export class DaylineSettingsTab extends PluginSettingTab {
     this.plugin = plugin;
     this._pendingFieldFlushes = new Set();
     this._settingsVisible = false;
+    // Kept on the tab, not in data.json: display() rebuilds the pane on many
+    // toggles and must not snap the Advanced fold shut under the user.
+    this._advancedOpen = false;
   }
 
   async _saveSettings() {
@@ -503,6 +523,7 @@ export class DaylineSettingsTab extends PluginSettingTab {
       .setName(t(this.plugin.settings, SETTINGS_SECTION_LABEL_KEYS[id]))
       .setHeading();
     setting.settingEl.dataset.daylineSettingsSection = id;
+    return setting;
   }
 
   /**
@@ -530,6 +551,56 @@ export class DaylineSettingsTab extends PluginSettingTab {
     setting.settingEl.addClass('dayline-settings-action-row');
     setting.settingEl.dataset.daylineSettingsActionRow = id;
     return setting;
+  }
+
+  /**
+   * The collapsed "Advanced" section. The heading row carries a disclosure
+   * button, a muted line says what is inside, and the rows live in one
+   * container that stays `hidden` until opened. Returns that container.
+   */
+  _addAdvancedSection(containerEl) {
+    const heading = this._addSection(containerEl, 'advanced');
+    heading.setDesc(t(this.plugin.settings, 'settingsAdvancedDesc'));
+
+    const body = containerEl.createDiv({
+      cls: 'dayline-settings-advanced-body',
+      attr: { id: ADVANCED_BODY_ID },
+    });
+
+    const toggle = heading.controlEl.createEl('button', {
+      cls: 'dayline-settings-advanced-toggle',
+      attr: { type: 'button', 'aria-controls': ADVANCED_BODY_ID },
+    });
+    const toggleLabel = toggle.createSpan({ cls: 'dayline-settings-advanced-toggle-label' });
+    setIcon(toggle.createSpan({ cls: 'dayline-settings-advanced-toggle-icon' }), 'chevron-down');
+
+    const setOpen = (open) => {
+      this._advancedOpen = open;
+      body.hidden = !open;
+      toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+      toggleLabel.textContent = t(this.plugin.settings, open ? 'supportCollapse' : 'supportExpand');
+    };
+    setOpen(this._advancedOpen === true);
+    toggle.addEventListener('click', () => setOpen(body.hidden));
+
+    return body;
+  }
+
+  /**
+   * One group inside the Advanced fold: a muted sub-label (deliberately not a
+   * second `setHeading()`) over its rows. A group that renders no rows leaves
+   * nothing behind, not even its label.
+   */
+  _addAdvancedGroup(bodyEl, id, renderRows) {
+    const group = bodyEl.createDiv({ cls: 'dayline-settings-advanced-group' });
+    group.dataset.daylineSettingsGroup = id;
+    group.createDiv({
+      cls: 'dayline-settings-advanced-group-label',
+      text: t(this.plugin.settings, SETTINGS_ADVANCED_GROUP_LABEL_KEYS[id]),
+    });
+    const labelOnly = group.childElementCount;
+    renderRows(group);
+    if (group.childElementCount === labelOnly) group.remove();
   }
 
   display() {
@@ -580,39 +651,16 @@ export class DaylineSettingsTab extends PluginSettingTab {
 
     this._addSection(containerEl, 'calendar-journal');
 
-    new Setting(containerEl)
+    // The editor mounts inside this row's own card, full width under the name,
+    // instead of floating below it as loose controls.
+    const sourcesSetting = new Setting(containerEl)
       .setName(t(this.plugin.settings, 'journalSources'));
+    sourcesSetting.settingEl.addClass('dayline-source-setting');
     this.sourceEditor ??= new JournalSourceSettingsEditor(this.plugin, {
       chooseFolder: (onSubmit) => new FolderSuggestModal(this.app, onSubmit).open(),
       refreshCalendar: () => this._refreshViews({ resetSource: true, throwOnError: true }),
     });
-    this.sourceEditor.mount(containerEl);
-
-    new Setting(containerEl)
-      .setName(_s('s_thumbnailFilter'))
-      .setDesc(_s('s_thumbnailFilterDesc'))
-      .addDropdown((dd) => dd
-        .addOption('all', _s('s_thumbnailAll'))
-        .addOption('date-prefixed', _s('s_thumbnailDate'))
-        .setValue(this.plugin.settings.thumbnailFilter)
-        .onChange(async (value) => {
-          this.plugin.settings.thumbnailFilter = value;
-          if (!(await this._saveSettings())) return;
-          this._refreshCalendarView();
-        }));
-
-    this._addActionRow(new Setting(containerEl)
-      .setName(t(this.plugin.settings, 'journalTools'))
-      .setDesc(t(this.plugin.settings, 'journalToolsDesc')), 'journalTools')
-      .addButton((button) => button
-        .setButtonText(t(this.plugin.settings, 'openTimeline'))
-        .onClick(() => this.plugin.activateTimeline()))
-      .addButton((button) => button
-        .setButtonText(t(this.plugin.settings, 'detectImports'))
-        .onClick(async () => {
-          const result = await this.plugin.journalIndex.detectSources(this.plugin.settings);
-          new Notice(t(this.plugin.settings, 'detectImportsResult', result));
-        }));
+    this.sourceEditor.mount(sourcesSetting.settingEl);
 
     new Setting(containerEl)
       .setName(t(this.plugin.settings, 'showTimelineMoodTrend'))
@@ -735,26 +783,48 @@ export class DaylineSettingsTab extends PluginSettingTab {
           await this._saveSettings();
         }));
 
+    // The hour is a dropdown because window.prompt() is not supported in
+    // Obsidian desktop. It goes in before the toggle so the toggle stays at the
+    // right edge like every other row.
+    const storedReminderHour = Number(this.plugin.settings.reminderHour ?? 21);
+    const reminderHour = Number.isInteger(storedReminderHour) && storedReminderHour >= 0 && storedReminderHour <= 23
+      ? storedReminderHour
+      : 21;
     new Setting(containerEl)
       .setName(t(this.plugin.settings, 'reminder'))
       .setDesc(t(this.plugin.settings, 'reminderDesc'))
+      .addDropdown((dd) => {
+        for (let hour = 0; hour < 24; hour++) {
+          dd.addOption(String(hour), `${String(hour).padStart(2, '0')}:00`);
+        }
+        dd.selectEl?.setAttribute('aria-label', t(this.plugin.settings, 'reminderHour'));
+        return dd
+          .setValue(String(reminderHour))
+          .onChange(async (value) => {
+            const hour = Number(value);
+            if (!Number.isInteger(hour) || hour < 0 || hour > 23) return;
+            this.plugin.settings.reminderHour = hour;
+            await this._saveSettings();
+          });
+      })
       .addToggle((toggle) => toggle
         .setValue(Boolean(this.plugin.settings.reminderEnabled))
         .onChange(async (value) => {
           this.plugin.settings.reminderEnabled = value;
           await this._saveSettings();
-        }))
-      .addExtraButton((button) => button
-        .setIcon('clock-3')
-        .setTooltip(t(this.plugin.settings, 'reminderHour'))
-        .onClick(() => {
-          const value = window.prompt(t(this.plugin.settings, 'reminderHourPrompt'), String(this.plugin.settings.reminderHour ?? 21));
-          const hour = Number(value);
-          if (Number.isInteger(hour) && hour >= 0 && hour <= 23) {
-            this.plugin.settings.reminderHour = hour;
-            void this._saveSettings();
-          }
         }));
+
+    // Only present while orphaned moods exist, and it asks for the user's
+    // attention, so it stays visible here instead of inside the Advanced fold.
+    const orphanCount = Object.keys(this.plugin.moodStore?.getOrphans?.() || {}).length;
+    if (orphanCount > 0) {
+      new Setting(containerEl)
+        .setName(t(this.plugin.settings, 'moodRecoveryTitle'))
+        .setDesc(t(this.plugin.settings, 'moodRecoveryDescription'))
+        .addButton((button) => button
+          .setButtonText(t(this.plugin.settings, 'moodRecoveryCommand'))
+          .onClick(() => this.plugin.openMoodRecovery()));
+    }
 
     this._addSection(containerEl, 'weather');
 
@@ -870,18 +940,6 @@ export class DaylineSettingsTab extends PluginSettingTab {
     }
 
     new Setting(containerEl)
-      .setName(t(this.plugin.settings, 'weatherTimezone'))
-      .setDesc(t(this.plugin.settings, 'weatherTimezoneDesc'))
-      .addText((text) => text
-        .setPlaceholder(t(this.plugin.settings, 'timezonePlaceholder'))
-        .setValue(String(this.plugin.settings.weatherTimezone || 'auto'))
-        .onChange(async (value) => {
-          this.plugin.settings.weatherTimezone = value.trim() || 'auto';
-          if (!(await this._saveSettings())) return;
-          await this._refreshViews();
-        }));
-
-    new Setting(containerEl)
       .setName(_s('s_autoFetch'))
       .setDesc(_s('s_autoFetchDesc'))
       .addToggle((toggle) =>
@@ -890,21 +948,6 @@ export class DaylineSettingsTab extends PluginSettingTab {
           .onChange(async (value) => {
             this.plugin.settings.weatherAutoFetch = value;
             await this._saveSettings();
-          })
-      );
-
-    new Setting(containerEl)
-      .setName(_s('s_cacheTtl'))
-      .setDesc(_s('s_cacheTtlDesc'))
-      .addText((text) =>
-        text
-          .setPlaceholder('2')
-          .setValue(String(this.plugin.settings.weatherTtlHours))
-          .onChange(async (value) => {
-            const n = parseInt(value, 10);
-            this.plugin.settings.weatherTtlHours = isNaN(n) || n < 1 ? 2 : n;
-            if (!(await this._saveSettings())) return;
-            await this._refreshViews();
           })
       );
 
@@ -935,28 +978,6 @@ export class DaylineSettingsTab extends PluginSettingTab {
             this.plugin.settings.exifReverseGeocode = value;
             await this._saveSettings();
           }));
-    }
-
-    this._addValidatedTextField(containerEl, {
-      name: t(this.plugin.settings, 'heicThumbCachePath'),
-      description: t(this.plugin.settings, 'heicThumbCachePathDesc'),
-      placeholder: DEFAULT_HEIC_THUMB_CACHE_DIR,
-      field: 'heicThumbCachePath',
-      initialValue: this.plugin.settings.heicThumbCachePath ?? DEFAULT_HEIC_THUMB_CACHE_DIR,
-      parse: (raw) => normalizeHeicThumbCachePath(raw),
-      localizeError: (key) => t(this.plugin.settings, key),
-      apply: () => { this.plugin.heicThumbStore?.reconfigure?.(); },
-    });
-
-    if (shouldShowHeicThumbCacheGenerate(this.plugin.capabilities)) {
-      const generateRow = new Setting(containerEl)
-        .setName(t(this.plugin.settings, 'heicThumbCacheGenerate'))
-        .setDesc(t(this.plugin.settings, 'heicThumbCacheGenerateDesc'));
-      generateRow.addButton((button) => button
-        .setButtonText(t(this.plugin.settings, 'heicThumbCacheGenerate'))
-        .onClick(async () => {
-          await this._fillHeicThumbCache(generateRow, button);
-        }));
     }
 
     this._addSection(containerEl, 'on-this-day');
@@ -1029,102 +1050,177 @@ export class DaylineSettingsTab extends PluginSettingTab {
       }
     }
 
-    this._addSection(containerEl, 'data-maintenance');
+    const advancedEl = this._addAdvancedSection(containerEl);
 
-    this._addValidatedTextField(containerEl, {
-      name: t(this.plugin.settings, 'moodMetadataPath'),
-      description: t(this.plugin.settings, 'moodMetadataPathDesc'),
-      placeholder: DEFAULT_MOOD_METADATA_PATH,
-      field: 'moodMetadataPath',
-      initialValue: this.plugin.settings.moodMetadataPath,
-      parse: (raw) => normalizeMoodMetadataPath(raw),
-      localizeError: (key) => t(this.plugin.settings, key),
-      apply: () => this._reloadMoodMetadataStore(),
+    this._addAdvancedGroup(advancedEl, 'calendar-journal', (groupEl) => {
+      new Setting(groupEl)
+        .setName(_s('s_thumbnailFilter'))
+        .setDesc(_s('s_thumbnailFilterDesc'))
+        .addDropdown((dd) => dd
+          .addOption('all', _s('s_thumbnailAll'))
+          .addOption('date-prefixed', _s('s_thumbnailDate'))
+          .setValue(this.plugin.settings.thumbnailFilter)
+          .onChange(async (value) => {
+            this.plugin.settings.thumbnailFilter = value;
+            if (!(await this._saveSettings())) return;
+            this._refreshCalendarView();
+          }));
+
+      this._addActionRow(new Setting(groupEl)
+        .setName(t(this.plugin.settings, 'journalTools'))
+        .setDesc(t(this.plugin.settings, 'journalToolsDesc')), 'journalTools')
+        .addButton((button) => button
+          .setButtonText(t(this.plugin.settings, 'openTimeline'))
+          .onClick(() => this.plugin.activateTimeline()))
+        .addButton((button) => button
+          .setButtonText(t(this.plugin.settings, 'detectImports'))
+          .onClick(async () => {
+            const result = await this.plugin.journalIndex.detectSources(this.plugin.settings);
+            new Notice(t(this.plugin.settings, 'detectImportsResult', result));
+          }));
     });
 
-    this._addActionRow(new Setting(containerEl)
-      .setName(t(this.plugin.settings, 'moodExport'))
-      .setDesc(t(this.plugin.settings, 'moodExportDesc')), 'moodExport')
-      .addButton((button) => button
-        .setButtonText(t(this.plugin.settings, 'exportMoodCsvCommand'))
-        .onClick(() => this.plugin.exportMood('csv')))
-      .addButton((button) => button
-        .setButtonText(t(this.plugin.settings, 'exportMoodJsonCommand'))
-        .onClick(() => this.plugin.exportMood('json')));
-
-    this._addActionRow(new Setting(containerEl)
-      .setName(t(this.plugin.settings, 'metadataBackup'))
-      .setDesc(t(this.plugin.settings, 'metadataBackupDesc')), 'metadataBackup')
-      .addButton((button) => button
-        .setButtonText(t(this.plugin.settings, 'exportMetadataCommand'))
-        .onClick(async () => {
-          try {
-            const path = await this.plugin.moodStore.exportTo();
-            new Notice(t(this.plugin.settings, 'metadataExported', { path }));
-          } catch (error) {
-            new Notice(t(this.plugin.settings, 'metadataExportFailed', { error: error?.message || error }));
-          }
-        }))
-      .addButton((button) => {
-        // Destructive: the restore replaces the live store (see restoreMoodMetadataBackup).
-        button.buttonEl?.addClass('mod-warning');
-        button
-          .setButtonText(t(this.plugin.settings, 'restoreMetadataCommand'))
-          .onClick(async () => {
-            const ownerWindow = button.buttonEl?.ownerDocument?.defaultView;
-            await restoreMoodMetadataBackup(this.plugin, (message) => ownerWindow?.confirm(message) ?? false);
-          });
-      });
-
-    this._addActionRow(new Setting(containerEl)
-      .setName(t(this.plugin.settings, 'dataMaintenance'))
-      .setDesc(t(this.plugin.settings, 'dataMaintenanceDesc')), 'dataMaintenance')
-      .addButton((button) => button
-        .setButtonText(t(this.plugin.settings, 'integrityCommand'))
-        .onClick(async () => {
-          const result = await this.plugin.moodStore.checkIntegrity();
-          new Notice(result.valid
-            ? t(this.plugin.settings, 'metadataValid')
-            : t(this.plugin.settings, 'metadataIntegrityIssues', {
-              metadata: result.invalidMetadata.length,
-              records: result.invalidRecords.length,
-              orphans: result.invalidOrphans.length,
-              missing: result.missingFiles.length,
-            }));
-        }))
-      .addButton((button) => button
-        .setButtonText(t(this.plugin.settings, 'importFrontmatterCommand'))
-        .onClick(async () => {
-          const count = await this.plugin.moodStore.importFrontmatter(
-            this.plugin.journalIndex.getEntries().map((entry) => entry.path),
-            this.app.metadataCache,
-          );
-          await this.plugin.journalIndex.refresh(this.plugin.settings);
-          this.plugin.refreshJournalViews();
-          new Notice(t(this.plugin.settings, 'importedMoods', { count }));
-        }));
-
-    const orphanCount = Object.keys(this.plugin.moodStore?.getOrphans?.() || {}).length;
-    if (orphanCount > 0) {
-      new Setting(containerEl)
-        .setName(t(this.plugin.settings, 'moodRecoveryTitle'))
-        .setDesc(t(this.plugin.settings, 'moodRecoveryDescription'))
-        .addButton((button) => button
-          .setButtonText(t(this.plugin.settings, 'moodRecoveryCommand'))
-          .onClick(() => this.plugin.openMoodRecovery()));
-    }
-
     if (shouldShowWeatherSettings(this.plugin.settings)) {
-      new Setting(containerEl)
-        .setName(_s('s_backfill'))
-        .setDesc(_s('s_backfillDesc'))
-        .addButton((btn) => btn
-          .setButtonText(_s('s_backfillBtn'))
-          .onClick(async () => {
-            const leaf = this.app.workspace.getLeavesOfType(VIEW_TYPE)[0];
-            if (leaf?.view) leaf.view.startWeatherBackfill();
-          }));
+      this._addAdvancedGroup(advancedEl, 'weather', (groupEl) => {
+        new Setting(groupEl)
+          .setName(t(this.plugin.settings, 'weatherTimezone'))
+          .setDesc(t(this.plugin.settings, 'weatherTimezoneDesc'))
+          .addText((text) => text
+            .setPlaceholder(t(this.plugin.settings, 'timezonePlaceholder'))
+            .setValue(String(this.plugin.settings.weatherTimezone || 'auto'))
+            .onChange(async (value) => {
+              this.plugin.settings.weatherTimezone = value.trim() || 'auto';
+              if (!(await this._saveSettings())) return;
+              await this._refreshViews();
+            }));
+
+        new Setting(groupEl)
+          .setName(_s('s_cacheTtl'))
+          .setDesc(_s('s_cacheTtlDesc'))
+          .addText((text) =>
+            text
+              .setPlaceholder('2')
+              .setValue(String(this.plugin.settings.weatherTtlHours))
+              .onChange(async (value) => {
+                const n = parseInt(value, 10);
+                this.plugin.settings.weatherTtlHours = isNaN(n) || n < 1 ? 2 : n;
+                if (!(await this._saveSettings())) return;
+                await this._refreshViews();
+              })
+          );
+
+        new Setting(groupEl)
+          .setName(_s('s_backfill'))
+          .setDesc(_s('s_backfillDesc'))
+          .addButton((btn) => btn
+            .setButtonText(_s('s_backfillBtn'))
+            .onClick(async () => {
+              const leaf = this.app.workspace.getLeavesOfType(VIEW_TYPE)[0];
+              if (leaf?.view) leaf.view.startWeatherBackfill();
+            }));
+      });
     }
+
+    this._addAdvancedGroup(advancedEl, 'media-privacy', (groupEl) => {
+      const heicPathSetting = this._addValidatedTextField(groupEl, {
+        name: t(this.plugin.settings, 'heicThumbCachePath'),
+        description: t(this.plugin.settings, 'heicThumbCachePathDesc'),
+        placeholder: DEFAULT_HEIC_THUMB_CACHE_DIR,
+        field: 'heicThumbCachePath',
+        initialValue: this.plugin.settings.heicThumbCachePath ?? DEFAULT_HEIC_THUMB_CACHE_DIR,
+        parse: (raw) => normalizeHeicThumbCachePath(raw),
+        localizeError: (key) => t(this.plugin.settings, key),
+        apply: () => { this.plugin.heicThumbStore?.reconfigure?.(); },
+      });
+      heicPathSetting.controlEl.addClass('dayline-settings-path-control');
+
+      if (shouldShowHeicThumbCacheGenerate(this.plugin.capabilities)) {
+        const generateRow = new Setting(groupEl)
+          .setName(t(this.plugin.settings, 'heicThumbCacheGenerate'))
+          .setDesc(t(this.plugin.settings, 'heicThumbCacheGenerateDesc'));
+        generateRow.addButton((button) => button
+          .setButtonText(t(this.plugin.settings, 'heicThumbCacheGenerate'))
+          .onClick(async () => {
+            await this._fillHeicThumbCache(generateRow, button);
+          }));
+      }
+    });
+
+    this._addAdvancedGroup(advancedEl, 'data-maintenance', (groupEl) => {
+      const moodPathSetting = this._addValidatedTextField(groupEl, {
+        name: t(this.plugin.settings, 'moodMetadataPath'),
+        description: t(this.plugin.settings, 'moodMetadataPathDesc'),
+        placeholder: DEFAULT_MOOD_METADATA_PATH,
+        field: 'moodMetadataPath',
+        initialValue: this.plugin.settings.moodMetadataPath,
+        parse: (raw) => normalizeMoodMetadataPath(raw),
+        localizeError: (key) => t(this.plugin.settings, key),
+        apply: () => this._reloadMoodMetadataStore(),
+      });
+      moodPathSetting.controlEl.addClass('dayline-settings-path-control');
+
+      this._addActionRow(new Setting(groupEl)
+        .setName(t(this.plugin.settings, 'moodExport'))
+        .setDesc(t(this.plugin.settings, 'moodExportDesc')), 'moodExport')
+        .addButton((button) => button
+          .setButtonText(t(this.plugin.settings, 'exportMoodCsvCommand'))
+          .onClick(() => this.plugin.exportMood('csv')))
+        .addButton((button) => button
+          .setButtonText(t(this.plugin.settings, 'exportMoodJsonCommand'))
+          .onClick(() => this.plugin.exportMood('json')));
+
+      this._addActionRow(new Setting(groupEl)
+        .setName(t(this.plugin.settings, 'metadataBackup'))
+        .setDesc(t(this.plugin.settings, 'metadataBackupDesc')), 'metadataBackup')
+        .addButton((button) => button
+          .setButtonText(t(this.plugin.settings, 'exportMetadataCommand'))
+          .onClick(async () => {
+            try {
+              const path = await this.plugin.moodStore.exportTo();
+              new Notice(t(this.plugin.settings, 'metadataExported', { path }));
+            } catch (error) {
+              new Notice(t(this.plugin.settings, 'metadataExportFailed', { error: error?.message || error }));
+            }
+          }))
+        .addButton((button) => {
+          // Destructive: the restore replaces the live store (see restoreMoodMetadataBackup).
+          button.buttonEl?.addClass('mod-warning');
+          button
+            .setButtonText(t(this.plugin.settings, 'restoreMetadataCommand'))
+            .onClick(async () => {
+              const ownerWindow = button.buttonEl?.ownerDocument?.defaultView;
+              await restoreMoodMetadataBackup(this.plugin, (message) => ownerWindow?.confirm(message) ?? false);
+            });
+        });
+
+      this._addActionRow(new Setting(groupEl)
+        .setName(t(this.plugin.settings, 'dataMaintenance'))
+        .setDesc(t(this.plugin.settings, 'dataMaintenanceDesc')), 'dataMaintenance')
+        .addButton((button) => button
+          .setButtonText(t(this.plugin.settings, 'integrityCommand'))
+          .onClick(async () => {
+            const result = await this.plugin.moodStore.checkIntegrity();
+            new Notice(result.valid
+              ? t(this.plugin.settings, 'metadataValid')
+              : t(this.plugin.settings, 'metadataIntegrityIssues', {
+                metadata: result.invalidMetadata.length,
+                records: result.invalidRecords.length,
+                orphans: result.invalidOrphans.length,
+                missing: result.missingFiles.length,
+              }));
+          }))
+        .addButton((button) => button
+          .setButtonText(t(this.plugin.settings, 'importFrontmatterCommand'))
+          .onClick(async () => {
+            const count = await this.plugin.moodStore.importFrontmatter(
+              this.plugin.journalIndex.getEntries().map((entry) => entry.path),
+              this.app.metadataCache,
+            );
+            await this.plugin.journalIndex.refresh(this.plugin.settings);
+            this.plugin.refreshJournalViews();
+            new Notice(t(this.plugin.settings, 'importedMoods', { count }));
+          }));
+    });
 
     this._addSection(containerEl, SUPPORT_SECTION_ID);
     renderSupportSection(containerEl, {

@@ -749,6 +749,16 @@ describe('MoodPickerModal fluid flow', () => {
     pending.resolve();
     await saving;
   });
+  it('says "choose all that apply" once, in the step subtitle', () => {
+    const modal = new MoodPickerModal({}, { filePath: 'Daily/2026-09-11.md' });
+    modal.onOpen();
+    modal.contentEl.querySelector<HTMLButtonElement>('.journal-mood-continue')!.click();
+    const text = modal.contentEl.textContent || '';
+    const phrase = modal.contentEl.querySelector('.journal-mood-step')!.textContent!;
+    expect(phrase.length).toBeGreaterThan(0);
+    expect(text.split(phrase).length - 1).toBe(1);
+    expect(modal.contentEl.querySelector('.journal-mood-labels')?.getAttribute('aria-label')).toBeTruthy();
+  });
 });
 
 describe('MoodRecoveryModal failure handling', () => {

@@ -51,7 +51,11 @@ export function aggregateCalendarDays(entries: JournalEntry[]): Map<string, Cale
       }
     }
 
-    const primary = dateEntries[0];
+    // The cell stands for one note: the one whose image is the cover, else the
+    // first in order. Cover, mood and the note that opens all come from it; a
+    // day with two notes used to show one note's photo and open the other.
+    const cover = explicitCover || media[0];
+    const primary = (cover && dateEntries.find((entry) => entry.path === cover.sourcePath)) || dateEntries[0];
     const summary: CalendarDaySummary = {
       date,
       entries: dateEntries,
@@ -61,9 +65,9 @@ export function aggregateCalendarDays(entries: JournalEntry[]): Map<string, Cale
       hasWeather: dateEntries.some((entry) => Boolean(entry.weather)),
       primaryEntryPath: primary?.path,
       media,
-      cover: explicitCover || media[0],
+      cover,
       path: primary?.path,
-      mood: dateEntries.find((entry) => entry.mood)?.mood,
+      mood: primary?.mood,
       images: media.filter((item) => item.kind === 'image'),
     };
     result.set(date, summary);

@@ -273,12 +273,16 @@ export class JournalTimelineView extends ItemView {
     if (before) root.insertBefore(details, before);
     const summary = details.createEl('summary');
     summary.createSpan({ text: t(this.plugin.settings, 'allJournalStats') });
-    summary.createSpan({ cls: 'journal-timeline-stats-summary', text: `${t(this.plugin.settings, 'thisMonth')} ${stats.monthCompletionRate}%` });
+    // A count, not "this month 10%": a percentage read like a goal the user was
+    // missing. The folded line hides once open, where the third card says it.
+    const written = stats.monthRecordedDays;
+    const one = written === 1 ? 'One' : '';
+    summary.createSpan({ cls: 'journal-timeline-stats-summary', text: t(this.plugin.settings, `monthWrittenSummary${one}`, { count: written }) });
     const section = details.createDiv({ cls: 'journal-timeline-stats' });
     const values = [
       [t(this.plugin.settings, 'currentStreak'), `${stats.currentStreak}`],
       [t(this.plugin.settings, 'longestStreak'), `${stats.longestStreak}`],
-      [t(this.plugin.settings, 'thisMonth'), `${stats.monthCompletionRate}%`],
+      [t(this.plugin.settings, 'monthWrittenLabel'), t(this.plugin.settings, `monthWrittenValue${one}`, { count: written })],
     ];
     for (const [label, value] of values) {
       const item = section.createDiv({ cls: 'journal-stat' });

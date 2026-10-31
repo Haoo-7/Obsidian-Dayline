@@ -78,6 +78,18 @@
   font-weight: 600;
   letter-spacing: 0.01em;
 }
+/* Keeps a description from ending on a single orphaned character. */
+.dayline-settings-container .setting-item-description {
+  text-wrap: pretty;
+}
+/* The default metadata and cache paths are longer than Obsidian's text input. */
+.dayline-settings-container .dayline-settings-path-control input[type='text'] {
+  width: min(22rem, 100%);
+}
+/* A long description must not squeeze the path box down to a few characters. */
+.dayline-settings-container .setting-item-control.dayline-settings-path-control {
+  min-width: min(16rem, 45%);
+}
 .dayline-settings-action-row.setting-item {
   align-items: flex-start;
   min-width: 0;
@@ -169,12 +181,32 @@
 .cal-header {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px 2px 8px;
+  gap: 2px;
+  padding: 2px 2px 6px;
 }
 .cal-header > .cal-title {
   flex: 1;
   min-width: 0;
+}
+/* The header reads as a title plus two arrows, not four grey blocks. Obsidian's
+   `button:not(.clickable-icon)` background outranks a bare class, so the header
+   scope is what keeps these buttons bare until hovered. */
+.cal-header button.cal-title-button,
+.cal-header button.cal-icon-button {
+  background: transparent;
+  box-shadow: none;
+}
+.cal-header button.cal-icon-button {
+  color: var(--text-muted);
+}
+.cal-header button.cal-icon-button:hover,
+.cal-header button.cal-icon-button:focus-visible {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+.cal-header button.cal-title-button:hover,
+.cal-header button.cal-title-button:focus-visible {
+  background: transparent;
 }
 .cal-header-actions {
   display: flex;
@@ -211,15 +243,16 @@
   background: var(--background-modifier-hover);
 }
 .cal-title {
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
   color: var(--text-normal);
-  text-align: center;
+  text-align: left;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .cal-title-button {
+  justify-content: flex-start;
   border: 0;
   background: transparent;
   cursor: pointer;
@@ -573,9 +606,9 @@ body.dayline-coarse-pointer .markdown-source-view.mod-cm6 .internal-embed img {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* Same weight as the feels-like line: the place is context, not the reading. */
 .cal-weather-location {
-  color: var(--text-normal);
-  font-weight: 500;
+  color: var(--text-muted);
 }
 .cal-weather-status {
   color: var(--text-warning, var(--text-muted));
@@ -842,27 +875,18 @@ input.cal-wt-value:focus-visible {
 .cal-wt-clear:hover {
   color: var(--text-normal);
 }
-.dayline-weather-temperature-modal .cal-wt-cancel {
+/* Colours come from Obsidian: a default button for cancel and `mod-cta` for
+   record, the same pair the mood picker uses. Only the size is set here. */
+.dayline-weather-temperature-modal .cal-wt-cancel,
+.dayline-weather-temperature-modal .cal-wt-save {
   height: 32px;
   padding: 0 14px;
-  border: 0;
-  border-radius: 9px;
-  background: transparent;
-  box-shadow: inset 0 0 0 1px var(--background-modifier-border);
-  color: var(--text-normal);
   font-size: 12.5px;
   cursor: pointer;
 }
 .dayline-weather-temperature-modal .cal-wt-save {
-  height: 32px;
   padding: 0 16px;
-  border: 0;
-  border-radius: 9px;
-  background: var(--text-normal);
-  color: var(--background-primary);
-  font-size: 12.5px;
   font-weight: 600;
-  cursor: pointer;
 }
 .cal-wt-save:disabled {
   opacity: 0.45;
@@ -1216,16 +1240,16 @@ input.cal-wt-value:focus-visible {
      --layer-modal (50) sits under --layer-notice (60) and --layer-tooltip (70),
      so a Notice raised while the wall is open stays readable. */
   z-index: var(--layer-modal, 50);
-  background: rgba(0,0,0,0.4);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
+  /* Obsidian's own modal cover, so this dialog matches the mood and temperature ones. */
+  background: var(--background-modifier-cover);
 }
 .cal-otd-panel {
   width: 560px;
   max-height: 85vh;
-  background: var(--background-primary);
-  border-radius: 14px;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+  background: var(--modal-background, var(--background-primary));
+  border: var(--modal-border-width, 1px) solid var(--modal-border-color, var(--background-modifier-border));
+  border-radius: var(--modal-radius, 14px);
+  box-shadow: var(--shadow-l);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -1238,18 +1262,6 @@ input.cal-wt-value:focus-visible {
 }
 @media (prefers-reduced-motion: reduce) {
   .cal-otd-panel { animation: none; }
-}
-.theme-light .cal-otd-panel {
-  background: rgba(255,255,255,0.92);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(0,0,0,0.06);
-}
-.theme-dark .cal-otd-panel {
-  background: rgba(40,40,40,0.92);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255,255,255,0.1);
 }
 /* The title bar and the memory wall are two zones: without this seam the first
    card read as part of the header and the header looked like it was floating. */
@@ -1295,6 +1307,15 @@ input.cal-wt-value:focus-visible {
 .cal-otd-nav-btn:hover {
   background-color: var(--background-modifier-hover);
   color: var(--text-normal);
+}
+/* Obsidian's default button background outranks the bare class above; the close
+   button stays a bare icon like Obsidian's modal close button. */
+.cal-otd-header button.cal-otd-close {
+  background: transparent;
+  box-shadow: none;
+}
+.cal-otd-header button.cal-otd-close:hover {
+  background-color: var(--background-modifier-hover);
 }
 .cal-otd-close:active,
 .cal-otd-nav-btn:active {
@@ -1704,6 +1725,8 @@ input.cal-wt-value:focus-visible {
 .journal-timeline-stats-details { margin: 4px 0 12px; border-bottom: 1px solid var(--background-modifier-border); }
 .journal-timeline-stats-details > summary { padding: 8px 0; color: var(--text-muted); font-size: 12px; cursor: pointer; overflow-wrap: anywhere; }
 .journal-timeline-stats-summary { margin-inline-start: 10px; }
+/* Open, the third card already says how many days were written. */
+.journal-timeline-stats-details[open] .journal-timeline-stats-summary { display: none; }
 .journal-timeline-month { margin: 16px 0 2px; color: var(--text-normal); font-size: 14px; font-weight: 600; line-height: 1.5; }
 .journal-timeline-month:first-child { margin-top: 0; }
 .journal-timeline-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; min-width: 0; margin-bottom: 12px; }
@@ -1737,7 +1760,8 @@ input.cal-wt-value:focus-visible {
 .journal-timeline-entry.mood-score-0 { --journal-entry-mood: #55b6c9; }
 .journal-timeline-entry.mood-score--1 { --journal-entry-mood: #4d6fb8; }
 .journal-timeline-entry.mood-score--2 { --journal-entry-mood: #7652c7; }
-.journal-timeline-entry:not(.mood-score-none) .journal-timeline-entry-date-column::after { content: ''; width: 6px; height: 6px; margin-top: 8px; border-radius: 50%; background: var(--journal-entry-mood); }
+/* 10px: at 6px the amber (较好) and coral (很好) levels could not be told apart. */
+.journal-timeline-entry:not(.mood-score-none) .journal-timeline-entry-date-column::after { content: ''; width: 10px; height: 10px; margin-top: 7px; border-radius: 50%; background: var(--journal-entry-mood); }
 .journal-timeline-entry:hover { background: var(--background-modifier-hover); }
 .journal-timeline-entry:focus-visible,
 .journal-timeline-view button:focus-visible,
@@ -2225,6 +2249,16 @@ body.dayline-mobile.dayline-phone .is-compact-viewport .journal-mood-actions {
 }
 
 /* Journal source settings editor */
+/* The editor is mounted inside its own setting card: the row wraps so the name
+   stays on top and the editor takes the full card width underneath. */
+.dayline-settings-container .setting-item.dayline-source-setting {
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+.dayline-settings-container .dayline-source-setting > .setting-item-info { flex: 1 1 100%; }
+/* Obsidian always renders the control slot; here it is empty and would only add a gap. */
+.dayline-settings-container .dayline-source-setting > .setting-item-control { display: none; }
+.dayline-source-setting > .dayline-source-editor { flex: 1 1 100%; box-sizing: border-box; width: 100%; padding: 8px 0 0; }
 .dayline-source-editor { container-type: inline-size; min-width: 0; padding: 4px 0 20px; }
 .dayline-source-editor [hidden] { display: none !important; }
 .dayline-source-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; font-size: var(--font-ui-small); }
@@ -2302,3 +2336,31 @@ body.dayline-mobile.dayline-phone .is-compact-viewport .journal-mood-actions {
   .dayline-settings-support-qr { width: 100%; max-width: 200px; height: auto; aspect-ratio: 1 / 1; }
 }
 @media (pointer: coarse) { .dayline-settings-support-toggle { min-height: 40px; padding-right: 8px; } }
+
+/* Settings · Advanced fold
+   The heading row carries a disclosure button that looks like the support
+   toggle; the rows sit in one container that stays hidden until opened. The
+   group labels are plain muted text on purpose: they must read as lighter than
+   the section heading, not as a second heading. */
+.dayline-settings-advanced-toggle {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: auto; padding: 2px 2px 2px 6px;
+  border: 0; background: transparent; box-shadow: none;
+  color: var(--text-muted); font-size: var(--font-ui-small);
+  cursor: pointer;
+}
+.dayline-settings-advanced-toggle:hover { background: transparent; box-shadow: none; color: var(--text-normal); }
+.dayline-settings-advanced-toggle:focus-visible { outline: 2px solid var(--interactive-accent); outline-offset: 2px; }
+.dayline-settings-advanced-toggle-icon { display: inline-flex; }
+.dayline-settings-advanced-toggle svg { width: 14px; height: 14px; transition: transform 120ms ease; }
+.dayline-settings-advanced-toggle[aria-expanded='true'] svg { transform: rotate(180deg); }
+.dayline-settings-advanced-body[hidden] { display: none; }
+.dayline-settings-advanced-group-label {
+  margin: 14px 0 6px;
+  color: var(--text-faint);
+  font-size: var(--font-ui-smaller, 12px);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+.dayline-settings-advanced-group:first-child .dayline-settings-advanced-group-label { margin-top: 4px; }
+@media (pointer: coarse) { .dayline-settings-advanced-toggle { min-height: 40px; padding-right: 8px; } }

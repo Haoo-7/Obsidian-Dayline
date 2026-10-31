@@ -2427,18 +2427,9 @@ class CalendarView extends ItemView {
     const imageMap = this.monthCache.get(key) || new Map();
 
     // --- Header: month navigation and view-local controls ---
+    // The month title reads first as plain text; both arrows sit together on the
+    // right. DOM order follows the visual order so Tab does too.
     const header = el.createDiv({ cls: 'cal-header' });
-    const prevBtn = header.createEl('button', {
-      cls: 'cal-nav cal-icon-button',
-      attr: { type: 'button', 'data-calendar-focus': 'previous', 'aria-label': t(this.plugin.settings, 'previousMonth'), title: t(this.plugin.settings, 'previousMonth') },
-    });
-    setIcon(prevBtn, 'chevron-left');
-    prevBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      prevBtn.focus({ preventScroll: true });
-      void this._goToMonth(-1);
-    });
-
     const title = header.createEl('button', {
       cls: 'cal-title cal-title-button',
       attr: {
@@ -2462,6 +2453,17 @@ class CalendarView extends ItemView {
       event.stopPropagation();
       this._calendarJumpOpen = false;
       this.render();
+    });
+
+    const prevBtn = header.createEl('button', {
+      cls: 'cal-nav cal-icon-button',
+      attr: { type: 'button', 'data-calendar-focus': 'previous', 'aria-label': t(this.plugin.settings, 'previousMonth'), title: t(this.plugin.settings, 'previousMonth') },
+    });
+    setIcon(prevBtn, 'chevron-left');
+    prevBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      prevBtn.focus({ preventScroll: true });
+      void this._goToMonth(-1);
     });
 
     const nextBtn = header.createEl('button', {
@@ -2630,10 +2632,13 @@ class CalendarView extends ItemView {
         });
       }
 
-      // Weather badge for dates with cached weather
+      // Weather badge, only on dates that have a journal entry: the icon is part
+      // of that day's record. A weather-only date (browsed or backfilled) stays
+      // plain, so the grid does not turn into a weather calendar of sun icons.
       const weatherEntry = dateEntry.entries?.find((entry) => this.weather.hasCachedSnapshot(dateStr, entry.path));
       const weatherPath = weatherEntry?.path || dateEntry.path;
       if (this.plugin.settings.weatherEnabled
+        && dateEntry.hasRecord
         && shouldShowCalendarWeatherBadge(this.plugin.settings)
         && this.weather.hasCachedSnapshot(dateStr, weatherPath)) {
         const snap = this._readCachedWeather(dateStr, weatherPath);
@@ -2695,7 +2700,9 @@ class CalendarView extends ItemView {
       // Date number
       cell.createSpan({ cls: 'cal-day-num', text: String(d) });
 
-      const openDate = () => this._openNote(dateStr, dateEntry.primaryEntryPath || dateEntry.path);
+      const openDate = () => (dateEntry.entries?.length > 1
+        ? this._chooseDateEntry(cell, dateStr, dateEntry)
+        : this._openNote(dateStr, dateEntry.primaryEntryPath || dateEntry.path));
       bindOpenOnPointer(cell, {
         coarsePointer: this.plugin.capabilities?.coarsePointer,
         shouldOpen: shouldOpenCalendarDateFromPointer,
@@ -2920,7 +2927,7 @@ class CalendarView extends ItemView {
     infoEl.createDiv({ cls: 'cal-weather-extra' });
     infoEl.createDiv({ cls: 'cal-weather-status' });
     tempEl.setText(_l(lang, 'loading'));
-    if (locationEl) locationEl.setText(`${_l(lang, 'weatherLocation')}: ${s.weatherLocationName || `${parseFloat(s.weatherLatitude).toFixed(2)}, ${parseFloat(s.weatherLongitude).toFixed(2)}`}`);
+    if (locationEl) this._setWeatherLocation(locationEl, lang, s.weatherLocationName || `${parseFloat(s.weatherLatitude).toFixed(2)}, ${parseFloat(s.weatherLongitude).toFixed(2)}`);
 
     // Native Obsidian refresh icon button
     const refreshBtn = main.createEl('button', {
@@ -3099,7 +3106,7 @@ class CalendarView extends ItemView {
       if (iconEl) { iconEl.src = ''; iconEl.alt = '⚠️'; }
       card.querySelector('.cal-weather-temp').setText(_l(lang, 'unavailable'));
       this._syncWeatherManualChrome(card, null, false);
-      if (locationEl) locationEl.setText(`${_l(lang, 'weatherLocation')}: ${this.plugin.settings.weatherLocationName || ''}`);
+      if (locationEl) this._setWeatherLocation(locationEl, lang, this.plugin.settings.weatherLocationName);
       if (detailEl) detailEl.setText(_l(lang, 'checkSettings'));
       if (extraEl) extraEl.setText('');
       if (statusEl) statusEl.setText('');
@@ -3112,7 +3119,7 @@ class CalendarView extends ItemView {
       if (iconEl) iconEl.src = _iconUrl('overcast.svg');
       card.querySelector('.cal-weather-temp').setText('—');
       this._syncWeatherManualChrome(card, null, false);
-      if (locationEl) locationEl.setText(`${_l(lang, 'weatherLocation')}: ${this.plugin.settings.weatherLocationName || ''}`);
+      if (locationEl) this._setWeatherLocation(locationEl, lang, this.plugin.settings.weatherLocationName);
       if (detailEl) detailEl.setText(_l(lang, 'noData'));
       if (extraEl) extraEl.setText('');
       if (statusEl) statusEl.setText('');
@@ -3154,10 +3161,7 @@ class CalendarView extends ItemView {
       stale: _l(lang, 'stale'),
       offline: _l(lang, 'offline'),
     };
-    if (locationEl) {
-      locationEl.setText(`${_l(lang, 'weatherLocation')}: ${snap.location || ''}`);
-      locationEl.title = snap.location || '';
-    }
+    if (locationEl) this._setWeatherLocation(locationEl, lang, snap.location);
     const displayFields = normalizeWeatherDisplayFields(this.plugin.settings.weatherDisplayFields);
     const weatherParts = buildWeatherCardParts(
       snap,
@@ -3174,6 +3178,14 @@ class CalendarView extends ItemView {
     if (statusEl) statusEl.setText(buildWeatherStatus(snap, labels).join(' · '));
 
     card.querySelector('.cal-weather-main')?.removeAttribute('aria-live');
+  }
+
+  /* ----- Location line: the place alone; the "Weather location" label is its accessible name ----- */
+  _setWeatherLocation(locationEl, lang, place) {
+    const name = String(place || '');
+    locationEl.setText(name);
+    locationEl.title = name;
+    locationEl.setAttribute('aria-label', `${_l(lang, 'weatherLocation')}: ${name}`);
   }
 
   /* ----- Manual reading chrome: the "manual" badge and the edit affordance ----- */
@@ -3444,6 +3456,29 @@ class CalendarView extends ItemView {
   }
 
   /* ----- Open (or create + open) daily note ----- */
+  /**
+   * A date with several notes asks which one to open, the note the cell shows
+   * first. Each row carries the note's title and mood so the two can be told
+   * apart without opening either.
+   */
+  _chooseDateEntry(cell, dateStr, dateEntry) {
+    const primaryPath = dateEntry.primaryEntryPath || dateEntry.path;
+    const entries = dateEntry.entries.slice().sort((a, b) => Number(b.path === primaryPath) - Number(a.path === primaryPath));
+    const doc = cell.ownerDocument || document;
+    const menu = new Menu();
+    for (const entry of entries) {
+      const mood = this.plugin.moodStore?.get(entry.path) || entry.mood;
+      const name = entry.title || String(entry.path).split('/').pop().replace(/\.md$/i, '');
+      // Plain text: on macOS Obsidian shows a native menu, which keeps only the
+      // label's text, so the mood is spelled out rather than drawn as a dot.
+      const title = mood ? `${name} · ${moodLabel(this.plugin.settings, mood.score)}` : name;
+      menu.addItem((item) => item.setTitle(title).onClick(() => this._openNote(dateStr, entry.path)));
+    }
+    const rect = cell.getBoundingClientRect();
+    menu.showAtPosition({ x: rect.left, y: rect.bottom + 4 }, doc);
+    return menu;
+  }
+
   _openNote(dateStr, indexedPath) {
     const indexedFile = indexedPath && this.app.vault.getAbstractFileByPath(indexedPath);
     const path = indexedFile instanceof TFile

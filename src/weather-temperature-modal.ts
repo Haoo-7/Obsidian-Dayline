@@ -95,9 +95,12 @@ export class WeatherTemperatureModal extends Modal {
       : formatTemperatureValue(celsiusToDisplay(this.initialCelsius, this.units));
     readout.createSpan({ cls: 'cal-wt-unit', text: unitSymbolFor(this.units) });
 
-    const meta = readout.createSpan({ cls: 'cal-wt-meta' });
-    meta.createSpan({ text: this.text('weatherTemperatureLabel') });
-    if (this.hasManual) meta.createSpan({ text: this.text('weatherManualBadge') });
+    // The unit already says this is a temperature (the input carries the label
+    // for screen readers), so the meta slot only appears to flag a manual reading.
+    if (this.hasManual) {
+      const meta = readout.createSpan({ cls: 'cal-wt-meta' });
+      meta.createSpan({ text: this.text('weatherManualBadge') });
+    }
 
     // --- Rail: the same value, drawn as a position on a scale ---
     this.railEl = contentEl.createDiv({
@@ -154,7 +157,7 @@ export class WeatherTemperatureModal extends Modal {
     cancelBtn.addEventListener('click', () => this.close());
 
     this.saveBtn = actions.createEl('button', {
-      cls: 'cal-wt-save dayline-weather-temp-save',
+      cls: 'mod-cta cal-wt-save dayline-weather-temp-save',
       text: this.text('weatherRecord'),
     });
     this.saveBtn.addEventListener('click', () => this.submitCurrent());

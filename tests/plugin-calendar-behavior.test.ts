@@ -56,6 +56,21 @@ const displayLanguageSpy = vi.fn((settings) => (
 ));
 
 class TestTFile {}
+const shownMenus = [];
+class TestMenu {
+  items = [];
+  position = null;
+  addItem(build) {
+    const item = { title: null, handler: null };
+    build({
+      setTitle(title) { item.title = title; return this; },
+      onClick(handler) { item.handler = handler; return this; },
+    });
+    this.items.push(item);
+    return this;
+  }
+  showAtPosition(position) { this.position = position; shownMenus.push(this); }
+}
 class TestNotice {
   constructor(message) {
     noticeMessages.push(String(message));
@@ -66,6 +81,7 @@ const CalendarView = loadClass('CalendarView', {
   ItemView: class {},
   TFile: TestTFile,
   Notice: TestNotice,
+  Menu: TestMenu,
   t,
   formatCalendarMonth,
   formatJournalDate,
@@ -96,7 +112,7 @@ const CalendarView = loadClass('CalendarView', {
   _iconUrl: () => 'icon.svg',
   validateWeatherCoordinates: () => true,
   shouldShowCalendarWeatherCard: () => true,
-  shouldShowCalendarWeatherBadge: () => false,
+  shouldShowCalendarWeatherBadge: (settings) => settings?.showCalendarWeatherBadge === true,
   shouldShowCalendarWeatherLocation: () => false,
   weatherConditionLabel: () => 'cond',
   buildWeatherCardParts: () => ({ detail: [], extra: [] }),
@@ -151,6 +167,7 @@ beforeEach(() => {
   prototype.createDiv = function (options) { return this.createEl('div', options); };
   prototype.createSpan = function (options) { return this.createEl('span', options); };
   noticeMessages.length = 0;
+  shownMenus.length = 0;
   phoneLayout = false;
   localizeSpy.mockClear();
   displayLanguageSpy.mockClear();
@@ -270,6 +287,88 @@ describe('calendar mood path consistency (P-14)', () => {
 /* ------------------------------------------------------------------------ *
  * P-15: a superseded refresh must not leave loading state or paint elsewhere
  * ------------------------------------------------------------------------ */
+
+describe('a date with several notes', () => {
+  const evening = { path: 'Daily/2026-08-05-evening.md', title: 'Evening Check-in', mood: { score: -1 } };
+  const night = { path: 'Daily/2026-08-05.md', title: 'Night Pass', mood: { score: 1 } };
+  const press = (cell) => cell.dispatchEvent(new document.defaultView.KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+  const cellFor = (view, date) => view.contentEl.querySelector(`[data-calendar-focus="day-${date}"]`);
+
+  it('asks which note to open, the note the cell shows first', () => {
+    const view = makeView();
+    view._openNote = vi.fn();
+    view.monthCache.set(view._monthKey(view.displayMonth), new Map([
+      ['2026-08-05', {
+        date: '2026-08-05', entries: [evening, night], entryCount: 2, hasRecord: true,
+        primaryEntryPath: night.path, path: night.path, media: [], images: [],
+      }],
+    ]));
+    view.render();
+
+    press(cellFor(view, '2026-08-05'));
+
+    expect(view._openNote).not.toHaveBeenCalled();
+    expect(shownMenus).toHaveLength(1);
+    // Plain-text labels: macOS shows Obsidian menus natively, text only. Each row
+    // names its mood, so the two can be told apart without opening either.
+    const titles = shownMenus[0].items.map((item) => item.title);
+    expect(titles).toEqual(['Night Pass · Good', 'Evening Check-in · Low']);
+    shownMenus[0].items[1].handler();
+    expect(view._openNote).toHaveBeenCalledWith('2026-08-05', evening.path);
+  });
+
+  it('opens a date with one note directly', () => {
+    const view = makeView();
+    view._openNote = vi.fn();
+    view.monthCache.set(view._monthKey(view.displayMonth), new Map([
+      ['2026-08-05', {
+        date: '2026-08-05', entries: [night], entryCount: 1, hasRecord: true,
+        primaryEntryPath: night.path, path: night.path, media: [], images: [],
+      }],
+    ]));
+    view.render();
+
+    press(cellFor(view, '2026-08-05'));
+
+    expect(shownMenus).toHaveLength(0);
+    expect(view._openNote).toHaveBeenCalledWith('2026-08-05', night.path);
+  });
+});
+
+describe('calendar header and weather marks', () => {
+  it('puts the month title before both arrows', () => {
+    const view = makeView();
+    view.render();
+    const keys = [...view.contentEl.querySelector('.cal-header').children]
+      .map((element) => element.getAttribute('data-calendar-focus'))
+      .filter(Boolean);
+    expect(keys.slice(0, 3)).toEqual(['title', 'previous', 'next']);
+  });
+
+  it('draws a weather icon only on dates that have a journal entry', () => {
+    const weather = makeWeather();
+    weather.hasCachedSnapshot = () => true;
+    weather.getCachedSnapshot = () => ({ temperature: 30, units: 'metric', icon: 'clear-day.svg' });
+    const view = makeView({ weather, settings: baseSettings({ showCalendarWeatherBadge: true }) });
+    view.monthCache.set(view._monthKey(view.displayMonth), new Map([
+      ['2026-08-05', { date: '2026-08-05', entries: [{ path: 'Daily/2026-08-05.md' }], entryCount: 1, hasRecord: true, hasWeather: true, path: 'Daily/2026-08-05.md', media: [], images: [] }],
+      ['2026-08-06', { date: '2026-08-06', entries: [], entryCount: 0, hasRecord: false, hasWeather: true, path: 'Daily/2026-08-06.md', media: [], images: [] }],
+    ]));
+    view.render();
+
+    const badge = (date) => view.contentEl.querySelector(`[data-calendar-focus="day-${date}"] .cal-weather-badge`);
+    expect(badge('2026-08-05')).not.toBeNull();
+    expect(badge('2026-08-06')).toBeNull();
+  });
+
+  it('shows the place alone and keeps the label as its accessible name', () => {
+    const view = makeView();
+    const line = document.createElement('div');
+    view._setWeatherLocation(line, 'en', 'Guangzhou, China');
+    expect(line.textContent).toBe('Guangzhou, China');
+    expect(line.getAttribute('aria-label')).toBe('en:weatherLocation: Guangzhou, China');
+  });
+});
 
 describe('weather refresh staleness (P-15)', () => {
   it('clears the loading state without touching a newer date when superseded', async () => {

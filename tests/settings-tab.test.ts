@@ -10,50 +10,115 @@ const hoisted = vi.hoisted(() => ({
 vi.mock('obsidian', () => ({
   PluginSettingTab: class {
     app: unknown;
-    constructor(app: unknown) { this.app = app; }
+    containerEl: HTMLElement;
+    constructor(app: unknown) {
+      this.app = app;
+      this.containerEl = document.createElement('div');
+    }
     hide() {}
   },
-  // Fluent recorder: `addExifPersistMetadataSetting` builds a row through the
-  // real Obsidian `Setting` API, so the mock exposes the chain it uses.
+  // Fluent recorder that also builds the real row markup (info, name,
+  // description, control), so `display()` can be rendered and inspected.
+  // `addExifPersistMetadataSetting` builds a row through the same API.
+  // There is deliberately no `addExtraButton`: the reminder row must not need one.
   Setting: class {
-    constructor(containerEl: unknown) {
-      (this as any).containerEl = containerEl;
-      (this as any).settingEl = document.createElement('div');
+    constructor(containerEl: any) {
+      const self = this as any;
+      const div = (cls: string, parent?: HTMLElement) => {
+        const el = document.createElement('div');
+        el.className = cls;
+        parent?.appendChild(el);
+        return el;
+      };
+      self.containerEl = containerEl;
+      self.settingEl = div('setting-item');
+      self.infoEl = div('setting-item-info', self.settingEl);
+      self.nameEl = div('setting-item-name', self.infoEl);
+      self.descEl = div('setting-item-description', self.infoEl);
+      self.controlEl = div('setting-item-control', self.settingEl);
+      containerEl?.appendChild?.(self.settingEl);
       hoisted.settings.push(this);
     }
-    setName(value: string) { (this as any).name = value; return this; }
-    setDesc(value: string) { (this as any).desc = value; return this; }
-    setHeading() { return this; }
+    setName(value: string) { (this as any).name = value; (this as any).nameEl.textContent = value; return this; }
+    setDesc(value: string) { (this as any).desc = value; (this as any).descEl.textContent = value; return this; }
+    setHeading() { (this as any).settingEl.classList.add('setting-item-heading'); return this; }
     addToggle(cb: (control: any) => void) {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'checkbox-container';
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      wrapper.appendChild(checkbox);
+      (this as any).controlEl.appendChild(wrapper);
       const control: any = {
-        setValue(value: unknown) { control.value = value; return control; },
-        onChange(fn: (value: boolean) => Promise<void>) { control.onChange = fn; return control; },
+        toggleEl: wrapper,
+        setValue(value: unknown) { control.value = value; checkbox.checked = Boolean(value); return control; },
+        onChange(fn: (value: boolean) => Promise<void>) {
+          control.onChange = fn;
+          checkbox.addEventListener('change', () => { void fn(checkbox.checked); });
+          return control;
+        },
       };
       (this as any).toggle = control;
       cb(control);
       return this;
     }
     addDropdown(cb: (control: any) => void) {
-      const control: any = { addOption() { return control; }, setValue() { return control; }, onChange() { return control; } };
+      const selectEl = document.createElement('select');
+      (this as any).controlEl.appendChild(selectEl);
+      const control: any = {
+        selectEl,
+        addOption(value: string, label: string) {
+          const option = document.createElement('option');
+          option.value = value;
+          option.textContent = label;
+          selectEl.appendChild(option);
+          return control;
+        },
+        addOptions(options: Record<string, string>) {
+          for (const [value, label] of Object.entries(options)) control.addOption(value, label);
+          return control;
+        },
+        setValue(value: unknown) { selectEl.value = String(value ?? ''); return control; },
+        onChange(fn: (value: string) => Promise<void>) {
+          control.onChange = fn;
+          selectEl.addEventListener('change', () => { void fn(selectEl.value); });
+          return control;
+        },
+      };
+      (this as any).dropdown = control;
       cb(control);
       return this;
     }
     addText(cb: (control: any) => void) {
-      const control: any = { setPlaceholder() { return control; }, setValue() { return control; }, onChange() { return control; } };
-      cb(control);
-      return this;
-    }
-    addButton(cb: (control: any) => void) {
+      const inputEl = document.createElement('input');
+      inputEl.type = 'text';
+      (this as any).controlEl.appendChild(inputEl);
       const control: any = {
-        setButtonText() { return control; },
-        setDisabled(value: boolean) { control.disabled = value; return control; },
-        onClick(fn: () => Promise<void>) { control.onClick = fn; return control; },
+        inputEl,
+        getValue() { return inputEl.value; },
+        setPlaceholder(value: string) { inputEl.placeholder = value; return control; },
+        setValue(value: string) { inputEl.value = value; return control; },
+        onChange(fn: (value: string) => Promise<void>) {
+          inputEl.addEventListener('input', () => { void fn(inputEl.value); });
+          return control;
+        },
       };
       cb(control);
       return this;
     }
-    addExtraButton(cb: (control: any) => void) {
-      const control: any = { setIcon() { return control; }, setTooltip() { return control; }, onClick() { return control; } };
+    addButton(cb: (control: any) => void) {
+      const buttonEl = document.createElement('button');
+      (this as any).controlEl.appendChild(buttonEl);
+      const control: any = {
+        buttonEl,
+        setButtonText(value: string) { buttonEl.textContent = value; return control; },
+        setDisabled(value: boolean) { control.disabled = value; return control; },
+        onClick(fn: () => Promise<void>) {
+          control.onClick = fn;
+          buttonEl.addEventListener('click', () => { void fn(); });
+          return control;
+        },
+      };
       cb(control);
       return this;
     }
@@ -61,6 +126,7 @@ vi.mock('obsidian', () => ({
   Notice: class { constructor(message: string) { hoisted.notices.push(message); } },
   SuggestModal: class {},
   TFolder: class {},
+  setIcon: (element: HTMLElement, name: string) => { element.dataset.icon = name; },
 }));
 
 vi.mock('../src/geolocation', async (importOriginal) => {
@@ -72,6 +138,8 @@ import {
   DEFAULT_MOOD_METADATA_PATH,
   DaylineSettingsTab,
   SETTINGS_ACTION_ROWS,
+  SETTINGS_ADVANCED_GROUP_IDS,
+  SETTINGS_ADVANCED_GROUP_LABEL_KEYS,
   SETTINGS_SECTION_IDS,
   SETTINGS_SECTION_LABEL_KEYS,
   SETTINGS_TEXT_COMMIT_DELAY_MS,
@@ -167,13 +235,23 @@ describe('Dayline settings information architecture', () => {
       'weather',
       'media-privacy',
       'on-this-day',
-      'data-maintenance',
+      'advanced',
       'support',
     ]);
     expect(SETTINGS_SECTION_IDS.map((id) => t({ displayLanguage: 'en' }, SETTINGS_SECTION_LABEL_KEYS[id as keyof typeof SETTINGS_SECTION_LABEL_KEYS])))
-      .toEqual(['General', 'Calendar and journal', 'Mood', 'Weather', 'Media metadata and privacy', 'On This Day', 'Data and maintenance', 'Support']);
+      .toEqual(['General', 'Calendar and journal', 'Mood', 'Weather', 'Media metadata and privacy', 'On This Day', 'Advanced', 'Support']);
     expect(SETTINGS_SECTION_IDS.map((id) => t({ displayLanguage: 'zh' }, SETTINGS_SECTION_LABEL_KEYS[id as keyof typeof SETTINGS_SECTION_LABEL_KEYS])))
-      .toEqual(['常规', '日历和日记', '心情', '天气', '媒体元数据与隐私', '去年今日', '数据与维护', '支持']);
+      .toEqual(['常规', '日历和日记', '心情', '天气', '媒体元数据与隐私', '去年今日', '高级', '支持']);
+  });
+
+  it('keeps the four former sections as labelled groups inside the Advanced fold', () => {
+    expect(SETTINGS_ADVANCED_GROUP_IDS).toEqual(['calendar-journal', 'weather', 'media-privacy', 'data-maintenance']);
+    expect(SETTINGS_ADVANCED_GROUP_IDS.map((id) => t({ displayLanguage: 'en' }, SETTINGS_ADVANCED_GROUP_LABEL_KEYS[id as keyof typeof SETTINGS_ADVANCED_GROUP_LABEL_KEYS])))
+      .toEqual(['Calendar and journal', 'Weather', 'Media metadata and privacy', 'Data and maintenance']);
+    for (const language of SUPPORTED_DISPLAY_LANGUAGES) {
+      expect(t({ displayLanguage: language }, 'settingsAdvanced'), language).not.toBe('settingsAdvanced');
+      expect(t({ displayLanguage: language }, 'settingsAdvancedDesc'), language).not.toBe('settingsAdvancedDesc');
+    }
   });
 
   it('limits every maintenance action row to two actions', () => {
@@ -799,5 +877,284 @@ describe('settings scroll position survives a rebuild', () => {
     tab.hide();
 
     expect(tab._settingsVisible).toBe(false);
+  });
+});
+
+describe('rendered settings tab', () => {
+  const en = { displayLanguage: 'en' };
+  // The `s_*` strings live in locale.ts and resolve through the settings localizer.
+  const localize = createSettingsLocalizer(en);
+  const label = (key: string) => (key.startsWith('s_') ? localize(key) : t(en as any, key));
+
+  function renderTab(overrides: Record<string, unknown> = {}, extras: Record<string, unknown> = {}) {
+    hoisted.settings.length = 0;
+    const plugin: any = {
+      ...makePlugin({ displayLanguage: 'en', weatherEnabled: false, ...overrides }),
+      manifest: { version: '2.11.0' },
+      capabilities: { isDesktop: true },
+      ...extras,
+    };
+    const tab: any = new DaylineSettingsTab({ workspace: { getLeavesOfType: () => [] } }, plugin);
+    tab.display();
+    return { tab, plugin, containerEl: tab.containerEl as HTMLElement };
+  }
+
+  const advancedBody = (containerEl: HTMLElement) =>
+    containerEl.querySelector('.dayline-settings-advanced-body') as HTMLElement;
+  const advancedToggle = (containerEl: HTMLElement) =>
+    containerEl.querySelector('.dayline-settings-advanced-toggle') as HTMLButtonElement;
+  const rowNames = (root: ParentNode) =>
+    Array.from(root.querySelectorAll('.setting-item:not(.setting-item-heading) > .setting-item-info > .setting-item-name'))
+      .map((el) => el.textContent);
+  /** Names of the rows that sit between a section heading and the next one. */
+  const sectionRowNames = (containerEl: HTMLElement, id: string) => {
+    const names: Array<string | null> = [];
+    let started = false;
+    for (const child of Array.from(containerEl.children) as HTMLElement[]) {
+      if (child.dataset.daylineSettingsSection) {
+        if (started) break;
+        started = child.dataset.daylineSettingsSection === id;
+        continue;
+      }
+      if (started && child.classList.contains('setting-item')) {
+        names.push(child.querySelector('.setting-item-name')?.textContent ?? null);
+      }
+    }
+    return names;
+  };
+
+  it('renders the sections in order with Advanced right before Support', () => {
+    const { containerEl } = renderTab();
+    const ids = Array.from(containerEl.querySelectorAll('[data-dayline-settings-section]'))
+      .map((el) => (el as HTMLElement).dataset.daylineSettingsSection);
+    expect(ids).toEqual(SETTINGS_SECTION_IDS);
+    expect(ids.at(-2)).toBe('advanced');
+  });
+
+  it('collapses the Advanced fold by default with its rows inside the hidden container', () => {
+    const { containerEl } = renderTab({ weatherEnabled: true });
+    const body = advancedBody(containerEl);
+    const toggle = advancedToggle(containerEl);
+
+    expect(body.hidden).toBe(true);
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(toggle.getAttribute('aria-controls')).toBe(body.id);
+    expect(toggle.textContent).toContain(label('supportExpand'));
+
+    // The heading row says what is inside, and stays outside the hidden container.
+    const heading = containerEl.querySelector('[data-dayline-settings-section="advanced"]') as HTMLElement;
+    expect(heading.querySelector('.setting-item-name')?.textContent).toBe('Advanced');
+    expect(heading.querySelector('.setting-item-description')?.textContent).toBe(label('settingsAdvancedDesc'));
+    expect(body.contains(heading)).toBe(false);
+
+    const folded = rowNames(body);
+    expect(folded).toEqual([
+      label('s_thumbnailFilter'),
+      label('journalTools'),
+      label('weatherTimezone'),
+      label('s_cacheTtl'),
+      label('s_backfill'),
+      label('heicThumbCachePath'),
+      label('heicThumbCacheGenerate'),
+      label('moodMetadataPath'),
+      label('moodExport'),
+      label('metadataBackup'),
+      label('dataMaintenance'),
+    ]);
+    // Nothing from the fold leaks into the visible part of the pane.
+    const visible = rowNames(containerEl).filter((name) => !folded.includes(name));
+    for (const name of folded) expect(visible).not.toContain(name);
+  });
+
+  it('opens and closes the fold from the toggle and flips aria-expanded', () => {
+    const { containerEl, plugin } = renderTab();
+    const body = advancedBody(containerEl);
+    const toggle = advancedToggle(containerEl);
+
+    toggle.click();
+    expect(body.hidden).toBe(false);
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    expect(toggle.textContent).toContain(label('supportCollapse'));
+
+    toggle.click();
+    expect(body.hidden).toBe(true);
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(toggle.textContent).toContain(label('supportExpand'));
+    expect(plugin.saveSettings).not.toHaveBeenCalled();
+  });
+
+  it('keeps the fold open across a re-render and does not persist the open state', () => {
+    const { tab, containerEl, plugin } = renderTab();
+    advancedToggle(containerEl).click();
+
+    tab.display();
+
+    expect(advancedBody(containerEl).hidden).toBe(false);
+    expect(advancedToggle(containerEl).getAttribute('aria-expanded')).toBe('true');
+    expect(containerEl.querySelectorAll('.dayline-settings-advanced-body')).toHaveLength(1);
+    expect(plugin.saveSettings).not.toHaveBeenCalled();
+    expect(JSON.stringify(plugin.settings)).not.toContain('dvanced');
+
+    // A fresh tab starts collapsed again.
+    expect(renderTab().containerEl.querySelector('.dayline-settings-advanced-body')).toHaveProperty('hidden', true);
+  });
+
+  it('labels each non-empty group inside the fold and skips weather while it is off', () => {
+    const groups = (containerEl: HTMLElement) => Array.from(advancedBody(containerEl).children)
+      .map((group) => ({
+        id: (group as HTMLElement).dataset.daylineSettingsGroup,
+        label: group.querySelector('.dayline-settings-advanced-group-label')?.textContent,
+        rows: rowNames(group),
+      }));
+
+    expect(groups(renderTab({ weatherEnabled: false }).containerEl)).toEqual([
+      { id: 'calendar-journal', label: label('settingsCalendarJournal'), rows: [label('s_thumbnailFilter'), label('journalTools')] },
+      { id: 'media-privacy', label: label('settingsMediaPrivacy'), rows: [label('heicThumbCachePath'), label('heicThumbCacheGenerate')] },
+      { id: 'data-maintenance', label: label('settingsDataMaintenance'), rows: [label('moodMetadataPath'), label('moodExport'), label('metadataBackup'), label('dataMaintenance')] },
+    ]);
+
+    const withWeather = groups(renderTab({ weatherEnabled: true }).containerEl);
+    expect(withWeather.map((group) => group.id)).toEqual(['calendar-journal', 'weather', 'media-privacy', 'data-maintenance']);
+    expect(withWeather[1]).toEqual({
+      id: 'weather',
+      label: label('settingsWeather'),
+      rows: [label('weatherTimezone'), label('s_cacheTtl'), label('s_backfill')],
+    });
+  });
+
+  it('drops the HEIC generate row, and nothing else, where the desktop converter is missing', () => {
+    const { containerEl } = renderTab({}, { capabilities: { isDesktop: false } });
+    const media = advancedBody(containerEl).querySelector('[data-dayline-settings-group="media-privacy"]') as HTMLElement;
+    expect(rowNames(media)).toEqual([label('heicThumbCachePath')]);
+  });
+
+  it('styles the group labels as plain muted text, not as another heading', () => {
+    const { containerEl } = renderTab({ weatherEnabled: true });
+    const labels = advancedBody(containerEl).querySelectorAll('.dayline-settings-advanced-group-label');
+    expect(labels).toHaveLength(4);
+    for (const el of Array.from(labels)) {
+      expect(el.closest('.setting-item-heading')).toBeNull();
+      expect(el.hasAttribute('data-dayline-settings-section')).toBe(false);
+    }
+    // Only the section headings use setHeading().
+    expect(containerEl.querySelectorAll('.setting-item-heading')).toHaveLength(SETTINGS_SECTION_IDS.length);
+  });
+
+  it('shows the mood recovery row at the end of the Mood section only when orphans exist', () => {
+    const none = renderTab();
+    expect(sectionRowNames(none.containerEl, 'mood')).toEqual([label('mirrorMood'), label('reminder')]);
+    expect(rowNames(none.containerEl)).not.toContain(label('moodRecoveryTitle'));
+
+    const orphaned = renderTab({}, {
+      moodStore: {
+        configure: vi.fn(),
+        load: vi.fn(async () => {}),
+        getOrphans: () => ({ 'Calendar/Daily/gone.md': { mood: 2 } }),
+      },
+      openMoodRecovery: vi.fn(),
+    });
+    expect(sectionRowNames(orphaned.containerEl, 'mood'))
+      .toEqual([label('mirrorMood'), label('reminder'), label('moodRecoveryTitle')]);
+    // It needs attention, so it must not be tucked into the collapsed fold.
+    expect(rowNames(advancedBody(orphaned.containerEl))).not.toContain(label('moodRecoveryTitle'));
+
+    const recovery = hoisted.settings.find((setting: any) => setting.name === label('moodRecoveryTitle')) as any;
+    recovery.controlEl.querySelector('button').click();
+    expect(orphaned.plugin.openMoodRecovery).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses an hour dropdown before the toggle instead of the unsupported prompt', async () => {
+    const prompt = vi.fn(() => { throw new Error('prompt() is not supported.'); });
+    vi.stubGlobal('prompt', prompt);
+    try {
+      const { containerEl, plugin } = renderTab({ reminderHour: 8 });
+      const row = hoisted.settings.find((setting: any) => setting.name === label('reminder')) as any;
+      const control = row.controlEl as HTMLElement;
+
+      const select = control.querySelector('select') as HTMLSelectElement;
+      expect(Array.from(select.options).map((option) => option.value)).toEqual(Array.from({ length: 24 }, (_, hour) => String(hour)));
+      expect(Array.from(select.options).map((option) => option.textContent)).toEqual(
+        Array.from({ length: 24 }, (_, hour) => `${String(hour).padStart(2, '0')}:00`),
+      );
+      expect(select.value).toBe('8');
+      expect(select.getAttribute('aria-label')).toBe(label('reminderHour'));
+
+      // Dropdown first, toggle last, and no extra clock button.
+      expect(Array.from(control.children).map((child) => child.tagName + '.' + child.className))
+        .toEqual(['SELECT.', 'DIV.checkbox-container']);
+      expect(control.querySelector('button')).toBeNull();
+
+      select.value = '6';
+      select.dispatchEvent(new Event('change'));
+      await Promise.resolve();
+      expect(plugin.settings.reminderHour).toBe(6);
+      expect(typeof plugin.settings.reminderHour).toBe('number');
+      expect(plugin.saveSettings).toHaveBeenCalledTimes(1);
+
+      (control.querySelector('input[type=checkbox]') as HTMLInputElement).checked = true;
+      control.querySelector('input[type=checkbox]')!.dispatchEvent(new Event('change'));
+      await Promise.resolve();
+      expect(plugin.settings.reminderEnabled).toBe(true);
+      expect(prompt).not.toHaveBeenCalled();
+      expect(containerEl.querySelector('.extra-setting-button')).toBeNull();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('defaults the reminder hour to 21:00 when nothing valid is stored', () => {
+    for (const reminderHour of [undefined, 99, -1, 'late']) {
+      renderTab({ reminderHour });
+      const row = hoisted.settings.find((setting: any) => setting.name === label('reminder')) as any;
+      expect((row.controlEl.querySelector('select') as HTMLSelectElement).value, String(reminderHour)).toBe('21');
+    }
+  });
+
+  it('mounts the journal source editor inside the journal sources setting', () => {
+    const { tab, containerEl } = renderTab();
+    const sources = hoisted.settings.find((setting: any) => setting.name === label('journalSources')) as any;
+
+    expect(sources.settingEl.classList.contains('dayline-source-setting')).toBe(true);
+    const editor = sources.settingEl.querySelector(':scope > .dayline-source-editor') as HTMLElement;
+    expect(editor).not.toBeNull();
+    expect(editor).toBe(tab.sourceEditor.root);
+    // The folder field, status line and Apply/Discard all live in that card.
+    expect(editor.querySelector('.dayline-source-folder input')).not.toBeNull();
+    expect(editor.querySelector('.dayline-source-add')).not.toBeNull();
+    expect(editor.querySelector('.dayline-source-advanced')).not.toBeNull();
+    expect(editor.querySelector('.dayline-source-status')).not.toBeNull();
+    expect(editor.querySelectorAll('.dayline-source-actions button')).toHaveLength(2);
+    // Nothing of the editor is left loose below the card.
+    expect(Array.from(containerEl.children).some((child) => child.classList.contains('dayline-source-editor'))).toBe(false);
+    expect(containerEl.querySelectorAll('.dayline-source-editor')).toHaveLength(1);
+  });
+
+  it('remounts the source editor in the new card on a re-render and keeps unsaved edits', () => {
+    const { tab, containerEl } = renderTab();
+    const firstInput = tab.sourceEditor.root.querySelector('.dayline-source-folder input') as HTMLInputElement;
+    firstInput.value = 'Edited/Daily';
+    firstInput.dispatchEvent(new Event('input'));
+
+    tab.display();
+
+    const sources = hoisted.settings.find((setting: any) => setting.name === label('journalSources')) as any;
+    const editor = sources.settingEl.querySelector(':scope > .dayline-source-editor') as HTMLElement;
+    expect(containerEl.querySelectorAll('.dayline-source-editor')).toHaveLength(1);
+    expect((editor.querySelector('.dayline-source-folder input') as HTMLInputElement).value).toBe('Edited/Daily');
+  });
+
+  it('gives the mood metadata and HEIC cache path inputs the wide path class', () => {
+    renderTab();
+    for (const key of ['moodMetadataPath', 'heicThumbCachePath']) {
+      const row = hoisted.settings.find((setting: any) => setting.name === label(key)) as any;
+      expect(row.controlEl.classList.contains('dayline-settings-path-control'), key).toBe(true);
+      expect(row.controlEl.querySelector('input[type=text]'), key).not.toBeNull();
+    }
+    // Other text inputs keep Obsidian's default width.
+    const cache = hoisted.settings.find((setting: any) => setting.name === label('s_cacheTtl'));
+    expect(cache).toBeUndefined();
+    renderTab({ weatherEnabled: true });
+    const ttl = hoisted.settings.find((setting: any) => setting.name === label('s_cacheTtl')) as any;
+    expect(ttl.controlEl.classList.contains('dayline-settings-path-control')).toBe(false);
   });
 });
