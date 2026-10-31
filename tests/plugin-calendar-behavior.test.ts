@@ -378,6 +378,28 @@ describe('calendar render coalescing (P-17)', () => {
  * P-20: the today highlight follows the clock across midnight
  * ------------------------------------------------------------------------ */
 
+describe('calendar day keyboard navigation', () => {
+  it('moves focus by a day and a week, and turns the month at the edge', async () => {
+    const view = makeView();
+    view.render();
+    cellOf(view, '2026-08-15').focus();
+
+    await view._moveDayFocus('2026-08-15', 1);
+    expect(document.activeElement).toBe(cellOf(view, '2026-08-16'));
+
+    await view._moveDayFocus('2026-08-16', 7);
+    expect(document.activeElement).toBe(cellOf(view, '2026-08-23'));
+
+    await view._moveDayFocus('2026-08-31', 1);
+    expect(view.displayMonth.getMonth()).toBe(8);
+    expect(document.activeElement).toBe(cellOf(view, '2026-09-01'));
+
+    await view._moveDayFocus('2026-09-01', -7);
+    expect(view.displayMonth.getMonth()).toBe(7);
+    expect(document.activeElement).toBe(cellOf(view, '2026-08-25'));
+  });
+});
+
 describe('midnight today highlight (P-20)', () => {
   it('moves the highlight at midnight without waiting for another redraw', () => {
     vi.useFakeTimers();

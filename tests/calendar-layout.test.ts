@@ -96,13 +96,43 @@ describe('calendar compact cell layout', () => {
       expect(contrast(parse(brightInk[condition]), [0, 0, 0]), `${condition} halo`).toBeGreaterThanOrEqual(4.5);
     }
 
-    // The four dark-surface selectors have to stay in agreement, or one context regresses.
+    // The dark-surface selectors have to stay in agreement, or one context regresses.
     expect(styles).toContain('.theme-dark .cal-weather-badge,');
-    expect(styles).toContain('.cal-day.cal-has-image .cal-weather-badge,');
-    expect(styles).toContain('.cal-day.cal-written .cal-weather-badge {');
+    expect(styles).toContain('.cal-day.cal-has-image .cal-weather-badge {');
     // Photo cells keep the halo; flat known-colour surfaces do not need it.
-    expect(cssRule(styles, '.cal-day.cal-has-image .cal-weather-badge {'))
-      .toContain('drop-shadow');
+    expect(styles).toMatch(/\.cal-day\.cal-has-image \.cal-weather-badge \{\s*filter: drop-shadow/);
+
+    // A written cell is filled with the accent, so the glyph follows the white date
+    // number instead of the bright set (which fell to 1.7:1 on the default purple).
+    const written = cssRule(styles, '.cal-day.cal-written .cal-weather-badge {');
+    expect(written).toContain('color: #fff');
+    expect(contrast([255, 255, 255], parse('#8a5cf5')), 'white on default accent').toBeGreaterThanOrEqual(3);
+  });
+
+  it('keeps the today ring visible on written and photo days', () => {
+    // The ring lives on ::after so it paints above the photo and its overlay.
+    const ring = cssRule(styles, '.cal-today::after {');
+    expect(ring).toContain('position: absolute');
+    expect(ring).toContain('inset 0 0 0 2px var(--color-accent)');
+    // A written fill is the same accent colour, so an inner background ring separates them.
+    const filled = cssRule(styles, '.cal-today.cal-written::after,');
+    expect(filled).toContain('.cal-today.cal-has-image::after');
+    expect(filled).toContain('inset 0 0 0 4px var(--background-primary)');
+    expect(styles).not.toMatch(/\.cal-today\s*\{[^}]*box-shadow/);
+  });
+
+  it('draws flat-cell digits without the photo halo', () => {
+    expect(cssRule(styles, '.cal-no-image .cal-day-num {')).toContain('text-shadow: none');
+  });
+
+  it('switches off the native tooltip on photo cells but not on their labelled children', () => {
+    // Obsidian reads the computed `--no-tooltip` of the [aria-label] element it hovers.
+    expect(cssRule(styles, '.cal-day.cal-has-media-tip {')).toContain('--no-tooltip: true');
+    expect(cssRule(styles, '.cal-day.cal-has-media-tip [aria-label] {')).toContain('--no-tooltip: false');
+  });
+
+  it('shows a keyboard focus ring on day cells', () => {
+    expect(cssRule(styles, '.cal-day:focus-visible {')).toContain('outline: 2px solid var(--interactive-accent)');
   });
 
   it('pins date, weather, and mood to corners below 360px', () => {

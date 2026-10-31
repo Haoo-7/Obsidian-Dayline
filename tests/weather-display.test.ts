@@ -5,6 +5,7 @@ import {
   buildWeatherStatus,
   formatWeatherTime,
   normalizeWeatherDisplayFields,
+  weatherTemperatureReading,
 } from '../src/weather-display';
 import { t } from '../src/i18n';
 import { localize } from '../src/locale';
@@ -72,5 +73,18 @@ describe('weather card display details', () => {
     expect(localize('en', 'weatherLocation')).toBe('Weather location');
     expect(t({ displayLanguage: 'en' }, 'journalLocation')).toBe('Journal location');
     expect(localize('zh', 'weatherLocation')).not.toBe(t({ displayLanguage: 'zh' }, 'journalLocation'));
+  });
+
+  it('only calls a cached reading "now" on its own day', () => {
+    const now = { temperatureLabel: 'Now', temperature: 29, high: 29.8 };
+    expect(weatherTemperatureReading(now, true)).toEqual({ label: 'now', value: 29, time: '' });
+    // 2026-10-08 was fetched that afternoon; weeks later it is that day's high, not "now".
+    expect(weatherTemperatureReading(now, false)).toEqual({ label: 'high', value: 30, time: '' });
+    // Without a daily high, the reading keeps the clock time it was taken.
+    expect(weatherTemperatureReading({ temperatureLabel: 'Now', temperature: 29, high: null }, false, '16:48'))
+      .toEqual({ label: null, value: 29, time: '16:48' });
+    // An archive snapshot already carries the day's high.
+    expect(weatherTemperatureReading({ temperatureLabel: 'High', temperature: 31 }, false))
+      .toEqual({ label: 'high', value: 31, time: '' });
   });
 });

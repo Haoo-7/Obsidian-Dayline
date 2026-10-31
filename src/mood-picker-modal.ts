@@ -4,6 +4,7 @@ import { filterMoodLabelsForScore, getMoodColor, moodLabelsForScore } from './mo
 import { drawFluidMood, FluidMoodControl } from './fluid-mood-control';
 import { feelingLabel, moodLabel, t } from './i18n';
 import { bindMoodModalViewport } from './mood-modal-viewport';
+import { getTodayDate } from './date-utils';
 
 const BUILT_IN_LABEL_IDS = new Set(moodLabelsForScore(null).map((item) => item.id));
 
@@ -201,10 +202,17 @@ export class MoodPickerModal extends Modal {
     return header;
   }
 
+  /** "How did today feel?" only when the record date really is today. */
+  moodQuestion() {
+    const today = getTodayDate(this.settings?.weatherTimezone || 'auto');
+    return t(this.settings, !this.date || this.date === today ? 'moodQuestion' : 'moodQuestionPast');
+  }
+
   renderScale() {
     if (this.isLocked()) return;
     this.resetContent(1);
-    this.renderHeader(t(this.settings, 'moodTitle'), t(this.settings, 'moodQuestion'));
+    const question = this.moodQuestion();
+    this.renderHeader(t(this.settings, 'moodTitle'), question);
     const panel = this.contentEl.createDiv({ cls: 'journal-mood-panel journal-mood-scale-panel' });
     const controlHost = panel.createDiv();
     const actions = this.contentEl.createDiv({ cls: 'journal-mood-actions journal-mood-scale-actions' });
@@ -221,7 +229,7 @@ export class MoodPickerModal extends Modal {
     });
     this.fluidControl = new FluidMoodControl(controlHost, {
       initialScore: this.score,
-      accessibleLabel: t(this.settings, 'moodQuestion'),
+      accessibleLabel: question,
       emptyLabel: t(this.settings, 'chooseLevel'),
       labelForScore: (score) => moodLabel(this.settings, score),
       onPreview: (_value, color) => this.setActiveColor(color),

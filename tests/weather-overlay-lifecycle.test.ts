@@ -6,7 +6,9 @@ import ts from 'typescript';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { usesPhoneLayout } from '../src/platform-capabilities';
 import { weatherConditionLabel } from '../src/weather-conditions';
-import { formatManualTime, formatTemperatureValue } from '../src/weather-manual';
+import { clockTimeFromParts, formatManualTime, formatTemperatureValue } from '../src/weather-manual';
+import { weatherTemperatureReading } from '../src/weather-display';
+import { getClockPartsInTimeZone } from '../src/date-utils';
 
 // Execute the actual view class without booting Obsidian or loading optional codecs.
 const source = ts.createSourceFile('plugin.ts', readFileSync(join(process.cwd(), 'src/plugin.ts'), 'utf8'), ts.ScriptTarget.Latest, true);
@@ -45,6 +47,9 @@ const CalendarView = runInNewContext(ts.transpileModule(`${declaration.getText()
   t: (_settings: any, key: string) => key,
   formatTemperatureValue,
   formatManualTime,
+  clockTimeFromParts,
+  getClockPartsInTimeZone,
+  weatherTemperatureReading,
   shouldShowCalendarWeatherCard: () => true,
   shouldShowCalendarWeatherLocation: () => false,
   normalizeWeatherDisplayFields: () => ['feels'],

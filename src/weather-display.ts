@@ -43,6 +43,32 @@ export function formatWeatherTime(value: unknown, _language = 'en', _timezone = 
   return `${String(Number(match[1])).padStart(2, '0')}:${match[2]}`;
 }
 
+export interface WeatherTemperatureReading {
+  /** `'now'` and `'high'` are locale keys; `null` means the value carries a clock time instead. */
+  label: 'now' | 'high' | null;
+  value: unknown;
+  time: string;
+}
+
+/**
+ * Choose the headline temperature for a cached snapshot. A snapshot fetched on its
+ * own day is a "Now" reading, and the cache keeps it after the day ends, so a past
+ * date used to keep saying "Now 29°C" weeks later. A past date shows that day's high
+ * instead; without one, the reading is shown with the clock time it was taken.
+ */
+export function weatherTemperatureReading(
+  snap: { temperature?: unknown; high?: unknown; temperatureLabel?: unknown },
+  isToday: boolean,
+  fetchedClock = '',
+): WeatherTemperatureReading {
+  if (snap.temperatureLabel !== 'Now') return { label: 'high', value: snap.temperature, time: '' };
+  if (isToday) return { label: 'now', value: snap.temperature, time: '' };
+  if (typeof snap.high === 'number' && Number.isFinite(snap.high)) {
+    return { label: 'high', value: Math.round(snap.high), time: '' };
+  }
+  return { label: null, value: snap.temperature, time: fetchedClock };
+}
+
 export function weatherWindUnit(units: unknown): string {
   return units === 'imperial' ? 'mph' : 'km/h';
 }

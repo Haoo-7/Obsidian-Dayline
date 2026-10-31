@@ -42,6 +42,7 @@ import {
   isValidMoodDateValue,
 } from '../src/mood-picker-modal';
 import { t } from '../src/i18n';
+import { getTodayDate } from '../src/date-utils';
 
 function installObsidianDomHelpers(): void {
   const prototype = HTMLElement.prototype as HTMLElement & Record<string, unknown>;
@@ -245,7 +246,8 @@ describe('MoodPickerModal fluid flow', () => {
       y: 0,
       toJSON: () => ({}),
     });
-    expect(slider.getAttribute('aria-label')).toBe('今天的感受如何？');
+    // 2026-08-30 is a past date, so the question asks about that day.
+    expect(slider.getAttribute('aria-label')).toBe('那天的感受如何？');
     const next = modal.contentEl.querySelector<HTMLButtonElement>('.journal-mood-continue')!;
     expect(next.disabled).toBe(false);
 
@@ -348,6 +350,26 @@ describe('MoodPickerModal fluid flow', () => {
     modal.contentEl.querySelector<HTMLButtonElement>('.journal-mood-continue')!.click();
   }
 
+  it('asks about today only when the record date is today', () => {
+    const question = (options) => {
+      const modal = new MoodPickerModal({}, { settings: { displayLanguage: 'en' }, allowDateSelection: true, ...options });
+      modal.onOpen();
+      const result = {
+        header: modal.contentEl.querySelector('.journal-mood-step')?.textContent,
+        date: modal.contentEl.querySelector<HTMLInputElement>('input[type="date"]')?.value,
+      };
+      modal.close();
+      return result;
+    };
+
+    expect(question({ filePath: `Daily/${getTodayDate()}.md` }).header).toBe('How did today feel?');
+    expect(question({ filePath: 'Daily/2026-07-05.md' }).header).toBe('How did that day feel?');
+    // A note name that does not end in its date: the caller passes the indexed date,
+    // and the field shows it instead of falling back to today.
+    expect(question({ filePath: 'Daily/2026-07-05-evening.md', date: '2026-07-05' }))
+      .toEqual({ header: 'How did that day feel?', date: '2026-07-05' });
+  });
+
   it('keeps Back, ARIA, and custom feeling behavior on step two', async () => {
     const onSave = vi.fn().mockResolvedValue(undefined);
     const modal = new MoodPickerModal({}, {
@@ -357,7 +379,7 @@ describe('MoodPickerModal fluid flow', () => {
       onSave,
     });
     modal.onOpen();
-    expect(modal.contentEl.querySelector('[role="slider"]')?.getAttribute('aria-label')).toBe('How did today feel?');
+    expect(modal.contentEl.querySelector('[role="slider"]')?.getAttribute('aria-label')).toBe('How did that day feel?');
 
     openLabelStep(modal);
     const group = modal.contentEl.querySelector<HTMLElement>('.journal-mood-labels')!;

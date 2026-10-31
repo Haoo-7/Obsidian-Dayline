@@ -776,6 +776,30 @@ describe('mobile Dayline routing', () => {
     expect(noticeMessages).toEqual([]);
   });
 
+  it('hands the picker the indexed date of a note whose name does not end in it', async () => {
+    const opened: any[] = [];
+    class RecordingMoodPickerModal {
+      constructor(_app: unknown, options: any) {
+        opened.push(options);
+      }
+      open() {}
+    }
+    const plugin = createPlugin({
+      './mood-picker-modal': {
+        MoodPickerModal: RecordingMoodPickerModal,
+        MoodRecoveryModal: class { open() {} },
+      },
+    });
+    plugin.settings = { dailyFolder: 'Calendar/Daily', moodMetadataPath: 'Calendar/journal-metadata.json' };
+    plugin.moodStore = { get: () => null, getCustomLabels: () => [] };
+    const path = 'Calendar/Daily/2026-07-05-evening.md';
+    plugin.journalIndex = { getEntries: () => [{ path, date: '2026-07-05' }] };
+
+    await plugin.openMoodPicker(path, { allowDateSelection: true, ensureFile: false });
+
+    expect(opened[0]).toMatchObject({ filePath: path, date: '2026-07-05' });
+  });
+
   /* P-07: a mood edit on the day's path must use the Daily Notes template. */
   it('creates the daily note through the Daily Notes path when saving a mood', async () => {
     const opened: any[] = [];

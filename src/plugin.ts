@@ -51,7 +51,7 @@ const {
   mergeManualTemperatureMaps,
 } = require('./weather-manual');
 const { WeatherTemperatureModal } = require('./weather-temperature-modal');
-const { buildWeatherCardParts, buildWeatherStatus, normalizeWeatherDisplayFields } = require('./weather-display');
+const { buildWeatherCardParts, buildWeatherStatus, normalizeWeatherDisplayFields, weatherTemperatureReading } = require('./weather-display');
 const { localize: _l } = require('./locale');
 const { formatDateParts, getClockPartsInTimeZone, getTodayDate, isPathInFolder, joinVaultPath, normalizeVaultPath, parentVaultPath } = require('./date-utils');
 const { ThumbnailService, collectHeicAttachments } = require('./thumbnail-service');
@@ -63,12 +63,13 @@ const { OverlayRegistry } = require('./overlay-registry');
 const { SerialTaskQueue } = require('./task-queue');
 const { formatCalendarMonth, formatJournalDate, getCalendarGridOffset, getCalendarWeekdays, getDisplayLanguage, LOCALE_TAGS, moodLabel, normalizeDisplayLanguageSetting, t } = require('./i18n');
 const { getMoodColor } = require('./mood');
-const { shouldHandleCalendarMonthShortcut } = require('./calendar-keyboard');
+const { calendarDayFocusStep, shouldHandleCalendarMonthShortcut } = require('./calendar-keyboard');
 const { calendarEntryAffectsDisplay, calendarMediaAccessibilityLabel, calendarMoodMarker, calendarMoodMarkerClass, isCurrentCalendarMonth, shouldShowCalendarMood, shouldShowCalendarWeatherCard, shouldShowCalendarWeatherBadge, shouldShowCalendarWeatherLocation, shouldShowCalendarWrittenMarker } = require('./calendar-display');
 const { ViewVisibilityController, normalizeViewVisibilitySettings } = require('./view-visibility-controller');
 const { hasExistingImage } = require('./heic-embed');
 const { loadHeicCodec } = require('./heic-codec');
 const { ImageMetadataCache, HeicCache, HEIC_EXTS, ReverseGeocoder } = require('./image-metadata');
+const { formatExifDateTime } = require('./exif-tooltip');
 const { HeicThumbStore, DEFAULT_HEIC_THUMB_CACHE_DIR, normalizeHeicThumbCacheDir, isUnderCacheDir } = require('./heic-thumb-store');
 const { detectPlatformCapabilities, resolveCapabilityRoute, usesPhoneLayout } = require('./platform-capabilities');
 const { createMobileMarkdownQuickEntry } = require('./mobile-quick-entry');
@@ -940,6 +941,11 @@ class DaylinePlugin extends Plugin {
     const entry = this.journalIndex.getEntries().find((item) => item.path === path);
     new MoodPickerModal(this.app, {
       filePath: path,
+      // The index already knows the note's date. Without it the picker read the
+      // date from the file name, and a note such as `2026-07-05-evening.md`
+      // fell back to today: the mood still saved to that note, under a date
+      // field that claimed today.
+      date: entry?.date,
       initial: this.moodStore.get(path) || entry?.mood,
       customLabels: this.moodStore.getCustomLabels(),
       settings: this.settings,
@@ -1444,7 +1450,7 @@ class DaylinePlugin extends Plugin {
     this._exifTooltipEl = tip;
   }
 
-  _showExifTooltip(anchorEl, fields, loading, kind = 'image') {
+  _showExifTooltip(anchorEl, fields, loading, kind = 'image', heading = '') {
     const tip = this._exifTooltipEl;
     if (!tip || !anchorEl?.isConnected) return;
     // U-08: `t()` resolves a `'system'` language live, so the `_l` locale table
@@ -1459,6 +1465,10 @@ class DaylinePlugin extends Plugin {
       return el;
     };
 
+    // A calendar cell passes its date and entry count: the cell's own tooltip is
+    // suppressed while this panel shows, so the panel has to say which day it is.
+    if (heading) tip.appendChild(addText('div', 'cal-exif-tooltip-heading', heading));
+
     if (loading) {
       tip.appendChild(addText('div', 'cal-exif-tooltip-loading', _l(lang, 'exif_loading')));
     } else if (!fields || fields.length === 0) {
@@ -1471,8 +1481,9 @@ class DaylinePlugin extends Plugin {
     } else {
       for (const f of fields) {
         const row = addText('div', 'cal-exif-tooltip-row', '');
+        const value = f.key === 'exif_date' ? formatExifDateTime(f.value, LOCALE_TAGS[lang] || 'en-US') : f.value;
         row.appendChild(addText('span', 'cal-exif-tooltip-label', _l(lang, f.key)));
-        row.appendChild(addText('span', 'cal-exif-tooltip-value', f.value));
+        row.appendChild(addText('span', 'cal-exif-tooltip-value', value));
         tip.appendChild(row);
       }
     }
@@ -2033,6 +2044,12 @@ class CalendarView extends ItemView {
     root.setAttribute('tabindex', '0');
     root.setAttribute('aria-label', t(this.plugin.settings, 'calendarTitle'));
     this._calendarKeydownHandler = (event) => {
+      const dayStep = calendarDayFocusStep(event);
+      if (dayStep !== null) {
+        event.preventDefault();
+        void this._moveDayFocus(event.target.getAttribute('data-calendar-focus').slice(4), dayStep);
+        return;
+      }
       if (!shouldHandleCalendarMonthShortcut(event)) return;
       if (event.key === 'ArrowLeft') {
         event.preventDefault();
@@ -2536,10 +2553,11 @@ class CalendarView extends ItemView {
       const entryCountLabel = t(this.plugin.settings, dateEntry.entryCount === 1 ? 'calendarEntryCountOne' : 'calendarEntryCount', { count: dateEntry.entryCount });
       // U-02: the raw ISO date is not what a screen reader should read out.
       const localizedDate = formatJournalDate(dateStr, this.plugin.settings);
+      const dateLabel = dateEntry.entryCount
+        ? t(this.plugin.settings, 'calendarEntriesOnDate', { date: localizedDate, entries: entryCountLabel })
+        : localizedDate;
       cell.setAttribute('aria-label', [
-        dateEntry.entryCount
-          ? t(this.plugin.settings, 'calendarEntriesOnDate', { date: localizedDate, entries: entryCountLabel })
-          : localizedDate,
+        dateLabel,
         dateEntry.hasWeather ? t(this.plugin.settings, 'calendarWeatherAvailable') : '',
       ].filter(Boolean).join(', '));
       if (isToday) cell.addClass('cal-today');
@@ -2574,10 +2592,13 @@ class CalendarView extends ItemView {
         // Unified media metadata tooltip on hover. Images retain the legacy EXIF path.
         const firstMedia = cover;
         const mediaLabel = t(this.plugin.settings, 'mediaMetadata');
+        // The media panel carries the date itself, so Obsidian's own aria-label
+        // tooltip is switched off on this cell; it used to sit half under the panel.
+        if (this.plugin.settings.showExif) cell.addClass('cal-has-media-tip');
         cell.addEventListener('mouseenter', () => {
           // Never leave the keyboard-only name on the element while the pointer is over it.
           bg.removeAttribute('aria-label');
-          this._onMediaEnter(cell, firstMedia);
+          this._onMediaEnter(cell, firstMedia, false, dateLabel);
         });
         cell.addEventListener('mouseleave', () => this._onExifLeave(cell));
         if (touchRouting.focusMediaBackground) {
@@ -2587,7 +2608,7 @@ class CalendarView extends ItemView {
           bg.addEventListener('focusin', () => {
             const label = calendarMediaAccessibilityLabel(dateStr, mediaLabel, true);
             if (label) bg.setAttribute('aria-label', label);
-            this._onMediaEnter(cell, firstMedia, true);
+            this._onMediaEnter(cell, firstMedia, true, dateLabel);
           });
           bg.addEventListener('focusout', () => {
             const label = calendarMediaAccessibilityLabel(dateStr, mediaLabel, false);
@@ -2767,10 +2788,10 @@ class CalendarView extends ItemView {
   /* ----- EXIF Tooltip (delegates to plugin) ----- */
 
   _ensureExifTooltip() { this.plugin._ensureExifTooltip(); }
-  _showExifTooltip(el, fields, loading, kind) { this.plugin._showExifTooltip(el, fields, loading, kind); }
+  _showExifTooltip(el, fields, loading, kind, heading) { this.plugin._showExifTooltip(el, fields, loading, kind, heading); }
   _hideExifTooltip() { this.plugin._hideExifTooltip(); }
 
-  _onMediaEnter(cell, attachment, immediate = false) {
+  _onMediaEnter(cell, attachment, immediate = false, heading = '') {
     if (!this.plugin.settings.showExif || !attachment) return;
     if (immediate && this.plugin._toggleExifTouch(cell)) return;
     const hoverToken = this.plugin._beginExifHover();
@@ -2778,11 +2799,11 @@ class CalendarView extends ItemView {
       void (async () => {
         try {
           if (!this.plugin._isCurrentExifHover(hoverToken)) return;
-          this.plugin._showExifTooltip(cell, null, true, 'media');
+          this.plugin._showExifTooltip(cell, null, true, 'media', heading);
           const metadata = await this.mediaService?.getMetadata?.(attachment);
           const fields = formatMediaMetadataForDisplay(metadata);
           if (!this.plugin._isCurrentExifHover(hoverToken)) return;
-          this.plugin._showExifTooltip(cell, fields, false, 'media');
+          this.plugin._showExifTooltip(cell, fields, false, 'media', heading);
         } catch {
           this.plugin._hideExifTooltip();
         }
@@ -3117,9 +3138,7 @@ class CalendarView extends ItemView {
       const value = formatTemperatureValue(displayTemperature);
       tempEl.setText(time ? `${value}${unitSym} · ${time}` : `${value}${unitSym}`);
     } else {
-      const labelKey = snap.temperatureLabel === 'Now' ? 'now' : 'high';
-      const label = _l(lang, labelKey);
-      tempEl.setText(`${label} ${snap.temperature ?? '?'}${unitSym}`);
+      tempEl.setText(this._weatherReadingText(snap, this._weatherCardDate, unitSym));
     }
     this._syncWeatherManualChrome(card, manualRecord, true);
 
@@ -3185,15 +3204,27 @@ class CalendarView extends ItemView {
 
   /* ----- Temperature line shared by the overlay build and refresh paths ----- */
   _weatherTemperatureText(snap, dateStr, unitSym) {
-    const lang = getDisplayLanguage(this.plugin.settings);
     const record = this.weather.getManualTemperature(dateStr);
     if (record) {
       const value = formatTemperatureValue(this.weather.resolveDisplayTemperature(dateStr, snap));
       const time = formatManualTime(record.time);
       return time ? `${value}${unitSym} · ${time}` : `${value}${unitSym}`;
     }
-    const labelKey = snap.temperatureLabel === 'Now' ? 'now' : 'high';
-    return `${_l(lang, labelKey)} ${snap.temperature ?? '?'}${unitSym}`;
+    return this._weatherReadingText(snap, dateStr, unitSym);
+  }
+
+  /** "Now 30°C" only for today; a past date's cached "Now" reading shows that day's high. */
+  _weatherReadingText(snap, dateStr, unitSym) {
+    const lang = getDisplayLanguage(this.plugin.settings);
+    const timezone = this.plugin.settings?.weatherTimezone || 'auto';
+    const fetchedAt = new Date(String(snap.fetchedAt || ''));
+    const fetchedClock = Number.isFinite(fetchedAt.getTime())
+      ? clockTimeFromParts(getClockPartsInTimeZone(fetchedAt, timezone))
+      : '';
+    const reading = weatherTemperatureReading(snap, dateStr === _daylineDate(this.plugin.settings), fetchedClock);
+    const value = `${reading.value ?? '?'}${unitSym}`;
+    if (reading.label) return `${_l(lang, reading.label)} ${value}`;
+    return reading.time ? `${value} · ${reading.time}` : value;
   }
 
   /**
@@ -3397,6 +3428,19 @@ class CalendarView extends ItemView {
       this.monthCache.delete(this._monthKey(newMonth));
       new Notice(t(this.plugin.settings, 'calendarMonthLoadFailed', { error: error?.message || error }));
     });
+  }
+
+  /** Move keyboard focus `step` days from `dateStr`, turning the month when the target leaves it. */
+  async _moveDayFocus(dateStr, step) {
+    const [year, month, day] = String(dateStr).split('-').map(Number);
+    if (![year, month, day].every(Number.isInteger)) return;
+    // Midday, so a DST transition cannot push the target across midnight.
+    const target = new Date(year, month - 1, day + step, 12);
+    const monthDelta = (target.getFullYear() - this.displayMonth.getFullYear()) * 12
+      + (target.getMonth() - this.displayMonth.getMonth());
+    if (monthDelta !== 0) await this._goToMonth(monthDelta);
+    const key = `day-${formatDateParts(target.getFullYear(), target.getMonth() + 1, target.getDate())}`;
+    this.contentEl.querySelector(`[data-calendar-focus="${key}"]`)?.focus({ preventScroll: true });
   }
 
   /* ----- Open (or create + open) daily note ----- */

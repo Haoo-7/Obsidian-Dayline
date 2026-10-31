@@ -172,6 +172,25 @@ export const SETTINGS_ACTION_ROWS = {
   dataMaintenance: ['integrityCommand', 'importFrontmatterCommand'],
 };
 
+/**
+ * Restore the mood metadata backup after the user confirms. The restore writes the
+ * `.bak` over the live store without keeping a copy, so every mood saved since that
+ * backup is lost; one click used to do it with no prompt. Returns whether it ran.
+ */
+export async function restoreMoodMetadataBackup(plugin, confirm: (message: string) => boolean): Promise<boolean> {
+  if (!confirm(t(plugin.settings, 'restoreMetadataConfirm'))) return false;
+  try {
+    await plugin.moodStore.restoreBackup();
+    await plugin.journalIndex.refresh(plugin.settings);
+    plugin.refreshJournalViews();
+    new Notice(t(plugin.settings, 'metadataRestored'));
+    return true;
+  } catch (error) {
+    new Notice(t(plugin.settings, 'metadataRestoreFailed', { error: error?.message || error }));
+    return false;
+  }
+}
+
 export function shouldShowWeatherSettings(settings) {
   return settings.weatherEnabled === true;
 }
@@ -1046,18 +1065,16 @@ export class DaylineSettingsTab extends PluginSettingTab {
             new Notice(t(this.plugin.settings, 'metadataExportFailed', { error: error?.message || error }));
           }
         }))
-      .addButton((button) => button
-        .setButtonText(t(this.plugin.settings, 'restoreMetadataCommand'))
-        .onClick(async () => {
-          try {
-            await this.plugin.moodStore.restoreBackup();
-            await this.plugin.journalIndex.refresh(this.plugin.settings);
-            this.plugin.refreshJournalViews();
-            new Notice(t(this.plugin.settings, 'metadataRestored'));
-          } catch (error) {
-            new Notice(t(this.plugin.settings, 'metadataRestoreFailed', { error: error?.message || error }));
-          }
-        }));
+      .addButton((button) => {
+        // Destructive: the restore replaces the live store (see restoreMoodMetadataBackup).
+        button.buttonEl?.addClass('mod-warning');
+        button
+          .setButtonText(t(this.plugin.settings, 'restoreMetadataCommand'))
+          .onClick(async () => {
+            const ownerWindow = button.buttonEl?.ownerDocument?.defaultView;
+            await restoreMoodMetadataBackup(this.plugin, (message) => ownerWindow?.confirm(message) ?? false);
+          });
+      });
 
     this._addActionRow(new Setting(containerEl)
       .setName(t(this.plugin.settings, 'dataMaintenance'))

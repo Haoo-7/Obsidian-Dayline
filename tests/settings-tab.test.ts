@@ -84,6 +84,7 @@ import {
   normalizeMoodMetadataPath,
   parseCoordinateSettingValue,
   resolveSettingsScrollHost,
+  restoreMoodMetadataBackup,
   restoreSettingsScroll,
   shouldPreserveSettingsScroll,
   shouldShowCalendarMoodStyle,
@@ -248,6 +249,40 @@ describe('coordinate field validation', () => {
   it('reports out-of-range coordinates with a range-specific message', () => {
     expect(parseCoordinateSettingValue('latitude', '90.5')).toEqual({ ok: false, messageKey: 'latitudeOutOfRange' });
     expect(parseCoordinateSettingValue('longitude', '-180.5')).toEqual({ ok: false, messageKey: 'longitudeOutOfRange' });
+  });
+});
+
+describe('mood metadata backup restore', () => {
+  function restorePlugin() {
+    return {
+      settings: { displayLanguage: 'en' },
+      moodStore: { restoreBackup: vi.fn(async () => ({ entries: 1, orphans: 0 })) },
+      journalIndex: { refresh: vi.fn(async () => {}) },
+      refreshJournalViews: vi.fn(),
+    };
+  }
+
+  it('asks before overwriting the live store and does nothing when declined', async () => {
+    const plugin = restorePlugin();
+    const confirm = vi.fn(() => false);
+
+    expect(await restoreMoodMetadataBackup(plugin, confirm)).toBe(false);
+
+    expect(confirm).toHaveBeenCalledWith(expect.stringContaining('will be lost'));
+    expect(plugin.moodStore.restoreBackup).not.toHaveBeenCalled();
+    expect(plugin.journalIndex.refresh).not.toHaveBeenCalled();
+  });
+
+  it('restores and refreshes the views once confirmed', async () => {
+    const plugin = restorePlugin();
+    hoisted.notices.length = 0;
+
+    expect(await restoreMoodMetadataBackup(plugin, () => true)).toBe(true);
+
+    expect(plugin.moodStore.restoreBackup).toHaveBeenCalledTimes(1);
+    expect(plugin.journalIndex.refresh).toHaveBeenCalledTimes(1);
+    expect(plugin.refreshJournalViews).toHaveBeenCalledTimes(1);
+    expect(hoisted.notices.at(-1)).toBe('Mood metadata backup restored');
   });
 });
 

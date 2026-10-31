@@ -291,6 +291,12 @@
 .cal-day:hover {
   box-shadow: 0 0 0 2px var(--interactive-accent-hover);
 }
+/* Day cells are role=button. The ring sits outside the cell so it never reads
+   as the "today" ring, which is drawn inside. */
+.cal-day:focus-visible {
+  outline: 2px solid var(--interactive-accent);
+  outline-offset: 1px;
+}
 .cal-day:active {
   transform: scale(0.95);
 }
@@ -303,6 +309,9 @@
 }
 .cal-no-image .cal-day-num {
   color: var(--text-muted);
+  /* The halo on `.cal-day-num` is for white digits over a photo; on a flat
+     light cell it only smudged the grey digit. */
+  text-shadow: none;
 }
 .cal-day-bg {
   position: absolute;
@@ -394,14 +403,25 @@ body.dayline-coarse-pointer .markdown-source-view.mod-cm6 .internal-embed img {
   color: var(--text-muted);
   text-shadow: none;
 }
-.cal-today {
-  /* Day One-style ring: the accent fill now marks *written* days, so today is
-     an outline; a written today fills like any other written day and the ring
-     keeps it recognisable. */
+/* Day One-style ring: the accent fill marks *written* days, so today is an
+   inside ring. It is drawn on ::after rather than as the cell's own inset
+   shadow: a photo background and its overlay are children of the cell and
+   painted over that shadow, and a written fill is the same accent colour, so in
+   both cases today used to disappear. */
+.cal-today::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
   box-shadow: inset 0 0 0 2px var(--color-accent);
+  pointer-events: none;
 }
-.cal-today:hover {
-  box-shadow: inset 0 0 0 2px var(--color-accent), 0 0 0 2px var(--interactive-accent-hover);
+/* On an accent fill or a photo the accent ring alone has nothing to contrast
+   with, so a background-coloured ring is drawn just inside it. */
+.cal-today.cal-written::after,
+.cal-today.cal-has-image::after {
+  box-shadow: inset 0 0 0 2px var(--color-accent), inset 0 0 0 4px var(--background-primary);
 }
 /* Day One-style written marker: a journaled date without a photo fills its
    cell with the accent colour so a month of writing reads at a glance; photo
@@ -449,6 +469,25 @@ body.dayline-coarse-pointer .markdown-source-view.mod-cm6 .internal-embed img {
 }
 .cal-exif-tooltip.is-visible {
   opacity: 1;
+}
+.cal-exif-tooltip-heading {
+  margin-bottom: 4px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.95);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Obsidian skips its aria-label tooltip on an element whose computed
+   `--no-tooltip` is `true`. A photo cell's media panel already names the date, so
+   the cell opts out; the property inherits, so labelled children opt back in. */
+.cal-day.cal-has-media-tip {
+  --no-tooltip: true;
+}
+.cal-day.cal-has-media-tip [aria-label] {
+  --no-tooltip: false;
 }
 .cal-exif-tooltip-row {
   display: flex;
@@ -905,15 +944,14 @@ input.cal-wt-value:focus-visible {
 .cal-weather-badge.weather-cat-snow       { color: var(--cal-wx-snow); }
 .cal-weather-badge.weather-cat-storm      { color: var(--cal-wx-storm); }
 
-/* A dark surface needs light ink. Three cases, and they are the common ones, not edge
-   cases: a plain cell in a dark theme (#333333), a photo cell (the day's image under a
-   35% black overlay — median sampled luminance 0.15), and a written cell (a full accent
-   fill, luminance 0.20). The dark-ink set sits at 1.1–2.7:1 on all three, so it is
-   replaced. With the bright set every condition clears 4.9:1 on #333333 and 6.9:1
-   against the halo below. */
+/* A dark surface needs light ink. Two cases, and they are the common ones, not edge
+   cases: a plain cell in a dark theme (#333333) and a photo cell (the day's image under
+   a 35% black overlay — median sampled luminance 0.15). The dark-ink set sits at
+   1.1–2.7:1 on both, so it is replaced. With the bright set every condition clears
+   4.9:1 on #333333 and 6.9:1 against the halo below. A written cell's accent fill is
+   handled separately further down. */
 .theme-dark .cal-weather-badge,
-.cal-day.cal-has-image .cal-weather-badge,
-.cal-day.cal-written .cal-weather-badge {
+.cal-day.cal-has-image .cal-weather-badge {
   --cal-wx-sun: #FBBF24;
   --cal-wx-cloud-sun: #94A3B8;
   --cal-wx-cloud: #94A3B8;
@@ -929,6 +967,13 @@ input.cal-wt-value:focus-visible {
    (dark-theme cells, today) already sit on a known colour and need no halo. */
 .cal-day.cal-has-image .cal-weather-badge {
   filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.9)) drop-shadow(0 0 2px rgba(0, 0, 0, 0.65));
+}
+/* A written cell is filled with the user's accent, not a known dark grey, and on
+   Obsidian's default purple the bright set only reaches 1.7–2.6:1. The glyph
+   takes the same white as the date number it sits beside (4.3:1 on #8a5cf5).
+   Three classes outrank the two-class `.weather-cat-*` colour rules. */
+.cal-day.cal-written .cal-weather-badge {
+  color: #fff;
 }
 
 /* --- Daily note weather overlay (Day One style frosted-glass chip) --- */
