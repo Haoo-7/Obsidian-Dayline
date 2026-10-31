@@ -3285,6 +3285,7 @@ var init_i18n = __esm({
         moodNote: "\u5FC3\u60C5\u5907\u6CE8",
         moodNotePlaceholder: "\u53EF\u9009\uFF1A\u5199\u4E0B\u6B64\u523B\u7684\u60F3\u6CD5\u2026\u2026",
         moodQuestion: "\u4ECA\u5929\u7684\u611F\u53D7\u5982\u4F55\uFF1F",
+        moodQuestionPast: "\u90A3\u5929\u7684\u611F\u53D7\u5982\u4F55\uFF1F",
         moodRecoveryCommand: "\u6253\u5F00\u5FC3\u60C5\u6062\u590D\u5217\u8868",
         moodRecoveryDescription: "\u68C0\u67E5\u88AB\u5220\u9664\u6216\u79FB\u8D70\u7684\u5FC3\u60C5\u8BB0\u5F55\uFF0C\u5E76\u6062\u590D\u5230\u539F\u59CB\u6587\u4EF6\u8DEF\u5F84\u3002",
         moodRecoveryEmpty: "\u6CA1\u6709\u53EF\u6062\u590D\u7684\u5FC3\u60C5\u8BB0\u5F55",
@@ -3322,8 +3323,8 @@ var init_i18n = __esm({
         reminder: "\u6BCF\u65E5\u63D0\u9192",
         reminderDesc: "\u4ECA\u5929\u6CA1\u6709\u65E5\u8BB0\u8BB0\u5F55\u65F6\u663E\u793A\u672C\u5730\u63D0\u9192\u3002",
         reminderHour: "\u63D0\u9192\u65F6\u95F4",
-        reminderHourPrompt: "\u63D0\u9192\u65F6\u95F4\uFF080-23\uFF09",
         restoreMetadataCommand: "\u6062\u590D\u5FC3\u60C5\u5143\u6570\u636E\u5907\u4EFD",
+        restoreMetadataConfirm: "\u7528\u5907\u4EFD\u8986\u76D6\u5F53\u524D\u7684\u5FC3\u60C5\u5143\u6570\u636E\uFF1F\u5907\u4EFD\u4E4B\u540E\u8BB0\u5F55\u7684\u5FC3\u60C5\u4F1A\u4E22\u5931\u3002",
         restoreMood: "\u6062\u590D",
         retry: "\u91CD\u8BD5",
         s_exifPersist: "\u4FDD\u5B58\u7167\u7247\u4F4D\u7F6E\u5230\u7B14\u8BB0",
@@ -3333,6 +3334,8 @@ var init_i18n = __esm({
         saving: "\u4FDD\u5B58\u4E2D\u2026",
         searchJournal: "\u641C\u7D22\u65E5\u8BB0",
         selected: "\u5DF2\u9009\u62E9",
+        settingsAdvanced: "\u9AD8\u7EA7",
+        settingsAdvancedDesc: "\u7F29\u7565\u56FE\u7B5B\u9009\u3001\u5929\u6C14\u65F6\u533A\u4E0E\u7F13\u5B58\u3001HEIC \u7F13\u5B58\u3001\u5FC3\u60C5\u6570\u636E\u7684\u5BFC\u51FA\u4E0E\u7EF4\u62A4",
         settingsCalendarJournal: "\u65E5\u5386\u548C\u65E5\u8BB0",
         settingsDataMaintenance: "\u6570\u636E\u4E0E\u7EF4\u62A4",
         settingsGeneral: "\u5E38\u89C4",
@@ -3349,7 +3352,7 @@ var init_i18n = __esm({
         showCalendarWrittenMarker: "\u7528\u989C\u8272\u586B\u6EE1\u5DF2\u5199\u65E5\u671F",
         showCalendarWrittenMarkerDesc: "\u6709\u65E5\u8BB0\u4F46\u6CA1\u6709\u7167\u7247\u7684\u65E5\u671F\u4F1A\u7528\u4E3B\u9898\u8272\u586B\u6EE1\u6574\u4E2A\u683C\u5B50\u3002",
         showCalendarWeatherBadge: "\u663E\u793A\u65E5\u671F\u5929\u6C14\u56FE\u6807",
-        showCalendarWeatherBadgeDesc: "\u663E\u793A\u65E5\u671F\u683C\u53F3\u4E0A\u89D2\u5929\u6C14\u56FE\u6807\uFF1B\u5173\u95ED\u540E\u4E0D\u5F71\u54CD\u9876\u90E8\u5929\u6C14\u5361\u7247\u3002",
+        showCalendarWeatherBadgeDesc: "\u5728\u5199\u8FC7\u65E5\u8BB0\u7684\u65E5\u671F\u683C\u53F3\u4E0A\u89D2\u663E\u793A\u5929\u6C14\u56FE\u6807\uFF1B\u5173\u95ED\u540E\u4E0D\u5F71\u54CD\u9876\u90E8\u5929\u6C14\u5361\u7247\u3002",
         showCalendarWeatherCard: "\u663E\u793A\u65E5\u5386\u5929\u6C14\u5361\u7247",
         showCalendarWeatherCardDesc: "\u663E\u793A\u6708\u5386\u9876\u90E8\u5929\u6C14\u5361\u7247\uFF1B\u5173\u95ED\u540E\u4E0D\u5F71\u54CD\u65E5\u671F\u683C\u5929\u6C14\u56FE\u6807\u3002",
         showCalendarWeatherLocation: "\u663E\u793A\u5929\u6C14\u4F4D\u7F6E",
@@ -3408,7 +3411,11 @@ var init_i18n = __esm({
         supportUses: "\u8FD9\u7B14\u94B1\u4F1A\u53D8\u6210\u5496\u5561\u3001\u732B\u7F50\u5934\u3001\u57DF\u540D\u548C\u5B57\u4F53\u6388\u6743\u3002",
         system: "\u7CFB\u7EDF",
         tagFilter: "\u6807\u7B7E",
-        thisMonth: "\u672C\u6708\u5B8C\u6210",
+        monthWrittenLabel: "\u672C\u6708\u5199\u4E86",
+        monthWrittenSummary: "\u672C\u6708\u5199\u4E86 {count} \u5929",
+        monthWrittenSummaryOne: "\u672C\u6708\u5199\u4E86 {count} \u5929",
+        monthWrittenValue: "{count} \u5929",
+        monthWrittenValueOne: "{count} \u5929",
         thoughtful: "\u82E5\u6709\u6240\u601D",
         timelineOpenFailed: "\u6253\u5F00\u65F6\u95F4\u7EBF\u6761\u76EE\u5931\u8D25\uFF1A{error}",
         timelineTitle: "\u65E5\u8BB0\u65F6\u95F4\u7EBF",
@@ -3622,6 +3629,7 @@ var init_i18n = __esm({
         moodNote: "\u5FC3\u60C5\u5099\u8A3B",
         moodNotePlaceholder: "\u9078\u586B\uFF1A\u5BEB\u4E0B\u6B64\u523B\u7684\u60F3\u6CD5\u2026\u2026",
         moodQuestion: "\u4ECA\u5929\u7684\u611F\u53D7\u5982\u4F55\uFF1F",
+        moodQuestionPast: "\u90A3\u5929\u7684\u611F\u53D7\u5982\u4F55\uFF1F",
         moodRecoveryCommand: "\u958B\u555F\u5FC3\u60C5\u5FA9\u539F\u6E05\u55AE",
         moodRecoveryDescription: "\u6AA2\u67E5\u88AB\u522A\u9664\u6216\u79FB\u8D70\u7684\u5FC3\u60C5\u8A18\u9304\uFF0C\u4E26\u5FA9\u539F\u81F3\u539F\u59CB\u6A94\u6848\u8DEF\u5F91\u3002",
         moodRecoveryEmpty: "\u6C92\u6709\u53EF\u5FA9\u539F\u7684\u5FC3\u60C5\u8A18\u9304",
@@ -3659,8 +3667,8 @@ var init_i18n = __esm({
         reminder: "\u6BCF\u65E5\u63D0\u9192",
         reminderDesc: "\u4ECA\u5929\u6C92\u6709\u65E5\u8A18\u8A18\u9304\u6642\u986F\u793A\u672C\u6A5F\u63D0\u9192\u3002",
         reminderHour: "\u63D0\u9192\u6642\u9593",
-        reminderHourPrompt: "\u63D0\u9192\u6642\u9593\uFF080-23\uFF09",
         restoreMetadataCommand: "\u5FA9\u539F\u5FC3\u60C5\u4E2D\u7E7C\u8CC7\u6599\u5099\u4EFD",
+        restoreMetadataConfirm: "\u7528\u5099\u4EFD\u8986\u84CB\u76EE\u524D\u7684\u5FC3\u60C5\u4E2D\u7E7C\u8CC7\u6599\uFF1F\u5099\u4EFD\u4E4B\u5F8C\u8A18\u9304\u7684\u5FC3\u60C5\u6703\u907A\u5931\u3002",
         restoreMood: "\u5FA9\u539F",
         retry: "\u91CD\u8A66",
         s_exifPersist: "\u5132\u5B58\u7167\u7247\u4F4D\u7F6E\u5230\u7B46\u8A18",
@@ -3670,6 +3678,8 @@ var init_i18n = __esm({
         saving: "\u5132\u5B58\u4E2D\u2026",
         searchJournal: "\u641C\u5C0B\u65E5\u8A18",
         selected: "\u5DF2\u9078\u64C7",
+        settingsAdvanced: "\u9032\u968E",
+        settingsAdvancedDesc: "\u7E2E\u5716\u7BE9\u9078\u3001\u5929\u6C23\u6642\u5340\u8207\u5FEB\u53D6\u3001HEIC \u5FEB\u53D6\u3001\u5FC3\u60C5\u8CC7\u6599\u7684\u532F\u51FA\u8207\u7DAD\u8B77",
         settingsCalendarJournal: "\u65E5\u66C6\u8207\u65E5\u8A18",
         settingsDataMaintenance: "\u8CC7\u6599\u8207\u7DAD\u8B77",
         settingsGeneral: "\u4E00\u822C",
@@ -3686,7 +3696,7 @@ var init_i18n = __esm({
         showCalendarWrittenMarker: "\u7528\u984F\u8272\u586B\u6EFF\u5DF2\u5BEB\u65E5\u671F",
         showCalendarWrittenMarkerDesc: "\u6709\u65E5\u8A18\u4F46\u6C92\u6709\u7167\u7247\u7684\u65E5\u671F\u6703\u7528\u4E3B\u984C\u8272\u586B\u6EFF\u6574\u500B\u683C\u5B50\u3002",
         showCalendarWeatherBadge: "\u986F\u793A\u65E5\u671F\u5929\u6C23\u5716\u793A",
-        showCalendarWeatherBadgeDesc: "\u986F\u793A\u65E5\u671F\u683C\u53F3\u4E0A\u89D2\u5929\u6C23\u5716\u793A\uFF1B\u95DC\u9589\u5F8C\u4E0D\u5F71\u97FF\u9802\u90E8\u5929\u6C23\u5361\u7247\u3002",
+        showCalendarWeatherBadgeDesc: "\u5728\u5BEB\u904E\u65E5\u8A18\u7684\u65E5\u671F\u683C\u53F3\u4E0A\u89D2\u986F\u793A\u5929\u6C23\u5716\u793A\uFF1B\u95DC\u9589\u5F8C\u4E0D\u5F71\u97FF\u9802\u90E8\u5929\u6C23\u5361\u7247\u3002",
         showCalendarWeatherCard: "\u986F\u793A\u65E5\u66C6\u5929\u6C23\u5361\u7247",
         showCalendarWeatherCardDesc: "\u986F\u793A\u6708\u66C6\u9802\u90E8\u5929\u6C23\u5361\u7247\uFF1B\u95DC\u9589\u5F8C\u4E0D\u5F71\u97FF\u65E5\u671F\u683C\u5929\u6C23\u5716\u793A\u3002",
         showCalendarWeatherLocation: "\u986F\u793A\u5929\u6C23\u4F4D\u7F6E",
@@ -3745,7 +3755,11 @@ var init_i18n = __esm({
         supportUses: "\u9019\u7B46\u9322\u6703\u8B8A\u6210\u5496\u5561\u3001\u8C93\u7F50\u982D\u3001\u7DB2\u57DF\u548C\u5B57\u578B\u6388\u6B0A\u3002",
         system: "\u7CFB\u7D71",
         tagFilter: "\u6A19\u7C64",
-        thisMonth: "\u672C\u6708\u5B8C\u6210",
+        monthWrittenLabel: "\u672C\u6708\u5BEB\u4E86",
+        monthWrittenSummary: "\u672C\u6708\u5BEB\u4E86 {count} \u5929",
+        monthWrittenSummaryOne: "\u672C\u6708\u5BEB\u4E86 {count} \u5929",
+        monthWrittenValue: "{count} \u5929",
+        monthWrittenValueOne: "{count} \u5929",
         thoughtful: "\u82E5\u6709\u6240\u601D",
         timelineOpenFailed: "\u958B\u555F\u6642\u9593\u8EF8\u689D\u76EE\u5931\u6557\uFF1A{error}",
         timelineTitle: "\u65E5\u8A18\u6642\u9593\u8EF8",
@@ -3959,6 +3973,7 @@ var init_i18n = __esm({
         moodNote: "Mood note",
         moodNotePlaceholder: "Optional: add a little context\u2026",
         moodQuestion: "How did today feel?",
+        moodQuestionPast: "How did that day feel?",
         moodRecoveryCommand: "Open mood recovery list",
         moodRecoveryDescription: "Inspect deleted or moved mood records and restore them to their original file path.",
         moodRecoveryEmpty: "No mood records to recover",
@@ -3996,8 +4011,8 @@ var init_i18n = __esm({
         reminder: "Daily reminder",
         reminderDesc: "Show a local reminder when today has no note.",
         reminderHour: "Reminder hour",
-        reminderHourPrompt: "Reminder hour (0-23)",
         restoreMetadataCommand: "Restore mood metadata backup",
+        restoreMetadataConfirm: "Replace the current mood metadata with the backup? Moods recorded after the backup will be lost.",
         restoreMood: "Restore",
         retry: "Retry",
         s_exifPersist: "Save photo location to note",
@@ -4007,6 +4022,8 @@ var init_i18n = __esm({
         saving: "Saving\u2026",
         searchJournal: "Search journal",
         selected: "Selected",
+        settingsAdvanced: "Advanced",
+        settingsAdvancedDesc: "Thumbnail filter, weather timezone and cache, HEIC cache, and mood data export and maintenance",
         settingsCalendarJournal: "Calendar and journal",
         settingsDataMaintenance: "Data and maintenance",
         settingsGeneral: "General",
@@ -4023,7 +4040,7 @@ var init_i18n = __esm({
         showCalendarWrittenMarker: "Fill written days on calendar",
         showCalendarWrittenMarkerDesc: "Days with a journal entry but no photo fill their cell with the accent color.",
         showCalendarWeatherBadge: "Show date weather icons",
-        showCalendarWeatherBadgeDesc: "Show weather icons in the top-right of date cells; the weather card is unaffected.",
+        showCalendarWeatherBadgeDesc: "Show a weather icon in the top-right of dates that have a journal entry; the weather card is unaffected.",
         showCalendarWeatherCard: "Show the calendar weather card",
         showCalendarWeatherCardDesc: "Show the weather card above the calendar; date-cell icons are unaffected.",
         showCalendarWeatherLocation: "Show weather location",
@@ -4082,7 +4099,11 @@ var init_i18n = __esm({
         supportUses: "It turns into coffee, cat food, a domain, and font licences.",
         system: "System",
         tagFilter: "Tag",
-        thisMonth: "This month",
+        monthWrittenLabel: "Written this month",
+        monthWrittenSummary: "{count} days this month",
+        monthWrittenSummaryOne: "{count} day this month",
+        monthWrittenValue: "{count} days",
+        monthWrittenValueOne: "{count} day",
         thoughtful: "Thoughtful",
         timelineOpenFailed: "Failed to open timeline entry: {error}",
         timelineTitle: "Journal timeline",
@@ -4296,6 +4317,7 @@ var init_i18n = __esm({
         moodNote: "\u30E1\u30E2",
         moodNotePlaceholder: "\u4ECA\u306E\u6C17\u6301\u3061\u3092\u66F8\u304D\u7559\u3081\u3066\u307F\u307E\u3057\u3087\u3046\uFF08\u4EFB\u610F\uFF09\u2026",
         moodQuestion: "\u4ECA\u65E5\u306E\u6C17\u5206\u306F\u3069\u3046\u3067\u3057\u305F\u304B\uFF1F",
+        moodQuestionPast: "\u305D\u306E\u65E5\u306E\u6C17\u5206\u306F\u3069\u3046\u3067\u3057\u305F\u304B\uFF1F",
         moodRecoveryCommand: "\u6C17\u5206\u5FA9\u5143\u30EA\u30B9\u30C8\u3092\u958B\u304F",
         moodRecoveryDescription: "\u524A\u9664\u307E\u305F\u306F\u79FB\u52D5\u3055\u308C\u305F\u6C17\u5206\u306E\u8A18\u9332\u3092\u78BA\u8A8D\u3057\u3001\u5143\u306E\u30D5\u30A1\u30A4\u30EB\u30D1\u30B9\u306B\u5FA9\u5143\u3057\u307E\u3059\u3002",
         moodRecoveryEmpty: "\u5FA9\u5143\u53EF\u80FD\u306A\u6C17\u5206\u306E\u8A18\u9332\u306F\u3042\u308A\u307E\u305B\u3093",
@@ -4333,8 +4355,8 @@ var init_i18n = __esm({
         reminder: "\u6BCE\u65E5\u306E\u30EA\u30DE\u30A4\u30F3\u30C0\u30FC",
         reminderDesc: "\u4ECA\u65E5\u306E\u65E5\u8A18\u304C\u306A\u3044\u5834\u5408\u306B\u30ED\u30FC\u30AB\u30EB\u901A\u77E5\u3092\u8868\u793A\u3057\u307E\u3059\u3002",
         reminderHour: "\u901A\u77E5\u6642\u523B",
-        reminderHourPrompt: "\u901A\u77E5\u6642\u523B\uFF080\u301C23\uFF09",
         restoreMetadataCommand: "\u6C17\u5206\u30E1\u30BF\u30C7\u30FC\u30BF\u30D0\u30C3\u30AF\u30A2\u30C3\u30D7\u3092\u5FA9\u5143",
+        restoreMetadataConfirm: "\u73FE\u5728\u306E\u6C17\u5206\u30E1\u30BF\u30C7\u30FC\u30BF\u3092\u30D0\u30C3\u30AF\u30A2\u30C3\u30D7\u3067\u7F6E\u304D\u63DB\u3048\u307E\u3059\u304B\uFF1F\u30D0\u30C3\u30AF\u30A2\u30C3\u30D7\u4EE5\u964D\u306B\u8A18\u9332\u3057\u305F\u6C17\u5206\u306F\u5931\u308F\u308C\u307E\u3059\u3002",
         restoreMood: "\u5FA9\u5143",
         retry: "\u518D\u8A66\u884C",
         s_exifPersist: "\u5199\u771F\u306E\u4F4D\u7F6E\u60C5\u5831\u3092\u30CE\u30FC\u30C8\u306B\u4FDD\u5B58",
@@ -4344,6 +4366,8 @@ var init_i18n = __esm({
         saving: "\u4FDD\u5B58\u4E2D\u2026",
         searchJournal: "\u65E5\u8A18\u3092\u691C\u7D22",
         selected: "\u9078\u629E\u4E2D",
+        settingsAdvanced: "\u8A73\u7D30\u8A2D\u5B9A",
+        settingsAdvancedDesc: "\u30B5\u30E0\u30CD\u30A4\u30EB\u306E\u7D5E\u308A\u8FBC\u307F\u3001\u5929\u6C17\u306E\u30BF\u30A4\u30E0\u30BE\u30FC\u30F3\u3068\u30AD\u30E3\u30C3\u30B7\u30E5\u3001HEIC \u30AD\u30E3\u30C3\u30B7\u30E5\u3001\u6C17\u5206\u30C7\u30FC\u30BF\u306E\u30A8\u30AF\u30B9\u30DD\u30FC\u30C8\u3068\u30E1\u30F3\u30C6\u30CA\u30F3\u30B9",
         settingsCalendarJournal: "\u30AB\u30EC\u30F3\u30C0\u30FC\u3068\u65E5\u8A18",
         settingsDataMaintenance: "\u30C7\u30FC\u30BF\u3068\u30E1\u30F3\u30C6\u30CA\u30F3\u30B9",
         settingsGeneral: "\u4E00\u822C",
@@ -4360,7 +4384,7 @@ var init_i18n = __esm({
         showCalendarWrittenMarker: "\u66F8\u3044\u305F\u65E5\u3092\u8272\u3067\u5857\u308A\u3064\u3076\u3059",
         showCalendarWrittenMarkerDesc: "\u65E5\u8A18\u304C\u3042\u308A\u5199\u771F\u306E\u306A\u3044\u65E5\u306F\u30A2\u30AF\u30BB\u30F3\u30C8\u8272\u3067\u30BB\u30EB\u3092\u5857\u308A\u3064\u3076\u3057\u307E\u3059\u3002",
         showCalendarWeatherBadge: "\u65E5\u4ED8\u30BB\u30EB\u306E\u5929\u6C17\u30A2\u30A4\u30B3\u30F3\u3092\u8868\u793A",
-        showCalendarWeatherBadgeDesc: "\u65E5\u4ED8\u30BB\u30EB\u306E\u53F3\u4E0A\u306B\u5929\u6C17\u30A2\u30A4\u30B3\u30F3\u3092\u8868\u793A\u3057\u307E\u3059\uFF08\u5929\u6C17\u30AB\u30FC\u30C9\u306B\u306F\u5F71\u97FF\u3057\u307E\u305B\u3093\uFF09\u3002",
+        showCalendarWeatherBadgeDesc: "\u65E5\u8A18\u304C\u3042\u308B\u65E5\u4ED8\u30BB\u30EB\u306E\u53F3\u4E0A\u306B\u5929\u6C17\u30A2\u30A4\u30B3\u30F3\u3092\u8868\u793A\u3057\u307E\u3059\uFF08\u5929\u6C17\u30AB\u30FC\u30C9\u306B\u306F\u5F71\u97FF\u3057\u307E\u305B\u3093\uFF09\u3002",
         showCalendarWeatherCard: "\u5929\u6C17\u30AB\u30FC\u30C9\u3092\u8868\u793A",
         showCalendarWeatherCardDesc: "\u30AB\u30EC\u30F3\u30C0\u30FC\u4E0A\u90E8\u306B\u5929\u6C17\u30AB\u30FC\u30C9\u3092\u8868\u793A\u3057\u307E\u3059\uFF08\u65E5\u4ED8\u30BB\u30EB\u306E\u30A2\u30A4\u30B3\u30F3\u306B\u306F\u5F71\u97FF\u3057\u307E\u305B\u3093\uFF09\u3002",
         showCalendarWeatherLocation: "\u5929\u6C17\u306E\u5834\u6240\u3092\u8868\u793A",
@@ -4419,7 +4443,11 @@ var init_i18n = __esm({
         supportUses: "\u3053\u306E\u304A\u91D1\u306F\u30B3\u30FC\u30D2\u30FC\u3001\u732B\u306E\u7F36\u8A70\u3001\u30C9\u30E1\u30A4\u30F3\u3001\u30D5\u30A9\u30F3\u30C8\u306E\u30E9\u30A4\u30BB\u30F3\u30B9\u306B\u306A\u308A\u307E\u3059\u3002",
         system: "\u30B7\u30B9\u30C6\u30E0",
         tagFilter: "\u30BF\u30B0",
-        thisMonth: "\u4ECA\u6708\u306E\u8A18\u9332",
+        monthWrittenLabel: "\u4ECA\u6708\u306E\u8A18\u9332",
+        monthWrittenSummary: "\u4ECA\u6708 {count} \u65E5\u8A18\u9332",
+        monthWrittenSummaryOne: "\u4ECA\u6708 {count} \u65E5\u8A18\u9332",
+        monthWrittenValue: "{count} \u65E5",
+        monthWrittenValueOne: "{count} \u65E5",
         thoughtful: "\u601D\u7D22\u7684",
         timelineOpenFailed: "\u30BF\u30A4\u30E0\u30E9\u30A4\u30F3\u9805\u76EE\u3092\u958B\u3051\u307E\u305B\u3093\u3067\u3057\u305F\uFF1A{error}",
         timelineTitle: "\u65E5\u8A18\u30BF\u30A4\u30E0\u30E9\u30A4\u30F3",
@@ -4633,6 +4661,7 @@ var init_i18n = __esm({
         moodNote: "\uAE30\uBD84 \uBA54\uBAA8",
         moodNotePlaceholder: "\uC120\uD0DD \uC0AC\uD56D: \uC9C0\uAE08 \uB4DC\uB294 \uC0DD\uAC01\uC744 \uC801\uC5B4\uBCF4\uC138\uC694\u2026",
         moodQuestion: "\uC624\uB298 \uD558\uB8E8\uB294 \uC5B4\uB5A0\uC168\uB098\uC694?",
+        moodQuestionPast: "\uADF8\uB0A0 \uD558\uB8E8\uB294 \uC5B4\uB5A0\uC168\uB098\uC694?",
         moodRecoveryCommand: "\uAE30\uBD84 \uBCF5\uAD6C \uBAA9\uB85D \uC5F4\uAE30",
         moodRecoveryDescription: "\uC0AD\uC81C\uB418\uAC70\uB098 \uC774\uB3D9\uB41C \uAE30\uBD84 \uAE30\uB85D\uC744 \uD655\uC778\uD558\uACE0 \uC6D0\uB798 \uD30C\uC77C \uACBD\uB85C\uB85C \uBCF5\uAD6C\uD569\uB2C8\uB2E4.",
         moodRecoveryEmpty: "\uBCF5\uAD6C \uAC00\uB2A5\uD55C \uAE30\uBD84 \uAE30\uB85D\uC774 \uC5C6\uC2B5\uB2C8\uB2E4",
@@ -4670,8 +4699,8 @@ var init_i18n = __esm({
         reminder: "\uC77C\uC77C \uC54C\uB9BC",
         reminderDesc: "\uC624\uB298 \uC800\uB110\uC774 \uC791\uC131\uB418\uC9C0 \uC54A\uC558\uC744 \uB54C \uB85C\uCEEC \uC54C\uB9BC\uC744 \uD45C\uC2DC\uD569\uB2C8\uB2E4.",
         reminderHour: "\uC54C\uB9BC \uC2DC\uAC01",
-        reminderHourPrompt: "\uC54C\uB9BC \uC2DC\uAC01 (0-23)",
         restoreMetadataCommand: "\uAE30\uBD84 \uBA54\uD0C0\uB370\uC774\uD130 \uBC31\uC5C5 \uBCF5\uAD6C",
+        restoreMetadataConfirm: "\uD604\uC7AC \uAE30\uBD84 \uBA54\uD0C0\uB370\uC774\uD130\uB97C \uBC31\uC5C5\uC73C\uB85C \uB36E\uC5B4\uC4F8\uAE4C\uC694? \uBC31\uC5C5 \uC774\uD6C4\uC5D0 \uAE30\uB85D\uD55C \uAE30\uBD84\uC740 \uC0AC\uB77C\uC9D1\uB2C8\uB2E4.",
         restoreMood: "\uBCF5\uAD6C",
         retry: "\uB2E4\uC2DC \uC2DC\uB3C4",
         s_exifPersist: "\uC0AC\uC9C4 \uC704\uCE58\uB97C \uB178\uD2B8\uC5D0 \uC800\uC7A5",
@@ -4681,6 +4710,8 @@ var init_i18n = __esm({
         saving: "\uC800\uC7A5 \uC911\u2026",
         searchJournal: "\uC800\uB110 \uAC80\uC0C9",
         selected: "\uC120\uD0DD\uB428",
+        settingsAdvanced: "\uACE0\uAE09",
+        settingsAdvancedDesc: "\uC378\uB124\uC77C \uD544\uD130, \uB0A0\uC528 \uC2DC\uAC04\uB300 \uBC0F \uCE90\uC2DC, HEIC \uCE90\uC2DC, \uAE30\uBD84 \uB370\uC774\uD130 \uB0B4\uBCF4\uB0B4\uAE30 \uBC0F \uC720\uC9C0\uAD00\uB9AC",
         settingsCalendarJournal: "\uCE98\uB9B0\uB354 \uBC0F \uC800\uB110",
         settingsDataMaintenance: "\uB370\uC774\uD130 \uBC0F \uC720\uC9C0\uAD00\uB9AC",
         settingsGeneral: "\uC77C\uBC18",
@@ -4697,7 +4728,7 @@ var init_i18n = __esm({
         showCalendarWrittenMarker: "\uC4F4 \uB0A0\uC744 \uC0C9\uC73C\uB85C \uCC44\uC6B0\uAE30",
         showCalendarWrittenMarkerDesc: "\uC77C\uAE30\uAC00 \uC788\uACE0 \uC0AC\uC9C4\uC774 \uC5C6\uB294 \uB0A0\uC740 \uAC15\uC870\uC0C9\uC73C\uB85C \uCE78\uC744 \uCC44\uC6C1\uB2C8\uB2E4.",
         showCalendarWeatherBadge: "\uB0A0\uC9DC \uCE78 \uB0A0\uC528 \uC544\uC774\uCF58 \uD45C\uC2DC",
-        showCalendarWeatherBadgeDesc: "\uB0A0\uC9DC \uCE78 \uC624\uB978\uCABD \uC0C1\uB2E8\uC5D0 \uB0A0\uC528 \uC544\uC774\uCF58\uC744 \uD45C\uC2DC\uD569\uB2C8\uB2E4 (\uB0A0\uC528 \uCE74\uB4DC\uC5D0\uB294 \uC601\uD5A5 \uC5C6\uC74C).",
+        showCalendarWeatherBadgeDesc: "\uC77C\uAE30\uAC00 \uC788\uB294 \uB0A0\uC9DC \uCE78 \uC624\uB978\uCABD \uC0C1\uB2E8\uC5D0 \uB0A0\uC528 \uC544\uC774\uCF58\uC744 \uD45C\uC2DC\uD569\uB2C8\uB2E4 (\uB0A0\uC528 \uCE74\uB4DC\uC5D0\uB294 \uC601\uD5A5 \uC5C6\uC74C).",
         showCalendarWeatherCard: "\uCE98\uB9B0\uB354 \uB0A0\uC528 \uCE74\uB4DC \uD45C\uC2DC",
         showCalendarWeatherCardDesc: "\uCE98\uB9B0\uB354 \uC0C1\uB2E8\uC5D0 \uB0A0\uC528 \uCE74\uB4DC\uB97C \uD45C\uC2DC\uD569\uB2C8\uB2E4 (\uB0A0\uC9DC \uCE78 \uC544\uC774\uCF58\uC5D0\uB294 \uC601\uD5A5 \uC5C6\uC74C).",
         showCalendarWeatherLocation: "\uB0A0\uC528 \uC704\uCE58 \uD45C\uC2DC",
@@ -4756,7 +4787,11 @@ var init_i18n = __esm({
         supportUses: "\uC774 \uB3C8\uC740 \uCEE4\uD53C, \uACE0\uC591\uC774 \uC0AC\uB8CC, \uB3C4\uBA54\uC778, \uD3F0\uD2B8 \uB77C\uC774\uC120\uC2A4\uAC00 \uB429\uB2C8\uB2E4.",
         system: "\uC2DC\uC2A4\uD15C",
         tagFilter: "\uD0DC\uADF8",
-        thisMonth: "\uC774\uBC88 \uB2EC \uC644\uB8CC",
+        monthWrittenLabel: "\uC774\uBC88 \uB2EC \uC791\uC131",
+        monthWrittenSummary: "\uC774\uBC88 \uB2EC {count}\uC77C \uC791\uC131",
+        monthWrittenSummaryOne: "\uC774\uBC88 \uB2EC {count}\uC77C \uC791\uC131",
+        monthWrittenValue: "{count}\uC77C",
+        monthWrittenValueOne: "{count}\uC77C",
         thoughtful: "\uC0DD\uAC01\uC774 \uB9CE\uC740",
         timelineOpenFailed: "\uD0C0\uC784\uB77C\uC778 \uD56D\uBAA9\uC744 \uC5F4\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4: {error}",
         timelineTitle: "\uC800\uB110 \uD0C0\uC784\uB77C\uC778",
@@ -4970,6 +5005,7 @@ var init_i18n = __esm({
         moodNote: "Note d'humeur",
         moodNotePlaceholder: "Facultatif : notez vos pens\xE9es du moment\u2026",
         moodQuestion: "Comment s'est pass\xE9e votre journ\xE9e ?",
+        moodQuestionPast: "Comment s'est pass\xE9e cette journ\xE9e ?",
         moodRecoveryCommand: "Ouvrir la liste de r\xE9cup\xE9ration d'humeur",
         moodRecoveryDescription: "V\xE9rifiez les enregistrements supprim\xE9s ou d\xE9plac\xE9s et restaurez-les vers leur fichier d'origine.",
         moodRecoveryEmpty: "Aucune humeur \xE0 r\xE9cup\xE9rer",
@@ -5007,8 +5043,8 @@ var init_i18n = __esm({
         reminder: "Rappel quotidien",
         reminderDesc: "Affiche une notification locale si aucune entr\xE9e n'a \xE9t\xE9 r\xE9dig\xE9e aujourd'hui.",
         reminderHour: "Heure du rappel",
-        reminderHourPrompt: "Heure du rappel (0-23)",
         restoreMetadataCommand: "Restaurer la sauvegarde des m\xE9tadonn\xE9es d'humeur",
+        restoreMetadataConfirm: "Remplacer les m\xE9tadonn\xE9es d'humeur actuelles par la sauvegarde ? Les humeurs enregistr\xE9es apr\xE8s la sauvegarde seront perdues.",
         restoreMood: "Restaurer",
         retry: "R\xE9essayer",
         s_exifPersist: "Enregistrer la position des photos dans la note",
@@ -5018,6 +5054,8 @@ var init_i18n = __esm({
         saving: "Enregistrement\u2026",
         searchJournal: "Rechercher dans le journal",
         selected: "S\xE9lectionn\xE9",
+        settingsAdvanced: "Avanc\xE9",
+        settingsAdvancedDesc: "Filtre des miniatures, fuseau horaire et cache m\xE9t\xE9o, cache HEIC, exportation et maintenance des donn\xE9es d'humeur",
         settingsCalendarJournal: "Calendrier et journal",
         settingsDataMaintenance: "Donn\xE9es et maintenance",
         settingsGeneral: "G\xE9n\xE9ral",
@@ -5034,7 +5072,7 @@ var init_i18n = __esm({
         showCalendarWrittenMarker: "Remplir les jours \xE9crits sur le calendrier",
         showCalendarWrittenMarkerDesc: "Les jours avec une note mais sans photo remplissent leur case avec la couleur d'accent.",
         showCalendarWeatherBadge: "Afficher les ic\xF4nes m\xE9t\xE9o sur les dates",
-        showCalendarWeatherBadgeDesc: "Affiche l'ic\xF4ne m\xE9t\xE9o en haut \xE0 droite des cellules ; la carte m\xE9t\xE9o reste inchang\xE9e.",
+        showCalendarWeatherBadgeDesc: "Affiche l'ic\xF4ne m\xE9t\xE9o en haut \xE0 droite des jours qui ont une entr\xE9e ; la carte m\xE9t\xE9o reste inchang\xE9e.",
         showCalendarWeatherCard: "Afficher la carte m\xE9t\xE9o du calendrier",
         showCalendarWeatherCardDesc: "Affiche la carte m\xE9t\xE9o au-dessus du calendrier ; les ic\xF4nes des cellules restent inchang\xE9es.",
         showCalendarWeatherLocation: "Afficher le lieu de la m\xE9t\xE9o",
@@ -5093,7 +5131,11 @@ var init_i18n = __esm({
         supportUses: "Cet argent devient du caf\xE9, des croquettes, un domaine et des licences de police.",
         system: "Syst\xE8me",
         tagFilter: "\xC9tiquette",
-        thisMonth: "Ce mois-ci",
+        monthWrittenLabel: "\xC9crits ce mois-ci",
+        monthWrittenSummary: "{count} jours ce mois-ci",
+        monthWrittenSummaryOne: "{count} jour ce mois-ci",
+        monthWrittenValue: "{count} jours",
+        monthWrittenValueOne: "{count} jour",
         thoughtful: "Pensif",
         timelineOpenFailed: "Impossible d'ouvrir l'entr\xE9e de la chronologie : {error}",
         timelineTitle: "Chronologie du journal",
@@ -5307,6 +5349,7 @@ var init_i18n = __esm({
         moodNote: "Stimmungsnotiz",
         moodNotePlaceholder: "Optional: Halte deine Gedanken fest\u2026",
         moodQuestion: "Wie war dein Tag?",
+        moodQuestionPast: "Wie war dieser Tag?",
         moodRecoveryCommand: "Stimmungs-Wiederherstellungsliste \xF6ffnen",
         moodRecoveryDescription: "Gel\xF6schte oder verschobene Stimmungseintr\xE4ge pr\xFCfen und am urspr\xFCnglichen Dateipfad wiederherstellen.",
         moodRecoveryEmpty: "Keine wiederherstellbaren Stimmungen vorhanden",
@@ -5344,8 +5387,8 @@ var init_i18n = __esm({
         reminder: "T\xE4gliche Erinnerung",
         reminderDesc: "Zeigt eine lokale Benachrichtigung, wenn heute noch kein Eintrag vorhanden ist.",
         reminderHour: "Erinnerungszeit",
-        reminderHourPrompt: "Uhrzeit (0-23)",
         restoreMetadataCommand: "Stimmungs-Metadaten-Backup wiederherstellen",
+        restoreMetadataConfirm: "Aktuelle Stimmungs-Metadaten durch das Backup ersetzen? Nach dem Backup erfasste Stimmungen gehen verloren.",
         restoreMood: "Wiederherstellen",
         retry: "Wiederholen",
         s_exifPersist: "Foto-Standort in der Notiz speichern",
@@ -5355,6 +5398,8 @@ var init_i18n = __esm({
         saving: "Wird gespeichert\u2026",
         searchJournal: "Journal durchsuchen",
         selected: "Ausgew\xE4hlt",
+        settingsAdvanced: "Erweitert",
+        settingsAdvancedDesc: "Vorschaubild-Filter, Wetter-Zeitzone und -Cache, HEIC-Cache sowie Export und Wartung der Stimmungsdaten",
         settingsCalendarJournal: "Kalender & Journal",
         settingsDataMaintenance: "Daten & Wartung",
         settingsGeneral: "Allgemein",
@@ -5371,7 +5416,7 @@ var init_i18n = __esm({
         showCalendarWrittenMarker: "Geschriebene Tage f\xFCllen",
         showCalendarWrittenMarkerDesc: "Tage mit einem Eintrag ohne Foto f\xFCllen ihre Zelle mit der Akzentfarbe.",
         showCalendarWeatherBadge: "Wettersymbole in Datumszellen anzeigen",
-        showCalendarWeatherBadgeDesc: "Zeigt ein Wettersymbol oben rechts in den Zellen; beeinflusst nicht die Wetterkarte.",
+        showCalendarWeatherBadgeDesc: "Zeigt ein Wettersymbol oben rechts an Tagen mit Tagebucheintrag; beeinflusst nicht die Wetterkarte.",
         showCalendarWeatherCard: "Wetterkarte im Kalender anzeigen",
         showCalendarWeatherCardDesc: "Zeigt die Wetterkarte \xFCber dem Monatskalender; Zellensymbole bleiben unber\xFChrt.",
         showCalendarWeatherLocation: "Wetterort anzeigen",
@@ -5430,7 +5475,11 @@ var init_i18n = __esm({
         supportUses: "Das Geld wird zu Kaffee, Katzenfutter, einer Domain und Schriftlizenzen.",
         system: "System",
         tagFilter: "Tag",
-        thisMonth: "Diesen Monat",
+        monthWrittenLabel: "Diesen Monat geschrieben",
+        monthWrittenSummary: "{count} Tage diesen Monat",
+        monthWrittenSummaryOne: "{count} Tag diesen Monat",
+        monthWrittenValue: "{count} Tage",
+        monthWrittenValueOne: "{count} Tag",
         thoughtful: "Nachdenklich",
         timelineOpenFailed: "Zeitleisteneintrag konnte nicht ge\xF6ffnet werden: {error}",
         timelineTitle: "Journal-Zeitleiste",
@@ -5644,6 +5693,7 @@ var init_i18n = __esm({
         moodNote: "Nota de estado de \xE1nimo",
         moodNotePlaceholder: "Opcional: escribe tus pensamientos del momento\u2026",
         moodQuestion: "\xBFC\xF3mo te sentiste hoy?",
+        moodQuestionPast: "\xBFC\xF3mo te sentiste ese d\xEDa?",
         moodRecoveryCommand: "Abrir lista de recuperaci\xF3n de estado de \xE1nimo",
         moodRecoveryDescription: "Revisa los registros eliminados o movidos y rest\xE1uralos a su ruta original.",
         moodRecoveryEmpty: "No hay registros para recuperar",
@@ -5681,8 +5731,8 @@ var init_i18n = __esm({
         reminder: "Recordatorio diario",
         reminderDesc: "Muestra una notificaci\xF3n local si no has escrito en el diario hoy.",
         reminderHour: "Hora del recordatorio",
-        reminderHourPrompt: "Hora (0-23)",
         restoreMetadataCommand: "Restaurar copia de seguridad de metadatos de \xE1nimo",
+        restoreMetadataConfirm: "\xBFReemplazar los metadatos de \xE1nimo actuales con la copia de seguridad? Se perder\xE1n los estados de \xE1nimo registrados despu\xE9s de la copia.",
         restoreMood: "Restaurar",
         retry: "Reintentar",
         s_exifPersist: "Guardar la ubicaci\xF3n de las fotos en la nota",
@@ -5692,6 +5742,8 @@ var init_i18n = __esm({
         saving: "Guardando\u2026",
         searchJournal: "Buscar en el diario",
         selected: "Seleccionado",
+        settingsAdvanced: "Avanzado",
+        settingsAdvancedDesc: "Filtro de miniaturas, zona horaria y cach\xE9 del tiempo, cach\xE9 HEIC, exportaci\xF3n y mantenimiento de los datos de \xE1nimo",
         settingsCalendarJournal: "Calendario y diario",
         settingsDataMaintenance: "Datos y mantenimiento",
         settingsGeneral: "General",
@@ -5708,7 +5760,7 @@ var init_i18n = __esm({
         showCalendarWrittenMarker: "Rellenar los d\xEDas escritos",
         showCalendarWrittenMarkerDesc: "Los d\xEDas con entrada pero sin foto rellenan su casilla con el color de acento.",
         showCalendarWeatherBadge: "Mostrar icono del tiempo en celdas",
-        showCalendarWeatherBadgeDesc: "Muestra el icono del tiempo en la esquina superior derecha de las celdas.",
+        showCalendarWeatherBadgeDesc: "Muestra el icono del tiempo en la esquina superior derecha de los d\xEDas con una entrada.",
         showCalendarWeatherCard: "Mostrar tarjeta del tiempo en calendario",
         showCalendarWeatherCardDesc: "Muestra la tarjeta del tiempo arriba del calendario; los iconos en celdas no cambian.",
         showCalendarWeatherLocation: "Mostrar ubicaci\xF3n del tiempo",
@@ -5767,7 +5819,11 @@ var init_i18n = __esm({
         supportUses: "Ese dinero se convierte en caf\xE9, comida para gato, un dominio y licencias de tipograf\xEDa.",
         system: "Sistema",
         tagFilter: "Etiqueta",
-        thisMonth: "Este mes",
+        monthWrittenLabel: "Escritos este mes",
+        monthWrittenSummary: "{count} d\xEDas este mes",
+        monthWrittenSummaryOne: "{count} d\xEDa este mes",
+        monthWrittenValue: "{count} d\xEDas",
+        monthWrittenValueOne: "{count} d\xEDa",
         thoughtful: "Pensativo",
         timelineOpenFailed: "Error al abrir la entrada de la cronolog\xEDa: {error}",
         timelineTitle: "Cronolog\xEDa del diario",
@@ -5981,6 +6037,7 @@ var init_i18n = __esm({
         moodNote: "\u0417\u0430\u043C\u0435\u0442\u043A\u0430 \u043E \u043D\u0430\u0441\u0442\u0440\u043E\u0435\u043D\u0438\u0438",
         moodNotePlaceholder: "\u041D\u0435\u043E\u0431\u044F\u0437\u0430\u0442\u0435\u043B\u044C\u043D\u043E: \u0437\u0430\u043F\u0438\u0448\u0438\u0442\u0435 \u043C\u044B\u0441\u043B\u0438 \u044D\u0442\u043E\u0433\u043E \u043C\u043E\u043C\u0435\u043D\u0442\u0430\u2026",
         moodQuestion: "\u041A\u0430\u043A \u043F\u0440\u043E\u0448\u0451\u043B \u0432\u0430\u0448 \u0434\u0435\u043D\u044C?",
+        moodQuestionPast: "\u041A\u0430\u043A \u043F\u0440\u043E\u0448\u0451\u043B \u044D\u0442\u043E\u0442 \u0434\u0435\u043D\u044C?",
         moodRecoveryCommand: "\u041E\u0442\u043A\u0440\u044B\u0442\u044C \u0441\u043F\u0438\u0441\u043E\u043A \u0432\u043E\u0441\u0441\u0442\u0430\u043D\u043E\u0432\u043B\u0435\u043D\u0438\u044F \u043D\u0430\u0441\u0442\u0440\u043E\u0435\u043D\u0438\u0439",
         moodRecoveryDescription: "\u041F\u0440\u043E\u0432\u0435\u0440\u044C\u0442\u0435 \u0443\u0434\u0430\u043B\u0451\u043D\u043D\u044B\u0435 \u0438\u043B\u0438 \u043F\u0435\u0440\u0435\u043C\u0435\u0449\u0451\u043D\u043D\u044B\u0435 \u0437\u0430\u043F\u0438\u0441\u0438 \u0438 \u0432\u043E\u0441\u0441\u0442\u0430\u043D\u043E\u0432\u0438\u0442\u0435 \u0438\u0445 \u043F\u043E \u0438\u0441\u0445\u043E\u0434\u043D\u043E\u043C\u0443 \u043F\u0443\u0442\u0438.",
         moodRecoveryEmpty: "\u041D\u0435\u0442 \u0437\u0430\u043F\u0438\u0441\u0435\u0439 \u0434\u043B\u044F \u0432\u043E\u0441\u0441\u0442\u0430\u043D\u043E\u0432\u043B\u0435\u043D\u0438\u044F",
@@ -6018,8 +6075,8 @@ var init_i18n = __esm({
         reminder: "\u0415\u0436\u0435\u0434\u043D\u0435\u0432\u043D\u043E\u0435 \u043D\u0430\u043F\u043E\u043C\u0438\u043D\u0430\u043D\u0438\u0435",
         reminderDesc: "\u041B\u043E\u043A\u0430\u043B\u044C\u043D\u043E\u0435 \u0443\u0432\u0435\u0434\u043E\u043C\u043B\u0435\u043D\u0438\u0435, \u0435\u0441\u043B\u0438 \u0437\u0430 \u0441\u0435\u0433\u043E\u0434\u043D\u044F \u0435\u0449\u0451 \u043D\u0435\u0442 \u0437\u0430\u043F\u0438\u0441\u0435\u0439.",
         reminderHour: "\u0412\u0440\u0435\u043C\u044F \u043D\u0430\u043F\u043E\u043C\u0438\u043D\u0430\u043D\u0438\u044F",
-        reminderHourPrompt: "\u0427\u0430\u0441 (0-23)",
         restoreMetadataCommand: "\u0412\u043E\u0441\u0441\u0442\u0430\u043D\u043E\u0432\u0438\u0442\u044C \u043A\u043E\u043F\u0438\u044E \u043C\u0435\u0442\u0430\u0434\u0430\u043D\u043D\u044B\u0445 \u043D\u0430\u0441\u0442\u0440\u043E\u0435\u043D\u0438\u044F",
+        restoreMetadataConfirm: "\u0417\u0430\u043C\u0435\u043D\u0438\u0442\u044C \u0442\u0435\u043A\u0443\u0449\u0438\u0435 \u043C\u0435\u0442\u0430\u0434\u0430\u043D\u043D\u044B\u0435 \u043D\u0430\u0441\u0442\u0440\u043E\u0435\u043D\u0438\u044F \u0440\u0435\u0437\u0435\u0440\u0432\u043D\u043E\u0439 \u043A\u043E\u043F\u0438\u0435\u0439? \u0417\u0430\u043F\u0438\u0441\u0438 \u043D\u0430\u0441\u0442\u0440\u043E\u0435\u043D\u0438\u044F, \u0441\u0434\u0435\u043B\u0430\u043D\u043D\u044B\u0435 \u043F\u043E\u0441\u043B\u0435 \u043A\u043E\u043F\u0438\u0438, \u0431\u0443\u0434\u0443\u0442 \u043F\u043E\u0442\u0435\u0440\u044F\u043D\u044B.",
         restoreMood: "\u0412\u043E\u0441\u0441\u0442\u0430\u043D\u043E\u0432\u0438\u0442\u044C",
         retry: "\u041F\u043E\u0432\u0442\u043E\u0440\u0438\u0442\u044C",
         s_exifPersist: "\u0421\u043E\u0445\u0440\u0430\u043D\u044F\u0442\u044C \u043C\u0435\u0441\u0442\u043E\u043F\u043E\u043B\u043E\u0436\u0435\u043D\u0438\u0435 \u0444\u043E\u0442\u043E \u0432 \u0437\u0430\u043C\u0435\u0442\u043A\u0435",
@@ -6029,6 +6086,8 @@ var init_i18n = __esm({
         saving: "\u0421\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u0438\u0435\u2026",
         searchJournal: "\u041F\u043E\u0438\u0441\u043A \u043F\u043E \u0434\u043D\u0435\u0432\u043D\u0438\u043A\u0443",
         selected: "\u0412\u044B\u0431\u0440\u0430\u043D\u043E",
+        settingsAdvanced: "\u0414\u043E\u043F\u043E\u043B\u043D\u0438\u0442\u0435\u043B\u044C\u043D\u043E",
+        settingsAdvancedDesc: "\u0424\u0438\u043B\u044C\u0442\u0440 \u043C\u0438\u043D\u0438\u0430\u0442\u044E\u0440, \u0447\u0430\u0441\u043E\u0432\u043E\u0439 \u043F\u043E\u044F\u0441 \u0438 \u043A\u044D\u0448 \u043F\u043E\u0433\u043E\u0434\u044B, \u043A\u044D\u0448 HEIC, \u044D\u043A\u0441\u043F\u043E\u0440\u0442 \u0438 \u043E\u0431\u0441\u043B\u0443\u0436\u0438\u0432\u0430\u043D\u0438\u0435 \u0434\u0430\u043D\u043D\u044B\u0445 \u043D\u0430\u0441\u0442\u0440\u043E\u0435\u043D\u0438\u044F",
         settingsCalendarJournal: "\u041A\u0430\u043B\u0435\u043D\u0434\u0430\u0440\u044C \u0438 \u0434\u043D\u0435\u0432\u043D\u0438\u043A",
         settingsDataMaintenance: "\u0414\u0430\u043D\u043D\u044B\u0435 \u0438 \u043E\u0431\u0441\u043B\u0443\u0436\u0438\u0432\u0430\u043D\u0438\u0435",
         settingsGeneral: "\u041E\u0431\u0449\u0438\u0435",
@@ -6045,7 +6104,7 @@ var init_i18n = __esm({
         showCalendarWrittenMarker: "\u0417\u0430\u043F\u043E\u043B\u043D\u044F\u0442\u044C \u043D\u0430\u043F\u0438\u0441\u0430\u043D\u043D\u044B\u0435 \u0434\u043D\u0438",
         showCalendarWrittenMarkerDesc: "\u0414\u043D\u0438 \u0441 \u0437\u0430\u043F\u0438\u0441\u044C\u044E \u0431\u0435\u0437 \u0444\u043E\u0442\u043E\u0433\u0440\u0430\u0444\u0438\u0438 \u0437\u0430\u043F\u043E\u043B\u043D\u044F\u044E\u0442 \u044F\u0447\u0435\u0439\u043A\u0443 \u0430\u043A\u0446\u0435\u043D\u0442\u043D\u044B\u043C \u0446\u0432\u0435\u0442\u043E\u043C.",
         showCalendarWeatherBadge: "\u041F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u0442\u044C \u0437\u043D\u0430\u0447\u043A\u0438 \u043F\u043E\u0433\u043E\u0434\u044B \u0432 \u044F\u0447\u0435\u0439\u043A\u0430\u0445",
-        showCalendarWeatherBadgeDesc: "\u041E\u0442\u043E\u0431\u0440\u0430\u0436\u0430\u0435\u0442 \u0437\u043D\u0430\u0447\u043E\u043A \u043F\u043E\u0433\u043E\u0434\u044B \u0432 \u0432\u0435\u0440\u0445\u043D\u0435\u043C \u043F\u0440\u0430\u0432\u043E\u043C \u0443\u0433\u043B\u0443 \u044F\u0447\u0435\u0435\u043A; \u043A\u0430\u0440\u0442\u043E\u0447\u043A\u0430 \u043F\u043E\u0433\u043E\u0434\u044B \u043D\u0435 \u0437\u0430\u0442\u0440\u0430\u0433\u0438\u0432\u0430\u0435\u0442\u0441\u044F.",
+        showCalendarWeatherBadgeDesc: "\u041E\u0442\u043E\u0431\u0440\u0430\u0436\u0430\u0435\u0442 \u0437\u043D\u0430\u0447\u043E\u043A \u043F\u043E\u0433\u043E\u0434\u044B \u0432 \u0432\u0435\u0440\u0445\u043D\u0435\u043C \u043F\u0440\u0430\u0432\u043E\u043C \u0443\u0433\u043B\u0443 \u0434\u043D\u0435\u0439 \u0441 \u0437\u0430\u043F\u0438\u0441\u044C\u044E; \u043A\u0430\u0440\u0442\u043E\u0447\u043A\u0430 \u043F\u043E\u0433\u043E\u0434\u044B \u043D\u0435 \u0437\u0430\u0442\u0440\u0430\u0433\u0438\u0432\u0430\u0435\u0442\u0441\u044F.",
         showCalendarWeatherCard: "\u041F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u0442\u044C \u043A\u0430\u0440\u0442\u043E\u0447\u043A\u0443 \u043F\u043E\u0433\u043E\u0434\u044B \u0432 \u043A\u0430\u043B\u0435\u043D\u0434\u0430\u0440\u0435",
         showCalendarWeatherCardDesc: "\u041E\u0442\u043E\u0431\u0440\u0430\u0436\u0430\u0435\u0442 \u043A\u0430\u0440\u0442\u043E\u0447\u043A\u0443 \u043F\u043E\u0433\u043E\u0434\u044B \u043D\u0430\u0434 \u043A\u0430\u043B\u0435\u043D\u0434\u0430\u0440\u0435\u043C; \u043D\u0435 \u0432\u043B\u0438\u044F\u0435\u0442 \u043D\u0430 \u0437\u043D\u0430\u0447\u043A\u0438 \u0432 \u044F\u0447\u0435\u0439\u043A\u0430\u0445.",
         showCalendarWeatherLocation: "\u041F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u0442\u044C \u043C\u0435\u0441\u0442\u043E\u043F\u043E\u043B\u043E\u0436\u0435\u043D\u0438\u0435 \u043F\u043E\u0433\u043E\u0434\u044B",
@@ -6104,7 +6163,11 @@ var init_i18n = __esm({
         supportUses: "\u042D\u0442\u0438 \u0434\u0435\u043D\u044C\u0433\u0438 \u043F\u0440\u0435\u0432\u0440\u0430\u0449\u0430\u044E\u0442\u0441\u044F \u0432 \u043A\u043E\u0444\u0435, \u043A\u043E\u0448\u0430\u0447\u0438\u0439 \u043A\u043E\u0440\u043C, \u0434\u043E\u043C\u0435\u043D \u0438 \u043B\u0438\u0446\u0435\u043D\u0437\u0438\u0438 \u043D\u0430 \u0448\u0440\u0438\u0444\u0442\u044B.",
         system: "\u0421\u0438\u0441\u0442\u0435\u043C\u0430",
         tagFilter: "\u0422\u0435\u0433",
-        thisMonth: "\u0412 \u044D\u0442\u043E\u043C \u043C\u0435\u0441\u044F\u0446\u0435",
+        monthWrittenLabel: "\u0417\u0430\u043F\u0438\u0441\u0435\u0439 \u0432 \u044D\u0442\u043E\u043C \u043C\u0435\u0441\u044F\u0446\u0435",
+        monthWrittenSummary: "\u0412 \u044D\u0442\u043E\u043C \u043C\u0435\u0441\u044F\u0446\u0435: {count} \u0434\u043D.",
+        monthWrittenSummaryOne: "\u0412 \u044D\u0442\u043E\u043C \u043C\u0435\u0441\u044F\u0446\u0435: {count} \u0434\u043D.",
+        monthWrittenValue: "{count} \u0434\u043D.",
+        monthWrittenValueOne: "{count} \u0434\u043D.",
         thoughtful: "\u0417\u0430\u0434\u0443\u043C\u0447\u0438\u0432\u043E\u0441\u0442\u044C",
         timelineOpenFailed: "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043E\u0442\u043A\u0440\u044B\u0442\u044C \u0437\u0430\u043F\u0438\u0441\u044C \u0445\u0440\u043E\u043D\u043E\u043B\u043E\u0433\u0438\u0438: {error}",
         timelineTitle: "\u0425\u0440\u043E\u043D\u043E\u043B\u043E\u0433\u0438\u044F \u0434\u043D\u0435\u0432\u043D\u0438\u043A\u0430",
@@ -6406,6 +6469,7 @@ var init_mood_picker_modal = __esm({
     init_fluid_mood_control();
     init_i18n();
     init_mood_modal_viewport();
+    init_date_utils();
     BUILT_IN_LABEL_IDS2 = new Set(moodLabelsForScore(null).map((item) => item.id));
     MOOD_SAVE_TIMEOUT_MS = 15e3;
     MOOD_DATE_CHANGE_DEBOUNCE_MS = 200;
@@ -6538,10 +6602,16 @@ var init_mood_picker_modal = __esm({
         if (this.allowDateSelection) this.renderDateField(header);
         return header;
       }
+      /** "How did today feel?" only when the record date really is today. */
+      moodQuestion() {
+        const today = getTodayDate(this.settings?.weatherTimezone || "auto");
+        return t(this.settings, !this.date || this.date === today ? "moodQuestion" : "moodQuestionPast");
+      }
       renderScale() {
         if (this.isLocked()) return;
         this.resetContent(1);
-        this.renderHeader(t(this.settings, "moodTitle"), t(this.settings, "moodQuestion"));
+        const question = this.moodQuestion();
+        this.renderHeader(t(this.settings, "moodTitle"), question);
         const panel = this.contentEl.createDiv({ cls: "journal-mood-panel journal-mood-scale-panel" });
         const controlHost = panel.createDiv();
         const actions = this.contentEl.createDiv({ cls: "journal-mood-actions journal-mood-scale-actions" });
@@ -6557,7 +6627,7 @@ var init_mood_picker_modal = __esm({
         });
         this.fluidControl = new FluidMoodControl(controlHost, {
           initialScore: this.score,
-          accessibleLabel: t(this.settings, "moodQuestion"),
+          accessibleLabel: question,
           emptyLabel: t(this.settings, "chooseLevel"),
           labelForScore: (score) => moodLabel(this.settings, score),
           onPreview: (_value, color) => this.setActiveColor(color),
@@ -6658,7 +6728,6 @@ var init_mood_picker_modal = __esm({
         summaryCopy.createEl("strong", { text: moodLabel(this.settings, this.score) });
         const form = this.contentEl.createDiv({ cls: "journal-mood-form" });
         const feelings = form.createDiv({ cls: "journal-mood-field-group" });
-        feelings.createEl("label", { cls: "journal-mood-field-label", text: t(this.settings, "chooseFeelings") });
         const group = feelings.createDiv({ cls: "journal-mood-labels", attr: { role: "group", "aria-label": t(this.settings, "addFeelings") } });
         const labelButtons = /* @__PURE__ */ new Map();
         const updateLabel = (button, id) => {
@@ -7142,6 +7211,7 @@ function calculateJournalStats(entries, today = /* @__PURE__ */ new Date(), sett
     currentStreak,
     longestStreak,
     monthCompletionRate,
+    monthRecordedDays: recordedThisMonth,
     moodDistribution,
     labelCounts,
     trend: entries.slice().sort((a, b) => a.date.localeCompare(b.date)).slice(-14).map((entry) => ({ date: entry.date, score: entry.mood?.score })),
@@ -7910,12 +7980,14 @@ var init_journal_timeline_view = __esm({
         if (before) root.insertBefore(details, before);
         const summary = details.createEl("summary");
         summary.createSpan({ text: t(this.plugin.settings, "allJournalStats") });
-        summary.createSpan({ cls: "journal-timeline-stats-summary", text: `${t(this.plugin.settings, "thisMonth")} ${stats.monthCompletionRate}%` });
+        const written = stats.monthRecordedDays;
+        const one = written === 1 ? "One" : "";
+        summary.createSpan({ cls: "journal-timeline-stats-summary", text: t(this.plugin.settings, `monthWrittenSummary${one}`, { count: written }) });
         const section = details.createDiv({ cls: "journal-timeline-stats" });
         const values = [
           [t(this.plugin.settings, "currentStreak"), `${stats.currentStreak}`],
           [t(this.plugin.settings, "longestStreak"), `${stats.longestStreak}`],
-          [t(this.plugin.settings, "thisMonth"), `${stats.monthCompletionRate}%`]
+          [t(this.plugin.settings, "monthWrittenLabel"), t(this.plugin.settings, `monthWrittenValue${one}`, { count: written })]
         ];
         for (const [label, value] of values) {
           const item = section.createDiv({ cls: "journal-stat" });
@@ -11736,6 +11808,8 @@ __export(settings_tab_exports, {
   DEFAULT_MOOD_METADATA_PATH: () => DEFAULT_MOOD_METADATA_PATH,
   DaylineSettingsTab: () => DaylineSettingsTab,
   SETTINGS_ACTION_ROWS: () => SETTINGS_ACTION_ROWS,
+  SETTINGS_ADVANCED_GROUP_IDS: () => SETTINGS_ADVANCED_GROUP_IDS,
+  SETTINGS_ADVANCED_GROUP_LABEL_KEYS: () => SETTINGS_ADVANCED_GROUP_LABEL_KEYS,
   SETTINGS_SECTION_IDS: () => SETTINGS_SECTION_IDS,
   SETTINGS_SECTION_LABEL_KEYS: () => SETTINGS_SECTION_LABEL_KEYS,
   SETTINGS_TEXT_COMMIT_DELAY_MS: () => SETTINGS_TEXT_COMMIT_DELAY_MS,
@@ -11748,6 +11822,7 @@ __export(settings_tab_exports, {
   normalizeMoodMetadataPath: () => normalizeMoodMetadataPath,
   parseCoordinateSettingValue: () => parseCoordinateSettingValue,
   resolveSettingsScrollHost: () => resolveSettingsScrollHost,
+  restoreMoodMetadataBackup: () => restoreMoodMetadataBackup,
   restoreSettingsScroll: () => restoreSettingsScroll,
   shouldPreserveSettingsScroll: () => shouldPreserveSettingsScroll,
   shouldShowCalendarMoodStyle: () => shouldShowCalendarMoodStyle,
@@ -11805,6 +11880,19 @@ async function commitJournalSourceSettings(plugin, save = () => plugin.saveSetti
   await plugin.journalIndex.refresh(plugin.settings);
   plugin.refreshJournalViews();
   return true;
+}
+async function restoreMoodMetadataBackup(plugin, confirm) {
+  if (!confirm(t(plugin.settings, "restoreMetadataConfirm"))) return false;
+  try {
+    await plugin.moodStore.restoreBackup();
+    await plugin.journalIndex.refresh(plugin.settings);
+    plugin.refreshJournalViews();
+    new import_obsidian5.Notice(t(plugin.settings, "metadataRestored"));
+    return true;
+  } catch (error) {
+    new import_obsidian5.Notice(t(plugin.settings, "metadataRestoreFailed", { error: error?.message || error }));
+    return false;
+  }
 }
 function shouldShowWeatherSettings(settings) {
   return settings.weatherEnabled === true;
@@ -11864,7 +11952,7 @@ function restoreSettingsScroll(host, scrollTop, options = {}) {
   };
   nextFrame(retry);
 }
-var import_obsidian5, VIEW_TYPE, SETTINGS_TEXT_COMMIT_DELAY_MS, SCROLL_EPSILON_PX, SCROLL_RESCUE_MAX_FRAMES, DEFAULT_MOOD_METADATA_PATH, COORDINATE_LIMITS, COORDINATE_RANGE_MESSAGE_KEYS, DECIMAL_NUMBER_PATTERN, SETTINGS_SECTION_IDS, SETTINGS_SECTION_LABEL_KEYS, SETTINGS_ACTION_ROWS, DaylineSettingsTab, FolderSuggestModal;
+var import_obsidian5, VIEW_TYPE, SETTINGS_TEXT_COMMIT_DELAY_MS, SCROLL_EPSILON_PX, SCROLL_RESCUE_MAX_FRAMES, DEFAULT_MOOD_METADATA_PATH, COORDINATE_LIMITS, COORDINATE_RANGE_MESSAGE_KEYS, DECIMAL_NUMBER_PATTERN, SETTINGS_SECTION_IDS, SETTINGS_SECTION_LABEL_KEYS, SETTINGS_ADVANCED_GROUP_IDS, SETTINGS_ADVANCED_GROUP_LABEL_KEYS, ADVANCED_BODY_ID, SETTINGS_ACTION_ROWS, DaylineSettingsTab, FolderSuggestModal;
 var init_settings_tab = __esm({
   "src/settings-tab.ts"() {
     "use strict";
@@ -11902,7 +11990,7 @@ var init_settings_tab = __esm({
       "weather",
       "media-privacy",
       "on-this-day",
-      "data-maintenance",
+      "advanced",
       SUPPORT_SECTION_ID
     ];
     SETTINGS_SECTION_LABEL_KEYS = {
@@ -11912,9 +12000,22 @@ var init_settings_tab = __esm({
       weather: "settingsWeather",
       "media-privacy": "settingsMediaPrivacy",
       "on-this-day": "settingsOnThisDay",
-      "data-maintenance": "settingsDataMaintenance",
+      advanced: "settingsAdvanced",
       [SUPPORT_SECTION_ID]: "settingsSupport"
     };
+    SETTINGS_ADVANCED_GROUP_IDS = [
+      "calendar-journal",
+      "weather",
+      "media-privacy",
+      "data-maintenance"
+    ];
+    SETTINGS_ADVANCED_GROUP_LABEL_KEYS = {
+      "calendar-journal": "settingsCalendarJournal",
+      weather: "settingsWeather",
+      "media-privacy": "settingsMediaPrivacy",
+      "data-maintenance": "settingsDataMaintenance"
+    };
+    ADVANCED_BODY_ID = "dayline-settings-advanced-body";
     SETTINGS_ACTION_ROWS = {
       journalTools: ["openTimeline", "detectImports"],
       moodExport: ["exportMoodCsvCommand", "exportMoodJsonCommand"],
@@ -11927,6 +12028,7 @@ var init_settings_tab = __esm({
         this.plugin = plugin;
         this._pendingFieldFlushes = /* @__PURE__ */ new Set();
         this._settingsVisible = false;
+        this._advancedOpen = false;
       }
       async _saveSettings() {
         try {
@@ -12108,6 +12210,7 @@ var init_settings_tab = __esm({
       _addSection(containerEl, id) {
         const setting = new import_obsidian5.Setting(containerEl).setName(t(this.plugin.settings, SETTINGS_SECTION_LABEL_KEYS[id])).setHeading();
         setting.settingEl.dataset.daylineSettingsSection = id;
+        return setting;
       }
       /**
        * Ask GitHub for the newest release and report it. Never throws: a failed
@@ -12129,6 +12232,50 @@ var init_settings_tab = __esm({
         setting.settingEl.addClass("dayline-settings-action-row");
         setting.settingEl.dataset.daylineSettingsActionRow = id;
         return setting;
+      }
+      /**
+       * The collapsed "Advanced" section. The heading row carries a disclosure
+       * button, a muted line says what is inside, and the rows live in one
+       * container that stays `hidden` until opened. Returns that container.
+       */
+      _addAdvancedSection(containerEl) {
+        const heading = this._addSection(containerEl, "advanced");
+        heading.setDesc(t(this.plugin.settings, "settingsAdvancedDesc"));
+        const body = containerEl.createDiv({
+          cls: "dayline-settings-advanced-body",
+          attr: { id: ADVANCED_BODY_ID }
+        });
+        const toggle = heading.controlEl.createEl("button", {
+          cls: "dayline-settings-advanced-toggle",
+          attr: { type: "button", "aria-controls": ADVANCED_BODY_ID }
+        });
+        const toggleLabel = toggle.createSpan({ cls: "dayline-settings-advanced-toggle-label" });
+        (0, import_obsidian5.setIcon)(toggle.createSpan({ cls: "dayline-settings-advanced-toggle-icon" }), "chevron-down");
+        const setOpen = (open) => {
+          this._advancedOpen = open;
+          body.hidden = !open;
+          toggle.setAttribute("aria-expanded", open ? "true" : "false");
+          toggleLabel.textContent = t(this.plugin.settings, open ? "supportCollapse" : "supportExpand");
+        };
+        setOpen(this._advancedOpen === true);
+        toggle.addEventListener("click", () => setOpen(body.hidden));
+        return body;
+      }
+      /**
+       * One group inside the Advanced fold: a muted sub-label (deliberately not a
+       * second `setHeading()`) over its rows. A group that renders no rows leaves
+       * nothing behind, not even its label.
+       */
+      _addAdvancedGroup(bodyEl, id, renderRows) {
+        const group = bodyEl.createDiv({ cls: "dayline-settings-advanced-group" });
+        group.dataset.daylineSettingsGroup = id;
+        group.createDiv({
+          cls: "dayline-settings-advanced-group-label",
+          text: t(this.plugin.settings, SETTINGS_ADVANCED_GROUP_LABEL_KEYS[id])
+        });
+        const labelOnly = group.childElementCount;
+        renderRows(group);
+        if (group.childElementCount === labelOnly) group.remove();
       }
       display() {
         this._flushPendingFieldCommits();
@@ -12159,21 +12306,13 @@ var init_settings_tab = __esm({
           this._refreshCalendarView();
         }));
         this._addSection(containerEl, "calendar-journal");
-        new import_obsidian5.Setting(containerEl).setName(t(this.plugin.settings, "journalSources"));
+        const sourcesSetting = new import_obsidian5.Setting(containerEl).setName(t(this.plugin.settings, "journalSources"));
+        sourcesSetting.settingEl.addClass("dayline-source-setting");
         this.sourceEditor ?? (this.sourceEditor = new JournalSourceSettingsEditor(this.plugin, {
           chooseFolder: (onSubmit) => new FolderSuggestModal(this.app, onSubmit).open(),
           refreshCalendar: () => this._refreshViews({ resetSource: true, throwOnError: true })
         }));
-        this.sourceEditor.mount(containerEl);
-        new import_obsidian5.Setting(containerEl).setName(_s("s_thumbnailFilter")).setDesc(_s("s_thumbnailFilterDesc")).addDropdown((dd) => dd.addOption("all", _s("s_thumbnailAll")).addOption("date-prefixed", _s("s_thumbnailDate")).setValue(this.plugin.settings.thumbnailFilter).onChange(async (value) => {
-          this.plugin.settings.thumbnailFilter = value;
-          if (!await this._saveSettings()) return;
-          this._refreshCalendarView();
-        }));
-        this._addActionRow(new import_obsidian5.Setting(containerEl).setName(t(this.plugin.settings, "journalTools")).setDesc(t(this.plugin.settings, "journalToolsDesc")), "journalTools").addButton((button) => button.setButtonText(t(this.plugin.settings, "openTimeline")).onClick(() => this.plugin.activateTimeline())).addButton((button) => button.setButtonText(t(this.plugin.settings, "detectImports")).onClick(async () => {
-          const result = await this.plugin.journalIndex.detectSources(this.plugin.settings);
-          new import_obsidian5.Notice(t(this.plugin.settings, "detectImportsResult", result));
-        }));
+        this.sourceEditor.mount(sourcesSetting.settingEl);
         new import_obsidian5.Setting(containerEl).setName(t(this.plugin.settings, "showTimelineMoodTrend")).setDesc(t(this.plugin.settings, "showTimelineMoodTrendDesc")).addToggle((toggle) => toggle.setValue(shouldShowTimelineMoodTrend(this.plugin.settings)).onChange(async (value) => {
           this.plugin.settings.showTimelineMoodTrend = value;
           if (!await this._saveSettings()) return;
@@ -12232,17 +12371,27 @@ var init_settings_tab = __esm({
           this.plugin.settings.mirrorMoodToFrontmatter = value;
           await this._saveSettings();
         }));
-        new import_obsidian5.Setting(containerEl).setName(t(this.plugin.settings, "reminder")).setDesc(t(this.plugin.settings, "reminderDesc")).addToggle((toggle) => toggle.setValue(Boolean(this.plugin.settings.reminderEnabled)).onChange(async (value) => {
+        const storedReminderHour = Number(this.plugin.settings.reminderHour ?? 21);
+        const reminderHour = Number.isInteger(storedReminderHour) && storedReminderHour >= 0 && storedReminderHour <= 23 ? storedReminderHour : 21;
+        new import_obsidian5.Setting(containerEl).setName(t(this.plugin.settings, "reminder")).setDesc(t(this.plugin.settings, "reminderDesc")).addDropdown((dd) => {
+          for (let hour = 0; hour < 24; hour++) {
+            dd.addOption(String(hour), `${String(hour).padStart(2, "0")}:00`);
+          }
+          dd.selectEl?.setAttribute("aria-label", t(this.plugin.settings, "reminderHour"));
+          return dd.setValue(String(reminderHour)).onChange(async (value) => {
+            const hour = Number(value);
+            if (!Number.isInteger(hour) || hour < 0 || hour > 23) return;
+            this.plugin.settings.reminderHour = hour;
+            await this._saveSettings();
+          });
+        }).addToggle((toggle) => toggle.setValue(Boolean(this.plugin.settings.reminderEnabled)).onChange(async (value) => {
           this.plugin.settings.reminderEnabled = value;
           await this._saveSettings();
-        })).addExtraButton((button) => button.setIcon("clock-3").setTooltip(t(this.plugin.settings, "reminderHour")).onClick(() => {
-          const value = window.prompt(t(this.plugin.settings, "reminderHourPrompt"), String(this.plugin.settings.reminderHour ?? 21));
-          const hour = Number(value);
-          if (Number.isInteger(hour) && hour >= 0 && hour <= 23) {
-            this.plugin.settings.reminderHour = hour;
-            void this._saveSettings();
-          }
         }));
+        const orphanCount = Object.keys(this.plugin.moodStore?.getOrphans?.() || {}).length;
+        if (orphanCount > 0) {
+          new import_obsidian5.Setting(containerEl).setName(t(this.plugin.settings, "moodRecoveryTitle")).setDesc(t(this.plugin.settings, "moodRecoveryDescription")).addButton((button) => button.setButtonText(t(this.plugin.settings, "moodRecoveryCommand")).onClick(() => this.plugin.openMoodRecovery()));
+        }
         this._addSection(containerEl, "weather");
         new import_obsidian5.Setting(containerEl).setName(_s("s_weatherEnable")).setDesc(_s("s_weatherEnableDesc")).addToggle(
           (toggle) => toggle.setValue(this.plugin.settings.weatherEnabled).onChange(async (value) => {
@@ -12323,23 +12472,10 @@ var init_settings_tab = __esm({
               });
             }
           }
-          new import_obsidian5.Setting(containerEl).setName(t(this.plugin.settings, "weatherTimezone")).setDesc(t(this.plugin.settings, "weatherTimezoneDesc")).addText((text) => text.setPlaceholder(t(this.plugin.settings, "timezonePlaceholder")).setValue(String(this.plugin.settings.weatherTimezone || "auto")).onChange(async (value) => {
-            this.plugin.settings.weatherTimezone = value.trim() || "auto";
-            if (!await this._saveSettings()) return;
-            await this._refreshViews();
-          }));
           new import_obsidian5.Setting(containerEl).setName(_s("s_autoFetch")).setDesc(_s("s_autoFetchDesc")).addToggle(
             (toggle) => toggle.setValue(this.plugin.settings.weatherAutoFetch).onChange(async (value) => {
               this.plugin.settings.weatherAutoFetch = value;
               await this._saveSettings();
-            })
-          );
-          new import_obsidian5.Setting(containerEl).setName(_s("s_cacheTtl")).setDesc(_s("s_cacheTtlDesc")).addText(
-            (text) => text.setPlaceholder("2").setValue(String(this.plugin.settings.weatherTtlHours)).onChange(async (value) => {
-              const n = parseInt(value, 10);
-              this.plugin.settings.weatherTtlHours = isNaN(n) || n < 1 ? 2 : n;
-              if (!await this._saveSettings()) return;
-              await this._refreshViews();
             })
           );
         }
@@ -12354,24 +12490,6 @@ var init_settings_tab = __esm({
           new import_obsidian5.Setting(containerEl).setName(_s("s_exifGeocode")).setDesc(_s("s_exifGeocodeDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.exifReverseGeocode).onChange(async (value) => {
             this.plugin.settings.exifReverseGeocode = value;
             await this._saveSettings();
-          }));
-        }
-        this._addValidatedTextField(containerEl, {
-          name: t(this.plugin.settings, "heicThumbCachePath"),
-          description: t(this.plugin.settings, "heicThumbCachePathDesc"),
-          placeholder: DEFAULT_HEIC_THUMB_CACHE_DIR,
-          field: "heicThumbCachePath",
-          initialValue: this.plugin.settings.heicThumbCachePath ?? DEFAULT_HEIC_THUMB_CACHE_DIR,
-          parse: (raw) => normalizeHeicThumbCachePath(raw),
-          localizeError: (key) => t(this.plugin.settings, key),
-          apply: () => {
-            this.plugin.heicThumbStore?.reconfigure?.();
-          }
-        });
-        if (shouldShowHeicThumbCacheGenerate(this.plugin.capabilities)) {
-          const generateRow = new import_obsidian5.Setting(containerEl).setName(t(this.plugin.settings, "heicThumbCacheGenerate")).setDesc(t(this.plugin.settings, "heicThumbCacheGenerateDesc"));
-          generateRow.addButton((button) => button.setButtonText(t(this.plugin.settings, "heicThumbCacheGenerate")).onClick(async () => {
-            await this._fillHeicThumbCache(generateRow, button);
           }));
         }
         this._addSection(containerEl, "on-this-day");
@@ -12417,62 +12535,105 @@ var init_settings_tab = __esm({
             }));
           }
         }
-        this._addSection(containerEl, "data-maintenance");
-        this._addValidatedTextField(containerEl, {
-          name: t(this.plugin.settings, "moodMetadataPath"),
-          description: t(this.plugin.settings, "moodMetadataPathDesc"),
-          placeholder: DEFAULT_MOOD_METADATA_PATH,
-          field: "moodMetadataPath",
-          initialValue: this.plugin.settings.moodMetadataPath,
-          parse: (raw) => normalizeMoodMetadataPath(raw),
-          localizeError: (key) => t(this.plugin.settings, key),
-          apply: () => this._reloadMoodMetadataStore()
+        const advancedEl = this._addAdvancedSection(containerEl);
+        this._addAdvancedGroup(advancedEl, "calendar-journal", (groupEl) => {
+          new import_obsidian5.Setting(groupEl).setName(_s("s_thumbnailFilter")).setDesc(_s("s_thumbnailFilterDesc")).addDropdown((dd) => dd.addOption("all", _s("s_thumbnailAll")).addOption("date-prefixed", _s("s_thumbnailDate")).setValue(this.plugin.settings.thumbnailFilter).onChange(async (value) => {
+            this.plugin.settings.thumbnailFilter = value;
+            if (!await this._saveSettings()) return;
+            this._refreshCalendarView();
+          }));
+          this._addActionRow(new import_obsidian5.Setting(groupEl).setName(t(this.plugin.settings, "journalTools")).setDesc(t(this.plugin.settings, "journalToolsDesc")), "journalTools").addButton((button) => button.setButtonText(t(this.plugin.settings, "openTimeline")).onClick(() => this.plugin.activateTimeline())).addButton((button) => button.setButtonText(t(this.plugin.settings, "detectImports")).onClick(async () => {
+            const result = await this.plugin.journalIndex.detectSources(this.plugin.settings);
+            new import_obsidian5.Notice(t(this.plugin.settings, "detectImportsResult", result));
+          }));
         });
-        this._addActionRow(new import_obsidian5.Setting(containerEl).setName(t(this.plugin.settings, "moodExport")).setDesc(t(this.plugin.settings, "moodExportDesc")), "moodExport").addButton((button) => button.setButtonText(t(this.plugin.settings, "exportMoodCsvCommand")).onClick(() => this.plugin.exportMood("csv"))).addButton((button) => button.setButtonText(t(this.plugin.settings, "exportMoodJsonCommand")).onClick(() => this.plugin.exportMood("json")));
-        this._addActionRow(new import_obsidian5.Setting(containerEl).setName(t(this.plugin.settings, "metadataBackup")).setDesc(t(this.plugin.settings, "metadataBackupDesc")), "metadataBackup").addButton((button) => button.setButtonText(t(this.plugin.settings, "exportMetadataCommand")).onClick(async () => {
-          try {
-            const path = await this.plugin.moodStore.exportTo();
-            new import_obsidian5.Notice(t(this.plugin.settings, "metadataExported", { path }));
-          } catch (error) {
-            new import_obsidian5.Notice(t(this.plugin.settings, "metadataExportFailed", { error: error?.message || error }));
+        if (shouldShowWeatherSettings(this.plugin.settings)) {
+          this._addAdvancedGroup(advancedEl, "weather", (groupEl) => {
+            new import_obsidian5.Setting(groupEl).setName(t(this.plugin.settings, "weatherTimezone")).setDesc(t(this.plugin.settings, "weatherTimezoneDesc")).addText((text) => text.setPlaceholder(t(this.plugin.settings, "timezonePlaceholder")).setValue(String(this.plugin.settings.weatherTimezone || "auto")).onChange(async (value) => {
+              this.plugin.settings.weatherTimezone = value.trim() || "auto";
+              if (!await this._saveSettings()) return;
+              await this._refreshViews();
+            }));
+            new import_obsidian5.Setting(groupEl).setName(_s("s_cacheTtl")).setDesc(_s("s_cacheTtlDesc")).addText(
+              (text) => text.setPlaceholder("2").setValue(String(this.plugin.settings.weatherTtlHours)).onChange(async (value) => {
+                const n = parseInt(value, 10);
+                this.plugin.settings.weatherTtlHours = isNaN(n) || n < 1 ? 2 : n;
+                if (!await this._saveSettings()) return;
+                await this._refreshViews();
+              })
+            );
+            new import_obsidian5.Setting(groupEl).setName(_s("s_backfill")).setDesc(_s("s_backfillDesc")).addButton((btn) => btn.setButtonText(_s("s_backfillBtn")).onClick(async () => {
+              const leaf = this.app.workspace.getLeavesOfType(VIEW_TYPE)[0];
+              if (leaf?.view) leaf.view.startWeatherBackfill();
+            }));
+          });
+        }
+        this._addAdvancedGroup(advancedEl, "media-privacy", (groupEl) => {
+          const heicPathSetting = this._addValidatedTextField(groupEl, {
+            name: t(this.plugin.settings, "heicThumbCachePath"),
+            description: t(this.plugin.settings, "heicThumbCachePathDesc"),
+            placeholder: DEFAULT_HEIC_THUMB_CACHE_DIR,
+            field: "heicThumbCachePath",
+            initialValue: this.plugin.settings.heicThumbCachePath ?? DEFAULT_HEIC_THUMB_CACHE_DIR,
+            parse: (raw) => normalizeHeicThumbCachePath(raw),
+            localizeError: (key) => t(this.plugin.settings, key),
+            apply: () => {
+              this.plugin.heicThumbStore?.reconfigure?.();
+            }
+          });
+          heicPathSetting.controlEl.addClass("dayline-settings-path-control");
+          if (shouldShowHeicThumbCacheGenerate(this.plugin.capabilities)) {
+            const generateRow = new import_obsidian5.Setting(groupEl).setName(t(this.plugin.settings, "heicThumbCacheGenerate")).setDesc(t(this.plugin.settings, "heicThumbCacheGenerateDesc"));
+            generateRow.addButton((button) => button.setButtonText(t(this.plugin.settings, "heicThumbCacheGenerate")).onClick(async () => {
+              await this._fillHeicThumbCache(generateRow, button);
+            }));
           }
-        })).addButton((button) => button.setButtonText(t(this.plugin.settings, "restoreMetadataCommand")).onClick(async () => {
-          try {
-            await this.plugin.moodStore.restoreBackup();
+        });
+        this._addAdvancedGroup(advancedEl, "data-maintenance", (groupEl) => {
+          const moodPathSetting = this._addValidatedTextField(groupEl, {
+            name: t(this.plugin.settings, "moodMetadataPath"),
+            description: t(this.plugin.settings, "moodMetadataPathDesc"),
+            placeholder: DEFAULT_MOOD_METADATA_PATH,
+            field: "moodMetadataPath",
+            initialValue: this.plugin.settings.moodMetadataPath,
+            parse: (raw) => normalizeMoodMetadataPath(raw),
+            localizeError: (key) => t(this.plugin.settings, key),
+            apply: () => this._reloadMoodMetadataStore()
+          });
+          moodPathSetting.controlEl.addClass("dayline-settings-path-control");
+          this._addActionRow(new import_obsidian5.Setting(groupEl).setName(t(this.plugin.settings, "moodExport")).setDesc(t(this.plugin.settings, "moodExportDesc")), "moodExport").addButton((button) => button.setButtonText(t(this.plugin.settings, "exportMoodCsvCommand")).onClick(() => this.plugin.exportMood("csv"))).addButton((button) => button.setButtonText(t(this.plugin.settings, "exportMoodJsonCommand")).onClick(() => this.plugin.exportMood("json")));
+          this._addActionRow(new import_obsidian5.Setting(groupEl).setName(t(this.plugin.settings, "metadataBackup")).setDesc(t(this.plugin.settings, "metadataBackupDesc")), "metadataBackup").addButton((button) => button.setButtonText(t(this.plugin.settings, "exportMetadataCommand")).onClick(async () => {
+            try {
+              const path = await this.plugin.moodStore.exportTo();
+              new import_obsidian5.Notice(t(this.plugin.settings, "metadataExported", { path }));
+            } catch (error) {
+              new import_obsidian5.Notice(t(this.plugin.settings, "metadataExportFailed", { error: error?.message || error }));
+            }
+          })).addButton((button) => {
+            button.buttonEl?.addClass("mod-warning");
+            button.setButtonText(t(this.plugin.settings, "restoreMetadataCommand")).onClick(async () => {
+              const ownerWindow = button.buttonEl?.ownerDocument?.defaultView;
+              await restoreMoodMetadataBackup(this.plugin, (message) => ownerWindow?.confirm(message) ?? false);
+            });
+          });
+          this._addActionRow(new import_obsidian5.Setting(groupEl).setName(t(this.plugin.settings, "dataMaintenance")).setDesc(t(this.plugin.settings, "dataMaintenanceDesc")), "dataMaintenance").addButton((button) => button.setButtonText(t(this.plugin.settings, "integrityCommand")).onClick(async () => {
+            const result = await this.plugin.moodStore.checkIntegrity();
+            new import_obsidian5.Notice(result.valid ? t(this.plugin.settings, "metadataValid") : t(this.plugin.settings, "metadataIntegrityIssues", {
+              metadata: result.invalidMetadata.length,
+              records: result.invalidRecords.length,
+              orphans: result.invalidOrphans.length,
+              missing: result.missingFiles.length
+            }));
+          })).addButton((button) => button.setButtonText(t(this.plugin.settings, "importFrontmatterCommand")).onClick(async () => {
+            const count = await this.plugin.moodStore.importFrontmatter(
+              this.plugin.journalIndex.getEntries().map((entry) => entry.path),
+              this.app.metadataCache
+            );
             await this.plugin.journalIndex.refresh(this.plugin.settings);
             this.plugin.refreshJournalViews();
-            new import_obsidian5.Notice(t(this.plugin.settings, "metadataRestored"));
-          } catch (error) {
-            new import_obsidian5.Notice(t(this.plugin.settings, "metadataRestoreFailed", { error: error?.message || error }));
-          }
-        }));
-        this._addActionRow(new import_obsidian5.Setting(containerEl).setName(t(this.plugin.settings, "dataMaintenance")).setDesc(t(this.plugin.settings, "dataMaintenanceDesc")), "dataMaintenance").addButton((button) => button.setButtonText(t(this.plugin.settings, "integrityCommand")).onClick(async () => {
-          const result = await this.plugin.moodStore.checkIntegrity();
-          new import_obsidian5.Notice(result.valid ? t(this.plugin.settings, "metadataValid") : t(this.plugin.settings, "metadataIntegrityIssues", {
-            metadata: result.invalidMetadata.length,
-            records: result.invalidRecords.length,
-            orphans: result.invalidOrphans.length,
-            missing: result.missingFiles.length
+            new import_obsidian5.Notice(t(this.plugin.settings, "importedMoods", { count }));
           }));
-        })).addButton((button) => button.setButtonText(t(this.plugin.settings, "importFrontmatterCommand")).onClick(async () => {
-          const count = await this.plugin.moodStore.importFrontmatter(
-            this.plugin.journalIndex.getEntries().map((entry) => entry.path),
-            this.app.metadataCache
-          );
-          await this.plugin.journalIndex.refresh(this.plugin.settings);
-          this.plugin.refreshJournalViews();
-          new import_obsidian5.Notice(t(this.plugin.settings, "importedMoods", { count }));
-        }));
-        const orphanCount = Object.keys(this.plugin.moodStore?.getOrphans?.() || {}).length;
-        if (orphanCount > 0) {
-          new import_obsidian5.Setting(containerEl).setName(t(this.plugin.settings, "moodRecoveryTitle")).setDesc(t(this.plugin.settings, "moodRecoveryDescription")).addButton((button) => button.setButtonText(t(this.plugin.settings, "moodRecoveryCommand")).onClick(() => this.plugin.openMoodRecovery()));
-        }
-        if (shouldShowWeatherSettings(this.plugin.settings)) {
-          new import_obsidian5.Setting(containerEl).setName(_s("s_backfill")).setDesc(_s("s_backfillDesc")).addButton((btn) => btn.setButtonText(_s("s_backfillBtn")).onClick(async () => {
-            const leaf = this.app.workspace.getLeavesOfType(VIEW_TYPE)[0];
-            if (leaf?.view) leaf.view.startWeatherBackfill();
-          }));
-        }
+        });
         this._addSection(containerEl, SUPPORT_SECTION_ID);
         renderSupportSection(containerEl, {
           localize: (key, values) => t(this.plugin.settings, key, values),
@@ -29793,9 +29954,10 @@ var init_weather_temperature_modal = __esm({
         });
         this.inputEl.value = this.initialCelsius == null ? "" : formatTemperatureValue(celsiusToDisplay(this.initialCelsius, this.units));
         readout.createSpan({ cls: "cal-wt-unit", text: unitSymbolFor(this.units) });
-        const meta = readout.createSpan({ cls: "cal-wt-meta" });
-        meta.createSpan({ text: this.text("weatherTemperatureLabel") });
-        if (this.hasManual) meta.createSpan({ text: this.text("weatherManualBadge") });
+        if (this.hasManual) {
+          const meta = readout.createSpan({ cls: "cal-wt-meta" });
+          meta.createSpan({ text: this.text("weatherManualBadge") });
+        }
         this.railEl = contentEl.createDiv({
           cls: "cal-wt-rail",
           attr: {
@@ -29844,7 +30006,7 @@ var init_weather_temperature_modal = __esm({
         });
         cancelBtn.addEventListener("click", () => this.close());
         this.saveBtn = actions.createEl("button", {
-          cls: "cal-wt-save dayline-weather-temp-save",
+          cls: "mod-cta cal-wt-save dayline-weather-temp-save",
           text: this.text("weatherRecord")
         });
         this.saveBtn.addEventListener("click", () => this.submitCurrent());
@@ -29990,6 +30152,7 @@ __export(weather_display_exports, {
   buildWeatherStatus: () => buildWeatherStatus,
   formatWeatherTime: () => formatWeatherTime,
   normalizeWeatherDisplayFields: () => normalizeWeatherDisplayFields,
+  weatherTemperatureReading: () => weatherTemperatureReading,
   weatherWindUnit: () => weatherWindUnit
 });
 function normalizeWeatherDisplayFields(value) {
@@ -30001,6 +30164,14 @@ function formatWeatherTime(value, _language = "en", _timezone = "auto") {
   const match = typeof value === "string" ? /T(\d{1,2}):(\d{2})/.exec(value) : null;
   if (!match) return "";
   return `${String(Number(match[1])).padStart(2, "0")}:${match[2]}`;
+}
+function weatherTemperatureReading(snap, isToday, fetchedClock = "") {
+  if (snap.temperatureLabel !== "Now") return { label: "high", value: snap.temperature, time: "" };
+  if (isToday) return { label: "now", value: snap.temperature, time: "" };
+  if (typeof snap.high === "number" && Number.isFinite(snap.high)) {
+    return { label: "high", value: Math.round(snap.high), time: "" };
+  }
+  return { label: null, value: snap.temperature, time: fetchedClock };
 }
 function weatherWindUnit(units) {
   return units === "imperial" ? "mph" : "km/h";
@@ -30214,7 +30385,8 @@ function aggregateCalendarDays(entries) {
         break;
       }
     }
-    const primary = dateEntries[0];
+    const cover = explicitCover || media[0];
+    const primary = cover && dateEntries.find((entry) => entry.path === cover.sourcePath) || dateEntries[0];
     const summary = {
       date,
       entries: dateEntries,
@@ -30224,9 +30396,9 @@ function aggregateCalendarDays(entries) {
       hasWeather: dateEntries.some((entry) => Boolean(entry.weather)),
       primaryEntryPath: primary?.path,
       media,
-      cover: explicitCover || media[0],
+      cover,
       path: primary?.path,
-      mood: dateEntries.find((entry) => entry.mood)?.mood,
+      mood: primary?.mood,
       images: media.filter((item) => item.kind === "image")
     };
     result.set(date, summary);
@@ -30387,8 +30559,16 @@ var init_task_queue = __esm({
 // src/calendar-keyboard.ts
 var calendar_keyboard_exports = {};
 __export(calendar_keyboard_exports, {
+  calendarDayFocusStep: () => calendarDayFocusStep,
   shouldHandleCalendarMonthShortcut: () => shouldHandleCalendarMonthShortcut
 });
+function calendarDayFocusStep(event) {
+  const step = event.key ? DAY_STEPS[event.key] : void 0;
+  if (step === void 0) return null;
+  if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return null;
+  const focusKey = event.target?.getAttribute?.("data-calendar-focus");
+  return typeof focusKey === "string" && focusKey.startsWith("day-") ? step : null;
+}
 function shouldHandleCalendarMonthShortcut(event) {
   if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return false;
   if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return false;
@@ -30400,11 +30580,17 @@ function shouldHandleCalendarMonthShortcut(event) {
   if (typeof target.closest === "function" && target.closest(INTERACTIVE_SELECTOR)) return false;
   return true;
 }
-var INTERACTIVE_SELECTOR;
+var INTERACTIVE_SELECTOR, DAY_STEPS;
 var init_calendar_keyboard = __esm({
   "src/calendar-keyboard.ts"() {
     "use strict";
-    INTERACTIVE_SELECTOR = "button, a, input, select, textarea, [contenteditable]";
+    INTERACTIVE_SELECTOR = 'button, a, input, select, textarea, [contenteditable], [role="button"]';
+    DAY_STEPS = {
+      ArrowLeft: -1,
+      ArrowRight: 1,
+      ArrowUp: -7,
+      ArrowDown: 7
+    };
   }
 });
 
@@ -32829,7 +33015,7 @@ var init_manifest = __esm({
     manifest_default = {
       id: "dayline-journal",
       name: "Dayline Journal",
-      version: "2.11.0",
+      version: "2.12.0",
       minAppVersion: "1.5.0",
       description: "A visual journal for calendars, timelines, moods, memories, weather, and photos. / \u96C6\u65E5\u5386\u3001\u65F6\u95F4\u7EBF\u3001\u5FC3\u60C5\u3001\u56DE\u987E\u3001\u5929\u6C14\u548C\u7167\u7247\u4E8E\u4E00\u4F53\u7684\u53EF\u89C6\u5316\u65E5\u8BB0\u5DE5\u5177.",
       author: "Haoo",
@@ -33821,6 +34007,60 @@ var init_image_metadata = __esm({
   }
 });
 
+// src/exif-tooltip.ts
+var exif_tooltip_exports = {};
+__export(exif_tooltip_exports, {
+  formatExifDateTime: () => formatExifDateTime,
+  renderExifTooltip: () => renderExifTooltip
+});
+function formatExifDateTime(value, locale) {
+  if (value instanceof Date) return formatLocalDateTime(value, locale, "");
+  if (typeof value !== "string" && typeof value !== "number") return "";
+  const raw = String(value);
+  const match = EXIF_DATE_TIME.exec(raw.trim());
+  if (!match) return raw;
+  const [year, month, day, hour, minute] = match.slice(1, 6).map(Number);
+  const date = new Date(year, month - 1, day, hour, minute);
+  if (date.getMonth() !== month - 1) return raw;
+  return formatLocalDateTime(date, locale, raw);
+}
+function formatLocalDateTime(date, locale, fallback) {
+  if (Number.isNaN(date.getTime())) return fallback;
+  try {
+    return new Intl.DateTimeFormat(locale, {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false
+    }).format(date);
+  } catch {
+    return fallback;
+  }
+}
+function renderExifTooltip(target, fields, text) {
+  target.replaceChildren();
+  if (!fields || fields.length === 0) {
+    const empty = target.createDiv({ cls: "cal-exif-tooltip-empty" });
+    empty.createDiv({ text: text.noData });
+    empty.createDiv({ cls: "cal-exif-tooltip-description", text: text.noDataDescription });
+    return;
+  }
+  for (const field of fields) {
+    const row = target.createDiv({ cls: "cal-exif-tooltip-row" });
+    row.createSpan({ cls: "cal-exif-tooltip-label", text: text.label(field.key) });
+    row.createSpan({ cls: "cal-exif-tooltip-value", text: String(field.value ?? "") });
+  }
+}
+var EXIF_DATE_TIME;
+var init_exif_tooltip = __esm({
+  "src/exif-tooltip.ts"() {
+    "use strict";
+    EXIF_DATE_TIME = /^(\d{4}):(\d{2}):(\d{2})\s+(\d{2}):(\d{2})(?::(\d{2}))?/;
+  }
+});
+
 // src/mobile-quick-entry.ts
 var mobile_quick_entry_exports = {};
 __export(mobile_quick_entry_exports, {
@@ -34208,7 +34448,7 @@ var init_mobile_diagnostics = __esm({
 });
 
 // src/plugin.ts
-var { Plugin, ItemView: ItemView2, TFile: TFile3, Notice: Notice5, Modal: Modal3, Menu, setIcon: setIcon5, Platform, normalizePath } = require("obsidian");
+var { Plugin, ItemView: ItemView2, TFile: TFile3, Notice: Notice5, Modal: Modal3, Menu, setIcon: setIcon6, Platform, normalizePath } = require("obsidian");
 var { PLUGIN_ID: PLUGIN_ID3, LEGACY_PLUGIN_IDS: LEGACY_PLUGIN_IDS2 } = (init_plugin_identity(), __toCommonJS(plugin_identity_exports));
 var { JournalIndex: JournalIndex2, startJournalIndexLoad: startJournalIndexLoad2, waitForJournalIndexStartup: waitForJournalIndexStartup2 } = (init_journal_index(), __toCommonJS(journal_index_exports));
 var { subscribeJournalMetadataRefresh: subscribeJournalMetadataRefresh2 } = (init_journal_metadata_refresh(), __toCommonJS(journal_metadata_refresh_exports));
@@ -34253,7 +34493,7 @@ var {
   mergeManualTemperatureMaps: mergeManualTemperatureMaps2
 } = (init_weather_manual(), __toCommonJS(weather_manual_exports));
 var { WeatherTemperatureModal: WeatherTemperatureModal2 } = (init_weather_temperature_modal(), __toCommonJS(weather_temperature_modal_exports));
-var { buildWeatherCardParts: buildWeatherCardParts2, buildWeatherStatus: buildWeatherStatus2, normalizeWeatherDisplayFields: normalizeWeatherDisplayFields2 } = (init_weather_display(), __toCommonJS(weather_display_exports));
+var { buildWeatherCardParts: buildWeatherCardParts2, buildWeatherStatus: buildWeatherStatus2, normalizeWeatherDisplayFields: normalizeWeatherDisplayFields2, weatherTemperatureReading: weatherTemperatureReading2 } = (init_weather_display(), __toCommonJS(weather_display_exports));
 var { localize: _l } = (init_locale(), __toCommonJS(locale_exports));
 var { formatDateParts: formatDateParts2, getClockPartsInTimeZone: getClockPartsInTimeZone2, getTodayDate: getTodayDate2, isPathInFolder: isPathInFolder2, joinVaultPath: joinVaultPath2, normalizeVaultPath: normalizeVaultPath2, parentVaultPath: parentVaultPath2 } = (init_date_utils(), __toCommonJS(date_utils_exports));
 var { ThumbnailService: ThumbnailService2, collectHeicAttachments: collectHeicAttachments2 } = (init_thumbnail_service(), __toCommonJS(thumbnail_service_exports));
@@ -34265,12 +34505,13 @@ var { OverlayRegistry: OverlayRegistry2 } = (init_overlay_registry(), __toCommon
 var { SerialTaskQueue: SerialTaskQueue2 } = (init_task_queue(), __toCommonJS(task_queue_exports));
 var { formatCalendarMonth: formatCalendarMonth2, formatJournalDate: formatJournalDate2, getCalendarGridOffset: getCalendarGridOffset2, getCalendarWeekdays: getCalendarWeekdays2, getDisplayLanguage: getDisplayLanguage2, LOCALE_TAGS: LOCALE_TAGS2, moodLabel: moodLabel2, normalizeDisplayLanguageSetting: normalizeDisplayLanguageSetting2, t: t2 } = (init_i18n(), __toCommonJS(i18n_exports));
 var { getMoodColor: getMoodColor2 } = (init_mood(), __toCommonJS(mood_exports));
-var { shouldHandleCalendarMonthShortcut: shouldHandleCalendarMonthShortcut2 } = (init_calendar_keyboard(), __toCommonJS(calendar_keyboard_exports));
+var { calendarDayFocusStep: calendarDayFocusStep2, shouldHandleCalendarMonthShortcut: shouldHandleCalendarMonthShortcut2 } = (init_calendar_keyboard(), __toCommonJS(calendar_keyboard_exports));
 var { calendarEntryAffectsDisplay: calendarEntryAffectsDisplay2, calendarMediaAccessibilityLabel: calendarMediaAccessibilityLabel2, calendarMoodMarker: calendarMoodMarker2, calendarMoodMarkerClass: calendarMoodMarkerClass2, isCurrentCalendarMonth: isCurrentCalendarMonth2, shouldShowCalendarMood: shouldShowCalendarMood2, shouldShowCalendarWeatherCard: shouldShowCalendarWeatherCard2, shouldShowCalendarWeatherBadge: shouldShowCalendarWeatherBadge2, shouldShowCalendarWeatherLocation: shouldShowCalendarWeatherLocation2, shouldShowCalendarWrittenMarker: shouldShowCalendarWrittenMarker2 } = (init_calendar_display(), __toCommonJS(calendar_display_exports));
 var { ViewVisibilityController: ViewVisibilityController2, normalizeViewVisibilitySettings: normalizeViewVisibilitySettings2 } = (init_view_visibility_controller(), __toCommonJS(view_visibility_controller_exports));
 var { hasExistingImage: hasExistingImage2 } = (init_heic_embed(), __toCommonJS(heic_embed_exports));
 var { loadHeicCodec: loadHeicCodec2 } = (init_heic_codec(), __toCommonJS(heic_codec_exports));
 var { ImageMetadataCache: ImageMetadataCache2, HeicCache: HeicCache2, HEIC_EXTS: HEIC_EXTS2, ReverseGeocoder: ReverseGeocoder2 } = (init_image_metadata(), __toCommonJS(image_metadata_exports));
+var { formatExifDateTime: formatExifDateTime2 } = (init_exif_tooltip(), __toCommonJS(exif_tooltip_exports));
 var { HeicThumbStore: HeicThumbStore2, DEFAULT_HEIC_THUMB_CACHE_DIR: DEFAULT_HEIC_THUMB_CACHE_DIR2, normalizeHeicThumbCacheDir: normalizeHeicThumbCacheDir2, isUnderCacheDir: isUnderCacheDir2 } = (init_heic_thumb_store(), __toCommonJS(heic_thumb_store_exports));
 var { detectPlatformCapabilities: detectPlatformCapabilities2, resolveCapabilityRoute: resolveCapabilityRoute2, usesPhoneLayout: usesPhoneLayout2 } = (init_platform_capabilities(), __toCommonJS(platform_capabilities_exports));
 var { createMobileMarkdownQuickEntry: createMobileMarkdownQuickEntry2 } = (init_mobile_quick_entry(), __toCommonJS(mobile_quick_entry_exports));
@@ -34986,6 +35227,11 @@ var DaylinePlugin = class extends Plugin {
     const entry = this.journalIndex.getEntries().find((item) => item.path === path);
     new MoodPickerModal2(this.app, {
       filePath: path,
+      // The index already knows the note's date. Without it the picker read the
+      // date from the file name, and a note such as `2026-07-05-evening.md`
+      // fell back to today: the mood still saved to that note, under a date
+      // field that claimed today.
+      date: entry?.date,
       initial: this.moodStore.get(path) || entry?.mood,
       customLabels: this.moodStore.getCustomLabels(),
       settings: this.settings,
@@ -35415,7 +35661,7 @@ ${path}`)) return false;
     document.body.appendChild(tip);
     this._exifTooltipEl = tip;
   }
-  _showExifTooltip(anchorEl, fields, loading, kind = "image") {
+  _showExifTooltip(anchorEl, fields, loading, kind = "image", heading = "") {
     const tip = this._exifTooltipEl;
     if (!tip || !anchorEl?.isConnected) return;
     const lang = getDisplayLanguage2(this.settings);
@@ -35426,6 +35672,7 @@ ${path}`)) return false;
       el.textContent = String(value ?? "");
       return el;
     };
+    if (heading) tip.appendChild(addText("div", "cal-exif-tooltip-heading", heading));
     if (loading) {
       tip.appendChild(addText("div", "cal-exif-tooltip-loading", _l(lang, "exif_loading")));
     } else if (!fields || fields.length === 0) {
@@ -35438,8 +35685,9 @@ ${path}`)) return false;
     } else {
       for (const f of fields) {
         const row = addText("div", "cal-exif-tooltip-row", "");
+        const value = f.key === "exif_date" ? formatExifDateTime2(f.value, LOCALE_TAGS2[lang] || "en-US") : f.value;
         row.appendChild(addText("span", "cal-exif-tooltip-label", _l(lang, f.key)));
-        row.appendChild(addText("span", "cal-exif-tooltip-value", f.value));
+        row.appendChild(addText("span", "cal-exif-tooltip-value", value));
         tip.appendChild(row);
       }
     }
@@ -35884,7 +36132,7 @@ var CalendarView = class extends ItemView2 {
       },
       groupLabel: t2(this.plugin.settings, "daylineViewGroupLabel"),
       onSelect: (mode) => mode === "timeline" ? this.plugin.activateTimeline() : this.plugin.activateView(),
-      setIcon: setIcon5
+      setIcon: setIcon6
     });
   }
   /* ----- Lifecycle ----- */
@@ -35900,6 +36148,12 @@ var CalendarView = class extends ItemView2 {
     root.setAttribute("tabindex", "0");
     root.setAttribute("aria-label", t2(this.plugin.settings, "calendarTitle"));
     this._calendarKeydownHandler = (event) => {
+      const dayStep = calendarDayFocusStep2(event);
+      if (dayStep !== null) {
+        event.preventDefault();
+        void this._moveDayFocus(event.target.getAttribute("data-calendar-focus").slice(4), dayStep);
+        return;
+      }
       if (!shouldHandleCalendarMonthShortcut2(event)) return;
       if (event.key === "ArrowLeft") {
         event.preventDefault();
@@ -36214,16 +36468,6 @@ var CalendarView = class extends ItemView2 {
     const key = this._monthKey(this.displayMonth);
     const imageMap = this.monthCache.get(key) || /* @__PURE__ */ new Map();
     const header = el.createDiv({ cls: "cal-header" });
-    const prevBtn = header.createEl("button", {
-      cls: "cal-nav cal-icon-button",
-      attr: { type: "button", "data-calendar-focus": "previous", "aria-label": t2(this.plugin.settings, "previousMonth"), title: t2(this.plugin.settings, "previousMonth") }
-    });
-    setIcon5(prevBtn, "chevron-left");
-    prevBtn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      prevBtn.focus({ preventScroll: true });
-      void this._goToMonth(-1);
-    });
     const title = header.createEl("button", {
       cls: "cal-title cal-title-button",
       attr: {
@@ -36248,11 +36492,21 @@ var CalendarView = class extends ItemView2 {
       this._calendarJumpOpen = false;
       this.render();
     });
+    const prevBtn = header.createEl("button", {
+      cls: "cal-nav cal-icon-button",
+      attr: { type: "button", "data-calendar-focus": "previous", "aria-label": t2(this.plugin.settings, "previousMonth"), title: t2(this.plugin.settings, "previousMonth") }
+    });
+    setIcon6(prevBtn, "chevron-left");
+    prevBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      prevBtn.focus({ preventScroll: true });
+      void this._goToMonth(-1);
+    });
     const nextBtn = header.createEl("button", {
       cls: "cal-nav cal-icon-button",
       attr: { type: "button", "data-calendar-focus": "next", "aria-label": t2(this.plugin.settings, "nextMonth"), title: t2(this.plugin.settings, "nextMonth") }
     });
-    setIcon5(nextBtn, "chevron-right");
+    setIcon6(nextBtn, "chevron-right");
     nextBtn.addEventListener("click", (e) => {
       e.stopPropagation();
       nextBtn.focus({ preventScroll: true });
@@ -36265,7 +36519,7 @@ var CalendarView = class extends ItemView2 {
         cls: "cal-icon-button cal-today-button",
         attr: { type: "button", "data-calendar-focus": "today", "aria-label": t2(this.plugin.settings, "today"), title: t2(this.plugin.settings, "today") }
       });
-      setIcon5(todayBtn, "calendar-check");
+      setIcon6(todayBtn, "calendar-check");
       todayBtn.addEventListener("click", (event) => {
         event.stopPropagation();
         todayBtn.focus({ preventScroll: true });
@@ -36323,8 +36577,9 @@ var CalendarView = class extends ItemView2 {
       if (dateEntry.hasWeather) cell.addClass("cal-has-weather");
       const entryCountLabel = t2(this.plugin.settings, dateEntry.entryCount === 1 ? "calendarEntryCountOne" : "calendarEntryCount", { count: dateEntry.entryCount });
       const localizedDate = formatJournalDate2(dateStr, this.plugin.settings);
+      const dateLabel = dateEntry.entryCount ? t2(this.plugin.settings, "calendarEntriesOnDate", { date: localizedDate, entries: entryCountLabel }) : localizedDate;
       cell.setAttribute("aria-label", [
-        dateEntry.entryCount ? t2(this.plugin.settings, "calendarEntriesOnDate", { date: localizedDate, entries: entryCountLabel }) : localizedDate,
+        dateLabel,
         dateEntry.hasWeather ? t2(this.plugin.settings, "calendarWeatherAvailable") : ""
       ].filter(Boolean).join(", "));
       if (isToday) cell.addClass("cal-today");
@@ -36353,9 +36608,10 @@ var CalendarView = class extends ItemView2 {
         void this._setBackground(bg, dateEntry);
         const firstMedia = cover;
         const mediaLabel = t2(this.plugin.settings, "mediaMetadata");
+        if (this.plugin.settings.showExif) cell.addClass("cal-has-media-tip");
         cell.addEventListener("mouseenter", () => {
           bg.removeAttribute("aria-label");
-          this._onMediaEnter(cell, firstMedia);
+          this._onMediaEnter(cell, firstMedia, false, dateLabel);
         });
         cell.addEventListener("mouseleave", () => this._onExifLeave(cell));
         if (touchRouting.focusMediaBackground) {
@@ -36365,7 +36621,7 @@ var CalendarView = class extends ItemView2 {
           bg.addEventListener("focusin", () => {
             const label = calendarMediaAccessibilityLabel2(dateStr, mediaLabel, true);
             if (label) bg.setAttribute("aria-label", label);
-            this._onMediaEnter(cell, firstMedia, true);
+            this._onMediaEnter(cell, firstMedia, true, dateLabel);
           });
           bg.addEventListener("focusout", () => {
             const label = calendarMediaAccessibilityLabel2(dateStr, mediaLabel, false);
@@ -36385,7 +36641,7 @@ var CalendarView = class extends ItemView2 {
       }
       const weatherEntry = dateEntry.entries?.find((entry) => this.weather.hasCachedSnapshot(dateStr, entry.path));
       const weatherPath = weatherEntry?.path || dateEntry.path;
-      if (this.plugin.settings.weatherEnabled && shouldShowCalendarWeatherBadge2(this.plugin.settings) && this.weather.hasCachedSnapshot(dateStr, weatherPath)) {
+      if (this.plugin.settings.weatherEnabled && dateEntry.hasRecord && shouldShowCalendarWeatherBadge2(this.plugin.settings) && this.weather.hasCachedSnapshot(dateStr, weatherPath)) {
         const snap = this._readCachedWeather(dateStr, weatherPath);
         if (snap) {
           const iconFile = weatherBadgeIcon2(snap);
@@ -36421,7 +36677,7 @@ var CalendarView = class extends ItemView2 {
         });
       }
       cell.createSpan({ cls: "cal-day-num", text: String(d) });
-      const openDate = () => this._openNote(dateStr, dateEntry.primaryEntryPath || dateEntry.path);
+      const openDate = () => dateEntry.entries?.length > 1 ? this._chooseDateEntry(cell, dateStr, dateEntry) : this._openNote(dateStr, dateEntry.primaryEntryPath || dateEntry.path);
       bindOpenOnPointer2(cell, {
         coarsePointer: this.plugin.capabilities?.coarsePointer,
         shouldOpen: shouldOpenCalendarDateFromPointer2,
@@ -36463,7 +36719,7 @@ var CalendarView = class extends ItemView2 {
       cls: "cal-icon-button cal-jump-apply",
       attr: { type: "button", "data-calendar-focus": "jump-apply", "aria-label": t2(this.plugin.settings, "apply"), title: t2(this.plugin.settings, "apply") }
     });
-    setIcon5(apply, "check");
+    setIcon6(apply, "check");
     const applyJump = () => {
       apply.focus({ preventScroll: true });
       const nextYear = Math.max(1, Math.min(9999, Number.parseInt(yearInput.value, 10) || this.displayMonth.getFullYear()));
@@ -36501,13 +36757,13 @@ var CalendarView = class extends ItemView2 {
   _ensureExifTooltip() {
     this.plugin._ensureExifTooltip();
   }
-  _showExifTooltip(el, fields, loading, kind) {
-    this.plugin._showExifTooltip(el, fields, loading, kind);
+  _showExifTooltip(el, fields, loading, kind, heading) {
+    this.plugin._showExifTooltip(el, fields, loading, kind, heading);
   }
   _hideExifTooltip() {
     this.plugin._hideExifTooltip();
   }
-  _onMediaEnter(cell, attachment, immediate = false) {
+  _onMediaEnter(cell, attachment, immediate = false, heading = "") {
     if (!this.plugin.settings.showExif || !attachment) return;
     if (immediate && this.plugin._toggleExifTouch(cell)) return;
     const hoverToken = this.plugin._beginExifHover();
@@ -36515,11 +36771,11 @@ var CalendarView = class extends ItemView2 {
       void (async () => {
         try {
           if (!this.plugin._isCurrentExifHover(hoverToken)) return;
-          this.plugin._showExifTooltip(cell, null, true, "media");
+          this.plugin._showExifTooltip(cell, null, true, "media", heading);
           const metadata = await this.mediaService?.getMetadata?.(attachment);
           const fields = formatMediaMetadataForDisplay2(metadata);
           if (!this.plugin._isCurrentExifHover(hoverToken)) return;
-          this.plugin._showExifTooltip(cell, fields, false, "media");
+          this.plugin._showExifTooltip(cell, fields, false, "media", heading);
         } catch {
           this.plugin._hideExifTooltip();
         }
@@ -36596,7 +36852,7 @@ var CalendarView = class extends ItemView2 {
         title: t2(this.plugin.settings, "weatherEditTemperature")
       }
     });
-    setIcon5(editBtn, "pencil");
+    setIcon6(editBtn, "pencil");
     editBtn.addEventListener("click", (e) => {
       e.stopPropagation();
       this.openTemperatureEditor(cardDate);
@@ -36606,12 +36862,12 @@ var CalendarView = class extends ItemView2 {
     infoEl.createDiv({ cls: "cal-weather-extra" });
     infoEl.createDiv({ cls: "cal-weather-status" });
     tempEl.setText(_l(lang, "loading"));
-    if (locationEl) locationEl.setText(`${_l(lang, "weatherLocation")}: ${s.weatherLocationName || `${parseFloat(s.weatherLatitude).toFixed(2)}, ${parseFloat(s.weatherLongitude).toFixed(2)}`}`);
+    if (locationEl) this._setWeatherLocation(locationEl, lang, s.weatherLocationName || `${parseFloat(s.weatherLatitude).toFixed(2)}, ${parseFloat(s.weatherLongitude).toFixed(2)}`);
     const refreshBtn = main.createEl("button", {
       cls: "cal-weather-refresh",
       attr: { "aria-label": _l(lang, "refresh"), title: _l(lang, "refresh") }
     });
-    setIcon5(refreshBtn, "refresh-cw");
+    setIcon6(refreshBtn, "refresh-cw");
     refreshBtn.addEventListener("click", (e) => {
       e.stopPropagation();
       this._performRefresh(cardDate, refreshBtn).catch((err) => {
@@ -36658,7 +36914,7 @@ var CalendarView = class extends ItemView2 {
         title: label
       }
     });
-    setIcon5(btn, "history");
+    setIcon6(btn, "history");
     const mmdd = dateStr.slice(5);
     if (this._otdDotCache?.has(mmdd)) {
       btn.createDiv({ cls: "cal-otd-header-badge", attr: { "aria-hidden": "true" } });
@@ -36698,7 +36954,7 @@ var CalendarView = class extends ItemView2 {
     });
     const photo = strip.querySelector(".cal-otd-strip-photo");
     const chevron = strip.querySelector(".cal-otd-strip-chevron");
-    if (chevron) setIcon5(chevron, "chevron-right");
+    if (chevron) setIcon6(chevron, "chevron-right");
     if (photo && preview.image) {
       const notePath = preview.imageNotePath || joinVaultPath2(this.plugin.settings.dailyFolder, `${preview.imageDateStr || dateStr}.md`);
       this.plugin.thumbnailService?.load(preview.image, notePath).then((result) => {
@@ -36706,7 +36962,7 @@ var CalendarView = class extends ItemView2 {
       }).catch((error) => console.warn("[Dayline] On This Day thumbnail load failed:", error?.message || error));
     } else if (photo) {
       photo.classList.add("is-empty");
-      setIcon5(photo, "history");
+      setIcon6(photo, "history");
     }
     this._bindOnThisDayOpener(strip, dateStr);
   }
@@ -36756,7 +37012,7 @@ var CalendarView = class extends ItemView2 {
       }
       card.querySelector(".cal-weather-temp").setText(_l(lang, "unavailable"));
       this._syncWeatherManualChrome(card, null, false);
-      if (locationEl) locationEl.setText(`${_l(lang, "weatherLocation")}: ${this.plugin.settings.weatherLocationName || ""}`);
+      if (locationEl) this._setWeatherLocation(locationEl, lang, this.plugin.settings.weatherLocationName);
       if (detailEl) detailEl.setText(_l(lang, "checkSettings"));
       if (extraEl) extraEl.setText("");
       if (statusEl) statusEl.setText("");
@@ -36768,7 +37024,7 @@ var CalendarView = class extends ItemView2 {
       if (iconEl2) iconEl2.src = _iconUrl("overcast.svg");
       card.querySelector(".cal-weather-temp").setText("\u2014");
       this._syncWeatherManualChrome(card, null, false);
-      if (locationEl) locationEl.setText(`${_l(lang, "weatherLocation")}: ${this.plugin.settings.weatherLocationName || ""}`);
+      if (locationEl) this._setWeatherLocation(locationEl, lang, this.plugin.settings.weatherLocationName);
       if (detailEl) detailEl.setText(_l(lang, "noData"));
       if (extraEl) extraEl.setText("");
       if (statusEl) statusEl.setText("");
@@ -36790,9 +37046,7 @@ var CalendarView = class extends ItemView2 {
       const value = formatTemperatureValue2(displayTemperature);
       tempEl.setText(time ? `${value}${unitSym} \xB7 ${time}` : `${value}${unitSym}`);
     } else {
-      const labelKey = snap.temperatureLabel === "Now" ? "now" : "high";
-      const label = _l(lang, labelKey);
-      tempEl.setText(`${label} ${snap.temperature ?? "?"}${unitSym}`);
+      tempEl.setText(this._weatherReadingText(snap, this._weatherCardDate, unitSym));
     }
     this._syncWeatherManualChrome(card, manualRecord, true);
     const labels = {
@@ -36807,10 +37061,7 @@ var CalendarView = class extends ItemView2 {
       stale: _l(lang, "stale"),
       offline: _l(lang, "offline")
     };
-    if (locationEl) {
-      locationEl.setText(`${_l(lang, "weatherLocation")}: ${snap.location || ""}`);
-      locationEl.title = snap.location || "";
-    }
+    if (locationEl) this._setWeatherLocation(locationEl, lang, snap.location);
     const displayFields = normalizeWeatherDisplayFields2(this.plugin.settings.weatherDisplayFields);
     const weatherParts = buildWeatherCardParts2(
       snap,
@@ -36826,6 +37077,13 @@ var CalendarView = class extends ItemView2 {
     if (extraEl) extraEl.setText(weatherParts.extra.join(" \xB7 "));
     if (statusEl) statusEl.setText(buildWeatherStatus2(snap, labels).join(" \xB7 "));
     card.querySelector(".cal-weather-main")?.removeAttribute("aria-live");
+  }
+  /* ----- Location line: the place alone; the "Weather location" label is its accessible name ----- */
+  _setWeatherLocation(locationEl, lang, place) {
+    const name = String(place || "");
+    locationEl.setText(name);
+    locationEl.title = name;
+    locationEl.setAttribute("aria-label", `${_l(lang, "weatherLocation")}: ${name}`);
   }
   /* ----- Manual reading chrome: the "manual" badge and the edit affordance ----- */
   _syncWeatherManualChrome(card, record, canEdit) {
@@ -36852,15 +37110,24 @@ var CalendarView = class extends ItemView2 {
   }
   /* ----- Temperature line shared by the overlay build and refresh paths ----- */
   _weatherTemperatureText(snap, dateStr, unitSym) {
-    const lang = getDisplayLanguage2(this.plugin.settings);
     const record = this.weather.getManualTemperature(dateStr);
     if (record) {
       const value = formatTemperatureValue2(this.weather.resolveDisplayTemperature(dateStr, snap));
       const time = formatManualTime2(record.time);
       return time ? `${value}${unitSym} \xB7 ${time}` : `${value}${unitSym}`;
     }
-    const labelKey = snap.temperatureLabel === "Now" ? "now" : "high";
-    return `${_l(lang, labelKey)} ${snap.temperature ?? "?"}${unitSym}`;
+    return this._weatherReadingText(snap, dateStr, unitSym);
+  }
+  /** "Now 30°C" only for today; a past date's cached "Now" reading shows that day's high. */
+  _weatherReadingText(snap, dateStr, unitSym) {
+    const lang = getDisplayLanguage2(this.plugin.settings);
+    const timezone = this.plugin.settings?.weatherTimezone || "auto";
+    const fetchedAt = new Date(String(snap.fetchedAt || ""));
+    const fetchedClock = Number.isFinite(fetchedAt.getTime()) ? clockTimeFromParts2(getClockPartsInTimeZone2(fetchedAt, timezone)) : "";
+    const reading = weatherTemperatureReading2(snap, dateStr === _daylineDate(this.plugin.settings), fetchedClock);
+    const value = `${reading.value ?? "?"}${unitSym}`;
+    if (reading.label) return `${_l(lang, reading.label)} ${value}`;
+    return reading.time ? `${value} \xB7 ${reading.time}` : value;
   }
   /**
    * Open the manual reading form for a date.
@@ -37033,7 +37300,37 @@ var CalendarView = class extends ItemView2 {
       new Notice5(t2(this.plugin.settings, "calendarMonthLoadFailed", { error: error?.message || error }));
     });
   }
+  /** Move keyboard focus `step` days from `dateStr`, turning the month when the target leaves it. */
+  async _moveDayFocus(dateStr, step) {
+    const [year, month, day] = String(dateStr).split("-").map(Number);
+    if (![year, month, day].every(Number.isInteger)) return;
+    const target = new Date(year, month - 1, day + step, 12);
+    const monthDelta = (target.getFullYear() - this.displayMonth.getFullYear()) * 12 + (target.getMonth() - this.displayMonth.getMonth());
+    if (monthDelta !== 0) await this._goToMonth(monthDelta);
+    const key = `day-${formatDateParts2(target.getFullYear(), target.getMonth() + 1, target.getDate())}`;
+    this.contentEl.querySelector(`[data-calendar-focus="${key}"]`)?.focus({ preventScroll: true });
+  }
   /* ----- Open (or create + open) daily note ----- */
+  /**
+   * A date with several notes asks which one to open, the note the cell shows
+   * first. Each row carries the note's title and mood so the two can be told
+   * apart without opening either.
+   */
+  _chooseDateEntry(cell, dateStr, dateEntry) {
+    const primaryPath = dateEntry.primaryEntryPath || dateEntry.path;
+    const entries = dateEntry.entries.slice().sort((a, b) => Number(b.path === primaryPath) - Number(a.path === primaryPath));
+    const doc = cell.ownerDocument || document;
+    const menu = new Menu();
+    for (const entry of entries) {
+      const mood = this.plugin.moodStore?.get(entry.path) || entry.mood;
+      const name = entry.title || String(entry.path).split("/").pop().replace(/\.md$/i, "");
+      const title = mood ? `${name} \xB7 ${moodLabel2(this.plugin.settings, mood.score)}` : name;
+      menu.addItem((item) => item.setTitle(title).onClick(() => this._openNote(dateStr, entry.path)));
+    }
+    const rect = cell.getBoundingClientRect();
+    menu.showAtPosition({ x: rect.left, y: rect.bottom + 4 }, doc);
+    return menu;
+  }
   _openNote(dateStr, indexedPath) {
     const indexedFile = indexedPath && this.app.vault.getAbstractFileByPath(indexedPath);
     const path = indexedFile instanceof TFile3 ? indexedPath : joinVaultPath2(this.plugin.settings.dailyFolder, `${dateStr}.md`);
@@ -37394,7 +37691,7 @@ var CalendarView = class extends ItemView2 {
     button.type = "button";
     button.setAttribute("aria-label", t2(this.plugin.settings, "mediaMetadata"));
     button.title = t2(this.plugin.settings, "mediaMetadata");
-    setIcon5(button, "info");
+    setIcon6(button, "info");
     const onPointerDown = (event) => {
       event.preventDefault();
       event.stopPropagation();
@@ -37557,7 +37854,7 @@ var CalendarView = class extends ItemView2 {
       cls: "cal-overlay-edit-temp",
       attr: { "aria-label": editLabel, title: editLabel }
     });
-    setIcon5(editBtn, "pencil");
+    setIcon6(editBtn, "pencil");
     editBtn.addEventListener("click", (e) => {
       e.stopPropagation();
       this.openTemperatureEditor(dateStr, snap);
@@ -37567,7 +37864,7 @@ var CalendarView = class extends ItemView2 {
       cls: "cal-overlay-refresh",
       attr: { "aria-label": refreshLabel, title: refreshLabel }
     });
-    setIcon5(refreshBtn, "refresh-cw");
+    setIcon6(refreshBtn, "refresh-cw");
     refreshBtn.addEventListener("click", (e) => {
       e.stopPropagation();
       this._performOverlayRefresh(dateStr, refreshBtn, overlay).catch((err) => {

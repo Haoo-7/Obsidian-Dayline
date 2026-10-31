@@ -1,5 +1,69 @@
 # Changelog
 
+## 2.12.0 (2026-10-31)
+
+A UI review pass: a day with two notes now behaves as one note, the calendar header and the settings pane are lighter, the dialogs share Obsidian's look, and the defects the review found are fixed.
+
+### Changed
+- **A day with several notes stands for one of them.** The cell follows the note that supplies the cover (or the first note when none has an image): its cover, its mood dot and the note that opens. Before, a day could show one note's photo, another note's mood and open the second. Opening such a day now asks which note to open, cover note first, each row "title · mood". The rows are plain text because macOS shows Obsidian menus natively, and a native menu keeps only the label's text.
+- **Lighter calendar header.** The month is plain left-aligned text with both arrows on the right, instead of three grey blocks of the same height. The weather card shows the place without the "Weather location:" label, in the same grey as the feels-like line.
+- **Weather icons only on journaled days.** A date whose weather was only browsed or backfilled no longer gets an icon, so the grid is no longer a month of sun icons.
+- **Timeline.** The mood dot grows from 6 px to 10 px, where the amber and coral levels can be told apart. "This month 10%" became "3 days this month", and the folded line hides once the stats panel is open.
+- **Dialogs.** The mood picker's second step no longer repeats its subtitle as a field label. The temperature dialog drops the floating "Temperature" label and uses Obsidian's default and accent buttons, like the mood picker. On This Day uses Obsidian's modal cover, panel and close button instead of its own blurred overlay.
+- **Shorter settings.** Rarely changed and maintenance rows (thumbnail filter, journal tools, weather timezone, cache and backfill, HEIC cache, mood data path, export, backup and maintenance) sit in a collapsed "Advanced" section. The journal source controls are inside their own card. "Recover mood records" moves to the Mood section and only appears when there are records to recover. In a 900 × 700 settings window the pane went from 4,279 px to 3,274 px.
+
+### Fixed
+- **The daily reminder hour can be set again.** It used `window.prompt()`, which Obsidian desktop does not support, so the clock button did nothing. It is now an hour dropdown, and the reminder toggle lines up with every other toggle.
+- **Today stays marked after you write.** The today ring was the same accent as a written day's fill and disappeared under it. It is now drawn above the fill and photos, with an inner ring to separate it.
+- **The mood picker uses the note's own date.** A note named like `2026-07-05-evening.md` opened the picker on today's date. It now takes the indexed date and asks "How did that day feel?" for past days.
+- **Past days no longer say "Now".** A reading cached as "Now" only says so on its own day; past days show that day's high, or the reading with its fetch time.
+- **Keyboard on the calendar.** Day cells show a focus ring, and with a day focused the arrow keys move one day or one week, turning the month at the edges, instead of switching months.
+- **One tooltip on photo days.** Obsidian's date tooltip no longer sits half under the media panel; the panel carries the date and entry count, and the capture time is formatted for the interface language.
+- **Contrast.** Plain cells drop the photo halo behind their digits, and weather icons on written cells are white like the date (the bright set fell as low as 1.7:1 on the default purple).
+- **Restoring the mood backup asks first**, and its button is styled as destructive, because the restore overwrites the live store.
+- **Path fields show the whole path**, and setting descriptions no longer end on a single character.
+
+### Verification
+- `npm run typecheck`, `npm test` (76 files / 986 tests), `npm run build`, `npm run package:release`, `npm run verify:release`, `npm run verify:release:zip` and `git diff --check` pass.
+- Obsidian Sandbox: `main.js`, `manifest.json` and `styles.css` deployed byte-identical and reloaded with no `dev:errors`; the running plugin reports `2.12.0`.
+- Live checks: on 2026-07-05 (two notes) the mood dot changed from the evening note's "low" to the photo note's "good", and the chooser listed both notes, photo note first. October's weather icons dropped to the three journaled days. Every settings toggle ends at the same right edge, the reminder included. A real arrow-key press moved focus 15 → 16 and 29 October → 5 November.
+- `data.json` and `Calendar/journal-metadata.json` hashed the same before and after the release checks.
+
+### Notes
+- Not checked on a phone. On phones Obsidian shows menus as a bottom sheet, so the note chooser there has not been seen.
+
+---
+
+这一版来自一轮界面评审：一天两篇日记的日子按一篇来显示，日历头部和设置页更轻，几个弹窗改用 Obsidian 自己的样式，并修好评审中发现的缺陷。
+
+### 改动
+- **一天有几篇日记时，格子只代表其中一篇。** 格子跟着提供封面的那篇（都没有图片就取排序第一篇）：封面、心情点、点开的笔记都来自它。以前可能出现照片是一篇、心情是另一篇、点开又是第二篇的情况。现在点开这样的日子会先问打开哪一篇，有封面的排在前面，每行写「标题 · 心情」。用纯文字是因为 macOS 上 Obsidian 用系统原生菜单，原生菜单只保留文字。
+- **日历头部变轻。** 月份改成左对齐的纯文字，两个箭头放到右边，不再是三块同高的灰底。天气卡的位置行去掉「天气位置:」，颜色和体感那一行一样。
+- **天气图标只画在写过日记的日子。** 只是浏览过或回填过天气的日期不再画图标，日历不再满月都是晴天图标。
+- **时间线。** 心情色点从 6 像素放大到 10 像素，琥珀和珊瑚两档能分清了。「本月完成 10%」改成「本月写了 3 天」，统计展开后折叠行隐藏，不再重复。
+- **弹窗。** 心情第二步不再把副标题重复成分节标题。气温弹窗去掉右侧漂着的「温度」，按钮改用 Obsidian 的默认按钮和强调色按钮，和心情弹窗一致。去年今日改用 Obsidian 的遮罩、面板和关闭按钮，不再用自己的模糊遮罩。
+- **设置页变短。** 不常改的和维护类设置（缩略图筛选、日记工具、天气时区、缓存与回填、HEIC 缓存、心情数据路径、导出、备份与维护）收进默认折叠的「高级」。日记来源目录的控件收回自己的卡片里。「恢复心情记录」移到心情分区，只在有可恢复的记录时出现。在 900 × 700 的设置窗口里，页面从 4,279 像素缩到 3,274 像素。
+
+### 修复
+- **每日提醒的时间又能改了。** 原来用 `window.prompt()`，Obsidian 桌面版不支持，时钟按钮点了没反应。现在是小时下拉框，提醒开关也和其它开关对齐了。
+- **写完今天的日记后，今天的标记还在。** 今天的描边和写过日记的填充是同一个强调色，会被盖住。现在描边画在填充和照片之上，内侧再加一圈背景色隔开。
+- **心情弹窗使用笔记自己的日期。** 像 `2026-07-05-evening.md` 这样命名的笔记，弹窗里的日期会变成今天。现在取索引里的日期，过去的日子问「那天的感受如何？」。
+- **过去的日子不再写「现在」。** 缓存里标为「现在」的读数只在当天这样写；过去的日子显示当天最高温，或读数加抓取时刻。
+- **日历的键盘操作。** 日期格有焦点环；焦点在日期格上时，方向键移动一天或一周，到边缘自动翻月，不再一按就翻月。
+- **照片日只出现一个提示。** Obsidian 的日期提示不再被媒体面板压住一半；面板首行带日期和篇数，拍摄时间按界面语言格式化。
+- **对比度。** 空白格的日期数字去掉给照片用的阴影；写过日记的格子里，天气图标和日期一样用白色（原来的亮色组在默认紫色上最低只有 1.7:1）。
+- **恢复心情备份前先确认**，按钮改成危险操作的样式，因为恢复会直接覆盖当前数据。
+- **路径输入框显示完整路径**，设置说明的末行不再只剩一个字。
+
+### 验证
+- `npm run typecheck`、`npm test`（76 个文件 / 986 项测试）、`npm run build`、`npm run package:release`、`npm run verify:release`、`npm run verify:release:zip`、`git diff --check` 全部通过。
+- Obsidian Sandbox：`main.js`、`manifest.json`、`styles.css` 逐字节一致地部署并重载，`dev:errors` 无错误；运行中的插件报告 `2.12.0`。
+- 实测：2026-07-05（两篇日记）的心情点从晚间记录的「较低」变成照片篇的「较好」，选择菜单列出两篇，照片篇在前。10 月的天气图标只剩三个写过日记的日子。设置页所有开关的右缘对齐，包括每日提醒。真实方向键把焦点从 15 日移到 16 日、从 10 月 29 日移到 11 月 5 日。
+- `data.json` 和 `Calendar/journal-metadata.json` 在发布检查前后哈希一致。
+
+### 备注
+- 没有在手机上验证。手机上 Obsidian 的菜单是底部弹层，一天多篇时的选择菜单在手机上还没看过。
+
 ## 2.11.0 (2026-10-27)
 
 A support section inside settings, an update check that reads the same catalogue Obsidian's plugin browser does, and manual temperature readings that outlive a forecast refresh.
