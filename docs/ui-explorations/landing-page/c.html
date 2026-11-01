@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>03 书脊</title>
+<style>
+  :root {
+    --bg: #16120F; --cream: #F3EEE6; --muted: #B5ACA0; --board: #5B3F2C; --board-top: #7A5840;
+    --coral: #F1694D; --ink: #16120F;
+    --mono: Menlo, "SF Mono", ui-monospace, monospace;
+    --sans: "PingFang SC", -apple-system, sans-serif;
+    --shelf: 700px;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: var(--bg); color: var(--cream); font-family: var(--sans); overflow: hidden; -webkit-font-smoothing: antialiased; }
+  .page { position: relative; width: 1440px; height: 900px; margin: 0 auto; overflow: hidden;
+    background: radial-gradient(1100px 620px at 46% 38%, #2C241D 0%, #1C1713 55%, var(--bg) 100%); }
+
+  header { position: absolute; top: 30px; left: 80px; right: 80px; display: flex; align-items: center; justify-content: space-between; z-index: 2; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 17px; color: var(--cream); text-decoration: none; }
+  .brand svg { width: 34px; height: 22px; }
+  nav { display: flex; gap: 32px; font-size: 14px; }
+  nav a { color: var(--muted); text-decoration: none; }
+
+  /* 书架 */
+  .books { position: absolute; left: 80px; bottom: calc(900px - var(--shelf)); display: flex; align-items: flex-end; gap: 3px; }
+  .book { position: relative; display: flex; flex-direction: column; border-radius: 2px 2px 0 0; overflow: hidden;
+    box-shadow: inset -2px 0 0 rgba(0,0,0,.28), inset 1px 0 0 rgba(255,255,255,.07); }
+  .book .cap { flex: 0 0 34px; display: grid; place-items: center; }
+  .book .cap svg { width: 14px; height: 14px; }
+  .book .pic { flex: 0 0 auto; background-size: auto 100%; background-repeat: no-repeat; }
+  .book .mood { flex: 0 0 7px; }
+  .book .date { flex: 1; display: flex; justify-content: center; padding-top: 12px; writing-mode: vertical-rl; font-family: var(--mono); font-size: 12px; letter-spacing: .08em; }
+  .book.pulled { transform: translateY(-64px); box-shadow: 0 30px 40px -18px rgba(0,0,0,.7), inset -2px 0 0 rgba(0,0,0,.28); }
+
+  .tag { position: absolute; padding: 9px 12px 10px; background: var(--cream); color: var(--ink); font-size: 13px; line-height: 1.5; border-radius: 2px; transform: rotate(-3deg); box-shadow: 0 10px 18px -10px rgba(0,0,0,.6); white-space: nowrap; }
+  .tag b { display: block; font-size: 14px; }
+  .tag i { display: inline-block; width: 8px; height: 8px; margin-right: 6px; border-radius: 50%; vertical-align: 0; }
+  .tag::before { content: ''; position: absolute; right: -14px; top: 18px; width: 14px; border-top: 1px solid var(--cream); }
+
+  /* 标题本身就是一本书 */
+  .title { position: absolute; right: 80px; bottom: calc(900px - var(--shelf)); width: 196px; height: 572px; background: var(--coral); color: var(--ink); border-radius: 2px 2px 0 0; box-shadow: inset -3px 0 0 rgba(0,0,0,.18); display: flex; flex-direction: column; align-items: center; }
+  .title h1 { flex: 1; writing-mode: vertical-rl; font-size: 50px; line-height: 1.32; font-weight: 800; letter-spacing: .06em; padding-top: 40px; }
+  .title .imprint { flex: 0 0 52px; display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; border-top: 1px solid rgba(22,18,15,.25); width: 100%; justify-content: center; }
+  .title .imprint svg { width: 26px; height: 17px; }
+
+  .board { position: absolute; left: 0; right: 0; top: var(--shelf); height: 26px; background: var(--board); box-shadow: inset 0 2px 0 var(--board-top), 0 18px 30px rgba(0,0,0,.55); }
+
+  .lede { position: absolute; left: 80px; top: 768px; width: 600px; font-size: 16px; line-height: 1.75; color: var(--muted); }
+  .lede b { color: var(--cream); font-weight: 600; }
+  .act { position: absolute; right: 80px; top: 768px; display: flex; align-items: center; gap: 26px; }
+  .btn { position: relative; display: inline-flex; align-items: center; height: 50px; padding: 0 26px; background: var(--cream); color: var(--ink); font-size: 16px; font-weight: 600; text-decoration: none; }
+  .btn::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 4px; background: var(--coral); }
+  .link { color: var(--cream); font-size: 15px; text-decoration: none; border-bottom: 1px solid rgba(243,238,230,.35); padding-bottom: 2px; }
+  .note { position: absolute; right: 80px; top: 834px; font-size: 13px; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <a class="brand" href="#">
+      <svg viewBox="0 0 354 225" aria-hidden="true"><g transform="translate(-94 -159)"><path fill="#F3EEE6" d="M270 177 C284 166 300 160 319 160 H375 C415 160 447 190 447 231 V311 C447 352 416 383 376 383 H319 C300 383 284 377 270 367 C277 361 283 355 289 348 C298 355 308 358 320 358 H375 C402 358 423 338 423 311 V232 C423 205 402 185 375 185 H320 C308 185 298 188 289 195 C283 188 277 182 270 177 Z"/><path fill="#F3EEE6" fill-rule="evenodd" d="M204 160 C264 160 315 211 315 272 C315 333 265 383 204 383 C144 383 94 333 94 273 C94 213 144 160 204 160 Z M204 185 C158 185 119 225 119 273 C119 320 157 359 204 359 C220 359 235 355 247 348 C230 326 220 301 220 273 C220 244 230 218 247 196 C234 189 220 185 204 185 Z"/><path fill="#F1694D" d="M267 212 C282 229 291 250 291 273 C291 296 282 318 267 334 C252 317 244 296 244 273 C244 250 252 228 267 212 Z"/></g></svg>
+      Dayline
+    </a>
+    <nav><a href="#features">功能</a><a href="#install">安装</a><a href="#github">GitHub</a></nav>
+  </header>
+
+  <div class="books" id="books" aria-label="2026 年 7 月 1 日到 21 日的日记"></div>
+  <div class="tag" id="tag"></div>
+
+  <div class="title">
+    <h1>还是那排书，<br>每一本都认得出来。</h1>
+    <div class="imprint"><svg viewBox="0 0 354 225" aria-hidden="true"><g transform="translate(-94 -159)"><path fill="#16120F" d="M270 177 C284 166 300 160 319 160 H375 C415 160 447 190 447 231 V311 C447 352 416 383 376 383 H319 C300 383 284 377 270 367 C277 361 283 355 289 348 C298 355 308 358 320 358 H375 C402 358 423 338 423 311 V232 C423 205 402 185 375 185 H320 C308 185 298 188 289 195 C283 188 277 182 270 177 Z"/><path fill="#16120F" fill-rule="evenodd" d="M204 160 C264 160 315 211 315 272 C315 333 265 383 204 383 C144 383 94 333 94 273 C94 213 144 160 204 160 Z M204 185 C158 185 119 225 119 273 C119 320 157 359 204 359 C220 359 235 355 247 348 C230 326 220 301 220 273 C220 244 230 218 247 196 C234 189 220 185 204 185 Z"/><path fill="#F3EEE6" d="M267 212 C282 229 291 250 291 273 C291 296 282 318 267 334 C252 317 244 296 244 273 C244 250 252 228 267 212 Z"/></g></svg>Dayline</div>
+  </div>
+
+  <div class="board"></div>
+
+  <p class="lede"><b>Dayline</b> 是一个 Obsidian 插件。它读取你的每日笔记文件夹，把每一天排进照片月历和时间线，标出心情和天气。笔记不搬家，也不改写。</p>
+  <div class="act" id="install">
+    <a class="btn" href="#install">在 Obsidian 中安装</a>
+    <a class="link" href="#github">GitHub</a>
+  </div>
+  <p class="note">免费 · MIT 开源 · 桌面与手机</p>
+</div>
+
+<script src="data.js"></script>
+<script>
+  const D = window.DAYLINE;
+  const pad = n => String(n).padStart(2, '0');
+  // 固定的高、宽和布面色，让书架每次都长一样
+  const H = [452, 500, 430, 528, 470, 410, 492, 540, 446, 506, 462, 420, 516, 476, 438, 498, 454, 520, 468, 430, 486];
+  const W = [46, 42, 50, 44, 48, 40, 52, 44, 46, 50, 42, 48, 44, 52, 42, 46, 50, 48, 44, 42, 48];
+  const CLOTH = [['#2E2620', '#E7DFD2'], ['#ECE6DA', '#3A3029'], ['#25302E', '#DCE3DD'], ['#3A2E36', '#E6DCE2'], ['#2C2A22', '#E4E0D2']];
+  const PIC_X = { '01-tide': 62, '02-field': 70, '03-table': 40, '04-garden': 50, '05-night': 66, '06-water': 46 };
+
+  document.getElementById('books').innerHTML = D.days.map((x, i) => {
+    const [cloth, fg] = CLOTH[(i * 3 + (x.d % 2)) % CLOTH.length];
+    const picH = Math.round(H[i] * 0.52);
+    const px = (PIC_X[x.cover] + (i * 13) % 30 - 15);
+    return `<div class="book${x.d === 18 ? ' pulled' : ''}" style="width:${W[i]}px;height:${H[i]}px;background:${cloth};color:${fg}">
+      <div class="cap">${D.wxSvg(x.wx)}</div>
+      <div class="pic" style="height:${picH}px;background-image:url(assets/${x.cover}.jpg);background-position:${px}% 50%"></div>
+      <div class="mood" style="background:${D.moods[x.mood]}"></div>
+      <div class="date">07-${pad(x.d)}</div>
+    </div>`;
+  }).join('');
+
+  // 抽出来的那一本旁边挂一张小签
+  requestAnimationFrame(() => {
+    const b = document.querySelector('.book.pulled').getBoundingClientRect();
+    const p = document.querySelector('.page').getBoundingClientRect();
+    const day = D.days.find(x => x.d === 18);
+    const tag = document.getElementById('tag');
+    tag.innerHTML = `<b>7 月 18 日 · ${day.title}</b><i style="background:${D.moods[day.mood]}"></i>心情 +2 · 雨`;
+    tag.style.left = (b.left - p.left - tag.offsetWidth - 18) + 'px';
+    tag.style.top = (b.top - p.top - 6) + 'px';
+  });
+</script>
+</body>
+</html>

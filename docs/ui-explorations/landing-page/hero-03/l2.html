@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>L2 画面即界面</title>
+<link rel="stylesheet" href="ui.css">
+<style>
+  /* 整个首屏就是一扇 Obsidian 窗口，落地页写在打开的那篇笔记里 */
+  .win { position: absolute; inset: 20px 20px 0; background: #fff; border: 1px solid #D9DAD5; border-bottom: 0; border-radius: 14px 14px 0 0; overflow: hidden;
+    display: grid; grid-template-columns: 44px 316px 1fr 300px; grid-template-rows: 44px 1fr; box-shadow: 0 30px 70px -40px rgba(13,19,24,.3); color: var(--ob-text); font-size: 13px; }
+  .tb { grid-column: 1 / -1; display: grid; grid-template-columns: 360px 1fr 300px; background: var(--ob-side); border-bottom: 1px solid var(--ob-line); }
+  .tb > div { display: flex; align-items: center; padding: 0 16px; gap: 10px; }
+  .lights { gap: 8px !important; }
+  .lights i { width: 12px; height: 12px; border-radius: 50%; background: #D5D5D5; }
+  .tb .brand { margin-left: 18px; font-size: 15px; }
+  .tb .brand svg { width: 28px; height: 18px; }
+  .tab { align-self: end; height: 34px; padding: 0 16px; background: #fff; border: 1px solid var(--ob-line); border-bottom: 0; border-radius: 8px 8px 0 0; display: flex; align-items: center; gap: 36px; font-size: 12.5px; }
+  .tab span:last-child { color: var(--ob-faint); }
+  .tb .nav { margin-left: auto; gap: 26px; font-size: 13.5px; }
+  .tb .right { border-left: 1px solid var(--ob-line); justify-content: flex-end; }
+
+  .ribbon { background: var(--ob-side); border-right: 1px solid var(--ob-line); display: flex; flex-direction: column; align-items: center; gap: 16px; padding-top: 14px; color: var(--ob-muted); }
+  .ribbon svg { width: 16px; height: 16px; }
+  .ribbon .on { color: var(--coral); }
+
+  .side { background: var(--ob-side); border-right: 1px solid var(--ob-line); padding: 14px 14px 0; --cell: 38px; --cgap: 3px; overflow: hidden; }
+  .side .dl-wcard { margin-top: 10px; }
+  .side .dl-wk { margin-top: 12px; }
+  .side .dl-grid { margin-top: 6px; }
+  .tree { margin: 16px -14px 0; padding: 10px 14px; border-top: 1px solid var(--ob-line); font-size: 13px; }
+  .tree div { height: 26px; display: flex; align-items: center; gap: 6px; padding: 0 6px; border-radius: 5px; }
+  .tree svg { width: 11px; height: 11px; color: var(--ob-faint); }
+  .tree .f { padding-left: 24px; }
+  .tree .on { background: var(--accent-soft); color: var(--accent-ink); }
+
+  .note { padding: 0 72px; overflow: hidden; }
+  .crumb { height: 40px; display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 12.5px; color: var(--ob-muted); }
+  .crumb i { font-style: normal; color: var(--ob-faint); }
+  .props { margin-top: 26px; display: grid; grid-template-columns: 110px 1fr; row-gap: 9px; font-size: 13px; }
+  .props dt { color: var(--ob-muted); }
+  .pill { display: inline-block; padding: 1px 9px; margin-right: 6px; border-radius: 12px; background: var(--accent-soft); color: var(--accent-ink); font-size: 12.5px; }
+  .note h1 { margin-top: 40px; font-size: 54px; line-height: 1.16; font-weight: 650; letter-spacing: -.012em; color: var(--ink); }
+  .note .lede { margin-top: 20px; max-width: 560px; font-size: 17px; line-height: 1.75; color: var(--muted); }
+  .note .lede b { color: var(--ink); font-weight: 600; }
+  .act { margin-top: 30px; display: flex; align-items: center; gap: 22px; }
+  .note h3 { margin-top: 52px; font-size: 18px; font-weight: 700; color: var(--ob-text); }
+  .note ol { margin-top: 12px; padding-left: 22px; display: grid; gap: 8px; font-size: 14px; line-height: 1.6; color: #333; }
+  .note code { font-family: var(--mono); font-size: 12.5px; padding: 1px 6px; border-radius: 4px; background: #F1F1F1; }
+
+  .tl { background: var(--ob-side); border-left: 1px solid var(--ob-line); padding: 14px 14px 0; overflow: hidden; }
+  .tl-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 10px; }
+  .tl-head b { font-size: 17px; }
+  .tl-head span { color: var(--ob-muted); font-size: 12px; }
+  .tl .dl-trend { margin: 10px 0 2px; }
+  .tl .dl-card { margin-top: 10px; }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="win">
+    <div class="tb">
+      <div class="lights"><i></i><i></i><i></i><a class="brand" href="#" id="brand">Dayline</a></div>
+      <div><span class="tab"><span>Dayline.md</span><span>×</span></span><nav class="nav"><a href="#features">功能</a><a href="#install">安装</a><a href="#github">GitHub</a></nav></div>
+      <div class="right"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#6B6B6B" stroke-width="1.4"><rect x="2" y="2.5" width="12" height="11" rx="2"/><path d="M10 2.5v11"/></svg></div>
+    </div>
+
+    <div class="ribbon" aria-hidden="true">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M4 2h6l3 3v9H4z"/></svg>
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="4" cy="4" r="2"/><circle cx="12" cy="4" r="2"/><circle cx="8" cy="12" r="2"/><path d="M5.5 5.5 7 10.5M10.5 5.5 9 10.5"/></svg>
+      <svg class="on" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="12" height="11" rx="2"/><path d="M2 6.5h12M5.5 1.5v3M10.5 1.5v3"/></svg>
+    </div>
+
+    <aside class="side" id="side" aria-hidden="true"></aside>
+
+    <main class="note">
+      <div class="crumb">Plugins <i>/</i> Dayline</div>
+      <dl class="props">
+        <dt>price</dt><dd>免费</dd>
+        <dt>license</dt><dd>MIT 开源</dd>
+        <dt>platforms</dt><dd>桌面端 · 手机端</dd>
+        <dt>requires</dt><dd>Obsidian 1.5.0+</dd>
+        <dt>tags</dt><dd><span class="pill">日历</span><span class="pill">日记</span><span class="pill">心情</span><span class="pill">天气</span></dd>
+      </dl>
+      <h1>你写过的每一天，<br>不该只是一串<span class="mdx">.md</span></h1>
+      <p class="lede"><b>Dayline</b> 把每日笔记文件夹变成你左边看到的照片月历和右边的日记时间线，标出心情和天气。笔记原样留在你的 vault 里。</p>
+      <div class="act" id="install"><a class="btn" href="#install" id="dl">在 Obsidian 中安装</a><a class="link" href="#github">在 GitHub 查看源码</a></div>
+      <h3>三步开始</h3>
+      <ol><li>安装并启用 Dayline，运行命令 <code>Open Dayline</code>。</li><li>在设置里选好每日笔记文件夹，默认是 <code>Calendar/Daily</code>。</li><li>点日期打开那天的笔记，或者在时间线里搜过去。</li></ol>
+    </main>
+
+    <aside class="tl" aria-hidden="true">
+      <div class="tl-head"><b>日记时间线</b><span>21</span></div>
+      <div class="dl-search">搜索日记</div>
+      <div id="trend"></div>
+      <div id="cards"></div>
+    </aside>
+  </div>
+</div>
+<script src="../data.js"></script>
+<script src="ui.js"></script>
+<script>
+  document.getElementById('brand').insertAdjacentHTML('afterbegin', UI.logo());
+  document.getElementById('dl').insertAdjacentHTML('afterbegin', UI.download);
+  const chev = '<svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3 4.5 6 7.5 9 4.5"/></svg>';
+  document.getElementById('side').innerHTML = UI.mnav() + UI.weather() + UI.weekdays() + UI.grid(0) +
+    `<div class="tree"><div>${chev}Calendar</div><div>${chev}Plugins</div><div class="f on">Dayline.md</div></div>`;
+  document.getElementById('trend').innerHTML = UI.trend(272);
+  document.getElementById('cards').innerHTML = UI.cards([21, 20, 19, 18, 17], 0);
+</script>
+</body>
+</html>

@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "project": "Dayline 官网落地页",
+  "brief": "Dayline Journal（Obsidian 插件）的官网首屏：说清它是什么，让人点「在 Obsidian 中安装」。三个候选共用同一组事实与 showcase 示例数据（2026 年 7 月 1–21 日，Northstar Cove）。",
+  "round": "01",
+  "nativeViewport": "1440x900",
+  "candidates": [
+    {
+      "id": "files",
+      "name": "文件名",
+      "concept": "让 Obsidian 用户一眼认出自己的文件列表，再看到它一格格翻成照片月历",
+      "typography": "PingFang SC 650 标题 68px，正文 16/1.7，SF Mono 文件名 13px",
+      "palette": ["#F6F6F3", "#0D1318", "#5F656C", "#E8E9E5", "#F1694D"],
+      "traits": ["概念：文件列表那一串日期，原地翻过来就是照片月历", "通栏上下堆叠", "文件名卡翻到一半", "真实月历数据与心情五色", "珊瑚主按钮"],
+      "source": "a.html"
+    },
+    {
+      "id": "vellum",
+      "name": "硫酸纸",
+      "concept": "安静、可信：透过一张硫酸纸，看得见下面的 Markdown 一个字没改",
+      "typography": "宋体标题 56px，Menlo 原稿 14px，楷体手写批注 19px",
+      "palette": ["#DCE3E4", "#FFFFFF", "#1C2A33", "#1F6F80", "#ee6a54"],
+      "traits": ["概念：Dayline 是盖在日记原稿上的一张硫酸纸", "居中单一物件", "纸边从原文中间切过", "手绘心情圈、天气格、封面箭头", "墨色主按钮"],
+      "source": "b.html"
+    },
+    {
+      "id": "spines",
+      "name": "书脊",
+      "concept": "一整排书扑面而来，像站在自家书架前：每一天都露出了它的样子",
+      "typography": "PingFang SC 800 竖排标题 50px，Menlo 竖排日期 12px，正文 16/1.75",
+      "palette": ["#16120F", "#5B3F2C", "#F3EEE6", "#F1694D", "#B5ACA0"],
+      "traits": ["概念：每日笔记是一排书，书脊露出了那一天", "满版图像压字", "21 本书对应 21 天", "标题本身是一本珊瑚色的书", "书签式奶白按钮"],
+      "source": "c.html"
+    }
+  ]
+}

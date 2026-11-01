@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>L1 分栏特写</title>
+<link rel="stylesheet" href="ui.css">
+<style>
+  header { position: absolute; top: 30px; left: 80px; right: 80px; display: flex; align-items: center; justify-content: space-between; }
+  .copy { position: absolute; left: 80px; top: 196px; width: 500px; }
+  h1 { font-size: 58px; line-height: 1.16; font-weight: 650; letter-spacing: -.012em; }
+  .lede { margin-top: 22px; font-size: 17px; line-height: 1.75; color: var(--muted); }
+  .lede b { color: var(--ink); font-weight: 600; }
+  .act { margin-top: 32px; display: flex; align-items: center; gap: 22px; }
+  .feats { margin-top: 48px; padding-top: 22px; border-top: 1px solid var(--line); display: grid; gap: 12px; font-size: 14px; color: var(--muted); }
+  .feats li { list-style: none; display: grid; grid-template-columns: 96px 1fr; }
+  .feats b { color: var(--ink); font-weight: 600; }
+
+  /* 放大的月历面板，时间线在它身后 */
+  .tl { position: absolute; left: 1086px; top: 150px; width: 274px; height: 640px; padding: 16px 16px 0; background: var(--ob-side); border: 1px solid #D9DAD5; border-radius: 14px; overflow: hidden; box-shadow: 0 30px 60px -40px rgba(13,19,24,.35); }
+  .tl-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 10px; color: var(--ob-text); }
+  .tl-head b { font-size: 17px; }
+  .tl-head span { color: var(--ob-muted); font-size: 12px; }
+  .tl .dl-trend { margin: 10px 0 2px; }
+  .tl .dl-card { margin-top: 10px; }
+  .panel { position: absolute; left: 640px; top: 196px; width: 426px; padding: 20px; background: var(--ob-side); border: 1px solid #D9DAD5; border-radius: 16px;
+    box-shadow: 0 1px 2px rgba(13,19,24,.06), 0 40px 70px -36px rgba(13,19,24,.45); --cell: 50px; --cgap: 6px; }
+  .panel .dl-wcard { margin-top: 12px; }
+  .panel .dl-wk { margin-top: 16px; }
+  .panel .dl-grid { margin-top: 8px; }
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <a class="brand" href="#" id="brand">Dayline</a>
+    <nav class="nav"><a href="#features">功能</a><a href="#install">安装</a><a href="#github">GitHub</a></nav>
+  </header>
+
+  <section class="copy">
+    <h1>你写过的每一天，<br>不该只是一串<span class="mdx">.md</span></h1>
+    <p class="lede"><b>Dayline</b> 是一个 Obsidian 插件。它把每日笔记文件夹变成一面照片月历，标出心情和天气。笔记原样留在你的 vault 里。</p>
+    <div class="act" id="install"><a class="btn" href="#install" id="dl">在 Obsidian 中安装</a><a class="link" href="#github">GitHub</a><span class="fine">免费 · MIT 开源</span></div>
+    <ul class="feats">
+      <li><b>照片月历</b>笔记里的图片自动成为日期封面</li>
+      <li><b>日记时间线</b>全文搜索，按心情、标签、位置筛选</li>
+      <li><b>心情与天气</b>五级心情、天气快照和去年今日</li>
+    </ul>
+  </section>
+
+  <aside class="tl" aria-hidden="true">
+    <div class="tl-head"><b>日记时间线</b><span>21</span></div>
+    <div class="dl-search">搜索日记</div>
+    <div id="trend"></div>
+    <div id="cards"></div>
+  </aside>
+  <div class="panel big" id="panel" aria-label="Dayline 月历"></div>
+</div>
+<script src="../data.js"></script>
+<script src="ui.js"></script>
+<script>
+  document.getElementById('brand').insertAdjacentHTML('afterbegin', UI.logo());
+  document.getElementById('dl').insertAdjacentHTML('afterbegin', UI.download);
+  document.getElementById('panel').innerHTML = UI.mnav() + UI.weather() + UI.weekdays() + UI.grid(18);
+  document.getElementById('trend').innerHTML = UI.trend(242);
+  document.getElementById('cards').innerHTML = UI.cards([21, 20, 19, 18, 17]);
+</script>
+</body>
+</html>

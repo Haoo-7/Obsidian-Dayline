@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>02 硫酸纸</title>
+<style>
+  :root {
+    --bg: #DCE3E4; --ink: #1C2A33; --muted: #4E5D66; --paper: #FFFFFF;
+    --teal: #1F6F80; --mono: Menlo, "SF Mono", ui-monospace, monospace;
+    --serif: "Songti SC", "STSong", serif; --hand: "Kaiti SC", "STKaiti", serif;
+    --sans: "PingFang SC", -apple-system, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: var(--bg); color: var(--ink); font-family: var(--sans); overflow: hidden; -webkit-font-smoothing: antialiased; }
+  .page { position: relative; width: 1440px; height: 900px; margin: 0 auto; overflow: hidden; }
+
+  header { position: absolute; top: 30px; left: 80px; right: 80px; display: flex; align-items: center; justify-content: space-between; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 17px; color: var(--ink); text-decoration: none; }
+  .brand svg { width: 34px; height: 22px; }
+  nav { display: flex; gap: 32px; font-size: 14px; }
+  nav a { color: var(--muted); text-decoration: none; }
+
+  .head { position: absolute; top: 96px; left: 0; right: 0; text-align: center; }
+  h1 { font-family: var(--serif); font-weight: 600; font-size: 56px; line-height: 1.2; letter-spacing: .04em; }
+  .lede { margin-top: 14px; font-size: 16px; line-height: 1.7; color: var(--muted); }
+
+  /* 原稿 */
+  .sheet { position: absolute; left: 430px; top: 268px; width: 560px; height: 410px; background: var(--paper); transform: rotate(-1.6deg); box-shadow: 0 1px 2px rgba(28,42,51,.12), 0 18px 40px -22px rgba(28,42,51,.35); padding: 34px 40px; font-family: var(--mono); font-size: 14px; line-height: 1.85; color: var(--ink); white-space: pre; }
+  .sheet .k { color: #7A8790; }
+  .sheet .h { font-weight: 700; }
+
+  /* 硫酸纸 */
+  .vellum { position: absolute; left: 514px; top: 294px; width: 624px; height: 424px; transform: rotate(1.2deg); }
+  .film { position: absolute; inset: 0; background: linear-gradient(165deg, rgba(250,252,252,.5), rgba(238,244,245,.44)); backdrop-filter: saturate(.7); -webkit-backdrop-filter: saturate(.7); border: 1px solid rgba(255,255,255,.8); box-shadow: 0 26px 50px -30px rgba(28,42,51,.4); clip-path: polygon(0 0, 100% 0, 100% calc(100% - 64px), calc(100% - 64px) 100%, 0 100%); }
+  .curl { position: absolute; right: 0; bottom: 0; width: 64px; height: 64px; background: linear-gradient(315deg, rgba(220,227,228,0) 50%, rgba(255,255,255,.96) 50%, rgba(233,239,240,.95) 100%); filter: drop-shadow(-4px -3px 5px rgba(28,42,51,.18)); }
+  .ink { position: absolute; inset: 0; pointer-events: none; }
+  .ink svg { position: absolute; left: 0; top: 0; width: 1440px; height: 900px; overflow: visible; }
+  .label { position: absolute; font-family: var(--hand); font-size: 19px; line-height: 1; white-space: nowrap; }
+  .photo { position: absolute; left: 920px; top: 452px; width: 168px; height: 114px; background: url(assets/06-water.jpg) center/cover; transform: rotate(2.4deg); outline: 1.5px solid var(--teal); outline-offset: 5px; box-shadow: 0 10px 20px -12px rgba(28,42,51,.5); }
+
+  .week { position: absolute; left: 914px; top: 600px; display: flex; gap: 4px; transform: rotate(2.4deg); }
+  .week span { position: relative; width: 26px; height: 26px; border-radius: 3px; background: #c9d2d4 center/cover; }
+  .week span.on { outline: 1.5px solid var(--teal); outline-offset: 2px; }
+  .week span i { position: absolute; left: 3px; bottom: 3px; width: 6px; height: 6px; border-radius: 50%; border: 1px solid #fff; }
+
+  .act { position: absolute; top: 760px; left: 0; right: 0; display: flex; justify-content: center; align-items: center; gap: 28px; }
+  .btn { display: inline-flex; align-items: center; height: 50px; padding: 0 26px; border-radius: 2px; background: var(--ink); color: #fff; font-size: 16px; font-weight: 600; text-decoration: none; letter-spacing: .02em; }
+  .link { color: var(--ink); font-size: 15px; text-decoration: none; border-bottom: 1px solid rgba(28,42,51,.3); padding-bottom: 2px; }
+  .note { position: absolute; top: 826px; left: 0; right: 0; text-align: center; font-size: 13px; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <a class="brand" href="#">
+      <svg viewBox="0 0 354 225" aria-hidden="true"><g transform="translate(-94 -159)"><path fill="#1C2A33" d="M270 177 C284 166 300 160 319 160 H375 C415 160 447 190 447 231 V311 C447 352 416 383 376 383 H319 C300 383 284 377 270 367 C277 361 283 355 289 348 C298 355 308 358 320 358 H375 C402 358 423 338 423 311 V232 C423 205 402 185 375 185 H320 C308 185 298 188 289 195 C283 188 277 182 270 177 Z"/><path fill="#1C2A33" fill-rule="evenodd" d="M204 160 C264 160 315 211 315 272 C315 333 265 383 204 383 C144 383 94 333 94 273 C94 213 144 160 204 160 Z M204 185 C158 185 119 225 119 273 C119 320 157 359 204 359 C220 359 235 355 247 348 C230 326 220 301 220 273 C220 244 230 218 247 196 C234 189 220 185 204 185 Z"/><path fill="#F1694D" d="M267 212 C282 229 291 250 291 273 C291 296 282 318 267 334 C252 317 244 296 244 273 C244 250 252 228 267 212 Z"/></g></svg>
+      Dayline
+    </a>
+    <nav><a href="#features">功能</a><a href="#install">安装</a><a href="#github">GitHub</a></nav>
+  </header>
+
+  <div class="head">
+    <h1>盖一层，不改一个字。</h1>
+    <p class="lede">Dayline 是一个 Obsidian 插件：在你的每日笔记上叠出一面照片月历，标出心情和天气。Markdown 正文原样不动。</p>
+  </div>
+
+  <div class="sheet" aria-hidden="true"><span class="k">---</span>
+<span class="k">date:</span> 2026-07-18
+<span class="k">mood:</span> 2
+<span class="k">location:</span> Northstar Cove
+<span class="k">---</span>
+<span class="h"># 低潮线</span>
+
+小小的节奏还在。一张照片、一段很短的录音，
+让这一周安静的部分被看见。
+
+![[Media/dayline-06-water.png]]</div>
+
+  <div class="vellum" aria-hidden="true"><div class="film"></div><div class="curl"></div></div>
+  <div class="ink" aria-hidden="true">
+    <div class="photo"></div>
+    <svg viewBox="0 0 1440 900">
+      <!-- 心情：圈住 mood 的值 -->
+      <path d="M508 364 C 512 356, 536 354, 542 364 C 548 376, 530 384, 516 381 C 502 378, 500 368, 512 361" fill="none" stroke="#ee6a54" stroke-width="2.2" stroke-linecap="round"/>
+      <path d="M548 370 C 562 372, 574 370, 586 366" fill="none" stroke="#ee6a54" stroke-width="1.6" stroke-linecap="round"/>
+      <circle cx="598" cy="365" r="6.5" fill="#ee6a54"/>
+      <!-- 天气：日期后面画一格 -->
+      <path d="M608 338 C 640 318, 680 312, 706 318" fill="none" stroke="#1F6F80" stroke-width="1.6" stroke-linecap="round"/>
+      <rect x="712" y="292" width="56" height="56" rx="6" fill="rgba(255,255,255,.5)" stroke="#1F6F80" stroke-width="1.8"/>
+      <text x="721" y="314" font-family="PingFang SC" font-size="14" font-weight="600" fill="#1F6F80">18</text>
+      <g transform="translate(742 320) scale(.9)" fill="none" stroke="#1F6F80" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M16 14v4"/><path d="M8 14v4"/><path d="M12 16v4"/></g>
+      <!-- 封面：图片那一行接到照片 -->
+      <path d="M744 574 C 800 580, 870 566, 906 530" fill="none" stroke="#1F6F80" stroke-width="1.6" stroke-linecap="round"/>
+      <path d="M895 532 L907 529 L906 541" fill="none" stroke="#1F6F80" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <span class="label" style="left:612px;top:356px;color:#C24A36">心情 +2</span>
+    <span class="label" style="left:782px;top:312px;color:#1F6F80">7 月 18 日 · 雨</span>
+    <div class="week" id="week"></div>
+    <span class="label" style="left:760px;top:612px;color:#1F6F80">月历里的这一周</span>
+  </div>
+
+  <div class="act" id="install">
+    <a class="btn" href="#install">在 Obsidian 中安装</a>
+    <a class="link" href="#github">在 GitHub 查看源码</a>
+  </div>
+  <p class="note">免费 · MIT 开源 · 桌面与手机 · 卸载后笔记照旧</p>
+</div>
+<script src="data.js"></script>
+<script>
+  const D = window.DAYLINE;
+  document.getElementById('week').innerHTML = D.days.filter(x => x.d >= 15 && x.d <= 21)
+    .map(x => `<span class="${x.d === 18 ? 'on' : ''}" style="background-image:url(assets/${x.cover}.jpg)"><i style="background:${D.moods[x.mood]}"></i></span>`).join('');
+</script>
+</body>
+</html>

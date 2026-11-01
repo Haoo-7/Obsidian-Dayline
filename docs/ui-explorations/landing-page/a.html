@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>01 文件名</title>
+<style>
+  :root {
+    --bg: #F6F6F3; --ink: #0D1318; --muted: #5F656C; --faint: #9A9FA4;
+    --row: #E8E9E5; --line: #DCDDD8; --coral: #F1694D;
+    --mono: "SF Mono", Menlo, ui-monospace, monospace;
+    --sans: "PingFang SC", -apple-system, "Helvetica Neue", sans-serif;
+    --cell: 112px; --gap: 10px;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { height: 100%; }
+  body { background: var(--bg); color: var(--ink); font-family: var(--sans); overflow: hidden; -webkit-font-smoothing: antialiased; }
+  .page { position: relative; width: 1440px; height: 900px; margin: 0 auto; overflow: hidden; }
+
+  header { position: absolute; top: 30px; left: 80px; right: 80px; display: flex; align-items: center; justify-content: space-between; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 17px; letter-spacing: .01em; color: var(--ink); text-decoration: none; }
+  .brand svg { width: 34px; height: 22px; }
+  nav { display: flex; gap: 32px; font-size: 14px; }
+  nav a { color: var(--muted); text-decoration: none; }
+
+  h1 { position: absolute; top: 132px; left: 76px; font-size: 68px; line-height: 1.1; font-weight: 650; letter-spacing: -.012em; white-space: nowrap; }
+  h1 .file { font-family: var(--mono); font-weight: 500; font-size: .86em; letter-spacing: -.03em; }
+
+  .lede { position: absolute; top: 236px; left: 80px; width: 380px; font-size: 16px; line-height: 1.7; color: var(--muted); }
+  .lede b { color: var(--ink); font-weight: 600; }
+  .act { position: absolute; top: 240px; left: 516px; display: flex; align-items: center; gap: 24px; }
+  .btn { display: inline-flex; align-items: center; gap: 10px; height: 50px; padding: 0 24px; border-radius: 8px; background: var(--coral); color: var(--ink); font-size: 16px; font-weight: 600; text-decoration: none; }
+  .btn svg { width: 16px; height: 16px; }
+  .link { color: var(--ink); font-size: 15px; text-decoration: none; border-bottom: 1px solid var(--line); padding-bottom: 2px; }
+  .note { font-size: 13px; color: var(--muted); }
+
+  /* 文件列表：Obsidian 文件浏览器里的样子 */
+  .files { position: absolute; top: 350px; left: 80px; width: 250px; font-size: 13px; }
+  .files .dir { display: flex; align-items: center; gap: 6px; height: 28px; color: var(--muted); font-size: 13px; }
+  .files .dir svg { width: 12px; height: 12px; }
+  .files ol { list-style: none; padding: 0 0 0 18px; border-left: 1px solid var(--line); margin-left: 5px; }
+  .files li { height: 24px; line-height: 24px; padding: 0 8px; font-family: var(--mono); color: var(--ink); border-radius: 4px; white-space: nowrap; }
+  .files li i { font-style: normal; color: var(--faint); }
+  .files li.on { background: var(--row); }
+
+  .wire { position: absolute; left: 334px; height: 1px; border-top: 1px dashed #C4C6C1; }
+
+  /* 月历 */
+  .cal { position: absolute; top: 350px; left: 516px; width: calc(var(--cell) * 7 + var(--gap) * 6); }
+  .cal .month { display: flex; justify-content: space-between; align-items: baseline; height: 28px; }
+  .cal .month strong { font-size: 15px; font-weight: 600; }
+  .cal .month span { font-size: 12px; color: var(--muted); font-family: var(--mono); }
+  .wk, .grid { display: grid; grid-template-columns: repeat(7, var(--cell)); gap: var(--gap); }
+  .wk { height: 24px; font-size: 12px; color: var(--muted); text-align: center; }
+  .grid { grid-auto-rows: var(--cell); perspective: 900px; }
+  .c { position: relative; border-radius: 8px; }
+  .c.blank { visibility: hidden; }
+  .c.empty { border: 1px solid var(--line); }
+  .c .n { position: absolute; top: 7px; left: 9px; font-size: 12px; font-weight: 600; color: #6B7075; }
+  .c.photo { overflow: hidden; background: #222; }
+  .c.photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .c.photo .n { color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,.45); }
+  .c .wx { position: absolute; top: 8px; right: 8px; width: 14px; height: 14px; color: #fff; filter: drop-shadow(0 1px 2px rgba(0,0,0,.45)); }
+  .c .md { position: absolute; left: 9px; bottom: 9px; width: 9px; height: 9px; border-radius: 50%; border: 2px solid rgba(255,255,255,.85); box-shadow: 0 1px 3px rgba(0,0,0,.3); }
+
+  /* 正在翻过来的格子 */
+  .flip { position: relative; transform-style: preserve-3d; }
+  .flip .face { position: absolute; inset: 0; border-radius: 8px; backface-visibility: hidden; overflow: hidden; }
+  .flip .front { background: #fff; border: 1px solid var(--line); display: flex; flex-direction: column; justify-content: flex-end; padding: 10px; font-family: var(--mono); font-size: 12px; line-height: 1.35; color: var(--ink); }
+  .flip .front i { font-style: normal; color: var(--faint); }
+  .flip .back { transform: rotateY(180deg); background: #222; }
+  .flip .back img { width: 100%; height: 100%; object-fit: cover; }
+  .flip.s1 { transform: translateZ(14px) rotateY(-34deg); }
+  .flip.s1 .front { box-shadow: 10px 12px 22px -14px rgba(13,19,24,.4); }
+  .flip.s2 { transform: translateZ(22px) rotateY(-148deg); }
+  .flip.s2 .back { box-shadow: -10px 12px 22px -14px rgba(13,19,24,.5); }
+  .flip.s0 .front { box-shadow: 0 1px 0 var(--line); }
+  .lift { transform: translateY(-5px); box-shadow: 0 14px 24px -12px rgba(13,19,24,.45); }
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <a class="brand" href="#">
+      <svg viewBox="0 0 354 225" aria-hidden="true"><g transform="translate(-94 -159)"><path fill="#0D1318" d="M270 177 C284 166 300 160 319 160 H375 C415 160 447 190 447 231 V311 C447 352 416 383 376 383 H319 C300 383 284 377 270 367 C277 361 283 355 289 348 C298 355 308 358 320 358 H375 C402 358 423 338 423 311 V232 C423 205 402 185 375 185 H320 C308 185 298 188 289 195 C283 188 277 182 270 177 Z"/><path fill="#0D1318" fill-rule="evenodd" d="M204 160 C264 160 315 211 315 272 C315 333 265 383 204 383 C144 383 94 333 94 273 C94 213 144 160 204 160 Z M204 185 C158 185 119 225 119 273 C119 320 157 359 204 359 C220 359 235 355 247 348 C230 326 220 301 220 273 C220 244 230 218 247 196 C234 189 220 185 204 185 Z"/><path fill="#F1694D" d="M267 212 C282 229 291 250 291 273 C291 296 282 318 267 334 C252 317 244 296 244 273 C244 250 252 228 267 212 Z"/></g></svg>
+      Dayline
+    </a>
+    <nav><a href="#features">功能</a><a href="#install">安装</a><a href="#github">GitHub</a></nav>
+  </header>
+
+  <h1>你写过的每一天，不该只是一串<span class="file">.md</span></h1>
+
+  <p class="lede"><b>Dayline</b> 是一个 Obsidian 插件。它把每日笔记文件夹变成一面月历：照片当封面，标出心情和天气。笔记原样留在你的 vault 里。</p>
+
+  <div class="act" id="install">
+    <a class="btn" href="#install">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2.5v8M4.5 7 8 10.5 11.5 7M3 13.5h10"/></svg>
+      在 Obsidian 中安装
+    </a>
+    <a class="link" href="#github">在 GitHub 查看源码</a>
+    <span class="note">免费 · MIT 开源 · 桌面与手机</span>
+  </div>
+
+  <div class="files" aria-hidden="true">
+    <div class="dir"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3 4.5 6 7.5 9 4.5"/></svg>Daily</div>
+    <ol id="files"></ol>
+  </div>
+  <div id="wires"></div>
+
+  <div class="cal" aria-label="2026 年 7 月">
+    <div class="month"><strong>2026年7月</strong><span>Dayline Demo/Daily</span></div>
+    <div class="wk"><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span></div>
+    <div class="grid" id="grid"></div>
+  </div>
+</div>
+
+<script src="data.js"></script>
+<script>
+  const D = window.DAYLINE;
+  const pad = n => String(n).padStart(2, '0');
+  const byDay = Object.fromEntries(D.days.map(x => [x.d, x]));
+
+  // 文件列表
+  const files = document.getElementById('files');
+  files.innerHTML = D.days.map(x => `<li class="${x.d === 20 || x.d === 21 ? 'on' : ''}">2026-07-${pad(x.d)}<i>.md</i></li>`).join('');
+
+  // 月历：1–18 已经翻成照片，19、20 正在翻，21 还是文件名，22 以后没写
+  const stage = { 19: 's2', 20: 's1', 21: 's0' };
+  const cells = [];
+  for (let i = 0; i < D.leadingBlanks; i++) cells.push('<div class="c blank"></div>');
+  for (let d = 1; d <= D.daysInMonth; d++) {
+    const x = byDay[d];
+    const img = x && `<img src="assets/${x.cover}.jpg" alt="">`;
+    if (x && stage[d]) {
+      cells.push(`<div class="c flip ${stage[d]}">
+        <div class="face front">2026-07-${pad(d)}<i>.md</i></div>
+        <div class="face back">${img}</div></div>`);
+    } else if (x) {
+      cells.push(`<div class="c photo${d === 18 ? ' lift' : ''}">${img}<span class="n">${d}</span>${D.wxSvg(x.wx, 'wx')}<span class="md" style="background:${D.moods[x.mood]}"></span></div>`);
+    } else {
+      cells.push(`<div class="c empty"><span class="n">${d}</span></div>`);
+    }
+  }
+  document.getElementById('grid').innerHTML = cells.join('');
+
+  // 两条虚线把文件行接到它正在翻的格子
+  const wires = document.getElementById('wires');
+  requestAnimationFrame(() => {
+    const rows = files.querySelectorAll('li');
+    const grid = document.querySelectorAll('#grid .c');
+    const page = document.querySelector('.page').getBoundingClientRect();
+    [20, 21].forEach(d => {
+      const r = rows[d - 1].getBoundingClientRect();
+      const c = grid[D.leadingBlanks + d - 1].getBoundingClientRect();
+      const y = r.top + r.height / 2 - page.top;
+      const el = document.createElement('div');
+      el.className = 'wire';
+      el.style.top = y + 'px';
+      el.style.width = (c.left - page.left - 334 - 6) + 'px';
+      document.querySelector('.page').appendChild(el);
+    });
+  });
+</script>
+</body>
+</html>
