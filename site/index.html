@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dayline · Obsidian 可视化日记插件</title>
+<meta name="description" content="Dayline 是一个免费开源的 Obsidian 插件，把每日笔记文件夹变成照片月历和可搜索的日记时间线，标出心情和天气。笔记原样留在你的 vault 里。">
+<link rel="icon" href="img/mark.svg" type="image/svg+xml">
+<link rel="stylesheet" href="vendor/lenis.css">
+<link rel="stylesheet" href="styles.css">
+<script>document.documentElement.classList.add('js');</script>
+</head>
+<body>
+<a class="skip" href="#main">跳到正文</a>
+
+<header class="nav" id="nav">
+  <div class="wrap nav-in">
+    <a class="brand" href="#top" aria-label="Dayline 首页">
+      <svg viewBox="0 0 354 225" aria-hidden="true"><g transform="translate(-94 -159)"><path fill="currentColor" d="M270 177 C284 166 300 160 319 160 H375 C415 160 447 190 447 231 V311 C447 352 416 383 376 383 H319 C300 383 284 377 270 367 C277 361 283 355 289 348 C298 355 308 358 320 358 H375 C402 358 423 338 423 311 V232 C423 205 402 185 375 185 H320 C308 185 298 188 289 195 C283 188 277 182 270 177 Z"/><path fill="currentColor" fill-rule="evenodd" d="M204 160 C264 160 315 211 315 272 C315 333 265 383 204 383 C144 383 94 333 94 273 C94 213 144 160 204 160 Z M204 185 C158 185 119 225 119 273 C119 320 157 359 204 359 C220 359 235 355 247 348 C230 326 220 301 220 273 C220 244 230 218 247 196 C234 189 220 185 204 185 Z"/><path fill="#F1694D" d="M267 212 C282 229 291 250 291 273 C291 296 282 318 267 334 C252 317 244 296 244 273 C244 250 252 228 267 212 Z"/></g></svg>
+      Dayline
+    </a>
+    <nav class="nav-links" aria-label="页面">
+      <a href="#notes">功能</a><a href="#privacy">数据</a><a href="https://github.com/Haoo-7/Obsidian-Dayline">GitHub</a>
+    </nav>
+    <a class="nav-cta" href="#install">安装</a>
+  </div>
+</header>
+
+<main id="main">
+  <!-- 首屏 -->
+  <section class="hero wrap" id="top">
+    <div class="hero-copy">
+      <h1 class="h-hero"><span class="ln"><span>你写过的每一天，</span></span><span class="ln"><span>不该只是一串<span class="mdx">.md</span></span></span></h1>
+      <p class="lede"><b>Dayline</b> 是一个 Obsidian 插件。它把每日笔记文件夹变成一面照片月历，标出心情和天气。笔记原样留在你的 vault 里。</p>
+      <div class="act">
+        <a class="btn" href="obsidian://show-plugin?id=dayline-journal" id="hero-cta">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2.5v8M4.5 7 8 10.5 11.5 7M3 13.5h10"/></svg>
+          在 Obsidian 中安装
+        </a>
+        <a class="link" href="#install">其他安装方式</a>
+      </div>
+      <p class="fine">免费 · MIT 开源 · 桌面端与手机端 · 需要 Obsidian 1.5.0+</p>
+      <ul class="feats">
+        <li><b>照片月历</b><span>笔记里的图片自动成为日期封面</span></li>
+        <li><b>日记时间线</b><span>全文搜索，按心情、标签、位置筛选</span></li>
+        <li><b>心情与天气</b><span>每天一个心情色点，附当天的天气</span></li>
+      </ul>
+    </div>
+    <div class="hero-vis" aria-label="Dayline 在 Obsidian 里的样子">
+      <figure class="shot hero-tl"><img src="img/timeline-2026-07.png" width="351" height="849" alt="日记时间线：每天的日期、心情色点、标题、摘要和封面图"></figure>
+      <figure class="shot hero-cal"><img src="img/calendar-2026-07.png" width="444" height="480" alt="照片月历：2026 年 7 月，每天以当天的照片为封面，右上角是天气，左下角是心情色点"></figure>
+    </div>
+  </section>
+
+  <!-- 1 · 一篇笔记就是一格 -->
+  <section class="sec notes wrap" id="notes">
+    <div class="sec-head">
+      <h2 class="h2">一篇笔记，就是一格日子</h2>
+      <p class="sub">Dayline 读取你指定的每日笔记文件夹，认出日期，把每篇 Markdown 排进月历。你不用另外整理什么。</p>
+    </div>
+    <div class="notes-stage" id="notes-stage">
+      <pre class="md-src" aria-label="2026-07-18.md 原文节选"><span class="l"><i>Dayline Demo/Daily/2026-07-18.md</i></span><span class="l"><i>---</i></span><span class="l"><i>title:</i> Low Tide / 低潮线</span><span class="l"><i>date:</i> 2026-07-18</span><span class="l"><i>location:</i> Northstar Cove</span><span class="l"><i>---</i></span><span class="l"><b># Low Tide / 低潮线</b></span><span class="l"> </span><span class="l">The small rhythm is still there.</span><span class="l">An image and a tiny audio marker</span><span class="l">make the quiet part of the week visible.</span><span class="l"> </span><span class="l"><span class="embed" id="embed">![[dayline-06-water.png]]</span></span></pre>
+      <figure class="cell" id="cell"><img src="img/cell-18.png" width="171" height="171" alt="月历里 7 月 18 日这一格：封面是笔记里的海浪照片，右上角是雨天图标，左下角是珊瑚色的心情点"></figure>
+      <ol class="callouts">
+        <li data-for="badge"><b>天气</b>当天的天气，来自 Open-Meteo</li>
+        <li data-for="cover"><b>封面</b>笔记里嵌入的那张图</li>
+        <li data-for="dot"><b>心情</b>这一天记下的心情颜色</li>
+      </ol>
+      <svg class="leaders" id="leaders" aria-hidden="true"></svg>
+    </div>
+    <p class="notes-foot">点一下格子就打开那天的笔记；还没写的日子，确认一次就按 Daily Notes 模板新建。</p>
+  </section>
+
+  <!-- 2 · 找回过去 -->
+  <section class="sec search wrap" id="search">
+    <figure class="shot search-shot"><img src="img/timeline-search.png" width="351" height="640" alt="日记时间线里搜索“低潮”，展开筛选面板，结果只剩 7 月 18 日一条"></figure>
+    <div class="search-copy">
+      <h2 class="h2">记得一个词，<br>就能翻回那天</h2>
+      <p class="sub">日记时间线全文搜索标题和正文。记不清日子时，再按日期、心情、来源、位置、标签、媒体或收藏把范围缩小。</p>
+      <p class="search-eg"><span class="q">低潮</span><span class="arrow" aria-hidden="true">→</span><span>7 月 18 日 · Low Tide / 低潮线</span></p>
+    </div>
+  </section>
+
+  <!-- 3 · 心情（滑动驱动） -->
+  <section class="mood" id="mood">
+    <div class="mood-pin" id="mood-pin">
+      <div class="wrap mood-in">
+        <div class="mood-copy">
+          <h2 class="h2">一格一个颜色，<br>连起来就是你这个月</h2>
+          <ol class="steps" id="steps">
+            <li class="on"><span>01</span>每一格先是那天的照片。</li>
+            <li><span>02</span>照片退下去，留下那天记下的心情。</li>
+            <li><span>03</span>21 天的颜色连起来，就是这个月的起伏。</li>
+          </ol>
+          <a class="skip-anim" href="#mood-detail">跳过这段动画</a>
+        </div>
+        <div class="mood-stage" id="mood-stage">
+          <img class="mood-cal" src="img/calendar-2026-07.png" width="444" height="480" alt="2026 年 7 月的照片月历">
+          <div class="mood-wash"></div>
+          <svg class="mood-chart" id="mood-chart" viewBox="0 0 444 480" preserveAspectRatio="none" aria-hidden="true"></svg>
+          <div class="mood-dots" id="mood-dots" aria-hidden="true"></div>
+          <div class="mood-scale" id="mood-scale" aria-hidden="true"></div>
+          <p class="mood-title" id="mood-title" aria-hidden="true">7 月 1–21 日的心情</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec mood-detail wrap" id="mood-detail">
+    <div class="md-head">
+      <h2 class="h2">在 Dayline 里拖一下<span class="nobr">滑块</span>，<br>就记下那天的感受</h2>
+      <p class="sub">五级心情，下一步还能加感受标签和一句备注。月历格子上的色点就来自这里。</p>
+    </div>
+    <figure class="shot picker"><img src="img/mood-picker.png" width="613" height="605" alt="Dayline 的记录心情窗口：拖动滑块从很低到很好，中间的图形跟着变色"></figure>
+  </section>
+
+  <!-- 4 · 回忆与媒体 -->
+  <section class="memory" id="memory">
+    <div class="wrap memory-in">
+      <div class="memory-copy">
+        <h2 class="h2">去年的今天，<br>也还在</h2>
+        <p class="sub">打开“去年今日”，往年同一天写过的日记会连同照片一起回来。</p>
+      </div>
+      <figure class="shot otd"><img src="img/on-this-day.jpg" width="560" height="490" alt="去年今日：2026 年 7 月 18 日这天，显示一年前 2025 年同一天的日记和照片"></figure>
+    </div>
+  </section>
+
+  <!-- 5 · 数据与隐私 -->
+  <section class="sec privacy wrap" id="privacy">
+    <div class="sec-head">
+      <h2 class="h2">装上它，笔记还是那个 <span class="mdx">.md</span></h2>
+      <p class="sub">Dayline 只读你选的目录。正文不搬家、不改写，换个工具也照样能读。</p>
+    </div>
+    <div class="privacy-grid">
+      <pre class="tree" aria-label="vault 文件结构"><span class="t">your-vault/</span><span class="t">├─ Calendar/</span><span class="t">│  ├─ Daily/</span><span class="t">│  │  ├─ 2026-07-17.md</span><span class="t">│  │  ├─ 2026-07-18.md</span><span class="t">│  │  └─ 2026-07-19.md</span><span class="t new">│  └─ journal-metadata.json<em>心情记录，Dayline 新增</em></span><span class="t">└─ .obsidian/plugins/dayline-journal/</span><span class="t">   └─ data.json<em>设置与天气缓存</em></span></pre>
+      <dl class="defaults">
+        <div><dt>你的笔记</dt><dd>不移动，不改写，正文仍是普通 Markdown</dd></div>
+        <div><dt>心情写回 frontmatter</dt><dd>默认关闭，打开后才写入 <code>mood</code></dd></div>
+        <div><dt>天气</dt><dd>可选，使用 Open-Meteo，不需要 API Key</dd></div>
+        <div><dt>照片 GPS 地名</dt><dd>默认关闭，打开前不会发送任何坐标</dd></div>
+        <div><dt>导出与备份</dt><dd>心情记录可导出 CSV 或 JSON，也能备份和恢复</dd></div>
+        <div><dt>账号与订阅</dt><dd>没有。免费，MIT 开源</dd></div>
+      </dl>
+    </div>
+  </section>
+
+  <!-- 6 · 安装 -->
+  <section class="sec install wrap" id="install">
+    <div class="install-copy">
+      <h2 class="h2">现在就装</h2>
+      <p class="sub">免费，MIT 开源。需要 Obsidian 1.5.0 或更新的版本。</p>
+    </div>
+    <div class="panel" id="panel">
+      <div class="tabs" role="tablist" aria-label="安装方式">
+        <span class="tab-ind" id="tab-ind" aria-hidden="true"></span>
+        <button role="tab" id="t-ob" aria-controls="p-ob" aria-selected="true">社区插件</button>
+        <button role="tab" id="t-brat" aria-controls="p-brat" aria-selected="false" tabindex="-1">BRAT</button>
+        <button role="tab" id="t-zip" aria-controls="p-zip" aria-selected="false" tabindex="-1">手动安装</button>
+      </div>
+      <div class="panes" id="panes">
+        <div class="pane" role="tabpanel" id="p-ob" aria-labelledby="t-ob">
+          <a class="btn" href="obsidian://show-plugin?id=dayline-journal">在 Obsidian 中打开插件页</a>
+          <p class="or">或者在 Obsidian 里手动找：</p>
+          <ol>
+            <li><span>打开 <b>设置 → 第三方插件</b>，点“浏览”</span></li>
+            <li><span>搜索 <button class="val" data-copy="Dayline Journal"><code>Dayline Journal</code><span class="cp">复制</span></button>，认准作者 <b>Haoo</b>（另有一个叫 Dayline 的插件，不是同一个），安装并启用</span></li>
+            <li><span>运行命令 <button class="val" data-copy="Open Dayline"><code>Open Dayline</code><span class="cp">复制</span></button></span></li>
+          </ol>
+        </div>
+        <div class="pane" role="tabpanel" id="p-brat" aria-labelledby="t-brat" hidden>
+          <a class="btn" href="obsidian://show-plugin?id=obsidian42-brat">在 Obsidian 中打开 BRAT</a>
+          <p class="or">装好 BRAT 以后：</p>
+          <ol>
+                        <li><span>在 BRAT 设置里添加 Beta 插件：<button class="val" data-copy="Haoo-7/Obsidian-Dayline"><code>Haoo-7/Obsidian-Dayline</code><span class="cp">复制</span></button></span></li>
+            <li><span>启用 Dayline Journal，运行 <button class="val" data-copy="Open Dayline"><code>Open Dayline</code><span class="cp">复制</span></button></span></li>
+          </ol>
+        </div>
+        <div class="pane" role="tabpanel" id="p-zip" aria-labelledby="t-zip" hidden>
+          <a class="btn" href="https://github.com/Haoo-7/Obsidian-Dayline/releases/latest">下载最新版 dayline.zip</a>
+          <p class="or">下载以后：</p>
+          <ol>
+            <li><span>解压到 vault 里的 <button class="val" data-copy=".obsidian/plugins/dayline-journal/"><code>.obsidian/<wbr>plugins/<wbr>dayline-journal/</code><span class="cp">复制</span></button></span></li>
+            <li><span>重新加载 Obsidian，启用后运行 <button class="val" data-copy="Open Dayline"><code>Open Dayline</code><span class="cp">复制</span></button></span></li>
+          </ol>
+        </div>
+      </div>
+      <p class="panel-note">从旧版 Dayline 或 Calendar Sidebar 1.x <span class="nobr">升级时</span>，设置会自动迁移，不会改写笔记和心情记录。</p>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <div class="wrap">
+    <div class="foot-main">
+      <div class="foot-brand">
+        <svg class="foot-logo" viewBox="0 0 354 225" aria-hidden="true"><g transform="translate(-94 -159)"><path fill="currentColor" d="M270 177 C284 166 300 160 319 160 H375 C415 160 447 190 447 231 V311 C447 352 416 383 376 383 H319 C300 383 284 377 270 367 C277 361 283 355 289 348 C298 355 308 358 320 358 H375 C402 358 423 338 423 311 V232 C423 205 402 185 375 185 H320 C308 185 298 188 289 195 C283 188 277 182 270 177 Z"/><path fill="currentColor" fill-rule="evenodd" d="M204 160 C264 160 315 211 315 272 C315 333 265 383 204 383 C144 383 94 333 94 273 C94 213 144 160 204 160 Z M204 185 C158 185 119 225 119 273 C119 320 157 359 204 359 C220 359 235 355 247 348 C230 326 220 301 220 273 C220 244 230 218 247 196 C234 189 220 185 204 185 Z"/><path fill="#F1694D" d="M267 212 C282 229 291 250 291 273 C291 296 282 318 267 334 C252 317 244 296 244 273 C244 250 252 228 267 212 Z"/></g></svg>
+        <p class="foot-line">把每日笔记，<br>变成看得见的日子。</p>
+      </div>
+      <a class="btn foot-cta" href="obsidian://show-plugin?id=dayline-journal">在 Obsidian 中安装</a>
+    </div>
+    <div class="foot-row">
+      <p>Dayline Journal · MIT 许可 · 作者 Haoo · 页面里的日记是虚构示例，照片来自 Unsplash</p>
+      <nav aria-label="页脚"><a href="https://github.com/Haoo-7/Obsidian-Dayline">GitHub</a><a href="https://github.com/Haoo-7/Obsidian-Dayline/releases">Releases</a><a href="https://github.com/Haoo-7/Obsidian-Dayline/issues">反馈问题</a></nav>
+    </div>
+  </div>
+</footer>
+<div class="sr-only" id="toast" role="status" aria-live="polite"></div>
+<script src="vendor/gsap.min.js"></script>
+<script src="vendor/ScrollTrigger.min.js"></script>
+<script src="vendor/lenis.min.js"></script>
+<script src="main.js"></script>
+</body>
+</html>

@@ -21,3 +21,10 @@ Calendar date-cell weather badges use a small subset of [Lucide](https://github.
 Copyright (c) for portions of Lucide are held by Cole Bemis 2013-2022 as part of Feather (MIT). All other copyright (c) for Lucide are held by Lucide Contributors 2022.
 
 The SVGs are placed at `icons/badge-*.svg`. Each is inlined into a date cell as `<svg>` markup so it inherits `currentColor`; only the root `stroke-width` is tuned (2.6 at 14px, 3 at 12px) for small-size legibility. Path geometry is otherwise unmodified. This notice applies only to those badge SVGs; weather-card illustrations remain Meteocons.
+
+## Website libraries (`site/` only)
+
+The project website in `site/` ships two motion libraries as pinned, unmodified files in `site/vendor/`. They are not part of the plugin or the release archive.
+
+- [GSAP](https://gsap.com) 3.15.0 with ScrollTrigger (`gsap.min.js`, `ScrollTrigger.min.js`), under the [GSAP Standard "No Charge" License](https://gsap.com/standard-license). Copyright GreenSock. The license header is kept in each file.
+- [Lenis](https://github.com/darkroomengineering/lenis) 1.3.27 (`lenis.min.js`, `lenis.css`), under the MIT License. Copyright darkroom.engineering. See `site/vendor/LENIS-LICENSE.txt`.
