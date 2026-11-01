@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>L3 功能拼贴</title>
+<link rel="stylesheet" href="ui.css">
+<style>
+  header { position: absolute; top: 30px; left: 80px; right: 80px; display: flex; align-items: center; justify-content: space-between; }
+  .bento { position: absolute; left: 80px; top: 124px; width: 1280px; height: 720px; display: grid; grid-template-columns: 500px 420px 1fr; grid-template-rows: 430px 1fr; gap: 20px; }
+
+  .copy { padding-top: 34px; }
+  h1 { font-size: 54px; line-height: 1.16; font-weight: 650; letter-spacing: -.012em; }
+  .lede { margin-top: 22px; width: 460px; font-size: 17px; line-height: 1.75; color: var(--muted); }
+  .lede b { color: var(--ink); font-weight: 600; }
+  .act { margin-top: 32px; display: flex; align-items: center; gap: 22px; }
+
+  /* 每块是一个功能的真实界面，底下一行说它是什么 */
+  .tile { display: flex; flex-direction: column; background: var(--ob-side); border: 1px solid #DDDED9; border-radius: 16px; overflow: hidden; color: var(--ob-text); }
+  .tile .ui { flex: 1; padding: 16px 16px 0; overflow: hidden; }
+  .tile .cap { flex: 0 0 auto; padding: 14px 18px 16px; font-size: 14px; color: var(--muted); }
+  .tile .cap b { color: var(--ink); font-weight: 600; margin-right: 8px; }
+  .cal { --cell: 52px; --cgap: 4px; }
+  .cal .dl-wk { margin-top: 14px; }
+  .cal .dl-grid { margin-top: 8px; }
+  .tl { grid-row: 1 / 3; grid-column: 3; }
+  .tl-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 10px; }
+  .tl-head b { font-size: 17px; }
+  .tl-head span { color: var(--ob-muted); font-size: 12px; }
+  .tl .dl-trend { margin: 10px 0 2px; }
+  .tl .dl-card { margin-top: 10px; }
+
+  .mood .ui { padding: 20px 22px 0; }
+  .mood .q { font-size: 13px; color: var(--ob-muted); }
+  .mood .v { margin-top: 6px; display: flex; align-items: baseline; gap: 10px; }
+  .mood .v b { font-size: 26px; font-weight: 650; color: #B57A12; }
+  .mood .v span { font-size: 13px; color: var(--ob-muted); }
+  .track { position: relative; margin-top: 18px; height: 10px; border-radius: 5px; background: linear-gradient(90deg, #7652c7, #4d6fb8 25%, #55b6c9 50%, #f0b34f 75%, #ee6a54); }
+  .track i { position: absolute; top: 50%; left: 75%; width: 26px; height: 26px; border: 4px solid #fff; border-radius: 50%; background: #f0b34f; transform: translate(-50%, -50%); box-shadow: 0 5px 14px rgba(240,179,79,.45), 0 1px 3px rgba(0,0,0,.2); }
+  .ticks { margin-top: 10px; display: flex; justify-content: space-between; font-size: 12px; color: var(--ob-muted); }
+  .chips { margin-top: 14px; display: flex; gap: 6px; }
+  .chips span { padding: 3px 10px; border-radius: 12px; background: #fff; border: 1px solid var(--ob-line); font-size: 12.5px; }
+  .chips span.on { background: var(--accent-soft); border-color: transparent; color: var(--accent-ink); }
+
+  .wx .ui { padding: 16px; }
+  .wx .dl-wnow img { width: 52px; height: 52px; }
+  .wx .dl-wnow b { font-size: 20px; }
+  .wx .dl-otd i { flex-basis: 44px; height: 44px; }
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <a class="brand" href="#" id="brand">Dayline</a>
+    <nav class="nav"><a href="#features">功能</a><a href="#install">安装</a><a href="#github">GitHub</a></nav>
+  </header>
+
+  <div class="bento">
+    <section class="copy">
+      <h1>你写过的每一天，<br>不该只是一串<span class="mdx">.md</span></h1>
+      <p class="lede"><b>Dayline</b> 是一个 Obsidian 插件。它把每日笔记文件夹变成一面照片月历和一条可搜索的时间线。笔记原样留在你的 vault 里。</p>
+      <div class="act" id="install"><a class="btn" href="#install" id="dl">在 Obsidian 中安装</a><a class="link" href="#github">GitHub</a><span class="fine">免费 · MIT 开源</span></div>
+    </section>
+
+    <figure class="tile cal"><div class="ui" id="cal"></div><figcaption class="cap"><b>照片月历</b>笔记里的图片自动成为日期封面</figcaption></figure>
+
+    <figure class="tile tl"><div class="ui"><div class="tl-head"><b>日记时间线</b><span>21</span></div><div class="dl-search">搜索日记</div><div id="trend"></div><div id="cards"></div></div><figcaption class="cap"><b>时间线</b>全文搜索，按心情、标签和位置筛选</figcaption></figure>
+
+    <figure class="tile mood"><div class="ui">
+      <div class="q">记录当前日记心情 · 7 月 19 日 开放回路</div>
+      <div class="v"><b>较好</b><span>+1</span></div>
+      <div class="track"><i></i></div>
+      <div class="ticks"><span>很低</span><span>较低</span><span>平稳</span><span>较好</span><span>很好</span></div>
+      <div class="chips"><span class="on">期待</span><span class="on">平衡</span><span>平静</span><span>疲惫</span></div>
+    </div><figcaption class="cap"><b>心情</b>五级心情、标签和备注，日期格上一眼可见</figcaption></figure>
+
+    <figure class="tile wx"><div class="ui" id="wx"></div><figcaption class="cap"><b>天气与回忆</b>每天的天气快照，和往年的今天</figcaption></figure>
+  </div>
+</div>
+<script src="../data.js"></script>
+<script src="ui.js"></script>
+<script>
+  document.getElementById('brand').insertAdjacentHTML('afterbegin', UI.logo());
+  document.getElementById('dl').insertAdjacentHTML('afterbegin', UI.download);
+  document.getElementById('cal').innerHTML = UI.mnav() + UI.weekdays() + UI.grid(18);
+  document.getElementById('trend').innerHTML = UI.trend(286);
+  document.getElementById('cards').innerHTML = UI.cards([21, 20, 19, 18]);
+  document.getElementById('wx').innerHTML = UI.weather();
+</script>
+</body>
+</html>

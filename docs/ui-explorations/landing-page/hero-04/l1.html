@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>L1 分栏特写 · 真实界面</title>
+<link rel="stylesheet" href="../hero-03/ui.css">
+<style>
+  header { position: absolute; top: 30px; left: 80px; right: 80px; display: flex; align-items: center; justify-content: space-between; }
+  .copy { position: absolute; left: 80px; top: 196px; width: 480px; }
+  h1 { font-size: 58px; line-height: 1.16; font-weight: 650; letter-spacing: -.012em; }
+  .lede { margin-top: 22px; font-size: 17px; line-height: 1.75; color: var(--muted); }
+  .lede b { color: var(--ink); font-weight: 600; }
+  .act { margin-top: 32px; display: flex; align-items: center; gap: 22px; }
+  .feats { margin-top: 48px; padding-top: 22px; border-top: 1px solid var(--line); display: grid; gap: 12px; font-size: 14px; color: var(--muted); }
+  .feats li { list-style: none; display: grid; grid-template-columns: 96px 1fr; }
+  .feats b { color: var(--ink); font-weight: 600; }
+
+  /* 本机 Sandbox 里截下来的真实界面：月历在前，时间线在旁边错开 */
+  .shot { position: absolute; margin: 0; border: 1px solid #D9DAD5; border-radius: 16px; overflow: hidden; background: #F6F6F6;
+    box-shadow: 0 1px 2px rgba(13,19,24,.06), 0 40px 70px -36px rgba(13,19,24,.42); }
+  .shot img { display: block; width: 100%; height: auto; }
+  .cal { left: 596px; top: 196px; width: 444px; }
+  .tl { left: 1064px; top: 150px; width: 296px; height: 640px; }
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <a class="brand" href="#" id="brand">Dayline</a>
+    <nav class="nav"><a href="#features">功能</a><a href="#install">安装</a><a href="#github">GitHub</a></nav>
+  </header>
+
+  <section class="copy">
+    <h1>你写过的每一天，<br>不该只是一串<span class="mdx">.md</span></h1>
+    <p class="lede"><b>Dayline</b> 是一个 Obsidian 插件。它把每日笔记文件夹变成一面照片月历，标出心情和天气。笔记原样留在你的 vault 里。</p>
+    <div class="act" id="install"><a class="btn" href="#install" id="dl">在 Obsidian 中安装</a><a class="link" href="#github">GitHub</a><span class="fine">免费 · MIT 开源</span></div>
+    <ul class="feats">
+      <li><b>照片月历</b>笔记里的图片自动成为日期封面</li>
+      <li><b>日记时间线</b>全文搜索，按心情、标签、位置筛选</li>
+      <li><b>心情与天气</b>每天一个心情色点，附当天的天气</li>
+    </ul>
+  </section>
+
+  <figure class="shot tl"><img src="../assets/live-timeline-2026-07.png" alt="Dayline 日记时间线：每天的日期、心情色点、标题、摘要和封面图"></figure>
+  <figure class="shot cal"><img src="../assets/live-calendar-2026-07.png" alt="Dayline 照片月历：2026 年 7 月，每天以当天的照片为封面，角上是天气，左下是心情色点"></figure>
+</div>
+<script src="../data.js"></script>
+<script src="../hero-03/ui.js"></script>
+<script>
+  document.getElementById('brand').insertAdjacentHTML('afterbegin', UI.logo());
+  document.getElementById('dl').insertAdjacentHTML('afterbegin', UI.download);
+</script>
+</body>
+</html>

@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "project": "Dayline 官网首屏 · 版式",
+  "brief": "沿用已选的 01 配色（#F6F6F3 底、#0D1318 墨、#F1694D 珊瑚按钮）、字体和控件，只换首屏骨架和产品界面的摆法。四个候选共用同一标题、副标题与 showcase 示例数据。",
+  "round": "03",
+  "nativeViewport": "1440x900",
+  "candidates": [
+    {
+      "id": "current",
+      "name": "现版 · 产品窗口",
+      "baseline": true,
+      "concept": "标题在上、按钮在右，下面一整扇 Obsidian 窗口出血",
+      "typography": "PingFang SC 650 标题 60px，正文 17/1.7",
+      "palette": ["#F6F6F3", "#0D1318", "#5F656C", "#F1694D"],
+      "traits": ["通栏上下堆叠", "完整三栏窗口", "看到全貌，但每块都小"],
+      "source": "a2.html"
+    },
+    {
+      "id": "split",
+      "name": "L1 · 分栏特写",
+      "concept": "左边把话说完，右边只放大最核心的月历，时间线错位在它身后",
+      "typography": "PingFang SC 650 标题 58px，正文 17/1.75，功能行 14px",
+      "palette": ["#F6F6F3", "#0D1318", "#5F656C", "#F1694D"],
+      "traits": ["左右分栏", "月历放大到 50px 一格", "三行功能说明", "两层面板错位"],
+      "source": "l1.html"
+    },
+    {
+      "id": "window",
+      "name": "L2 · 画面即界面",
+      "concept": "首屏本身就是 Obsidian：官网写在打开的 Dayline.md 里，两侧是真实的月历和时间线",
+      "typography": "PingFang SC 650 标题 54px，属性 13px，正文 17/1.75",
+      "palette": ["#F6F6F3", "#FFFFFF", "#0D1318", "#F1694D"],
+      "traits": ["画面即界面", "价格、许可、平台写成笔记属性", "三步开始写成笔记正文", "导航长在标签栏上"],
+      "source": "l2.html"
+    },
+    {
+      "id": "bento",
+      "name": "L3 · 功能拼贴",
+      "concept": "首屏一次摆出四个功能的真实界面，每块底下一句话说它是什么",
+      "typography": "PingFang SC 650 标题 54px，正文 17/1.75，说明 14px",
+      "palette": ["#F6F6F3", "#F6F6F6", "#0D1318", "#F1694D"],
+      "traits": ["网格拼贴", "月历、时间线、心情、天气四块", "标题直接放在画布上", "首屏就把功能讲完"],
+      "source": "l3.html"
+    }
+  ]
+}

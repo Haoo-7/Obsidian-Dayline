@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>01b 产品介绍</title>
+<style>
+  :root {
+    --bg: #F6F6F3; --ink: #0D1318; --muted: #5F656C; --faint: #8A8F94; --line: #DCDDD8; --coral: #F1694D;
+    --ob-side: #F6F6F6; --ob-line: #E3E3E3; --ob-text: #222; --ob-muted: #6B6B6B; --ob-faint: #7C7C7C;
+    --accent-soft: #FDE9E4; --accent-ink: #AD3A22;
+    --mono: "SF Mono", Menlo, ui-monospace, monospace;
+    --sans: "PingFang SC", -apple-system, "Helvetica Neue", sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: var(--bg); color: var(--ink); font-family: var(--sans); overflow: hidden; -webkit-font-smoothing: antialiased; }
+  .page { position: relative; width: 1440px; height: 900px; margin: 0 auto; overflow: hidden; }
+  svg { display: block; }
+
+  header { position: absolute; top: 30px; left: 80px; right: 80px; display: flex; align-items: center; justify-content: space-between; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 17px; color: var(--ink); text-decoration: none; }
+  .brand svg { width: 34px; height: 22px; }
+  nav { display: flex; gap: 32px; font-size: 14px; }
+  nav a { color: var(--muted); text-decoration: none; }
+
+  .hero { position: absolute; top: 112px; left: 80px; right: 80px; display: flex; justify-content: space-between; align-items: flex-end; }
+  h1 { font-size: 60px; line-height: 1.14; font-weight: 650; letter-spacing: -.012em; }
+  h1 .file { font-family: var(--mono); font-weight: 500; font-size: .86em; letter-spacing: -.03em; }
+  .lede { margin-top: 18px; width: 560px; font-size: 17px; line-height: 1.7; color: var(--muted); }
+  .lede b { color: var(--ink); font-weight: 600; }
+  .act { display: flex; flex-direction: column; align-items: flex-end; gap: 14px; padding-bottom: 6px; }
+  .btn { display: inline-flex; align-items: center; gap: 10px; height: 52px; padding: 0 26px; border-radius: 8px; background: var(--coral); color: var(--ink); font-size: 16px; font-weight: 600; text-decoration: none; }
+  .btn svg { width: 16px; height: 16px; }
+  .sub { display: flex; gap: 18px; align-items: center; font-size: 13px; color: var(--muted); }
+  .sub a { color: var(--ink); font-size: 14px; text-decoration: none; border-bottom: 1px solid var(--line); padding-bottom: 1px; }
+
+  /* 产品窗口 */
+  .win { position: absolute; top: 352px; left: 80px; width: 1280px; height: 640px; background: #fff; border: 1px solid #D9DAD5; border-radius: 14px; overflow: hidden;
+    box-shadow: 0 1px 2px rgba(13,19,24,.06), 0 40px 80px -40px rgba(13,19,24,.35); display: grid; grid-template-columns: 44px 336px 1fr 300px; grid-template-rows: 40px 1fr; font-size: 13px; color: var(--ob-text); }
+  .tb { grid-column: 1 / -1; display: grid; grid-template-columns: 380px 1fr 300px; border-bottom: 1px solid var(--ob-line); background: var(--ob-side); }
+  .tb > div { display: flex; align-items: center; padding: 0 14px; gap: 8px; }
+  .lights { gap: 8px !important; }
+  .lights i { width: 12px; height: 12px; border-radius: 50%; background: #D5D5D5; }
+  .tab { align-self: end; height: 32px; padding: 0 14px; background: #fff; border: 1px solid var(--ob-line); border-bottom: 0; border-radius: 8px 8px 0 0; display: flex; align-items: center; gap: 40px; font-size: 12.5px; }
+  .tab span:last-child { color: var(--ob-faint); }
+  .tb .tl { border-left: 1px solid var(--ob-line); justify-content: flex-end; color: var(--ob-muted); }
+  .ico { width: 16px; height: 16px; color: var(--ob-muted); }
+
+  .ribbon { background: var(--ob-side); border-right: 1px solid var(--ob-line); display: flex; flex-direction: column; align-items: center; gap: 16px; padding-top: 14px; }
+  .ribbon .on { color: var(--coral); }
+  /* 左侧栏：Dayline 月历 + 文件列表 */
+  .side { background: var(--ob-side); border-right: 1px solid var(--ob-line); padding: 14px 16px 0; overflow: hidden; }
+  .mnav { display: grid; grid-template-columns: 28px 1fr 28px 28px; gap: 6px; height: 30px; }
+  .mnav > * { display: grid; place-items: center; border-radius: 6px; background: #EBEBEB; }
+  .mnav b { font-size: 14px; font-weight: 600; }
+  .mnav svg { width: 14px; height: 14px; color: var(--ob-muted); }
+  .wcard { margin-top: 10px; border: 1px solid var(--ob-line); border-radius: 10px; background: #fff; }
+  .wnow { display: flex; gap: 12px; padding: 10px 12px; align-items: center; }
+  .wnow img { width: 34px; height: 34px; }
+  .wnow b { display: block; font-size: 15px; }
+  .wnow span { font-size: 11.5px; color: var(--ob-muted); line-height: 1.5; }
+  .otd { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-top: 1px solid var(--ob-line); }
+  .otd i { width: 30px; height: 30px; border-radius: 5px; background: url(../assets/01-tide.jpg) center/cover; }
+  .otd b { display: block; font-size: 12.5px; }
+  .otd span { font-size: 11px; color: var(--ob-muted); }
+  .otd svg { margin-left: auto; width: 14px; height: 14px; color: var(--ob-faint); }
+  .wk, .grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+  .wk { margin-top: 12px; font-size: 11px; color: var(--ob-muted); text-align: center; }
+  .grid { margin-top: 6px; grid-auto-rows: 40px; }
+  .c { position: relative; border-radius: 6px; overflow: hidden; }
+  .c.blank { visibility: hidden; }
+  .c.empty { background: #EFEFEF; }
+  .c .n { position: absolute; top: 3px; left: 5px; font-size: 11px; font-weight: 700; color: var(--ob-muted); }
+  .c.photo { background: #333 center/cover; }
+  .c.photo .n { color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.6); }
+  .c .wx { position: absolute; top: 4px; right: 4px; width: 10px; height: 10px; color: #fff; filter: drop-shadow(0 1px 1px rgba(0,0,0,.5)); }
+  .c .md { position: absolute; left: 4px; bottom: 4px; width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid rgba(255,255,255,.9); }
+  .c.sel { overflow: visible; box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--coral); }
+  .ftabs { display: flex; gap: 18px; margin: 16px -16px 0; padding: 10px 16px; border-top: 1px solid var(--ob-line); color: var(--ob-muted); }
+  .ftabs svg { width: 16px; height: 16px; }
+  .ftabs .on { color: var(--ob-text); }
+  .tree { font-size: 13px; }
+  .tree div { height: 26px; display: flex; align-items: center; gap: 6px; padding: 0 6px; border-radius: 5px; color: var(--ob-text); }
+  .tree svg { width: 11px; height: 11px; color: var(--ob-faint); }
+  .tree .f { padding-left: 24px; font-family: var(--mono); font-size: 12.5px; }
+  .tree .f i { font-style: normal; color: var(--ob-faint); }
+  .tree .on { background: var(--accent-soft); color: var(--accent-ink); }
+  .tree .on i { color: var(--accent-ink); opacity: .6; }
+
+  /* 笔记 */
+  .note { position: relative; overflow: hidden; padding: 0 56px; }
+  .crumb { height: 40px; display: flex; align-items: center; justify-content: center; font-size: 12.5px; color: var(--ob-muted); gap: 6px; }
+  .crumb i { color: var(--ob-faint); font-style: normal; }
+  .wchip { position: absolute; top: 48px; right: 18px; display: flex; gap: 10px; align-items: center; padding: 8px 12px; background: #fff; border: 1px solid var(--ob-line); border-radius: 10px; box-shadow: 0 6px 16px -10px rgba(0,0,0,.3); }
+  .wchip svg { width: 16px; height: 16px; color: var(--ob-muted); }
+  .wchip b { display: block; font-size: 13px; }
+  .wchip span { font-size: 11px; color: var(--ob-muted); }
+  .note h2 { margin-top: 22px; font-size: 28px; font-weight: 700; }
+  .props { margin-top: 18px; display: grid; grid-template-columns: 120px 1fr; row-gap: 9px; font-size: 13px; }
+  .props dt { display: flex; align-items: center; gap: 8px; color: var(--ob-muted); }
+  .props dt svg { width: 14px; height: 14px; }
+  .props dd { color: var(--ob-text); }
+  .pill { display: inline-block; padding: 1px 9px; margin-right: 6px; border-radius: 12px; background: var(--accent-soft); color: var(--accent-ink); font-size: 12.5px; }
+  .note h3 { margin-top: 26px; font-size: 22px; font-weight: 700; }
+  .note p { margin-top: 10px; font-size: 14px; line-height: 1.7; color: #333; }
+  .note .img { margin-top: 16px; height: 260px; border-radius: 6px; background: url(../assets/06-water.jpg) center 60%/cover; }
+
+  /* 时间线 */
+  .tl-pane { background: var(--ob-side); border-left: 1px solid var(--ob-line); padding: 14px 14px 0; overflow: hidden; }
+  .tl-head { display: flex; align-items: baseline; gap: 8px; }
+  .tl-head b { font-size: 17px; }
+  .tl-head span { color: var(--ob-muted); font-size: 12px; }
+  .search { margin-top: 10px; height: 30px; border: 1px solid var(--ob-line); border-radius: 6px; background: #fff; display: flex; align-items: center; padding: 0 10px; color: var(--ob-faint); font-size: 12.5px; }
+  .trend { margin-top: 10px; display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--ob-muted); }
+  .trend svg { flex: 1; height: 30px; overflow: visible; }
+  .card { margin-top: 10px; display: grid; grid-template-columns: 1fr 64px; gap: 10px; padding: 10px; background: #fff; border: 1px solid var(--ob-line); border-left: 3px solid var(--m); border-radius: 8px; }
+  .card.on { box-shadow: 0 0 0 1.5px var(--coral); }
+  .card b { display: block; font-size: 12.5px; }
+  .card .t { margin-top: 2px; font-size: 12.5px; font-weight: 600; }
+  .card p { margin-top: 3px; font-size: 12px; line-height: 1.5; color: var(--ob-muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .card .fav { color: var(--accent-ink); font-size: 11px; font-weight: 500; margin-left: 4px; }
+  .card i { width: 64px; height: 64px; border-radius: 6px; background: #333 center/cover; }
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <a class="brand" href="#">
+      <svg viewBox="0 0 354 225" aria-hidden="true"><g transform="translate(-94 -159)"><path fill="#0D1318" d="M270 177 C284 166 300 160 319 160 H375 C415 160 447 190 447 231 V311 C447 352 416 383 376 383 H319 C300 383 284 377 270 367 C277 361 283 355 289 348 C298 355 308 358 320 358 H375 C402 358 423 338 423 311 V232 C423 205 402 185 375 185 H320 C308 185 298 188 289 195 C283 188 277 182 270 177 Z"/><path fill="#0D1318" fill-rule="evenodd" d="M204 160 C264 160 315 211 315 272 C315 333 265 383 204 383 C144 383 94 333 94 273 C94 213 144 160 204 160 Z M204 185 C158 185 119 225 119 273 C119 320 157 359 204 359 C220 359 235 355 247 348 C230 326 220 301 220 273 C220 244 230 218 247 196 C234 189 220 185 204 185 Z"/><path fill="#F1694D" d="M267 212 C282 229 291 250 291 273 C291 296 282 318 267 334 C252 317 244 296 244 273 C244 250 252 228 267 212 Z"/></g></svg>
+      Dayline
+    </a>
+    <nav><a href="#features">功能</a><a href="#install">安装</a><a href="#github">GitHub</a></nav>
+  </header>
+
+  <section class="hero">
+    <div>
+      <h1>你写过的每一天，<br>不该只是一串<span class="file">.md</span></h1>
+      <p class="lede"><b>Dayline</b> 是一个 Obsidian 插件。它把每日笔记文件夹变成一面照片月历和一条可搜索的时间线，标出心情和天气。笔记原样留在你的 vault 里。</p>
+    </div>
+    <div class="act" id="install">
+      <a class="btn" href="#install"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2.5v8M4.5 7 8 10.5 11.5 7M3 13.5h10"/></svg>在 Obsidian 中安装</a>
+      <div class="sub"><span>免费 · MIT 开源 · 桌面与手机</span><a href="#github">GitHub</a></div>
+    </div>
+  </section>
+
+  <div class="win" aria-label="Dayline 在 Obsidian 中的样子">
+    <div class="tb">
+      <div class="lights"><i></i><i></i><i></i></div>
+      <div><span class="tab"><span>2026-07-18</span><span>×</span></span></div>
+      <div class="tl"><svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2" y="2.5" width="12" height="11" rx="2"/><path d="M10 2.5v11"/></svg></div>
+    </div>
+
+    <div class="ribbon" aria-hidden="true">
+      <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M4 2h6l3 3v9H4z"/></svg>
+      <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="4" cy="4" r="2"/><circle cx="12" cy="4" r="2"/><circle cx="8" cy="12" r="2"/><path d="M5.5 5.5 7 10.5M10.5 5.5 9 10.5"/></svg>
+      <svg class="ico on" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="12" height="11" rx="2"/><path d="M2 6.5h12M5.5 1.5v3M10.5 1.5v3"/></svg>
+      <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M3 4h10M3 8h10M3 12h6"/></svg>
+    </div>
+
+    <aside class="side">
+      <div class="mnav">
+        <span><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M10 3 5 8l5 5"/></svg></span>
+        <b>2026年7月</b>
+        <span><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="m6 3 5 5-5 5"/></svg></span>
+        <span><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2" y="3" width="12" height="11" rx="2"/><path d="M2 6.5h12M6 10l1.5 1.5L10.5 8.5"/></svg></span>
+      </div>
+      <div class="wcard">
+        <div class="wnow"><img src="../assets/clear-day.svg" alt=""><div><b>现在 28°C</b><span>Northstar Cove · 体感 30°C · 湿度 64%</span></div></div>
+        <div class="otd"><i></i><div><b>去年今日</b><span>1 年前 · 7 月 18 日</span></div><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="m6 3 5 5-5 5"/></svg></div>
+      </div>
+      <div class="wk"><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span></div>
+      <div class="grid" id="grid"></div>
+      <div class="ftabs">
+        <svg class="on" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M2 4h4l1.5 1.5H14v7H2z"/></svg>
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3 3"/></svg>
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M4 2h8v12l-4-3-4 3z"/></svg>
+      </div>
+      <div class="tree" id="tree"></div>
+    </aside>
+
+    <main class="note">
+      <div class="crumb">Calendar <i>/</i> Daily <i>/</i> 2026-07-18</div>
+      <div class="wchip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M16 14v6"/><path d="M8 14v6"/><path d="M12 16v6"/></svg><div><b>最高 31°C</b><span>小雨 · 湿度 82%</span></div></div>
+      <h2>2026-07-18</h2>
+      <dl class="props">
+        <dt><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2" y="3" width="12" height="11" rx="2"/><path d="M2 6.5h12"/></svg>date</dt><dd>2026/07/18</dd>
+        <dt><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M3 4h10M3 8h10M3 12h10"/></svg>mood</dt><dd>2</dd>
+        <dt><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M3 4h10M3 8h10M3 12h10"/></svg>mood_labels</dt><dd>平静　感激</dd>
+        <dt><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 14s5-4.5 5-8A5 5 0 0 0 3 6c0 3.5 5 8 5 8z"/><circle cx="8" cy="6" r="1.6"/></svg>location</dt><dd>Northstar Cove</dd>
+        <dt><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M2 2h6l6 6-6 6-6-6z"/><circle cx="5.5" cy="5.5" r="1"/></svg>tags</dt><dd><span class="pill">海边</span><span class="pill">录音</span></dd>
+      </dl>
+      <h3>低潮线</h3>
+      <p>小小的节奏还在。一张照片、一段很短的录音，让这一周安静的部分被看见。</p>
+      <div class="img"></div>
+    </main>
+
+    <aside class="tl-pane">
+      <div class="tl-head"><b>日记时间线</b><span>21</span></div>
+      <div class="search">搜索日记</div>
+      <div class="trend" id="trend"></div>
+      <div id="cards"></div>
+    </aside>
+  </div>
+</div>
+
+<script src="../data.js"></script>
+<script>
+  const D = window.DAYLINE;
+  const pad = n => String(n).padStart(2, '0');
+  const byDay = Object.fromEntries(D.days.map(x => [x.d, x]));
+  const SEL = 18;
+
+  const cells = [];
+  for (let i = 0; i < D.leadingBlanks; i++) cells.push('<div class="c blank"></div>');
+  for (let d = 1; d <= D.daysInMonth; d++) {
+    const x = byDay[d];
+    cells.push(x
+      ? `<div class="c photo${d === SEL ? ' sel' : ''}" style="background-image:url(../assets/${x.cover}.jpg)"><span class="n">${d}</span>${D.wxSvg(x.wx, 'wx')}<span class="md" style="background:${D.moods[x.mood]}"></span></div>`
+      : `<div class="c empty"><span class="n">${d}</span></div>`);
+  }
+  document.getElementById('grid').innerHTML = cells.join('');
+
+  const chev = '<svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3 4.5 6 7.5 9 4.5"/></svg>';
+  document.getElementById('tree').innerHTML = `<div>${chev}Calendar</div><div style="padding-left:18px">${chev}Daily</div>` +
+    [16, 17, 18, 19, 20, 21].map(d => `<div class="f${d === SEL ? ' on' : ''}">2026-07-${pad(d)}<i>.md</i></div>`).join('');
+
+  // 近七天心情：值越高点越靠上，点用当天的心情色
+  const wk = D.days.slice(-7);
+  const pts = wk.map((x, i) => [8 + i * 30, 24 - (x.mood + 2) * 5]);
+  document.getElementById('trend').innerHTML = `<span>近 7 天</span><svg viewBox="0 0 196 30">
+    <polyline points="${pts.map(p => p.join(',')).join(' ')}" fill="none" stroke="#C9C9C9" stroke-width="1.5" stroke-linejoin="round"/>
+    ${pts.map((p, i) => `<circle cx="${p[0]}" cy="${p[1]}" r="4" fill="${D.moods[wk[i].mood]}" stroke="#F6F6F6" stroke-width="1.5"/>`).join('')}</svg>`;
+
+  const EX = {
+    21: '这份样本以一个干净的收尾结束：足够看懂这一周，也留出重新开始的空间。',
+    20: '长远的视野由一条条小记录拼成。今天的方向，稳到可以分享了。',
+    19: '没收尾的事不算失败，它是一个刻意留下、等更好的问题回来的地方。',
+    18: '小小的节奏还在。一张照片、一段很短的录音，让这一周安静的部分被看见。',
+  };
+  const WD = ['日', '一', '二', '三', '四', '五', '六'];
+  document.getElementById('cards').innerHTML = [21, 20, 19, 18].map(d => {
+    const x = byDay[d];
+    const wd = WD[new Date(2026, 6, d).getDay()];
+    return `<div class="card${d === SEL ? ' on' : ''}" style="--m:${D.moods[x.mood]}"><div><b>7月${d}日 周${wd}${d >= 20 ? '<span class="fav">收藏</span>' : ''}</b><div class="t">${x.title}</div><p>${EX[d]}</p></div><i style="background-image:url(../assets/${x.cover}.jpg)"></i></div>`;
+  }).join('');
+</script>
+</body>
+</html>

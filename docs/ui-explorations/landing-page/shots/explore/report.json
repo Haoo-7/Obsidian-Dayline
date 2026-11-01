@@ -1,0 +1,80 @@
+[
+  {
+    "file": "files.png",
+    "target": "/Users/haoo/Desktop/Obsidian-Calendar-Sidebar/.claude/worktrees/unruffled-merkle-91d43e/docs/ui-explorations/landing-page/a.html",
+    "name": "文件名",
+    "state": null,
+    "size": "1440x900",
+    "zoom": 1,
+    "thumb": true,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": []
+  },
+  {
+    "file": "vellum.png",
+    "target": "/Users/haoo/Desktop/Obsidian-Calendar-Sidebar/.claude/worktrees/unruffled-merkle-91d43e/docs/ui-explorations/landing-page/b.html",
+    "name": "硫酸纸",
+    "state": null,
+    "size": "1440x900",
+    "zoom": 1,
+    "thumb": true,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": []
+  },
+  {
+    "file": "spines.png",
+    "target": "/Users/haoo/Desktop/Obsidian-Calendar-Sidebar/.claude/worktrees/unruffled-merkle-91d43e/docs/ui-explorations/landing-page/c.html",
+    "name": "书脊",
+    "state": null,
+    "size": "1440x900",
+    "zoom": 1,
+    "thumb": true,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": []
+  },
+  {
+    "file": "sheet.png",
+    "width": 2000,
+    "height": 480,
+    "columns": 3,
+    "items": [
+      {
+        "naturalWidth": 720,
+        "naturalHeight": 450,
+        "width": 640,
+        "height": 400,
+        "labelHeight": 32,
+        "x": 24,
+        "y": 24,
+        "label": "文件名",
+        "labelY": 432
+      },
+      {
+        "naturalWidth": 720,
+        "naturalHeight": 450,
+        "width": 640,
+        "height": 400,
+        "labelHeight": 32,
+        "x": 680,
+        "y": 24,
+        "label": "硫酸纸",
+        "labelY": 432
+      },
+      {
+        "naturalWidth": 720,
+        "naturalHeight": 450,
+        "width": 640,
+        "height": 400,
+        "labelHeight": 32,
+        "x": 1336,
+        "y": 24,
+        "label": "书脊",
+        "labelY": 432
+      }
+    ],
+    "issues": []
+  }
+]

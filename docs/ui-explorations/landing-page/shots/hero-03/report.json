@@ -1,0 +1,103 @@
+[
+  {
+    "file": "current.png",
+    "target": "/Users/haoo/Desktop/Obsidian-Calendar-Sidebar/.claude/worktrees/unruffled-merkle-91d43e/docs/ui-explorations/landing-page/hero-03/a2.html",
+    "name": "现版 · 产品窗口",
+    "state": null,
+    "size": "1440x900",
+    "zoom": 1,
+    "thumb": true,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": []
+  },
+  {
+    "file": "split.png",
+    "target": "/Users/haoo/Desktop/Obsidian-Calendar-Sidebar/.claude/worktrees/unruffled-merkle-91d43e/docs/ui-explorations/landing-page/hero-03/l1.html",
+    "name": "L1 · 分栏特写",
+    "state": null,
+    "size": "1440x900",
+    "zoom": 1,
+    "thumb": true,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": []
+  },
+  {
+    "file": "window.png",
+    "target": "/Users/haoo/Desktop/Obsidian-Calendar-Sidebar/.claude/worktrees/unruffled-merkle-91d43e/docs/ui-explorations/landing-page/hero-03/l2.html",
+    "name": "L2 · 画面即界面",
+    "state": null,
+    "size": "1440x900",
+    "zoom": 1,
+    "thumb": true,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": []
+  },
+  {
+    "file": "bento.png",
+    "target": "/Users/haoo/Desktop/Obsidian-Calendar-Sidebar/.claude/worktrees/unruffled-merkle-91d43e/docs/ui-explorations/landing-page/hero-03/l3.html",
+    "name": "L3 · 功能拼贴",
+    "state": null,
+    "size": "1440x900",
+    "zoom": 1,
+    "thumb": true,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": []
+  },
+  {
+    "file": "sheet.png",
+    "width": 2656,
+    "height": 480,
+    "columns": 4,
+    "items": [
+      {
+        "naturalWidth": 720,
+        "naturalHeight": 450,
+        "width": 640,
+        "height": 400,
+        "labelHeight": 32,
+        "x": 24,
+        "y": 24,
+        "label": "现版 · 产品窗口",
+        "labelY": 432
+      },
+      {
+        "naturalWidth": 720,
+        "naturalHeight": 450,
+        "width": 640,
+        "height": 400,
+        "labelHeight": 32,
+        "x": 680,
+        "y": 24,
+        "label": "L1 · 分栏特写",
+        "labelY": 432
+      },
+      {
+        "naturalWidth": 720,
+        "naturalHeight": 450,
+        "width": 640,
+        "height": 400,
+        "labelHeight": 32,
+        "x": 1336,
+        "y": 24,
+        "label": "L2 · 画面即界面",
+        "labelY": 432
+      },
+      {
+        "naturalWidth": 720,
+        "naturalHeight": 450,
+        "width": 640,
+        "height": 400,
+        "labelHeight": 32,
+        "x": 1992,
+        "y": 24,
+        "label": "L3 · 功能拼贴",
+        "labelY": 432
+      }
+    ],
+    "issues": []
+  }
+]

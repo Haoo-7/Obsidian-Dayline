@@ -1,0 +1,72 @@
+/* 三种排版共用：页面配色（来自 01）和 Dayline 界面碎片。版式各自写。 */
+:root {
+  --bg: #F6F6F3; --ink: #0D1318; --muted: #5F656C; --line: #DCDDD8; --coral: #F1694D;
+  --ob-side: #F6F6F6; --ob-line: #E3E3E3; --ob-text: #222; --ob-muted: #6B6B6B; --ob-faint: #7C7C7C;
+  --accent-soft: #FDE9E4; --accent-ink: #AD3A22;
+  --mono: "SF Mono", Menlo, ui-monospace, monospace;
+  --sans: "PingFang SC", -apple-system, "Helvetica Neue", sans-serif;
+  --cell: 40px; --cgap: 4px;
+}
+* { box-sizing: border-box; margin: 0; }
+body { background: var(--bg); color: var(--ink); font-family: var(--sans); overflow: hidden; -webkit-font-smoothing: antialiased; }
+.page { position: relative; width: 1440px; height: 900px; margin: 0 auto; overflow: hidden; }
+svg { display: block; }
+
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 17px; color: var(--ink); text-decoration: none; }
+.brand svg { width: 34px; height: 22px; }
+.nav { display: flex; gap: 32px; font-size: 14px; }
+.nav a { color: var(--muted); text-decoration: none; }
+.btn { display: inline-flex; align-items: center; gap: 10px; height: 52px; padding: 0 26px; border-radius: 8px; background: var(--coral); color: var(--ink); font-size: 16px; font-weight: 600; text-decoration: none; white-space: nowrap; }
+.btn svg { width: 16px; height: 16px; }
+.link { color: var(--ink); font-size: 14px; text-decoration: none; border-bottom: 1px solid var(--line); padding-bottom: 1px; }
+.fine { font-size: 13px; color: var(--muted); }
+.mdx { font-family: var(--mono); font-weight: 500; font-size: .86em; letter-spacing: -.03em; }
+
+/* 月份栏 */
+.dl-mnav { display: grid; grid-template-columns: 28px 1fr 28px 28px; gap: 6px; height: 30px; color: var(--ob-text); }
+.dl-mnav > * { display: grid; place-items: center; border-radius: 6px; background: #EBEBEB; }
+.dl-mnav b { font-size: 14px; font-weight: 600; }
+.dl-mnav svg { width: 14px; height: 14px; color: var(--ob-muted); }
+
+/* 天气卡 + 去年今日 */
+.dl-wcard { border: 1px solid var(--ob-line); border-radius: 10px; background: #fff; color: var(--ob-text); }
+.dl-wnow { display: flex; gap: 12px; padding: 10px 12px; align-items: center; }
+.dl-wnow img { width: 34px; height: 34px; }
+.dl-wnow b { display: block; font-size: 15px; }
+.dl-wnow span { font-size: 12px; color: var(--ob-muted); line-height: 1.5; }
+.dl-otd { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-top: 1px solid var(--ob-line); }
+.dl-otd i { flex: 0 0 30px; height: 30px; border-radius: 5px; background: center/cover; }
+.dl-otd b { display: block; font-size: 13px; }
+.dl-otd span { font-size: 12px; color: var(--ob-muted); }
+.dl-otd svg { margin-left: auto; width: 14px; height: 14px; color: var(--ob-faint); }
+
+/* 月历 */
+.dl-wk, .dl-grid { display: grid; grid-template-columns: repeat(7, var(--cell)); gap: var(--cgap); }
+.dl-wk { font-size: 11px; color: var(--ob-muted); text-align: center; }
+.dl-grid { grid-auto-rows: var(--cell); }
+.dl-c { position: relative; border-radius: 6px; overflow: hidden; }
+.dl-c.blank { visibility: hidden; }
+.dl-c.empty { background: #EFEFEF; }
+.dl-c .n { position: absolute; top: 3px; left: 5px; font-size: 11px; font-weight: 700; color: var(--ob-muted); }
+.dl-c.photo { background: #333 center/cover; }
+.dl-c.photo .n { color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.6); }
+.dl-c .wx { position: absolute; top: 4px; right: 4px; width: 10px; height: 10px; color: #fff; filter: drop-shadow(0 1px 1px rgba(0,0,0,.5)); }
+.dl-c .md { position: absolute; left: 4px; bottom: 4px; width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid rgba(255,255,255,.9); }
+.dl-c.sel { overflow: visible; box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--coral); }
+.big .dl-c { border-radius: 8px; }
+.big .dl-c .n { top: 5px; left: 7px; font-size: 13px; }
+.big .dl-c .wx { top: 6px; right: 6px; width: 13px; height: 13px; }
+.big .dl-c .md { left: 6px; bottom: 6px; width: 11px; height: 11px; border-width: 2px; }
+.big .dl-wk { font-size: 12px; }
+
+/* 时间线 */
+.dl-search { height: 30px; border: 1px solid var(--ob-line); border-radius: 6px; background: #fff; display: flex; align-items: center; padding: 0 10px; color: var(--ob-faint); font-size: 12.5px; }
+.dl-trend { font-size: 12px; color: var(--ob-muted); }
+.dl-trend svg { width: 100%; height: 30px; margin-top: 4px; overflow: visible; }
+.dl-card { display: grid; grid-template-columns: 1fr 64px; gap: 10px; padding: 10px; background: #fff; border: 1px solid var(--ob-line); border-left: 3px solid var(--m); border-radius: 8px; color: var(--ob-text); }
+.dl-card.on { box-shadow: 0 0 0 1.5px var(--coral); }
+.dl-card b { display: block; font-size: 12.5px; }
+.dl-card .t { margin-top: 2px; font-size: 12.5px; font-weight: 600; }
+.dl-card p { margin-top: 3px; font-size: 12px; line-height: 1.5; color: var(--ob-muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.dl-card .fav { color: var(--accent-ink); font-size: 11px; font-weight: 500; margin-left: 4px; }
+.dl-card i { width: 64px; height: 64px; border-radius: 6px; background: #333 center/cover; }

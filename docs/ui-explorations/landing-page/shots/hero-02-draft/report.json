@@ -1,0 +1,42 @@
+[
+  {
+    "file": "page.png",
+    "state": null,
+    "size": "1440x900",
+    "zoom": 1,
+    "animationWaitMs": 0,
+    "issues": [],
+    "lint": [
+      {
+        "rule": "sideStripe",
+        "label": "彩色单侧边线",
+        "count": 4,
+        "examples": [
+          "div.card「7月21日 周二收藏 收束回路 这份样本以一个干」（3px）",
+          "div.card「7月20日 周一收藏 长线视野 长远的视野由一条」（3px）",
+          "div.card「7月19日 周日 开放回路 没收尾的事不算失败，」（3px）"
+        ]
+      },
+      {
+        "rule": "contrastLow",
+        "label": "文字对比度不达标（正文低于 4.5:1，大字低于 3:1）",
+        "count": 7,
+        "examples": [
+          "i「.md」（3.86:1）",
+          "i「.md」（3.86:1）",
+          "i「.md」（2.60:1）"
+        ]
+      },
+      {
+        "rule": "smallText",
+        "label": "正文小于 13px",
+        "count": 3,
+        "examples": [
+          "p「这份样本以一个干净的收尾结束：足够看懂这一周，也」（12px）",
+          "p「没收尾的事不算失败，它是一个刻意留下、等更好的问」（12px）",
+          "p「小小的节奏还在。一张照片、一段很短的录音，让这一」（12px）"
+        ]
+      }
+    ]
+  }
+]
