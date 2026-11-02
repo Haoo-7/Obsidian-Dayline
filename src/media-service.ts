@@ -1,5 +1,6 @@
 import { classifyMediaLink, IMAGE_EXTENSIONS } from './media-links';
 import type { MediaBunnyBridge } from './mediabunny-bridge';
+import type { PreviewCacheLike } from './preview-cache';
 import type { MediaAttachment, MediaKind, MediaMetadata } from './types';
 import type { CapabilityRoute, PlatformCapabilities } from './platform-capabilities';
 
@@ -53,6 +54,8 @@ export interface MediaServiceOptions {
     enabled?: boolean;
     read(file: any): Promise<{ url: string } | null>;
   };
+  /** Persisted downscaled photo previews (`preview-cache.ts`). */
+  previewCache?: PreviewCacheLike;
 }
 
 /**
@@ -260,6 +263,7 @@ export class MediaService {
   private readonly app: any;
   private readonly heicCache: any;
   private readonly heicThumbStore?: MediaServiceOptions['heicThumbStore'];
+  private readonly previewCache?: MediaServiceOptions['previewCache'];
   private readonly imageMetadata?: MediaServiceOptions['imageMetadata'];
   private readonly inputFactory: (resourceUrl: string) => any;
   private readonly capabilities?: PlatformCapabilities;
@@ -275,6 +279,7 @@ export class MediaService {
     this.app = app;
     this.heicCache = heicCache;
     this.heicThumbStore = options.heicThumbStore;
+    this.previewCache = options.previewCache;
     this.imageMetadata = options.imageMetadata;
     this.capabilities = options.capabilities;
     this.inputFactory = options.inputFactory || ((resourceUrl) => this.createInput(resourceUrl));
@@ -537,6 +542,12 @@ export class MediaService {
       if (attachment.external) return { url: attachment.normalizedLink, attachment };
       const file = this.resolveFile(attachment);
       if (!file) return null;
+      // A stored preview is the whole point of the cache: re-opening a journal
+      // reads a ~40 KB JPEG instead of decoding the original photo. This runs
+      // before the HEIC decoder, which used to re-convert every image on every
+      // launch even though the converted JPEG was already on disk.
+      const stored = await this.previewCache?.read?.(file);
+      if (stored?.url) return { url: stored.url, attachment };
       if (attachment.extension && ['heic', 'heif'].includes(attachment.extension)) {
         if (this.route('heic') !== 'disabled') {
           const result = await this.heicCache?.getThumbnail?.(file);
@@ -544,9 +555,13 @@ export class MediaService {
         }
         // Mobile (and any host without a decoder) shows the JPEG the desktop
         // converted into the shared cache. A miss means it has not synced yet.
-        const stored = await this.heicThumbStore?.read?.(file);
-        return stored?.url ? { url: stored.url, attachment } : null;
+        const converted = await this.heicThumbStore?.read?.(file);
+        return converted?.url ? { url: converted.url, attachment } : null;
       }
+      // First sighting of an ordinary photo: convert it once so the next launch
+      // (and the next scroll back to this card) has a small file to paint.
+      const preview = await this.previewCache?.generate?.(file);
+      if (preview?.url) return { url: preview.url, attachment };
       const url = this.app.vault?.getResourcePath?.(file);
       return url ? { url, attachment } : null;
     }
@@ -662,6 +677,7 @@ export class MediaService {
   }
 
   invalidate(path?: string): void {
+    this.previewCache?.invalidate?.(path);
     if (!path) {
       this.clearMap(this.coverCache);
       this.revokeDeferredCovers();

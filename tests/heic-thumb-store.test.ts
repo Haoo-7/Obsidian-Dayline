@@ -152,6 +152,26 @@ describe('shared HEIC thumbnail store', () => {
     expect(read?.url).toMatch(/^blob:/);
   });
 
+  it('survives two conversions racing to create the cache folder', async () => {
+    const harness = createHarness();
+    const mkdir = harness.adapter.mkdir.bind(harness.adapter);
+    harness.adapter.mkdir = async (path: string) => {
+      if (harness.folders.has(path)) throw new Error('EEXIST: folder already exists');
+      return mkdir(path);
+    };
+    const first = harness.source('Photos/a.heic', { size: 10 });
+    const second = harness.source('Photos/b.heic', { size: 20 });
+
+    const results = await Promise.all([
+      harness.store.write(first, { dataUrl: JPEG_DATA_URL, width: 1, height: 1 }),
+      harness.store.write(second, { dataUrl: JPEG_DATA_URL, width: 1, height: 1 }),
+    ]);
+    await harness.store.flush();
+
+    expect(results).toEqual([true, true]);
+    expect(Object.keys(harness.readIndex(DEFAULT_HEIC_THUMB_CACHE_DIR).entries)).toHaveLength(2);
+  });
+
   it('stays a no-op while the folder setting is empty', async () => {
     const harness = createHarness({ dir: '' });
     const file = harness.source('Photos/IMG_1.heic');

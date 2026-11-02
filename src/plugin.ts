@@ -79,6 +79,7 @@ const { loadHeicCodec } = require('./heic-codec');
 const { ImageMetadataCache, HeicCache, HEIC_EXTS, ReverseGeocoder } = require('./image-metadata');
 const { formatExifDateTime } = require('./exif-tooltip');
 const { HeicThumbStore, DEFAULT_HEIC_THUMB_CACHE_DIR, normalizeHeicThumbCacheDir, isUnderCacheDir } = require('./heic-thumb-store');
+const { PreviewCache } = require('./preview-cache');
 const { detectPlatformCapabilities, resolveCapabilityRoute, usesPhoneLayout } = require('./platform-capabilities');
 const { createMobileMarkdownQuickEntry } = require('./mobile-quick-entry');
 const {
@@ -160,6 +161,9 @@ const DEFAULT_SETTINGS = {
   // Desktop converts HEIC once and writes the JPEG into this vault folder so
   // phones and tablets show it without decoding. Empty string disables it.
   heicThumbCachePath: DEFAULT_HEIC_THUMB_CACHE_DIR,
+  // Downscale ordinary photos into the same cache folder so a journal full of
+  // images paints from ~40 KB previews instead of decoding the originals.
+  imagePreviewCache: true,
   // --- On This Day settings ---
   onThisDayEntry: 'merged', // 'off' | 'merged' | 'header'
   onThisDayButton: true,  // derived from onThisDayEntry !== 'off'; kept for downgrade
@@ -264,14 +268,22 @@ class DaylinePlugin extends Plugin {
       // thumbnail and sync that deletion back upstream.
       allowWrites: () => Boolean(this.capabilities?.isDesktop),
     });
+    // Downscaled photo previews live in the same cache folder. Reading one is a
+    // small file read; generating one is a single decode, desktop only, and only
+    // for the images a view actually shows.
+    this.previewCache = new PreviewCache(this.app, this.heicThumbStore, {
+      isEnabled: () => this.settings.imagePreviewCache !== false,
+      allowGenerate: () => Boolean(this.capabilities?.isDesktop) && this.settings.imagePreviewCache !== false,
+    });
     // HEIC thumbnail conversion cache
     this.heicCache = new HeicCache(this.app, this.capabilities, { thumbStore: this.heicThumbStore });
-    this.thumbnailService = new ThumbnailService(this.app, this.heicCache, this.heicThumbStore);
+    this.thumbnailService = new ThumbnailService(this.app, this.heicCache, this.heicThumbStore, this.previewCache);
     // Unified image/video/audio metadata and cover service.
     this.mediaService = new MediaService(this.app, this.heicCache, {
       imageMetadata: this.exifCache,
       capabilities: this.capabilities,
       heicThumbStore: this.heicThumbStore,
+      previewCache: this.previewCache,
     });
     // Reverse geocoder for EXIF GPS coordinates (Nominatim, free)
     this.geocoder = new ReverseGeocoder({
@@ -483,6 +495,7 @@ class DaylinePlugin extends Plugin {
     this._mobileQuickEntry = null;
     this._removeCapabilityClasses();
     this.mediaService?.dispose?.();
+    this.previewCache?.dispose?.();
     this.heicThumbStore?.dispose?.();
     this._exifTooltipEl?.remove();
     this._exifTooltipEl = null;
