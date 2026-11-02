@@ -1,5 +1,47 @@
 # Changelog
 
+## 2.13.0 (2026-11-02)
+
+A guided first run that points at the real controls, and a preview cache so reopening a photo-heavy journal no longer decodes every original.
+
+### Added
+- **A first-run spotlight tour.** A brand-new install (no `data.json` yet) dims everything except one control at a time and explains it: the calendar cell that carries a day's cover and mood dot, opening that day, the mood picker, the weather card, the timeline entry in the ribbon, the timeline list, its search, and today. Desktop plays eight stops; a phone plays five, because it has no ribbon and no second pane; an empty library gets two, connecting the folder and writing today. Skip is on screen the whole time, `Esc` ends it, and `←`/`→` walk the stops. The marker is written when the tour ends, together with the view visibility it changed, so an interrupted first run writes nothing and is offered again. Settings → Dayline gains "Show the onboarding tour", and the palette the same command.
+- **Photo previews are cached.** Timeline cards and calendar cells used to paint straight from the original file, so a journal with dozens of phone photos decoded every 2–8 MB original on each launch only to paint it 120 px wide — and every HEIC was re-converted because the in-memory map starts empty. Dayline now writes a 640 px JPEG once into the same vault folder the HEIC thumbnails use: two conversions at a time, desktop only, skipped for sources that are already small, and a file that failed once is not retried. Later launches read a ~40 KB file instead. The toggle is "Cache image previews" in Media & privacy; the folder row, now shared by both caches, is called "Image cache folder" in all nine languages.
+
+### Fixed
+- **Two conversions on a fresh vault no longer fail on the folder.** When they raced to create the cache directory, the loser reported the "already exists" as an error. It is now treated as success; a real permission problem still fails at the write.
+
+### Verification
+- `npm run typecheck`, `npm test` (79 files / 1,058 tests), `npm run build`, `npm run package:release`, `npm run verify:release`, `npm run verify:release:zip` and `git diff --check` pass.
+- Obsidian Sandbox: `main.js`, `manifest.json` and `styles.css` deployed byte-identical and reloaded with no `dev:errors`; the running plugin reports `2.13.0`, exposes the tour command and a live preview cache.
+- Live: the preview cache generated and re-read a JPEG for a vault photo (`.dayline/thumbs/` gained the file and its index entry). The tour's replay painted the overlay over the calendar — four dim bands, the highlight on the month grid, eight dots — and Skip removed it.
+- `data.json` was rewritten by the plugin to persist the new `imagePreviewCache` default and restored from its byte-identical backup; `Calendar/journal-metadata.json` never changed.
+
+### Notes
+- The tour has not been seen on a real phone: the Sandbox is tablet-like, and the phone layout uses a bottom sheet this Mac window cannot show.
+- Preview generation is desktop-only by design; phones read the folder the desktop filled.
+
+---
+
+这一版加了一次真正指着控件的新手引导，以及一个图片预览缓存：照片多的日记再次打开时不再解码每张原图。
+
+### 新增
+- **首次使用的聚光灯引导。** 全新安装（还没有 `data.json`）会压暗其它区域，一次只留一个控件并解释它：带封面和心情点的日子格、点开那天、心情选择、天气卡、侧栏的时间线入口、时间线列表、搜索，以及「今天」。桌面 8 步；手机 5 步，因为手机没有 ribbon、也没有第二栏；空库只有 2 步——先连目录，再写今天。全程有「跳过」，`Esc` 也能结束，`←`/`→` 前后走。引导结束时才写入「已看过」标记，并且和它改动的视图可见性一起写，所以中途中断不会留下痕迹、下次还会再出现。设置 → Dayline 多了「显示新手引导」，命令面板里也有同名命令。
+- **照片预览做了缓存。** 时间线卡片和日历格以前直接画原图，几十张手机照片的日记每次打开都要解码每张 2–8 MB 的原图，最后只画 120 像素宽；HEIC 还会因为内存表是空的而重新转换。现在 Dayline 把照片转成 640 像素的 JPEG 写进 HEIC 缩略图用的同一个 vault 目录：同时最多两张、只在桌面生成、本来就很小的图跳过、失败过的文件不重试。之后启动读的是 ~40 KB 的预览。开关叫「缓存图片预览」，在「媒体与隐私」里；两个缓存共用的目录行改名为「图片缓存目录」（九种语言都改了）。
+
+### 修复
+- **全新 vault 上两个转换同时建目录不再报错。** 两个转换抢着创建缓存目录时，后到的那个会把「已存在」当成错误抛出。现在视为成功；真正的权限问题仍然会在写文件时报失败。
+
+### 验证
+- `npm run typecheck`、`npm test`（79 个文件 / 1,058 项测试）、`npm run build`、`npm run package:release`、`npm run verify:release`、`npm run verify:release:zip`、`git diff --check` 全部通过。
+- Obsidian Sandbox：`main.js`、`manifest.json`、`styles.css` 逐字节一致地部署并 reload，`dev:errors` 无报错；运行中的插件报告 `2.13.0`，能取到引导命令和活的预览缓存实例。
+- 实机行为：对 vault 里一张真实照片生成并重新读取了 JPEG 预览（`.dayline/thumbs/` 里多了文件和索引）。引导重放时遮罩盖在月历上——四条暗带、高亮落在月格、八个圆点——点「跳过」后遮罩移除。
+- `data.json` 被插件重写过一次以持久化新的 `imagePreviewCache` 默认值，已用逐字节相同的备份还原；`Calendar/journal-metadata.json` 全程未变。
+
+### 备注
+- 引导还没有在真手机上验证过：Sandbox 更接近平板，手机版用的是底部抽屉，Mac 窗口里看不到。
+- 预览生成按设计只在桌面进行，手机读桌面写好的目录。
+
 ## 2.12.0 (2026-10-31)
 
 A UI review pass: a day with two notes now behaves as one note, the calendar header and the settings pane are lighter, the dialogs share Obsidian's look, and the defects the review found are fixed.
