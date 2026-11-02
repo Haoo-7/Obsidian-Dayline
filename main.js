@@ -3216,8 +3216,8 @@ var init_i18n = __esm({
         heicThumbCacheGenerateDisabled: "\u7F13\u5B58\u76EE\u5F55\u4E3A\u7A7A\uFF0CHEIC \u7F29\u7565\u56FE\u7F13\u5B58\u5DF2\u5173\u95ED",
         heicThumbCacheGenerateDone: "\u5DF2\u751F\u6210 {count} \u5F20 HEIC \u7F29\u7565\u56FE",
         heicThumbCacheGenerateProgress: "\u751F\u6210\u4E2D {done}/{total}",
-        heicThumbCachePath: "HEIC \u7F29\u7565\u56FE\u7F13\u5B58\u76EE\u5F55",
-        heicThumbCachePathDesc: "\u684C\u9762\u7AEF\u628A HEIC \u8F6C\u6362\u540E\u7684\u7F29\u7565\u56FE\u5199\u5165\u8FD9\u4E2A vault \u5185\u76EE\u5F55\uFF0C\u624B\u673A/\u5E73\u677F\u65E0\u9700\u89E3\u7801\u5373\u53EF\u663E\u793A\u3002\u7559\u7A7A\u5173\u95ED\u3002\u4EE5\u70B9\u5F00\u5934\u7684\u9690\u85CF\u76EE\u5F55\u4E0D\u4F1A\u968F Obsidian Sync \u540C\u6B65\u2014\u2014\u4F7F\u7528 Sync \u8BF7\u6539\u7528\u53EF\u89C1\u76EE\u5F55\u3002\u8BE5\u76EE\u5F55\u53EF\u968F\u65F6\u5220\u9664\u3002",
+        heicThumbCachePath: "\u56FE\u7247\u7F13\u5B58\u76EE\u5F55",
+        heicThumbCachePathDesc: "\u684C\u9762\u7AEF\u628A HEIC \u8F6C\u6362\u7ED3\u679C\u548C\u7167\u7247\u7684\u5C0F\u5C3A\u5BF8\u9884\u89C8\u5199\u5165\u8FD9\u4E2A vault \u5185\u76EE\u5F55\uFF0C\u4E4B\u540E\u518D\u6253\u5F00\u53EA\u8BFB\u9884\u89C8\u3001\u4E0D\u518D\u89E3\u7801\u539F\u56FE\u3002\u7559\u7A7A\u5173\u95ED\u3002\u4EE5\u70B9\u5F00\u5934\u7684\u9690\u85CF\u76EE\u5F55\u4E0D\u4F1A\u968F Obsidian Sync \u540C\u6B65\u2014\u2014\u4F7F\u7528 Sync \u8BF7\u6539\u7528\u53EF\u89C1\u76EE\u5F55\u3002\u8BE5\u76EE\u5F55\u53EF\u968F\u65F6\u5220\u9664\u3002",
         heicThumbCachePathInvalid: "\u8BF7\u8F93\u5165 vault \u5185\u7684\u76F8\u5BF9\u76EE\u5F55\uFF0C\u4E0D\u80FD\u5305\u542B .. \u6216\u4EE5 /\u3001\u76D8\u7B26\u5F00\u5934",
         hopeful: "\u5145\u6EE1\u5E0C\u671B",
         importFrontmatterCommand: "\u5BFC\u5165 frontmatter \u5FC3\u60C5\u5143\u6570\u636E",
@@ -3553,8 +3553,8 @@ var init_i18n = __esm({
         heicThumbCacheGenerateDisabled: "\u5FEB\u53D6\u8CC7\u6599\u593E\u70BA\u7A7A\uFF0CHEIC \u7E2E\u5716\u5FEB\u53D6\u5DF2\u95DC\u9589",
         heicThumbCacheGenerateDone: "\u5DF2\u7522\u751F {count} \u5F35 HEIC \u7E2E\u5716",
         heicThumbCacheGenerateProgress: "\u7522\u751F\u4E2D {done}/{total}",
-        heicThumbCachePath: "HEIC \u7E2E\u5716\u5FEB\u53D6\u8CC7\u6599\u593E",
-        heicThumbCachePathDesc: "\u684C\u9762\u7AEF\u628A HEIC \u8F49\u63DB\u5F8C\u7684\u7E2E\u5716\u5BEB\u5165\u9019\u500B\u5132\u5B58\u5EAB\u5167\u8CC7\u6599\u593E\uFF0C\u624B\u6A5F/\u5E73\u677F\u7121\u9700\u89E3\u78BC\u5373\u53EF\u986F\u793A\u3002\u7559\u7A7A\u95DC\u9589\u3002\u4EE5\u9EDE\u958B\u982D\u7684\u96B1\u85CF\u8CC7\u6599\u593E\u4E0D\u6703\u96A8 Obsidian Sync \u540C\u6B65\u2014\u2014\u4F7F\u7528 Sync \u8ACB\u6539\u70BA\u53EF\u898B\u8CC7\u6599\u593E\u3002\u6B64\u8CC7\u6599\u593E\u53EF\u96A8\u6642\u522A\u9664\u3002",
+        heicThumbCachePath: "\u5716\u7247\u5FEB\u53D6\u8CC7\u6599\u593E",
+        heicThumbCachePathDesc: "\u684C\u9762\u7AEF\u628A HEIC \u8F49\u63DB\u7D50\u679C\u548C\u7167\u7247\u7684\u5C0F\u5C3A\u5BF8\u9810\u89BD\u5BEB\u5165\u9019\u500B\u5132\u5B58\u5EAB\u5167\u8CC7\u6599\u593E\uFF0C\u4E4B\u5F8C\u518D\u958B\u555F\u53EA\u8B80\u53D6\u9810\u89BD\u3001\u4E0D\u518D\u89E3\u78BC\u539F\u5716\u3002\u7559\u7A7A\u95DC\u9589\u3002\u4EE5\u9EDE\u958B\u982D\u7684\u96B1\u85CF\u8CC7\u6599\u593E\u4E0D\u6703\u96A8 Obsidian Sync \u540C\u6B65\u2014\u2014\u4F7F\u7528 Sync \u8ACB\u6539\u7528\u53EF\u898B\u8CC7\u6599\u593E\u3002\u6B64\u8CC7\u6599\u593E\u53EF\u96A8\u6642\u522A\u9664\u3002",
         heicThumbCachePathInvalid: "\u8ACB\u8F38\u5165\u5132\u5B58\u5EAB\u5167\u7684\u76F8\u5C0D\u8CC7\u6599\u593E\uFF0C\u4E0D\u80FD\u5305\u542B .. \u6216\u4EE5 /\u3001\u78C1\u789F\u6A5F\u4EE3\u865F\u958B\u982D",
         hopeful: "\u5145\u6EFF\u5E0C\u671B",
         importFrontmatterCommand: "\u532F\u5165 frontmatter \u5FC3\u60C5\u4E2D\u7E7C\u8CC7\u6599",
@@ -3890,8 +3890,8 @@ var init_i18n = __esm({
         heicThumbCacheGenerateDisabled: "The cache folder is empty, so the HEIC thumbnail cache is off",
         heicThumbCacheGenerateDone: "Generated {count} HEIC thumbnails",
         heicThumbCacheGenerateProgress: "Generating {done}/{total}",
-        heicThumbCachePath: "HEIC thumbnail cache folder",
-        heicThumbCachePathDesc: "Vault-relative folder where Dayline writes HEIC thumbnails converted on desktop, so phones and tablets can show them without decoding. Leave empty to disable. Hidden folders (starting with a dot) are not synced by Obsidian Sync \u2014 pick a visible folder if you use Sync. The folder can be deleted at any time.",
+        heicThumbCachePath: "Image cache folder",
+        heicThumbCachePathDesc: "Vault-relative folder where Dayline writes HEIC conversions and downscaled photo previews, so later launches read a small file instead of decoding the original. Leave empty to disable. Hidden folders (starting with a dot) are not synced by Obsidian Sync \u2014 pick a visible folder if you use Sync. The folder can be deleted at any time.",
         heicThumbCachePathInvalid: "Enter a vault-relative folder path without '..', a leading slash, or a drive letter",
         hopeful: "Hopeful",
         importFrontmatterCommand: "Import frontmatter mood metadata",
@@ -4227,8 +4227,8 @@ var init_i18n = __esm({
         heicThumbCacheGenerateDisabled: "\u30AD\u30E3\u30C3\u30B7\u30E5\u30D5\u30A9\u30EB\u30C0\u30FC\u304C\u7A7A\u306E\u305F\u3081\u3001HEIC \u30B5\u30E0\u30CD\u30A4\u30EB\u30AD\u30E3\u30C3\u30B7\u30E5\u306F\u7121\u52B9\u3067\u3059",
         heicThumbCacheGenerateDone: "{count} \u4EF6\u306E HEIC \u30B5\u30E0\u30CD\u30A4\u30EB\u3092\u751F\u6210\u3057\u307E\u3057\u305F",
         heicThumbCacheGenerateProgress: "\u751F\u6210\u4E2D {done}/{total}",
-        heicThumbCachePath: "HEIC \u30B5\u30E0\u30CD\u30A4\u30EB\u30AD\u30E3\u30C3\u30B7\u30E5\u30D5\u30A9\u30EB\u30C0\u30FC",
-        heicThumbCachePathDesc: "\u30C7\u30B9\u30AF\u30C8\u30C3\u30D7\u3067\u5909\u63DB\u3057\u305F HEIC \u30B5\u30E0\u30CD\u30A4\u30EB\u3092\u4FDD\u7BA1\u5EAB\u5185\u306E\u3053\u306E\u30D5\u30A9\u30EB\u30C0\u30FC\u306B\u4FDD\u5B58\u3057\u3001\u30B9\u30DE\u30DB\u3084\u30BF\u30D6\u30EC\u30C3\u30C8\u306F\u30C7\u30B3\u30FC\u30C9\u306A\u3057\u3067\u8868\u793A\u3067\u304D\u307E\u3059\u3002\u7A7A\u6B04\u3067\u7121\u52B9\u3002\u30C9\u30C3\u30C8\u3067\u59CB\u307E\u308B\u96A0\u3057\u30D5\u30A9\u30EB\u30C0\u30FC\u306F Obsidian Sync \u3067\u540C\u671F\u3055\u308C\u307E\u305B\u3093\uFF08Sync \u5229\u7528\u6642\u306F\u8868\u793A\u30D5\u30A9\u30EB\u30C0\u30FC\u3092\u6307\u5B9A\uFF09\u3002\u3053\u306E\u30D5\u30A9\u30EB\u30C0\u30FC\u306F\u3044\u3064\u3067\u3082\u524A\u9664\u3067\u304D\u307E\u3059\u3002",
+        heicThumbCachePath: "\u753B\u50CF\u30AD\u30E3\u30C3\u30B7\u30E5\u30D5\u30A9\u30EB\u30C0\u30FC",
+        heicThumbCachePathDesc: "\u30C7\u30B9\u30AF\u30C8\u30C3\u30D7\u3067\u5909\u63DB\u3057\u305F HEIC \u3068\u7E2E\u5C0F\u3057\u305F\u5199\u771F\u30D7\u30EC\u30D3\u30E5\u30FC\u3092\u4FDD\u7BA1\u5EAB\u5185\u306E\u3053\u306E\u30D5\u30A9\u30EB\u30C0\u30FC\u306B\u4FDD\u5B58\u3057\u3001\u6B21\u56DE\u4EE5\u964D\u306F\u5143\u753B\u50CF\u3092\u30C7\u30B3\u30FC\u30C9\u305B\u305A\u306B\u8AAD\u307F\u8FBC\u307F\u307E\u3059\u3002\u7A7A\u6B04\u3067\u7121\u52B9\u3002\u30C9\u30C3\u30C8\u3067\u59CB\u307E\u308B\u96A0\u3057\u30D5\u30A9\u30EB\u30C0\u30FC\u306F Obsidian Sync \u3067\u540C\u671F\u3055\u308C\u307E\u305B\u3093\uFF08Sync \u5229\u7528\u6642\u306F\u8868\u793A\u30D5\u30A9\u30EB\u30C0\u30FC\u3092\u6307\u5B9A\uFF09\u3002\u3053\u306E\u30D5\u30A9\u30EB\u30C0\u30FC\u306F\u3044\u3064\u3067\u3082\u524A\u9664\u3067\u304D\u307E\u3059\u3002",
         heicThumbCachePathInvalid: "\u4FDD\u7BA1\u5EAB\u5185\u306E\u76F8\u5BFE\u30D1\u30B9\u3092\u5165\u529B\u3057\u3066\u304F\u3060\u3055\u3044\uFF08.. \u3084\u5148\u982D\u306E / \u3001\u30C9\u30E9\u30A4\u30D6\u6587\u5B57\u306F\u4F7F\u7528\u4E0D\u53EF\uFF09",
         hopeful: "\u5E0C\u671B\u306B\u6E80\u3061\u305F",
         importFrontmatterCommand: "frontmatter\u304B\u3089\u6C17\u5206\u30E1\u30BF\u30C7\u30FC\u30BF\u3092\u30A4\u30F3\u30DD\u30FC\u30C8",
@@ -4564,8 +4564,8 @@ var init_i18n = __esm({
         heicThumbCacheGenerateDisabled: "\uCE90\uC2DC \uD3F4\uB354\uAC00 \uBE44\uC5B4 \uC788\uC5B4 HEIC \uC378\uB124\uC77C \uCE90\uC2DC\uAC00 \uAEBC\uC838 \uC788\uC2B5\uB2C8\uB2E4",
         heicThumbCacheGenerateDone: "HEIC \uC378\uB124\uC77C {count}\uC7A5\uC744 \uC0DD\uC131\uD588\uC2B5\uB2C8\uB2E4",
         heicThumbCacheGenerateProgress: "\uC0DD\uC131 \uC911 {done}/{total}",
-        heicThumbCachePath: "HEIC \uC378\uB124\uC77C \uCE90\uC2DC \uD3F4\uB354",
-        heicThumbCachePathDesc: "\uB370\uC2A4\uD06C\uD1B1\uC5D0\uC11C \uBCC0\uD658\uD55C HEIC \uC378\uB124\uC77C\uC744 \uBCF4\uAD00\uC18C \uB0B4 \uC774 \uD3F4\uB354\uC5D0 \uC800\uC7A5\uD558\uBA74 \uD734\uB300\uD3F0/\uD0DC\uBE14\uB9BF\uC774 \uB514\uCF54\uB529 \uC5C6\uC774 \uD45C\uC2DC\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4. \uBE44\uC6CC \uB450\uBA74 \uC0AC\uC6A9 \uC548 \uD568. \uC810\uC73C\uB85C \uC2DC\uC791\uD558\uB294 \uC228\uAE40 \uD3F4\uB354\uB294 Obsidian Sync\uB85C \uB3D9\uAE30\uD654\uB418\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4. Sync \uC0AC\uC6A9\uC790\uB294 \uD45C\uC2DC \uD3F4\uB354\uB97C \uC9C0\uC815\uD558\uC138\uC694. \uC5B8\uC81C\uB4E0\uC9C0 \uC0AD\uC81C\uD574\uB3C4 \uB429\uB2C8\uB2E4.",
+        heicThumbCachePath: "\uC774\uBBF8\uC9C0 \uCE90\uC2DC \uD3F4\uB354",
+        heicThumbCachePathDesc: "\uB370\uC2A4\uD06C\uD1B1\uC5D0\uC11C \uBCC0\uD658\uD55C HEIC\uC640 \uCD95\uC18C\uD55C \uC0AC\uC9C4 \uBBF8\uB9AC\uBCF4\uAE30\uB97C \uBCF4\uAD00\uC18C \uB0B4 \uC774 \uD3F4\uB354\uC5D0 \uC800\uC7A5\uD574, \uB2E4\uC74C\uBD80\uD130\uB294 \uC6D0\uBCF8\uC744 \uB514\uCF54\uB529\uD558\uC9C0 \uC54A\uACE0 \uC77D\uC2B5\uB2C8\uB2E4. \uBE44\uC6CC \uB450\uBA74 \uC0AC\uC6A9 \uC548 \uD568. \uC810\uC73C\uB85C \uC2DC\uC791\uD558\uB294 \uC228\uAE40 \uD3F4\uB354\uB294 Obsidian Sync\uB85C \uB3D9\uAE30\uD654\uB418\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4. Sync \uC0AC\uC6A9\uC790\uB294 \uD45C\uC2DC \uD3F4\uB354\uB97C \uC9C0\uC815\uD558\uC138\uC694. \uC5B8\uC81C\uB4E0\uC9C0 \uC0AD\uC81C\uD574\uB3C4 \uB429\uB2C8\uB2E4.",
         heicThumbCachePathInvalid: "\uBCF4\uAD00\uC18C \uB0B4 \uC0C1\uB300 \uACBD\uB85C\uB97C \uC785\uB825\uD558\uC138\uC694(.. \uB610\uB294 /, \uB4DC\uB77C\uC774\uBE0C \uBB38\uC790\uB85C \uC2DC\uC791\uD560 \uC218 \uC5C6\uC74C)",
         hopeful: "\uD76C\uB9DD\uCC38",
         importFrontmatterCommand: "frontmatter \uAE30\uBD84 \uBA54\uD0C0\uB370\uC774\uD130 \uAC00\uC838\uC624\uAE30",
@@ -4901,8 +4901,8 @@ var init_i18n = __esm({
         heicThumbCacheGenerateDisabled: "Le dossier de cache est vide : le cache de vignettes HEIC est d\xE9sactiv\xE9",
         heicThumbCacheGenerateDone: "{count} vignettes HEIC g\xE9n\xE9r\xE9es",
         heicThumbCacheGenerateProgress: "G\xE9n\xE9ration {done}/{total}",
-        heicThumbCachePath: "Dossier de cache des vignettes HEIC",
-        heicThumbCachePathDesc: "Dossier du coffre o\xF9 Dayline \xE9crit les vignettes HEIC converties sur ordinateur, pour que t\xE9l\xE9phones et tablettes les affichent sans d\xE9codage. Vide pour d\xE9sactiver. Les dossiers cach\xE9s (commen\xE7ant par un point) ne sont pas synchronis\xE9s par Obsidian Sync \u2014 choisissez un dossier visible avec Sync. Le dossier peut \xEAtre supprim\xE9 \xE0 tout moment.",
+        heicThumbCachePath: "Dossier de cache des images",
+        heicThumbCachePathDesc: "Dossier du coffre o\xF9 Dayline \xE9crit les conversions HEIC et les aper\xE7us r\xE9duits des photos : les lancements suivants lisent un petit fichier au lieu de d\xE9coder l'original. Vide pour d\xE9sactiver. Les dossiers cach\xE9s (commen\xE7ant par un point) ne sont pas synchronis\xE9s par Obsidian Sync \u2014 choisissez un dossier visible avec Sync. Le dossier peut \xEAtre supprim\xE9 \xE0 tout moment.",
         heicThumbCachePathInvalid: "Saisissez un dossier relatif au coffre, sans \xAB .. \xBB, ni \xAB / \xBB initial ni lettre de lecteur",
         hopeful: "Plein d'espoir",
         importFrontmatterCommand: "Importer les m\xE9tadonn\xE9es d'humeur depuis le frontmatter",
@@ -5238,8 +5238,8 @@ var init_i18n = __esm({
         heicThumbCacheGenerateDisabled: "Der Cacheordner ist leer, der HEIC-Vorschaubild-Cache ist deaktiviert",
         heicThumbCacheGenerateDone: "{count} HEIC-Vorschaubilder erzeugt",
         heicThumbCacheGenerateProgress: "Erzeuge {done}/{total}",
-        heicThumbCachePath: "HEIC-Vorschaubild-Cacheordner",
-        heicThumbCachePathDesc: "Ordner im Tresor, in dem Dayline die am Desktop konvertierten HEIC-Vorschaubilder speichert, damit Handys und Tablets sie ohne Dekodierung anzeigen. Leer lassen zum Deaktivieren. Versteckte Ordner (mit Punkt) werden von Obsidian Sync nicht synchronisiert \u2014 bei Sync einen sichtbaren Ordner w\xE4hlen. Der Ordner kann jederzeit gel\xF6scht werden.",
+        heicThumbCachePath: "Bild-Cacheordner",
+        heicThumbCachePathDesc: "Ordner im Tresor, in dem Dayline HEIC-Konvertierungen und verkleinerte Fotovorschauen speichert: sp\xE4tere Starts lesen eine kleine Datei, statt das Original zu dekodieren. Leer lassen zum Deaktivieren. Versteckte Ordner (mit Punkt) werden von Obsidian Sync nicht synchronisiert \u2014 bei Sync einen sichtbaren Ordner w\xE4hlen. Der Ordner kann jederzeit gel\xF6scht werden.",
         heicThumbCachePathInvalid: "Bitte einen tresorrelativen Ordner ohne \u201E..\u201C, f\xFChrenden \u201E/\u201C oder Laufwerksbuchstaben eingeben",
         hopeful: "Hoffnungsvoll",
         importFrontmatterCommand: "Stimmungs-Metadaten aus Frontmatter importieren",
@@ -5575,8 +5575,8 @@ var init_i18n = __esm({
         heicThumbCacheGenerateDisabled: "La carpeta de cach\xE9 est\xE1 vac\xEDa: la cach\xE9 de miniaturas HEIC est\xE1 desactivada",
         heicThumbCacheGenerateDone: "Se generaron {count} miniaturas HEIC",
         heicThumbCacheGenerateProgress: "Generando {done}/{total}",
-        heicThumbCachePath: "Carpeta de cach\xE9 de miniaturas HEIC",
-        heicThumbCachePathDesc: "Carpeta de la b\xF3veda donde Dayline guarda las miniaturas HEIC convertidas en el escritorio, para que m\xF3viles y tablets las muestren sin decodificar. Vac\xEDo para desactivar. Las carpetas ocultas (con punto) no se sincronizan con Obsidian Sync: usa una carpeta visible si utilizas Sync. La carpeta puede borrarse en cualquier momento.",
+        heicThumbCachePath: "Carpeta de cach\xE9 de im\xE1genes",
+        heicThumbCachePathDesc: "Carpeta de la b\xF3veda donde Dayline guarda las conversiones HEIC y las vistas previas reducidas de las fotos: las siguientes aperturas leen un archivo peque\xF1o en lugar de decodificar el original. Vac\xEDo para desactivar. Las carpetas ocultas (con punto) no se sincronizan con Obsidian Sync: usa una carpeta visible si utilizas Sync. La carpeta puede borrarse en cualquier momento.",
         heicThumbCachePathInvalid: "Introduce una carpeta relativa a la b\xF3veda, sin \xAB..\xBB ni \xAB/\xBB inicial ni letra de unidad",
         hopeful: "Esperanzado",
         importFrontmatterCommand: "Importar metadatos de \xE1nimo desde frontmatter",
@@ -5912,8 +5912,8 @@ var init_i18n = __esm({
         heicThumbCacheGenerateDisabled: "\u041F\u0430\u043F\u043A\u0430 \u043A\u044D\u0448\u0430 \u043F\u0443\u0441\u0442\u0430 \u2014 \u043A\u044D\u0448 \u043C\u0438\u043D\u0438\u0430\u0442\u044E\u0440 HEIC \u043E\u0442\u043A\u043B\u044E\u0447\u0451\u043D",
         heicThumbCacheGenerateDone: "\u0421\u043E\u0437\u0434\u0430\u043D\u043E \u043C\u0438\u043D\u0438\u0430\u0442\u044E\u0440 HEIC: {count}",
         heicThumbCacheGenerateProgress: "\u0421\u043E\u0437\u0434\u0430\u043D\u0438\u0435 {done}/{total}",
-        heicThumbCachePath: "\u041F\u0430\u043F\u043A\u0430 \u043A\u044D\u0448\u0430 \u043C\u0438\u043D\u0438\u0430\u0442\u044E\u0440 HEIC",
-        heicThumbCachePathDesc: "\u041F\u0430\u043F\u043A\u0430 \u0432 \u0445\u0440\u0430\u043D\u0438\u043B\u0438\u0449\u0435, \u043A\u0443\u0434\u0430 Dayline \u0441\u043E\u0445\u0440\u0430\u043D\u044F\u0435\u0442 \u043C\u0438\u043D\u0438\u0430\u0442\u044E\u0440\u044B HEIC, \u043F\u0440\u0435\u043E\u0431\u0440\u0430\u0437\u043E\u0432\u0430\u043D\u043D\u044B\u0435 \u043D\u0430 \u043A\u043E\u043C\u043F\u044C\u044E\u0442\u0435\u0440\u0435, \u0447\u0442\u043E\u0431\u044B \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u044B \u0438 \u043F\u043B\u0430\u043D\u0448\u0435\u0442\u044B \u043F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u043B\u0438 \u0438\u0445 \u0431\u0435\u0437 \u0434\u0435\u043A\u043E\u0434\u0438\u0440\u043E\u0432\u0430\u043D\u0438\u044F. \u041F\u0443\u0441\u0442\u043E \u2014 \u0432\u044B\u043A\u043B\u044E\u0447\u0435\u043D\u043E. \u0421\u043A\u0440\u044B\u0442\u044B\u0435 \u043F\u0430\u043F\u043A\u0438 (\u0441 \u0442\u043E\u0447\u043A\u043E\u0439) \u043D\u0435 \u0441\u0438\u043D\u0445\u0440\u043E\u043D\u0438\u0437\u0438\u0440\u0443\u044E\u0442\u0441\u044F Obsidian Sync \u2014 \u043F\u0440\u0438 \u0438\u0441\u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u043D\u0438\u0438 Sync \u0432\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u0432\u0438\u0434\u0438\u043C\u0443\u044E \u043F\u0430\u043F\u043A\u0443. \u041F\u0430\u043F\u043A\u0443 \u043C\u043E\u0436\u043D\u043E \u0443\u0434\u0430\u043B\u0438\u0442\u044C \u0432 \u043B\u044E\u0431\u043E\u0439 \u043C\u043E\u043C\u0435\u043D\u0442.",
+        heicThumbCachePath: "\u041F\u0430\u043F\u043A\u0430 \u043A\u044D\u0448\u0430 \u0438\u0437\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0439",
+        heicThumbCachePathDesc: "\u041F\u0430\u043F\u043A\u0430 \u0432 \u0445\u0440\u0430\u043D\u0438\u043B\u0438\u0449\u0435, \u043A\u0443\u0434\u0430 Dayline \u0441\u043E\u0445\u0440\u0430\u043D\u044F\u0435\u0442 \u043F\u0440\u0435\u043E\u0431\u0440\u0430\u0437\u043E\u0432\u0430\u043D\u043D\u044B\u0435 HEIC \u0438 \u0443\u043C\u0435\u043D\u044C\u0448\u0435\u043D\u043D\u044B\u0435 \u043F\u0440\u0435\u0432\u044C\u044E \u0444\u043E\u0442\u043E\u0433\u0440\u0430\u0444\u0438\u0439: \u043F\u0440\u0438 \u0441\u043B\u0435\u0434\u0443\u044E\u0449\u0438\u0445 \u0437\u0430\u043F\u0443\u0441\u043A\u0430\u0445 \u0447\u0438\u0442\u0430\u0435\u0442\u0441\u044F \u043D\u0435\u0431\u043E\u043B\u044C\u0448\u043E\u0439 \u0444\u0430\u0439\u043B, \u0430 \u043D\u0435 \u0434\u0435\u043A\u043E\u0434\u0438\u0440\u0443\u0435\u0442\u0441\u044F \u043E\u0440\u0438\u0433\u0438\u043D\u0430\u043B. \u041F\u0443\u0441\u0442\u043E \u2014 \u0432\u044B\u043A\u043B\u044E\u0447\u0435\u043D\u043E. \u0421\u043A\u0440\u044B\u0442\u044B\u0435 \u043F\u0430\u043F\u043A\u0438 (\u0441 \u0442\u043E\u0447\u043A\u043E\u0439) \u043D\u0435 \u0441\u0438\u043D\u0445\u0440\u043E\u043D\u0438\u0437\u0438\u0440\u0443\u044E\u0442\u0441\u044F Obsidian Sync \u2014 \u043F\u0440\u0438 \u0438\u0441\u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u043D\u0438\u0438 Sync \u0432\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u0432\u0438\u0434\u0438\u043C\u0443\u044E \u043F\u0430\u043F\u043A\u0443. \u041F\u0430\u043F\u043A\u0443 \u043C\u043E\u0436\u043D\u043E \u0443\u0434\u0430\u043B\u0438\u0442\u044C \u0432 \u043B\u044E\u0431\u043E\u0439 \u043C\u043E\u043C\u0435\u043D\u0442.",
         heicThumbCachePathInvalid: "\u0423\u043A\u0430\u0436\u0438\u0442\u0435 \u043F\u0430\u043F\u043A\u0443 \u043E\u0442\u043D\u043E\u0441\u0438\u0442\u0435\u043B\u044C\u043D\u043E \u0445\u0440\u0430\u043D\u0438\u043B\u0438\u0449\u0430, \u0431\u0435\u0437 \xAB..\xBB, \u0432\u0435\u0434\u0443\u0449\u0435\u0439 \xAB/\xBB \u0438 \u0431\u0443\u043A\u0432\u044B \u0434\u0438\u0441\u043A\u0430",
         hopeful: "\u041D\u0430\u0434\u0435\u0436\u0434\u0430",
         importFrontmatterCommand: "\u0418\u043C\u043F\u043E\u0440\u0442\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u043C\u0435\u0442\u0430\u0434\u0430\u043D\u043D\u044B\u0435 \u043D\u0430\u0441\u0442\u0440\u043E\u0435\u043D\u0438\u044F \u0438\u0437 frontmatter",
@@ -8821,6 +8821,8 @@ var init_locale = __esm({
         s_otdExcerptTemplateDesc: "\u4F7F\u7528 {body}\u3001{year}\u3001{date} \u6216\u4EFB\u610F frontmatter \u952E\u5982 {mood}",
         s_otdTemplate: "\u6A21\u677F",
         s_otdTemplateDesc: "\u81EA\u5B9A\u4E49\u6458\u8981\u7684\u6A21\u677F\u5B57\u7B26\u4E32",
+        s_previewCache: "\u7F13\u5B58\u56FE\u7247\u9884\u89C8",
+        s_previewCacheDesc: "\u628A\u65E5\u8BB0\u91CC\u7684\u7167\u7247\u8F6C\u6210\u5C0F\u5C3A\u5BF8\u9884\u89C8\u5B58\u5165\u4E0A\u9762\u7684\u7F13\u5B58\u76EE\u5F55\uFF0C\u4E4B\u540E\u6253\u5F00\u53EA\u8BFB\u9884\u89C8\u3001\u4E0D\u518D\u89E3\u7801\u539F\u56FE\u3002\u9996\u6B21\u770B\u5230\u67D0\u5F20\u7167\u7247\u65F6\u8F6C\u6362\u4E00\u6B21\uFF1B\u5173\u95ED\u540E\u4ECD\u4F7F\u7528\u539F\u56FE\u3002",
         s_tempUnits: "\u6E29\u5EA6\u5355\u4F4D",
         s_tempUnitsDesc: "\u9009\u62E9\u6444\u6C0F\u5EA6\u6216\u534E\u6C0F\u5EA6",
         s_thumbnailAll: "\u6240\u6709\u5D4C\u5165\u56FE\u7247",
@@ -8950,6 +8952,8 @@ var init_locale = __esm({
         s_otdExcerptTemplateDesc: "\u4F7F\u7528 {body}\u3001{year}\u3001{date} \u6216\u4EFB\u4F55 frontmatter \u9375\u5982 {mood}",
         s_otdTemplate: "\u7BC4\u672C",
         s_otdTemplateDesc: "\u81EA\u8A02\u6458\u8981\u7684\u7BC4\u672C\u5B57\u4E32",
+        s_previewCache: "\u5FEB\u53D6\u5716\u7247\u9810\u89BD",
+        s_previewCacheDesc: "\u628A\u65E5\u8A18\u88E1\u7684\u7167\u7247\u8F49\u6210\u5C0F\u5C3A\u5BF8\u9810\u89BD\u5B58\u5165\u4E0A\u9762\u7684\u5FEB\u53D6\u8CC7\u6599\u593E\uFF0C\u4E4B\u5F8C\u958B\u555F\u53EA\u8B80\u9810\u89BD\u3001\u4E0D\u518D\u89E3\u78BC\u539F\u5716\u3002\u7B2C\u4E00\u6B21\u770B\u5230\u67D0\u5F35\u7167\u7247\u6642\u8F49\u63DB\u4E00\u6B21\uFF1B\u95DC\u9589\u5F8C\u4ECD\u4F7F\u7528\u539F\u5716\u3002",
         s_tempUnits: "\u6EAB\u5EA6\u55AE\u4F4D",
         s_tempUnitsDesc: "\u9078\u64C7\u4EE5\u651D\u6C0F\u5EA6\u6216\u83EF\u6C0F\u5EA6\u986F\u793A\u6EAB\u5EA6",
         s_thumbnailAll: "\u6240\u6709\u5D4C\u5165\u5716\u7247",
@@ -9079,6 +9083,8 @@ var init_locale = __esm({
         s_otdExcerptTemplateDesc: "Use {body}, {year}, {date}, or any frontmatter key like {mood}",
         s_otdTemplate: "Template",
         s_otdTemplateDesc: "Template string for custom excerpt mode",
+        s_previewCache: "Cache image previews",
+        s_previewCacheDesc: "Downscale journal photos into the cache folder above, so later launches read a small preview instead of decoding the original. The first sighting of a photo converts it once; turning this off goes back to the originals.",
         s_tempUnits: "Temperature units",
         s_tempUnitsDesc: "Display temperature in Celsius or Fahrenheit",
         s_thumbnailAll: "All embedded images",
@@ -9208,6 +9214,8 @@ var init_locale = __esm({
         s_otdExcerptTemplateDesc: "{body}\u3001{year}\u3001{date}\u3001\u307E\u305F\u306F {mood} \u306A\u3069\u306EFrontmatter\u30AD\u30FC\u3092\u4F7F\u7528\u3067\u304D\u307E\u3059",
         s_otdTemplate: "\u30C6\u30F3\u30D7\u30EC\u30FC\u30C8",
         s_otdTemplateDesc: "\u30AB\u30B9\u30BF\u30E0\u629C\u7C8B\u30E2\u30FC\u30C9\u3067\u4F7F\u7528\u3059\u308B\u30C6\u30F3\u30D7\u30EC\u30FC\u30C8\u6587\u5B57\u5217",
+        s_previewCache: "\u753B\u50CF\u30D7\u30EC\u30D3\u30E5\u30FC\u3092\u30AD\u30E3\u30C3\u30B7\u30E5",
+        s_previewCacheDesc: "\u65E5\u8A18\u306E\u5199\u771F\u3092\u7E2E\u5C0F\u3057\u305F\u30D7\u30EC\u30D3\u30E5\u30FC\u3092\u4E0A\u306E\u30AD\u30E3\u30C3\u30B7\u30E5\u30D5\u30A9\u30EB\u30C0\u30FC\u306B\u4FDD\u5B58\u3057\u3001\u6B21\u56DE\u4EE5\u964D\u306F\u5143\u753B\u50CF\u3092\u30C7\u30B3\u30FC\u30C9\u305B\u305A\u306B\u8AAD\u307F\u8FBC\u307F\u307E\u3059\u3002\u5199\u771F\u3092\u6700\u521D\u306B\u8868\u793A\u3059\u308B\u3068\u304D\u306B\u4E00\u5EA6\u3060\u3051\u5909\u63DB\u3057\u307E\u3059\u3002\u30AA\u30D5\u306B\u3059\u308B\u3068\u5143\u753B\u50CF\u3092\u4F7F\u3044\u307E\u3059\u3002",
         s_tempUnits: "\u6E29\u5EA6\u306E\u5358\u4F4D",
         s_tempUnitsDesc: "\u6442\u6C0F\uFF08\xB0C\uFF09\u307E\u305F\u306F\u83EF\u6C0F\uFF08\xB0F\uFF09\u3092\u9078\u629E\u3057\u307E\u3059",
         s_thumbnailAll: "\u3059\u3079\u3066\u306E\u57CB\u3081\u8FBC\u307F\u753B\u50CF",
@@ -9337,6 +9345,8 @@ var init_locale = __esm({
         s_otdExcerptTemplateDesc: "{body}, {year}, {date} \uB610\uB294 {mood}\uC640 \uAC19\uC740 Frontmatter \uD0A4\uB97C \uC0AC\uC6A9\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4",
         s_otdTemplate: "\uD15C\uD50C\uB9BF",
         s_otdTemplateDesc: "\uC0AC\uC6A9\uC790 \uC815\uC758 \uBC1C\uCDCC \uBAA8\uB4DC\uC5D0 \uC0AC\uC6A9\uD560 \uD15C\uD50C\uB9BF \uBB38\uC790\uC5F4",
+        s_previewCache: "\uC774\uBBF8\uC9C0 \uBBF8\uB9AC\uBCF4\uAE30 \uCE90\uC2DC",
+        s_previewCacheDesc: "\uC77C\uC9C0 \uC0AC\uC9C4\uC744 \uCD95\uC18C\uD55C \uBBF8\uB9AC\uBCF4\uAE30\uB97C \uC704 \uCE90\uC2DC \uD3F4\uB354\uC5D0 \uC800\uC7A5\uD574, \uB2E4\uC74C\uBD80\uD130\uB294 \uC6D0\uBCF8\uC744 \uB514\uCF54\uB529\uD558\uC9C0 \uC54A\uACE0 \uBBF8\uB9AC\uBCF4\uAE30\uB97C \uC77D\uC2B5\uB2C8\uB2E4. \uC0AC\uC9C4\uC744 \uCC98\uC74C \uBCFC \uB54C \uD55C \uBC88 \uBCC0\uD658\uD569\uB2C8\uB2E4. \uB044\uBA74 \uC6D0\uBCF8\uC744 \uC0AC\uC6A9\uD569\uB2C8\uB2E4.",
         s_tempUnits: "\uC628\uB3C4 \uB2E8\uC704",
         s_tempUnitsDesc: "\uC12D\uC528(\xB0C) \uB610\uB294 \uD654\uC528(\xB0F) \uC120\uD0DD",
         s_thumbnailAll: "\uBAA8\uB4E0 \uCCA8\uBD80 \uC774\uBBF8\uC9C0",
@@ -9466,6 +9476,8 @@ var init_locale = __esm({
         s_otdExcerptTemplateDesc: "Utilisez {body}, {year}, {date} ou toute cl\xE9 du frontmatter comme {mood}",
         s_otdTemplate: "Mod\xE8le",
         s_otdTemplateDesc: "Cha\xEEne de mod\xE8le pour le mode d'extrait personnalis\xE9",
+        s_previewCache: "Mettre en cache les aper\xE7us d'images",
+        s_previewCacheDesc: "R\xE9duit les photos du journal dans le dossier de cache ci-dessus : les lancements suivants lisent un petit aper\xE7u au lieu de d\xE9coder l'original. Une photo est convertie une fois, \xE0 sa premi\xE8re apparition ; d\xE9sactiv\xE9, les originaux sont utilis\xE9s.",
         s_tempUnits: "Unit\xE9s de temp\xE9rature",
         s_tempUnitsDesc: "Afficher la temp\xE9rature en Celsius ou Fahrenheit",
         s_thumbnailAll: "Toutes les images int\xE9gr\xE9es",
@@ -9595,6 +9607,8 @@ var init_locale = __esm({
         s_otdExcerptTemplateDesc: "Nutzen Sie {body}, {year}, {date} oder beliebige Frontmatter-Felder wie {mood}",
         s_otdTemplate: "Vorlage",
         s_otdTemplateDesc: "Vorlagen-String f\xFCr benutzerdefinierten Auszugsmodus",
+        s_previewCache: "Bildvorschauen zwischenspeichern",
+        s_previewCacheDesc: "Verkleinert Fotos des Journals in den Cacheordner oben: sp\xE4tere Starts lesen eine kleine Vorschau, statt das Original zu dekodieren. Beim ersten Anzeigen wird ein Foto einmal konvertiert; deaktiviert werden die Originale verwendet.",
         s_tempUnits: "Temperatureinheit",
         s_tempUnitsDesc: "Temperatur in Celsius oder Fahrenheit anzeigen",
         s_thumbnailAll: "Alle eingebetteten Bilder",
@@ -9724,6 +9738,8 @@ var init_locale = __esm({
         s_otdExcerptTemplateDesc: "Usa {body}, {year}, {date} o cualquier clave de frontmatter como {mood}",
         s_otdTemplate: "Plantilla",
         s_otdTemplateDesc: "Cadena de plantilla para modo de extracto personalizado",
+        s_previewCache: "Guardar vistas previas de im\xE1genes",
+        s_previewCacheDesc: "Reduce las fotos del diario en la carpeta de cach\xE9 de arriba: las siguientes aperturas leen una vista previa peque\xF1a en lugar de decodificar el original. Cada foto se convierte una vez, la primera vez que se muestra; si se desactiva, se usan los originales.",
         s_tempUnits: "Unidades de temperatura",
         s_tempUnitsDesc: "Mostrar temperatura en Celsius o Fahrenheit",
         s_thumbnailAll: "Todas las im\xE1genes incrustadas",
@@ -9853,6 +9869,8 @@ var init_locale = __esm({
         s_otdExcerptTemplateDesc: "\u0418\u0441\u043F\u043E\u043B\u044C\u0437\u0443\u0439\u0442\u0435 {body}, {year}, {date} \u0438\u043B\u0438 \u043B\u044E\u0431\u043E\u0435 \u043F\u043E\u043B\u0435 frontmatter, \u043D\u0430\u043F\u0440\u0438\u043C\u0435\u0440 {mood}",
         s_otdTemplate: "\u0428\u0430\u0431\u043B\u043E\u043D",
         s_otdTemplateDesc: "\u0428\u0430\u0431\u043B\u043E\u043D\u043D\u0430\u044F \u0441\u0442\u0440\u043E\u043A\u0430 \u0434\u043B\u044F \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044C\u0441\u043A\u043E\u0433\u043E \u0440\u0435\u0436\u0438\u043C\u0430 \u0432\u044B\u0434\u0435\u0440\u0436\u043A\u0438",
+        s_previewCache: "\u041A\u044D\u0448\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u043F\u0440\u0435\u0432\u044C\u044E \u0438\u0437\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0439",
+        s_previewCacheDesc: "\u0423\u043C\u0435\u043D\u044C\u0448\u0430\u0435\u0442 \u0444\u043E\u0442\u043E\u0433\u0440\u0430\u0444\u0438\u0438 \u0436\u0443\u0440\u043D\u0430\u043B\u0430 \u0432 \u043F\u0430\u043F\u043A\u0443 \u043A\u044D\u0448\u0430 \u0432\u044B\u0448\u0435: \u043F\u0440\u0438 \u0441\u043B\u0435\u0434\u0443\u044E\u0449\u0438\u0445 \u0437\u0430\u043F\u0443\u0441\u043A\u0430\u0445 \u0447\u0438\u0442\u0430\u0435\u0442\u0441\u044F \u043C\u0430\u043B\u0435\u043D\u044C\u043A\u043E\u0435 \u043F\u0440\u0435\u0432\u044C\u044E, \u0430 \u043D\u0435 \u0434\u0435\u043A\u043E\u0434\u0438\u0440\u0443\u0435\u0442\u0441\u044F \u043E\u0440\u0438\u0433\u0438\u043D\u0430\u043B. \u0424\u043E\u0442\u043E \u043F\u0440\u0435\u043E\u0431\u0440\u0430\u0437\u0443\u0435\u0442\u0441\u044F \u043E\u0434\u0438\u043D \u0440\u0430\u0437, \u043F\u0440\u0438 \u043F\u0435\u0440\u0432\u043E\u043C \u043F\u043E\u043A\u0430\u0437\u0435; \u043F\u0440\u0438 \u043E\u0442\u043A\u043B\u044E\u0447\u0435\u043D\u0438\u0438 \u0438\u0441\u043F\u043E\u043B\u044C\u0437\u0443\u044E\u0442\u0441\u044F \u043E\u0440\u0438\u0433\u0438\u043D\u0430\u043B\u044B.",
         s_tempUnits: "\u0415\u0434\u0438\u043D\u0438\u0446\u044B \u0442\u0435\u043C\u043F\u0435\u0440\u0430\u0442\u0443\u0440\u044B",
         s_tempUnitsDesc: "\u041E\u0442\u043E\u0431\u0440\u0430\u0436\u0430\u0442\u044C \u0442\u0435\u043C\u043F\u0435\u0440\u0430\u0442\u0443\u0440\u0443 \u0432 \u0433\u0440\u0430\u0434\u0443\u0441\u0430\u0445 \u0426\u0435\u043B\u044C\u0441\u0438\u044F \u0438\u043B\u0438 \u0424\u0430\u0440\u0435\u043D\u0433\u0435\u0439\u0442\u0430",
         s_thumbnailAll: "\u0412\u0441\u0435 \u0432\u0441\u0442\u0440\u043E\u0435\u043D\u043D\u044B\u0435 \u0438\u0437\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u044F",
@@ -11657,7 +11675,12 @@ var init_heic_thumb_store = __esm({
         }
       }
       async ensureDir(dir) {
-        if (!await this.adapter.exists(dir)) await this.adapter.mkdir(dir);
+        if (await this.adapter.exists(dir)) return;
+        try {
+          await this.adapter.mkdir(dir);
+        } catch {
+          if (!await this.adapter.exists(dir)) throw new Error(`could not create cache folder: ${dir}`);
+        }
       }
       scheduleIndexFlush() {
         if (!this.canWrite) return;
@@ -11864,7 +11887,7 @@ function restoreSettingsScroll(host, scrollTop, options = {}) {
   };
   nextFrame(retry);
 }
-var import_obsidian5, VIEW_TYPE, SETTINGS_TEXT_COMMIT_DELAY_MS, SCROLL_EPSILON_PX, SCROLL_RESCUE_MAX_FRAMES, DEFAULT_MOOD_METADATA_PATH, COORDINATE_LIMITS, COORDINATE_RANGE_MESSAGE_KEYS, DECIMAL_NUMBER_PATTERN, SETTINGS_SECTION_IDS, SETTINGS_SECTION_LABEL_KEYS, SETTINGS_ACTION_ROWS, DaylineSettingsTab, FolderSuggestModal;
+var import_obsidian5, VIEW_TYPE, TIMELINE_VIEW_TYPE, SETTINGS_TEXT_COMMIT_DELAY_MS, SCROLL_EPSILON_PX, SCROLL_RESCUE_MAX_FRAMES, DEFAULT_MOOD_METADATA_PATH, COORDINATE_LIMITS, COORDINATE_RANGE_MESSAGE_KEYS, DECIMAL_NUMBER_PATTERN, SETTINGS_SECTION_IDS, SETTINGS_SECTION_LABEL_KEYS, SETTINGS_ACTION_ROWS, DaylineSettingsTab, FolderSuggestModal;
 var init_settings_tab = __esm({
   "src/settings-tab.ts"() {
     "use strict";
@@ -11885,6 +11908,7 @@ var init_settings_tab = __esm({
     init_on_this_day_entry();
     init_heic_thumb_store();
     VIEW_TYPE = "calendar-sidebar-view";
+    TIMELINE_VIEW_TYPE = "journal-timeline-view";
     SETTINGS_TEXT_COMMIT_DELAY_MS = 800;
     SCROLL_EPSILON_PX = 1;
     SCROLL_RESCUE_MAX_FRAMES = 8;
@@ -12366,8 +12390,17 @@ var init_settings_tab = __esm({
           localizeError: (key) => t(this.plugin.settings, key),
           apply: () => {
             this.plugin.heicThumbStore?.reconfigure?.();
+            this.plugin.previewCache?.invalidate?.();
           }
         });
+        new import_obsidian5.Setting(containerEl).setName(_s("s_previewCache")).setDesc(_s("s_previewCacheDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.imagePreviewCache !== false).onChange(async (value) => {
+          this.plugin.settings.imagePreviewCache = value;
+          if (!await this._saveSettings()) return;
+          void this._refreshViews();
+          for (const leaf of this.app.workspace.getLeavesOfType(TIMELINE_VIEW_TYPE)) {
+            leaf.view?.render?.();
+          }
+        }));
         if (shouldShowHeicThumbCacheGenerate(this.plugin.capabilities)) {
           const generateRow = new import_obsidian5.Setting(containerEl).setName(t(this.plugin.settings, "heicThumbCacheGenerate")).setDesc(t(this.plugin.settings, "heicThumbCacheGenerateDesc"));
           generateRow.addButton((button) => button.setButtonText(t(this.plugin.settings, "heicThumbCacheGenerate")).onClick(async () => {
@@ -28039,6 +28072,7 @@ var init_media_service = __esm({
         __publicField(this, "app");
         __publicField(this, "heicCache");
         __publicField(this, "heicThumbStore");
+        __publicField(this, "previewCache");
         __publicField(this, "imageMetadata");
         __publicField(this, "inputFactory");
         __publicField(this, "capabilities");
@@ -28052,6 +28086,7 @@ var init_media_service = __esm({
         this.app = app;
         this.heicCache = heicCache;
         this.heicThumbStore = options.heicThumbStore;
+        this.previewCache = options.previewCache;
         this.imageMetadata = options.imageMetadata;
         this.capabilities = options.capabilities;
         this.inputFactory = options.inputFactory || ((resourceUrl) => this.createInput(resourceUrl));
@@ -28295,14 +28330,18 @@ var init_media_service = __esm({
           if (attachment.external) return { url: attachment.normalizedLink, attachment };
           const file = this.resolveFile(attachment);
           if (!file) return null;
+          const stored = await this.previewCache?.read?.(file);
+          if (stored?.url) return { url: stored.url, attachment };
           if (attachment.extension && ["heic", "heif"].includes(attachment.extension)) {
             if (this.route("heic") !== "disabled") {
               const result = await this.heicCache?.getThumbnail?.(file);
               if (result?.dataUrl) return { url: result.dataUrl, attachment };
             }
-            const stored = await this.heicThumbStore?.read?.(file);
-            return stored?.url ? { url: stored.url, attachment } : null;
+            const converted = await this.heicThumbStore?.read?.(file);
+            return converted?.url ? { url: converted.url, attachment } : null;
           }
+          const preview = await this.previewCache?.generate?.(file);
+          if (preview?.url) return { url: preview.url, attachment };
           const url = this.app.vault?.getResourcePath?.(file);
           return url ? { url, attachment } : null;
         }
@@ -28429,6 +28468,7 @@ var init_media_service = __esm({
         return null;
       }
       invalidate(path) {
+        this.previewCache?.invalidate?.(path);
         if (!path) {
           this.clearMap(this.coverCache);
           this.revokeDeferredCovers();
@@ -30111,13 +30151,15 @@ var init_thumbnail_service = __esm({
     IMAGE_EXTENSIONS3 = IMAGE_EXTENSIONS;
     HEIC_EXTENSIONS = ["heic", "heif"];
     ThumbnailService = class {
-      constructor(app, heicCache, heicThumbStore) {
+      constructor(app, heicCache, heicThumbStore, previewCache) {
         __publicField(this, "app");
         __publicField(this, "heicCache");
         __publicField(this, "heicThumbStore");
+        __publicField(this, "previewCache");
         this.app = app;
         this.heicCache = heicCache;
         this.heicThumbStore = heicThumbStore || null;
+        this.previewCache = previewCache || null;
       }
       isImageFile(file) {
         return Boolean(file?.extension && IMAGE_EXTENSIONS3.includes(String(file.extension).toLowerCase()));
@@ -30139,6 +30181,8 @@ var init_thumbnail_service = __esm({
         const file = this.resolve(normalized, sourcePath);
         if (!file) return null;
         try {
+          const preview = await this.previewCache?.read?.(file);
+          if (preview?.url) return { url: preview.url, path: file.path, index };
           const ext = String(file.extension).toLowerCase();
           let url = null;
           if (HEIC_EXTENSIONS.includes(ext)) {
@@ -33821,6 +33865,280 @@ var init_image_metadata = __esm({
   }
 });
 
+// src/preview-cache.ts
+var preview_cache_exports = {};
+__export(preview_cache_exports, {
+  PREVIEW_CONCURRENCY: () => PREVIEW_CONCURRENCY,
+  PREVIEW_EXTENSIONS: () => PREVIEW_EXTENSIONS,
+  PREVIEW_JPEG_QUALITY: () => PREVIEW_JPEG_QUALITY,
+  PREVIEW_MAX_EDGE: () => PREVIEW_MAX_EDGE,
+  PREVIEW_MAX_SOURCE_BYTES: () => PREVIEW_MAX_SOURCE_BYTES,
+  PREVIEW_SKIP_LIMIT: () => PREVIEW_SKIP_LIMIT,
+  PreviewCache: () => PreviewCache,
+  previewExtensionOf: () => previewExtensionOf,
+  scalePreviewDimensions: () => scalePreviewDimensions,
+  supportsPreviewExtension: () => supportsPreviewExtension
+});
+function scalePreviewDimensions(width, height, maxEdge = PREVIEW_MAX_EDGE) {
+  const inputWidth = Number(width);
+  const inputHeight = Number(height);
+  const edge = Number(maxEdge);
+  if (!Number.isFinite(inputWidth) || !Number.isFinite(inputHeight) || inputWidth <= 0 || inputHeight <= 0) return null;
+  if (!Number.isFinite(edge) || edge <= 0) return null;
+  const scale = Math.min(1, edge / Math.max(inputWidth, inputHeight));
+  return {
+    width: Math.max(1, Math.round(inputWidth * scale)),
+    height: Math.max(1, Math.round(inputHeight * scale))
+  };
+}
+function previewExtensionOf(file) {
+  return String(file?.extension || "").toLowerCase();
+}
+function supportsPreviewExtension(extension) {
+  return PREVIEW_EXTENSIONS.includes(String(extension || "").toLowerCase());
+}
+async function decodeImageBlob(blob) {
+  const host = typeof window !== "undefined" ? window : globalThis;
+  if (typeof host?.createImageBitmap === "function") {
+    const bitmap = await host.createImageBitmap(blob);
+    if (!bitmap) return null;
+    return {
+      width: Number(bitmap.width) || 0,
+      height: Number(bitmap.height) || 0,
+      draw: (context, width, height) => context.drawImage(bitmap, 0, 0, width, height),
+      close: () => bitmap.close?.()
+    };
+  }
+  const urlApi = host?.URL;
+  if (typeof document === "undefined" || typeof urlApi?.createObjectURL !== "function") return null;
+  const url = urlApi.createObjectURL(blob);
+  const image = document.createElement("img");
+  try {
+    await new Promise((resolve, reject) => {
+      image.onload = () => resolve();
+      image.onerror = () => reject(new Error("preview decode failed"));
+      image.src = url;
+    });
+    return {
+      width: Number(image.naturalWidth) || 0,
+      height: Number(image.naturalHeight) || 0,
+      draw: (context, width, height) => context.drawImage(image, 0, 0, width, height),
+      close: () => urlApi.revokeObjectURL?.(url)
+    };
+  } catch (error) {
+    urlApi.revokeObjectURL?.(url);
+    throw error;
+  }
+}
+function defaultCreateCanvas() {
+  return typeof document === "undefined" ? null : document.createElement("canvas");
+}
+var PREVIEW_MAX_EDGE, PREVIEW_JPEG_QUALITY, PREVIEW_MAX_SOURCE_BYTES, PREVIEW_CONCURRENCY, PREVIEW_SKIP_LIMIT, PREVIEW_EXTENSIONS, MIME_TYPES, PreviewCache;
+var init_preview_cache = __esm({
+  "src/preview-cache.ts"() {
+    "use strict";
+    PREVIEW_MAX_EDGE = 640;
+    PREVIEW_JPEG_QUALITY = 0.8;
+    PREVIEW_MAX_SOURCE_BYTES = 64 * 1024 * 1024;
+    PREVIEW_CONCURRENCY = 2;
+    PREVIEW_SKIP_LIMIT = 500;
+    PREVIEW_EXTENSIONS = ["jpg", "jpeg", "png", "webp", "bmp", "avif"];
+    MIME_TYPES = {
+      jpg: "image/jpeg",
+      jpeg: "image/jpeg",
+      png: "image/png",
+      webp: "image/webp",
+      bmp: "image/bmp",
+      avif: "image/avif"
+    };
+    PreviewCache = class {
+      constructor(app, store, options = {}) {
+        __publicField(this, "app");
+        __publicField(this, "store");
+        __publicField(this, "isEnabled");
+        __publicField(this, "allowGenerate");
+        __publicField(this, "decode");
+        __publicField(this, "createCanvas");
+        __publicField(this, "concurrency");
+        __publicField(this, "maxEdge");
+        __publicField(this, "quality");
+        __publicField(this, "maxSourceBytes");
+        __publicField(this, "pending", /* @__PURE__ */ new Map());
+        /** Files this session already decided not to preview, keyed by path and size. */
+        __publicField(this, "skipped", /* @__PURE__ */ new Set());
+        __publicField(this, "active", 0);
+        __publicField(this, "waiters", []);
+        __publicField(this, "disposed", false);
+        this.app = app;
+        this.store = store || null;
+        this.isEnabled = options.isEnabled || (() => true);
+        this.allowGenerate = options.allowGenerate || (() => true);
+        this.decode = options.decode || decodeImageBlob;
+        this.createCanvas = options.createCanvas || defaultCreateCanvas;
+        this.concurrency = Math.max(1, Number(options.concurrency) || PREVIEW_CONCURRENCY);
+        this.maxEdge = Math.max(1, Number(options.maxEdge) || PREVIEW_MAX_EDGE);
+        this.quality = Number.isFinite(Number(options.quality)) ? Number(options.quality) : PREVIEW_JPEG_QUALITY;
+        this.maxSourceBytes = Math.max(1, Number(options.maxSourceBytes) || PREVIEW_MAX_SOURCE_BYTES);
+      }
+      get enabled() {
+        if (!this.store?.enabled) return false;
+        try {
+          return this.isEnabled() !== false;
+        } catch {
+          return false;
+        }
+      }
+      /** A stored preview for this file, or null. Never decodes the original. */
+      async read(file) {
+        if (this.disposed || !this.enabled || !file?.path) return null;
+        if (typeof this.store?.read !== "function") return null;
+        try {
+          const result = await this.store.read(file);
+          return result?.url ? { url: result.url } : null;
+        } catch {
+          return null;
+        }
+      }
+      /** Whether `generate()` would actually try for this file. */
+      canGenerate(file) {
+        return Boolean(this.store?.write) && this.enabled && supportsPreviewExtension(previewExtensionOf(file)) && (Number(file?.stat?.size) || 0) <= this.maxSourceBytes && !this.skipped.has(this.skipKey(file));
+      }
+      /**
+       * Produce and persist a downscaled preview. Returns null when the file cannot
+       * be previewed (unsupported format, already small, decode failure) — callers
+       * then fall back to the original resource URL.
+       */
+      async generate(file) {
+        if (this.disposed || !file?.path || !this.canGenerate(file)) return null;
+        if (!this.allowsGeneration()) return null;
+        const key = this.skipKey(file);
+        const pending = this.pending.get(key);
+        if (pending) return pending;
+        const task = this.withSlot(() => this.build(file, key));
+        this.pending.set(key, task);
+        try {
+          return await task;
+        } finally {
+          if (this.pending.get(key) === task) this.pending.delete(key);
+        }
+      }
+      /** Drop in-memory decisions, for one file or every file. */
+      invalidate(path) {
+        if (!path) {
+          this.skipped.clear();
+          this.pending.clear();
+          return;
+        }
+        for (const key of [...this.pending.keys()]) {
+          if (key.startsWith(`${path}\0`)) this.pending.delete(key);
+        }
+        for (const key of [...this.skipped]) {
+          if (key.startsWith(`${path}\0`)) this.skipped.delete(key);
+        }
+      }
+      dispose() {
+        this.disposed = true;
+        this.pending.clear();
+        this.skipped.clear();
+        this.waiters.length = 0;
+      }
+      allowsGeneration() {
+        try {
+          return Boolean(this.allowGenerate?.());
+        } catch {
+          return false;
+        }
+      }
+      skipKey(file) {
+        return `${file?.path || ""}\0${Number(file?.stat?.size) || 0}`;
+      }
+      markSkipped(key) {
+        this.skipped.add(key);
+        while (this.skipped.size > PREVIEW_SKIP_LIMIT) {
+          const oldest = this.skipped.values().next().value;
+          if (oldest === void 0) break;
+          this.skipped.delete(oldest);
+        }
+      }
+      async withSlot(task) {
+        await this.acquire();
+        try {
+          return await task();
+        } finally {
+          this.release();
+        }
+      }
+      acquire() {
+        if (this.active < this.concurrency) {
+          this.active += 1;
+          return void 0;
+        }
+        return new Promise((resolve) => this.waiters.push(resolve)).then(() => {
+          this.active += 1;
+        });
+      }
+      release() {
+        this.active = Math.max(0, this.active - 1);
+        const next = this.waiters.shift();
+        if (next) next();
+      }
+      async build(file, key) {
+        try {
+          const stored = await this.read(file);
+          if (stored) return stored;
+          const buffer = await this.app?.vault?.readBinary?.(file);
+          if (!buffer) {
+            this.markSkipped(key);
+            return null;
+          }
+          const extension = previewExtensionOf(file);
+          const blob = new Blob([buffer], { type: MIME_TYPES[extension] || "application/octet-stream" });
+          const source = await this.decode(blob);
+          if (!source || !source.width || !source.height) {
+            this.markSkipped(key);
+            return null;
+          }
+          try {
+            if (Math.max(source.width, source.height) <= this.maxEdge) {
+              this.markSkipped(key);
+              return null;
+            }
+            const target = scalePreviewDimensions(source.width, source.height, this.maxEdge);
+            if (!target) {
+              this.markSkipped(key);
+              return null;
+            }
+            const canvas = this.createCanvas();
+            const context = canvas?.getContext?.("2d");
+            if (!canvas || !context) {
+              this.markSkipped(key);
+              return null;
+            }
+            canvas.width = target.width;
+            canvas.height = target.height;
+            source.draw(context, target.width, target.height);
+            const dataUrl = canvas.toDataURL?.("image/jpeg", this.quality);
+            if (typeof dataUrl !== "string" || !dataUrl.startsWith("data:image/")) {
+              this.markSkipped(key);
+              return null;
+            }
+            try {
+              await this.store?.write?.(file, { dataUrl, width: target.width, height: target.height });
+            } catch {
+            }
+            return { url: dataUrl, width: target.width, height: target.height };
+          } finally {
+            source.close?.();
+          }
+        } catch {
+          this.markSkipped(key);
+          return null;
+        }
+      }
+    };
+  }
+});
+
 // src/mobile-quick-entry.ts
 var mobile_quick_entry_exports = {};
 __export(mobile_quick_entry_exports, {
@@ -34272,6 +34590,7 @@ var { hasExistingImage: hasExistingImage2 } = (init_heic_embed(), __toCommonJS(h
 var { loadHeicCodec: loadHeicCodec2 } = (init_heic_codec(), __toCommonJS(heic_codec_exports));
 var { ImageMetadataCache: ImageMetadataCache2, HeicCache: HeicCache2, HEIC_EXTS: HEIC_EXTS2, ReverseGeocoder: ReverseGeocoder2 } = (init_image_metadata(), __toCommonJS(image_metadata_exports));
 var { HeicThumbStore: HeicThumbStore2, DEFAULT_HEIC_THUMB_CACHE_DIR: DEFAULT_HEIC_THUMB_CACHE_DIR2, normalizeHeicThumbCacheDir: normalizeHeicThumbCacheDir2, isUnderCacheDir: isUnderCacheDir2 } = (init_heic_thumb_store(), __toCommonJS(heic_thumb_store_exports));
+var { PreviewCache: PreviewCache2 } = (init_preview_cache(), __toCommonJS(preview_cache_exports));
 var { detectPlatformCapabilities: detectPlatformCapabilities2, resolveCapabilityRoute: resolveCapabilityRoute2, usesPhoneLayout: usesPhoneLayout2 } = (init_platform_capabilities(), __toCommonJS(platform_capabilities_exports));
 var { createMobileMarkdownQuickEntry: createMobileMarkdownQuickEntry2 } = (init_mobile_quick_entry(), __toCommonJS(mobile_quick_entry_exports));
 var {
@@ -34356,6 +34675,9 @@ var DEFAULT_SETTINGS = {
   // Desktop converts HEIC once and writes the JPEG into this vault folder so
   // phones and tablets show it without decoding. Empty string disables it.
   heicThumbCachePath: DEFAULT_HEIC_THUMB_CACHE_DIR2,
+  // Downscale ordinary photos into the same cache folder so a journal full of
+  // images paints from ~40 KB previews instead of decoding the originals.
+  imagePreviewCache: true,
   // --- On This Day settings ---
   onThisDayEntry: "merged",
   // 'off' | 'merged' | 'header'
@@ -34428,12 +34750,17 @@ var DaylinePlugin = class extends Plugin {
       // thumbnail and sync that deletion back upstream.
       allowWrites: () => Boolean(this.capabilities?.isDesktop)
     });
+    this.previewCache = new PreviewCache2(this.app, this.heicThumbStore, {
+      isEnabled: () => this.settings.imagePreviewCache !== false,
+      allowGenerate: () => Boolean(this.capabilities?.isDesktop) && this.settings.imagePreviewCache !== false
+    });
     this.heicCache = new HeicCache2(this.app, this.capabilities, { thumbStore: this.heicThumbStore });
-    this.thumbnailService = new ThumbnailService2(this.app, this.heicCache, this.heicThumbStore);
+    this.thumbnailService = new ThumbnailService2(this.app, this.heicCache, this.heicThumbStore, this.previewCache);
     this.mediaService = new MediaService2(this.app, this.heicCache, {
       imageMetadata: this.exifCache,
       capabilities: this.capabilities,
-      heicThumbStore: this.heicThumbStore
+      heicThumbStore: this.heicThumbStore,
+      previewCache: this.previewCache
     });
     this.geocoder = new ReverseGeocoder2({
       cache: this.geocoderCache,
@@ -34591,6 +34918,7 @@ var DaylinePlugin = class extends Plugin {
     this._mobileQuickEntry = null;
     this._removeCapabilityClasses();
     this.mediaService?.dispose?.();
+    this.previewCache?.dispose?.();
     this.heicThumbStore?.dispose?.();
     this._exifTooltipEl?.remove();
     this._exifTooltipEl = null;

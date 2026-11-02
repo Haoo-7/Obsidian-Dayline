@@ -1,4 +1,5 @@
 import { classifyMediaLink, createMediaAttachment, IMAGE_EXTENSIONS as IMAGE_TYPES, normalizeMediaLink } from './media-links';
+import type { PreviewCacheLike } from './preview-cache';
 
 export const IMAGE_EXTENSIONS = IMAGE_TYPES;
 export const HEIC_EXTENSIONS = ['heic', 'heif'];
@@ -39,11 +40,13 @@ export class ThumbnailService {
   private readonly app: any;
   private readonly heicCache: any;
   private readonly heicThumbStore: any;
+  private readonly previewCache: PreviewCacheLike | null;
 
-  constructor(app: any, heicCache: any, heicThumbStore?: any) {
+  constructor(app: any, heicCache: any, heicThumbStore?: any, previewCache?: PreviewCacheLike | null) {
     this.app = app;
     this.heicCache = heicCache;
     this.heicThumbStore = heicThumbStore || null;
+    this.previewCache = previewCache || null;
   }
 
   isImageFile(file: any): boolean {
@@ -69,6 +72,10 @@ export class ThumbnailService {
     const file = this.resolve(normalized, sourcePath);
     if (!file) return null;
     try {
+      // A cached preview (including the JPEG a desktop converted for a HEIC)
+      // saves decoding the original just to paint a small thumbnail.
+      const preview = await this.previewCache?.read?.(file);
+      if (preview?.url) return { url: preview.url, path: file.path, index };
       const ext = String(file.extension).toLowerCase();
       let url = null;
       if (HEIC_EXTENSIONS.includes(ext)) {

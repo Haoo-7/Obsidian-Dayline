@@ -17,6 +17,7 @@ import { normalizeOnThisDayEntryMode } from './on-this-day-entry';
 import { DEFAULT_HEIC_THUMB_CACHE_DIR, normalizeHeicThumbCacheDir } from './heic-thumb-store';
 
 const VIEW_TYPE = 'calendar-sidebar-view';
+const TIMELINE_VIEW_TYPE = 'journal-timeline-view';
 
 /** Delay before a settings text field commits while the user is still typing. */
 export const SETTINGS_TEXT_COMMIT_DELAY_MS = 800;
@@ -926,8 +927,27 @@ export class DaylineSettingsTab extends PluginSettingTab {
       initialValue: this.plugin.settings.heicThumbCachePath ?? DEFAULT_HEIC_THUMB_CACHE_DIR,
       parse: (raw) => normalizeHeicThumbCachePath(raw),
       localizeError: (key) => t(this.plugin.settings, key),
-      apply: () => { this.plugin.heicThumbStore?.reconfigure?.(); },
+      apply: () => {
+        this.plugin.heicThumbStore?.reconfigure?.();
+        // Preview decisions were made against the old folder; start clean.
+        this.plugin.previewCache?.invalidate?.();
+      },
     });
+
+    new Setting(containerEl)
+      .setName(_s('s_previewCache'))
+      .setDesc(_s('s_previewCacheDesc'))
+      .addToggle((toggle) => toggle
+        .setValue(this.plugin.settings.imagePreviewCache !== false)
+        .onChange(async (value) => {
+          this.plugin.settings.imagePreviewCache = value;
+          if (!(await this._saveSettings())) return;
+          // Repaint both surfaces so the new choice is visible immediately.
+          void this._refreshViews();
+          for (const leaf of this.app.workspace.getLeavesOfType(TIMELINE_VIEW_TYPE)) {
+            leaf.view?.render?.();
+          }
+        }));
 
     if (shouldShowHeicThumbCacheGenerate(this.plugin.capabilities)) {
       const generateRow = new Setting(containerEl)

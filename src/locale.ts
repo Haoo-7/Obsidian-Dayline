@@ -99,6 +99,8 @@ export interface LocaleStrings {
   s_otdExcerptTemplateDesc: string;
   s_otdTemplate: string;
   s_otdTemplateDesc: string;
+  s_previewCache: string;
+  s_previewCacheDesc: string;
   s_tempUnits: string;
   s_tempUnitsDesc: string;
   s_thumbnailAll: string;
@@ -230,6 +232,8 @@ export const LOCALE: Record<DisplayLanguage, LocaleStrings> = {
     s_otdExcerptTemplateDesc: "使用 {body}、{year}、{date} 或任意 frontmatter 键如 {mood}",
     s_otdTemplate: "模板",
     s_otdTemplateDesc: "自定义摘要的模板字符串",
+    s_previewCache: "缓存图片预览",
+    s_previewCacheDesc: "把日记里的照片转成小尺寸预览存入上面的缓存目录，之后打开只读预览、不再解码原图。首次看到某张照片时转换一次；关闭后仍使用原图。",
     s_tempUnits: "温度单位",
     s_tempUnitsDesc: "选择摄氏度或华氏度",
     s_thumbnailAll: "所有嵌入图片",
@@ -359,6 +363,8 @@ export const LOCALE: Record<DisplayLanguage, LocaleStrings> = {
     s_otdExcerptTemplateDesc: "使用 {body}、{year}、{date} 或任何 frontmatter 鍵如 {mood}",
     s_otdTemplate: "範本",
     s_otdTemplateDesc: "自訂摘要的範本字串",
+    s_previewCache: "快取圖片預覽",
+    s_previewCacheDesc: "把日記裡的照片轉成小尺寸預覽存入上面的快取資料夾，之後開啟只讀預覽、不再解碼原圖。第一次看到某張照片時轉換一次；關閉後仍使用原圖。",
     s_tempUnits: "溫度單位",
     s_tempUnitsDesc: "選擇以攝氏度或華氏度顯示溫度",
     s_thumbnailAll: "所有嵌入圖片",
@@ -488,6 +494,8 @@ export const LOCALE: Record<DisplayLanguage, LocaleStrings> = {
     s_otdExcerptTemplateDesc: "Use {body}, {year}, {date}, or any frontmatter key like {mood}",
     s_otdTemplate: "Template",
     s_otdTemplateDesc: "Template string for custom excerpt mode",
+    s_previewCache: "Cache image previews",
+    s_previewCacheDesc: "Downscale journal photos into the cache folder above, so later launches read a small preview instead of decoding the original. The first sighting of a photo converts it once; turning this off goes back to the originals.",
     s_tempUnits: "Temperature units",
     s_tempUnitsDesc: "Display temperature in Celsius or Fahrenheit",
     s_thumbnailAll: "All embedded images",
@@ -617,6 +625,8 @@ export const LOCALE: Record<DisplayLanguage, LocaleStrings> = {
     s_otdExcerptTemplateDesc: "{body}、{year}、{date}、または {mood} などのFrontmatterキーを使用できます",
     s_otdTemplate: "テンプレート",
     s_otdTemplateDesc: "カスタム抜粋モードで使用するテンプレート文字列",
+    s_previewCache: "画像プレビューをキャッシュ",
+    s_previewCacheDesc: "日記の写真を縮小したプレビューを上のキャッシュフォルダーに保存し、次回以降は元画像をデコードせずに読み込みます。写真を最初に表示するときに一度だけ変換します。オフにすると元画像を使います。",
     s_tempUnits: "温度の単位",
     s_tempUnitsDesc: "摂氏（°C）または華氏（°F）を選択します",
     s_thumbnailAll: "すべての埋め込み画像",
@@ -746,6 +756,8 @@ export const LOCALE: Record<DisplayLanguage, LocaleStrings> = {
     s_otdExcerptTemplateDesc: "{body}, {year}, {date} 또는 {mood}와 같은 Frontmatter 키를 사용할 수 있습니다",
     s_otdTemplate: "템플릿",
     s_otdTemplateDesc: "사용자 정의 발췌 모드에 사용할 템플릿 문자열",
+    s_previewCache: "이미지 미리보기 캐시",
+    s_previewCacheDesc: "일지 사진을 축소한 미리보기를 위 캐시 폴더에 저장해, 다음부터는 원본을 디코딩하지 않고 미리보기를 읽습니다. 사진을 처음 볼 때 한 번 변환합니다. 끄면 원본을 사용합니다.",
     s_tempUnits: "온도 단위",
     s_tempUnitsDesc: "섭씨(°C) 또는 화씨(°F) 선택",
     s_thumbnailAll: "모든 첨부 이미지",
@@ -875,6 +887,8 @@ export const LOCALE: Record<DisplayLanguage, LocaleStrings> = {
     s_otdExcerptTemplateDesc: "Utilisez {body}, {year}, {date} ou toute clé du frontmatter comme {mood}",
     s_otdTemplate: "Modèle",
     s_otdTemplateDesc: "Chaîne de modèle pour le mode d'extrait personnalisé",
+    s_previewCache: "Mettre en cache les aperçus d'images",
+    s_previewCacheDesc: "Réduit les photos du journal dans le dossier de cache ci-dessus : les lancements suivants lisent un petit aperçu au lieu de décoder l'original. Une photo est convertie une fois, à sa première apparition ; désactivé, les originaux sont utilisés.",
     s_tempUnits: "Unités de température",
     s_tempUnitsDesc: "Afficher la température en Celsius ou Fahrenheit",
     s_thumbnailAll: "Toutes les images intégrées",
@@ -1004,6 +1018,8 @@ export const LOCALE: Record<DisplayLanguage, LocaleStrings> = {
     s_otdExcerptTemplateDesc: "Nutzen Sie {body}, {year}, {date} oder beliebige Frontmatter-Felder wie {mood}",
     s_otdTemplate: "Vorlage",
     s_otdTemplateDesc: "Vorlagen-String für benutzerdefinierten Auszugsmodus",
+    s_previewCache: "Bildvorschauen zwischenspeichern",
+    s_previewCacheDesc: "Verkleinert Fotos des Journals in den Cacheordner oben: spätere Starts lesen eine kleine Vorschau, statt das Original zu dekodieren. Beim ersten Anzeigen wird ein Foto einmal konvertiert; deaktiviert werden die Originale verwendet.",
     s_tempUnits: "Temperatureinheit",
     s_tempUnitsDesc: "Temperatur in Celsius oder Fahrenheit anzeigen",
     s_thumbnailAll: "Alle eingebetteten Bilder",
@@ -1133,6 +1149,8 @@ export const LOCALE: Record<DisplayLanguage, LocaleStrings> = {
     s_otdExcerptTemplateDesc: "Usa {body}, {year}, {date} o cualquier clave de frontmatter como {mood}",
     s_otdTemplate: "Plantilla",
     s_otdTemplateDesc: "Cadena de plantilla para modo de extracto personalizado",
+    s_previewCache: "Guardar vistas previas de imágenes",
+    s_previewCacheDesc: "Reduce las fotos del diario en la carpeta de caché de arriba: las siguientes aperturas leen una vista previa pequeña en lugar de decodificar el original. Cada foto se convierte una vez, la primera vez que se muestra; si se desactiva, se usan los originales.",
     s_tempUnits: "Unidades de temperatura",
     s_tempUnitsDesc: "Mostrar temperatura en Celsius o Fahrenheit",
     s_thumbnailAll: "Todas las imágenes incrustadas",
@@ -1262,6 +1280,8 @@ export const LOCALE: Record<DisplayLanguage, LocaleStrings> = {
     s_otdExcerptTemplateDesc: "Используйте {body}, {year}, {date} или любое поле frontmatter, например {mood}",
     s_otdTemplate: "Шаблон",
     s_otdTemplateDesc: "Шаблонная строка для пользовательского режима выдержки",
+    s_previewCache: "Кэшировать превью изображений",
+    s_previewCacheDesc: "Уменьшает фотографии журнала в папку кэша выше: при следующих запусках читается маленькое превью, а не декодируется оригинал. Фото преобразуется один раз, при первом показе; при отключении используются оригиналы.",
     s_tempUnits: "Единицы температуры",
     s_tempUnitsDesc: "Отображать температуру в градусах Цельсия или Фаренгейта",
     s_thumbnailAll: "Все встроенные изображения",

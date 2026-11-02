@@ -483,7 +483,15 @@ export class HeicThumbStore {
   }
 
   private async ensureDir(dir: string): Promise<void> {
-    if (!(await this.adapter.exists(dir))) await this.adapter.mkdir(dir);
+    if (await this.adapter.exists(dir)) return;
+    try {
+      await this.adapter.mkdir(dir);
+    } catch {
+      // Two conversions can race to create the folder on a fresh vault; the
+      // loser's "already exists" is not a failure. A real permission problem
+      // still fails at writeBinary, where the caller reports it.
+      if (!(await this.adapter.exists(dir))) throw new Error(`could not create cache folder: ${dir}`);
+    }
   }
 
   private scheduleIndexFlush(): void {

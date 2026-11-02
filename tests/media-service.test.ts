@@ -505,3 +505,50 @@ describe('shared HEIC thumbnail cache reads', () => {
     expect(read).not.toHaveBeenCalled();
   });
 });
+
+describe('cached image previews', () => {
+  function makeService(file: any, previewCache: any, heicCache?: any) {
+    return new MediaService({
+      metadataCache: { getFirstLinkpathDest: () => file },
+      vault: { getResourcePath: () => 'resource://photo' },
+    }, heicCache, { previewCache });
+  }
+
+  it('paints a stored preview instead of decoding the original photo again', async () => {
+    const file = { path: 'Photos/IMG_0001.heic', extension: 'heic', stat: { mtime: 7, size: 9 } };
+    const getThumbnail = vi.fn(async () => ({ dataUrl: 'data:image/jpeg;base64,converted' }));
+    const previewCache = { read: vi.fn(async () => ({ url: 'blob:preview' })), generate: vi.fn(async () => null) };
+    const service = makeService(file, previewCache, { getThumbnail });
+    const attachment = createMediaAttachment('Photos/IMG_0001.heic', 'Calendar/Daily/2026-10-08.md')!;
+
+    await expect(service.loadCover(attachment)).resolves.toMatchObject({ url: 'blob:preview' });
+    expect(getThumbnail).not.toHaveBeenCalled();
+    expect(previewCache.generate).not.toHaveBeenCalled();
+  });
+
+  it('converts an ordinary photo once, then serves the converter’s URL', async () => {
+    const file = { path: 'Photos/IMG_0002.jpg', extension: 'jpg', stat: { mtime: 7, size: 9 } };
+    const generate = vi.fn(async () => ({ url: 'data:image/jpeg;base64,preview', width: 640, height: 480 }));
+    const service = makeService(file, { read: async () => null, generate });
+    const attachment = createMediaAttachment('Photos/IMG_0002.jpg', 'Calendar/Daily/2026-10-08.md')!;
+
+    await expect(service.loadCover(attachment)).resolves.toMatchObject({ url: 'data:image/jpeg;base64,preview' });
+    expect(generate).toHaveBeenCalledWith(file);
+  });
+
+  it('falls back to the original when no preview can be produced', async () => {
+    const file = { path: 'Photos/IMG_0003.png', extension: 'png', stat: { mtime: 7, size: 9 } };
+    const service = makeService(file, { read: async () => null, generate: async () => null });
+    const attachment = createMediaAttachment('Photos/IMG_0003.png', 'Calendar/Daily/2026-10-08.md')!;
+
+    await expect(service.loadCover(attachment)).resolves.toMatchObject({ url: 'resource://photo' });
+  });
+
+  it('forwards media invalidation to the preview decisions', async () => {
+    const invalidate = vi.fn();
+    const service = makeService({ path: 'Photos/IMG_0003.png', extension: 'png' }, { read: async () => null, invalidate });
+
+    service.invalidate('Photos/IMG_0003.png');
+    expect(invalidate).toHaveBeenCalledWith('Photos/IMG_0003.png');
+  });
+});

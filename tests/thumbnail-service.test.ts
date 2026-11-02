@@ -38,6 +38,25 @@ describe('thumbnail service', () => {
     await expect(service.load('Assets/photo.heic', 'Calendar/Daily/2026-07-18.md'))
       .resolves.toMatchObject({ url: 'blob:Assets/photo.heic' });
   });
+
+  it('uses a cached preview instead of the original photo or a fresh HEIC decode', async () => {
+    const files: Record<string, any> = {
+      'Assets/photo.jpg': { path: 'Assets/photo.jpg', extension: 'jpg' },
+      'Assets/photo.heic': { path: 'Assets/photo.heic', extension: 'heic' },
+    };
+    const app = {
+      metadataCache: { getFirstLinkpathDest: (link: string) => files[link] ?? null },
+      vault: { getResourcePath: (file: any) => `resource://${file.path}` },
+    };
+    const heicCache = { getThumbnail: async () => ({ dataUrl: 'data:image/jpeg;base64,decoded' }) };
+    const previewCache = { read: async (file: any) => ({ url: `blob:preview/${file.path}` }) };
+    const service = new ThumbnailService(app, heicCache, undefined, previewCache);
+
+    await expect(service.load('Assets/photo.jpg', 'Calendar/Daily/2026-07-18.md'))
+      .resolves.toMatchObject({ url: 'blob:preview/Assets/photo.jpg' });
+    await expect(service.load('Assets/photo.heic', 'Calendar/Daily/2026-07-18.md'))
+      .resolves.toMatchObject({ url: 'blob:preview/Assets/photo.heic' });
+  });
 });
 
 describe('HEIC journal attachment collection', () => {
