@@ -12,6 +12,14 @@ const { MoodStore } = require('./mood-store');
 const { MoodPickerModal, MoodRecoveryModal } = require('./mood-picker-modal');
 const { saveMoodExport, serializeMoodCsv, serializeMoodJson } = require('./mood-export');
 const { JournalTimelineView, JOURNAL_TIMELINE_VIEW } = require('./journal-timeline-view');
+const {
+  ONBOARDING_TOUR_VERSION,
+  buildOnboardingSteps,
+  isOnboardingSeen,
+  pickFeaturedDay,
+  resolveOnboardingStart,
+} = require('./onboarding-tour');
+const { OnboardingTourOverlay, waitForElement } = require('./onboarding-tour-overlay');
 const { OnThisDayProvider, OnThisDayModal, closeOnThisDayModal } = require('./on-this-day');
 const {
   normalizeOnThisDayEntryMode,
@@ -199,6 +207,15 @@ class DaylinePlugin extends Plugin {
     this._heicThumbPrewarmTimer = null;
     this._heicThumbPrewarmRunning = false;
     this._heicThumbPrewarmCancelled = false;
+    // Onboarding tour: at most one overlay per session, and the "already
+    // offered" decision is made once so a failed start cannot retry in a loop.
+    this._onboardingTour = null;
+    this._onboardingAttempted = false;
+    this._onboardingMoodModal = null;
+    // A first-run tour defers its one and only data.json write to the end.
+    this._onboardingStartedFresh = false;
+    this._onboardingSuppressVisibilityPersist = false;
+    this._hasPersistedSettings = false;
     // Insert-time EXIF sync state: one run per note at a time, with a coalesced
     // rerun when an event arrives while that run is still in flight.
     this._exifPersistInFlight = new Map();
@@ -355,6 +372,13 @@ class DaylinePlugin extends Plugin {
         name: t(this.settings, 'copyDiagnosticsCommand'),
         callback: () => this._copyMobileDiagnostics(),
       }),
+      onboardingReplayCommand: this.addCommand({
+        id: 'show-onboarding-tour',
+        name: t(this.settings, 'onboardingReplayCommand'),
+        callback: () => {
+          void this.startOnboardingTour({ replay: true });
+        },
+      }),
     };
 
     // Settings tab
@@ -375,6 +399,9 @@ class DaylinePlugin extends Plugin {
       // Trigger initial overlay sync once the layout is stable
       this._syncAllOverlays();
       this._mobileQuickEntry?.sync();
+      // The tour points at the calendar, so it may only start once the layout
+      // (and therefore the calendar view) has been restored.
+      void this._maybeStartOnboardingTour();
     });
 
     // Plugin-level overlay sync: react to file-open, active-leaf-change, layout-change
@@ -447,6 +474,10 @@ class DaylinePlugin extends Plugin {
     // J-08: the On This Day panel is a document-level overlay; it must not
     // outlive the plugin instance that opened it.
     closeOnThisDayModal?.();
+    // A document-level spotlight must not outlive the plugin instance.
+    this._onboardingTour?.destroy();
+    this._onboardingTour = null;
+    this._onboardingMoodModal = null;
     this._unbindCapabilityRefresh();
     this._mobileQuickEntry?.dispose();
     this._mobileQuickEntry = null;
@@ -474,6 +505,11 @@ class DaylinePlugin extends Plugin {
   }
 
   _persistViewVisibility(kind, visible) {
+    // The first-run tour opens the calendar and the timeline itself. If that
+    // wrote data.json, the next launch would mistake this brand-new install for
+    // an upgrade and never offer the tour again. The tour saves both the marker
+    // and these two flags in one write when it ends.
+    if (this._onboardingSuppressVisibilityPersist) return Promise.resolve();
     const key = kind === 'calendar' ? 'showCalendarView' : 'showTimelineView';
     this.settings[key] = visible;
     return this.saveSettings();
@@ -871,6 +907,391 @@ class DaylinePlugin extends Plugin {
     }
   }
 
+  /* ============================================================
+     Onboarding tour
+     ============================================================ */
+
+  /**
+   * Offer the spotlight tour once, on a brand-new install.
+   *
+   * The distinction that matters: no `data.json` at all is a first launch and
+   * may be interrupted, while an existing `data.json` without the marker is an
+   * upgrade — that user already knows the calendar, so the marker is written
+   * and the tour stays away.
+   */
+  async _maybeStartOnboardingTour() {
+    if (this._onboardingAttempted || this._onboardingTour) return;
+    this._onboardingAttempted = true;
+    const decision = resolveOnboardingStart({
+      seenVersion: this.settings.onboardingSeenVersion,
+      hasPersistedSettings: this._hasPersistedSettings === true,
+    });
+    if (decision === 'skip') return;
+    if (decision === 'mark-seen') {
+      await this.markOnboardingSeen();
+      return;
+    }
+    // Only the main window hosts the overlay; a popout would paint a second
+    // spotlight over a different document.
+    if (typeof document === 'undefined' || !document.body) return;
+    if (this.app.workspace.containerEl?.ownerDocument !== document) return;
+    // The first step highlights the month grid, which only exists once the
+    // index is built. Waiting here keeps a big vault from skipping the tour.
+    await this._waitAtMost(this.ensureJournalIndexReady(), 10000);
+    this._onboardingStartedFresh = true;
+    this._onboardingSuppressVisibilityPersist = true;
+    const started = await this.startOnboardingTour({ replay: false });
+    if (!started) {
+      this._onboardingStartedFresh = false;
+      this._onboardingSuppressVisibilityPersist = false;
+    }
+  }
+
+  /** Command and settings entry point; also the fresh-install path. */
+  async startOnboardingTour(options = {}) {
+    if (this._onboardingTour) return false;
+    // The settings pane covers the window the tour is about to point at.
+    if (options.replay === true) {
+      try {
+        this.app.setting?.close?.();
+      } catch (error) {
+        console.warn('[Dayline] Could not close settings before the tour:', error?.message || error);
+      }
+    }
+    const mobile = this._usesPhoneDaylineMode();
+    const entries = this.journalIndex?.getEntries?.() || [];
+    const steps = buildOnboardingSteps({
+      surface: mobile ? 'mobile' : 'desktop',
+      hasEntries: entries.length > 0,
+      weatherVisible: Boolean(this.settings.weatherEnabled && this.settings.showCalendarWeatherCard !== false),
+    });
+    const overlay = new OnboardingTourOverlay({
+      host: this._createOnboardingHost(),
+      steps,
+      sheet: mobile,
+    });
+    this._onboardingTour = overlay;
+    overlay.start();
+    return true;
+  }
+
+  /**
+   * End of a first-run tour: save the marker together with the view visibility
+   * the tour changed, so the very first `data.json` write already says "seen".
+   * An interrupted tour therefore writes nothing and is offered again.
+   */
+  async _finishFirstRunOnboarding() {
+    this._onboardingStartedFresh = false;
+    this._onboardingSuppressVisibilityPersist = false;
+    const preferences = this.viewVisibilityController?.getPreferences?.();
+    if (preferences) {
+      this.settings.showCalendarView = preferences.showCalendarView !== false;
+      this.settings.showTimelineView = preferences.showTimelineView === true;
+    }
+    this.settings.onboardingSeenVersion = ONBOARDING_TOUR_VERSION;
+    await this.saveSettings();
+  }
+
+  /** Persist "already seen". Written after skipping as well as after finishing. */
+  async markOnboardingSeen() {
+    if (isOnboardingSeen(this.settings.onboardingSeenVersion)) return;
+    this.settings.onboardingSeenVersion = ONBOARDING_TOUR_VERSION;
+    await this.saveSettings();
+  }
+
+  _createOnboardingHost() {
+    // The copy counts real days ("found 214 days") and names the real folder.
+    // Resolved once: the numbers cannot change while the tour is on screen.
+    const copy = this._onboardingCopyValues();
+    return {
+      localize: (key, values) => t(this.settings, key, { ...copy, ...values }),
+      prepareStep: (step) => this._prepareOnboardingStep(step),
+      teardownStep: (step) => this._teardownOnboardingStep(step),
+      onFinish: () => {
+        void this._finishOnboardingTour();
+      },
+      onEnd: (outcome) => {
+        this._onboardingTour = null;
+        const ended = outcome === 'skipped' || outcome === 'finished';
+        if (this._onboardingStartedFresh) {
+          // One write for the marker and for the views the tour opened.
+          if (ended) void this._finishFirstRunOnboarding();
+          else this._onboardingSuppressVisibilityPersist = false;
+          return;
+        }
+        // Both exits count as "seen": the tour must not come back on its own.
+        if (ended) void this.markOnboardingSeen();
+      },
+      destroy: () => {
+        this._onboardingMoodModal = null;
+        this._onboardingTour = null;
+      },
+    };
+  }
+
+  /**
+   * Bring one step's target on screen and report where it is.
+   *
+   * Every asynchronous surface — the timeline, the mood picker, the calendar
+   * after a month jump — is opened here and waited for. A `null` answer means
+   * the step is dropped, never that the tour failed.
+   */
+  async _prepareOnboardingStep(step) {
+    switch (step?.id) {
+      case 'calendar':
+        return this._onboardingCalendarAnchor(5000);
+      case 'day':
+        return this._onboardingDayAnchor();
+      case 'mood':
+        return this._onboardingMoodAnchor();
+      case 'weather':
+        return this._onboardingWeatherAnchor();
+      case 'timeline-entry':
+        return this._onboardingRibbonAnchor();
+      case 'timeline-list':
+        return this._onboardingTimelineAnchor('.journal-timeline-list');
+      case 'timeline-search':
+        return this._onboardingTimelineAnchor('.journal-timeline-filter-row input[type="search"]');
+      case 'today':
+        return this._onboardingTodayAnchor();
+      default:
+        return null;
+    }
+  }
+
+  /** Close what a step opened. The timeline deliberately stays open. */
+  async _teardownOnboardingStep(step) {
+    if (step?.id === 'mood') {
+      const modal = this._onboardingMoodModal;
+      this._onboardingMoodModal = null;
+      try {
+        modal?.close?.();
+      } catch (error) {
+        console.warn('[Dayline] Could not close the mood picker after the tour step:', error?.message || error);
+      }
+      return;
+    }
+  }
+
+  /**
+   * Every anchor is a resolver, not a captured node: Obsidian rebuilds the
+   * calendar grid on most workspace events, so a node captured while waiting can
+   * already be detached by paint time. A resolver re-queries and answers `null`
+   * when the target really left the window, which is what makes the tour skip a
+   * step instead of pointing at nothing.
+   */
+  _onboardingElementRect(element) {
+    if (!element || !element.isConnected) return null;
+    const rect = element.getBoundingClientRect();
+    if (!rect || (rect.width <= 0 && rect.height <= 0)) return null;
+    return { left: rect.left, top: rect.top, width: rect.width, height: rect.height };
+  }
+
+  _onboardingSelectorAnchor(...selectors) {
+    return () => {
+      for (const selector of selectors) {
+        const rect = this._onboardingElementRect(document.querySelector(selector));
+        if (rect) return rect;
+      }
+      return null;
+    };
+  }
+
+  async _onboardingCalendarAnchor(timeoutMs = 4000) {
+    try {
+      await this.activateView();
+    } catch (error) {
+      console.warn('[Dayline] Could not open the calendar for the tour:', error?.message || error);
+    }
+    const grid = await waitForElement(document, '.cal-sidebar .cal-grid', { timeoutMs });
+    return grid ? this._onboardingSelectorAnchor('.cal-sidebar .cal-grid') : null;
+  }
+
+  _onboardingCopyValues() {
+    const dates = new Set();
+    for (const entry of this.journalIndex?.getEntries?.() || []) {
+      if (entry?.date) dates.add(entry.date);
+    }
+    return {
+      folder: this.settings.dailyFolder || 'Calendar/Daily',
+      days: dates.size,
+      today: _daylineDate(this.settings),
+    };
+  }
+
+  _onboardingEntryCounts() {
+    const counts = new Map();
+    for (const entry of this.journalIndex?.getEntries?.() || []) {
+      const date = entry?.date;
+      if (!date) continue;
+      counts.set(date, (counts.get(date) || 0) + 1);
+    }
+    return counts;
+  }
+
+  /**
+   * The example day: a cell with a photo and more than one note if the month has
+   * one, otherwise any photo, otherwise today. Counting notes from the index
+   * rather than the "+1" badge keeps this working when that badge is off.
+   */
+  async _onboardingDayAnchor() {
+    const anchor = await this._onboardingCalendarAnchor(4000);
+    if (!anchor) return null;
+    const today = _daylineDate(this.settings);
+    const counts = this._onboardingEntryCounts();
+    const cells = Array.from(document.querySelectorAll('.cal-sidebar .cal-day[data-calendar-focus^="day-"]'));
+    const dateOf = (cell) => String(cell.getAttribute('data-calendar-focus') || '').slice(4);
+    const candidates = cells.map((cell) => ({
+      date: dateOf(cell),
+      hasPhoto: cell.classList.contains('cal-has-image'),
+      multipleEntries: (counts.get(dateOf(cell)) || 0) > 1,
+    }));
+    const featured = pickFeaturedDay(candidates, today);
+    return this._onboardingSelectorAnchor(
+      '.cal-sidebar .cal-day[data-calendar-focus="day-' + featured + '"]',
+      '.cal-sidebar .cal-day.cal-today',
+      '.cal-sidebar .cal-day[data-calendar-focus^="day-"]',
+    );
+  }
+
+  async _onboardingMoodAnchor() {
+    const date = _daylineDate(this.settings);
+    const path = joinVaultPath(this.settings.dailyFolder, date + '.md');
+    try {
+      this._onboardingMoodModal = await this.openMoodPicker(path, {
+        allowDateSelection: true,
+        ensureFile: false,
+      });
+    } catch (error) {
+      console.warn('[Dayline] Could not open the mood picker for the tour:', error?.message || error);
+      return null;
+    }
+    if (!this._onboardingMoodModal) return null;
+    const modal = await waitForElement(document, '.journal-mood-picker-modal', { timeoutMs: 1500 });
+    return modal ? this._onboardingSelectorAnchor('.journal-mood-picker-modal') : null;
+  }
+
+  /**
+   * The weather card when it is on screen, otherwise the empty slot where it
+   * would be: the step's copy explains that weather is off by default, and an
+   * undefined highlight would point at nothing.
+   */
+  async _onboardingWeatherAnchor() {
+    const cardVisible = this.settings.weatherEnabled
+      && this.settings.showCalendarWeatherCard !== false
+      && (this.app.workspace.getLeavesOfType(VIEW_TYPE).length > 0);
+    if (cardVisible) {
+      const card = await waitForElement(document, '.cal-sidebar .cal-weather-card', { timeoutMs: 1500 });
+      if (card) return this._onboardingSelectorAnchor('.cal-sidebar .cal-weather-card');
+    }
+    return () => {
+      const content = document.querySelector('.cal-sidebar .view-content');
+      if (!content) return null;
+      const bounds = content.getBoundingClientRect();
+      if (!bounds || bounds.width <= 0) return null;
+      const header = document.querySelector('.cal-sidebar .cal-header');
+      const headerBottom = header ? header.getBoundingClientRect().bottom : bounds.top;
+      return {
+        left: bounds.left + 8,
+        top: Math.max(bounds.top + 2, headerBottom + 6),
+        width: Math.max(120, bounds.width - 16),
+        height: 56,
+      };
+    };
+  }
+
+  _onboardingRibbonAnchor() {
+    const ribbon = this._daylineRibbonEl;
+    if (ribbon?.isConnected) return () => this._onboardingElementRect(ribbon);
+    const fallback = document.querySelector('.side-dock-ribbon-action[aria-label="Dayline"]');
+    if (!fallback) return null;
+    return () => this._onboardingElementRect(document.querySelector('.side-dock-ribbon-action[aria-label="Dayline"]'));
+  }
+
+  async _onboardingTimelineAnchor(selector) {
+    try {
+      await this.activateTimeline();
+    } catch (error) {
+      console.warn('[Dayline] Could not open the timeline for the tour:', error?.message || error);
+      return null;
+    }
+    const element = await waitForElement(document, '.journal-timeline-view ' + selector, { timeoutMs: 3000 });
+    return element ? this._onboardingSelectorAnchor('.journal-timeline-view ' + selector) : null;
+  }
+
+  async _onboardingTodayAnchor() {
+    const today = _daylineDate(this.settings);
+    const selector = '.cal-sidebar .cal-day[data-calendar-focus="day-' + today + '"]';
+    let cell = document.querySelector(selector);
+    if (!cell) {
+      await this.activateView();
+      cell = document.querySelector(selector);
+    }
+    if (!cell) {
+      // The user may have paged the calendar to another month; the calendar
+      // view owns that jump.
+      const view = this.app.workspace.getLeavesOfType(VIEW_TYPE)[0]?.view;
+      view?._goToToday?.();
+      cell = await waitForElement(document, selector, { timeoutMs: 2000 });
+    }
+    return cell ? this._onboardingSelectorAnchor(selector) : null;
+  }
+
+  /** "写今天": pulse the cell, open (or create) today's note, leave the caret in it. */
+  async _finishOnboardingTour() {
+    this._pulseTodayCell();
+    await this.createDailyNoteForToday();
+    await this._focusTodayNoteBody();
+  }
+
+  _pulseTodayCell() {
+    const today = _daylineDate(this.settings);
+    const cell = document.querySelector('.cal-sidebar .cal-day[data-calendar-focus="day-' + today + '"]');
+    if (!cell) return;
+    cell.classList.remove('is-onboarding-pulse');
+    // Force a style flush so a second run can restart the animation.
+    void cell.offsetWidth;
+    cell.classList.add('is-onboarding-pulse');
+    window.setTimeout(() => cell.classList.remove('is-onboarding-pulse'), 2400);
+  }
+
+  /**
+   * Opening a note is asynchronous, so the editor may not exist on the first
+   * frame. The tour only moves the caret into existing content; it never writes
+   * to the note.
+   */
+  async _focusTodayNoteBody() {
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      const view = this.app.workspace.activeLeaf?.view;
+      const editor = view?.editor;
+      if (editor && typeof editor.setCursor === 'function' && typeof editor.lineCount === 'function') {
+        try {
+          const line = Math.max(0, editor.lineCount() - 1);
+          const text = typeof editor.getLine === 'function' ? editor.getLine(line) : '';
+          editor.setCursor({ line, ch: String(text || '').length });
+          editor.focus?.();
+          return true;
+        } catch (error) {
+          console.warn('[Dayline] Could not place the caret in today note:', error?.message || error);
+          return false;
+        }
+      }
+      await new Promise((resolve) => window.setTimeout(resolve, 60));
+    }
+    return false;
+  }
+
+  /** Resolve when the promise settles or after the timeout, whichever is first. */
+  _waitAtMost(promise, ms) {
+    let timer = null;
+    const timeout = new Promise((resolve) => {
+      timer = window.setTimeout(resolve, ms);
+    });
+    return Promise.race([Promise.resolve(promise).catch(() => undefined), timeout]).finally(() => {
+      if (timer !== null) window.clearTimeout(timer);
+    });
+  }
+
   async recordCurrentMood() {
     const activeFile = this.app.workspace.activeLeaf?.view?.file;
     const sources = this.journalIndex.resolveSources(this.settings);
@@ -935,11 +1356,16 @@ class DaylinePlugin extends Plugin {
     return true;
   }
 
+  /**
+   * Open the mood picker and return the modal instance. Callers that only show
+   * it ignore the value; the onboarding tour needs it to close the picker when
+   * the tour moves on, because a modal belongs to its opener, not to the DOM.
+   */
   async openMoodPicker(path, options = {}) {
-    if (this._warnIfMoodStoreReadOnly()) return;
+    if (this._warnIfMoodStoreReadOnly()) return null;
     if (path && options.ensureFile !== false) await this._ensureMoodJournalFile(path);
     const entry = this.journalIndex.getEntries().find((item) => item.path === path);
-    new MoodPickerModal(this.app, {
+    const modal = new MoodPickerModal(this.app, {
       filePath: path,
       // The index already knows the note's date. Without it the picker read the
       // date from the file name, and a note such as `2026-07-05-evening.md`
@@ -968,7 +1394,9 @@ class DaylinePlugin extends Plugin {
         await this.journalIndex.refreshFile(targetPath, this.settings);
         new Notice(`${t(this.settings, 'moodSaved')}: ${targetPath}`);
       },
-    }).open();
+    });
+    modal.open();
+    return modal;
   }
 
   openMoodRecovery() {
@@ -1684,6 +2112,9 @@ class DaylinePlugin extends Plugin {
     // Chinese to an English-system user. Anyone with persisted settings keeps
     // the value they stored.
     const hasPersistedSettings = Boolean(raw) && typeof raw === 'object' && Object.keys(raw).length > 0;
+    // The onboarding tour is the only thing that may interrupt a first launch;
+    // keep the distinction between "no data.json" and "an older install".
+    this._hasPersistedSettings = hasPersistedSettings;
     const data = raw || {};
     // Extract weather cache separately so it doesn't get overwritten by saveSettings
     this.weatherCache = data.weatherCache || {};
@@ -2253,7 +2684,10 @@ class CalendarView extends ItemView {
   async _onJournalIndexChanged(change) {
     if (change?.type !== 'file') {
       await this.refresh();
-      this._scheduleHeicThumbPrewarm();
+      // The pre-warm timer and its running guard belong to the plugin instance,
+      // not to this view: one sweep serves every calendar view and it must not
+      // restart while another is still running.
+      this.plugin._scheduleHeicThumbPrewarm();
       return;
     }
 

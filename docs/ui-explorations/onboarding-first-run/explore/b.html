@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>扉页</title>
+<link rel="stylesheet" href="frame.css">
+<style>
+body{overflow:hidden;background:#fff}
+.window{position:relative;width:980px;height:720px;display:flex;flex-direction:row;align-items:stretch;overflow:hidden;background:#fff}
+.window .sidebar{flex:0 0 460px;width:460px;height:720px}
+.editor{flex:0 0 520px;width:520px;min-width:0;padding:44px 48px;background:#fff}
+.note h1{margin:0;font-size:22px;font-weight:600;letter-spacing:.2px}
+.note .meta{margin-top:7px;font-size:11px;color:var(--muted)}
+.note p{margin:26px 0 0;max-width:380px;font-size:13px;line-height:1.95;color:#4b4b4b}
+.scrim{position:absolute;inset:0;background:rgba(22,22,22,.36);z-index:50}
+.modal{position:absolute;left:230px;top:112px;width:520px;z-index:60;background:#fff;border:1px solid rgba(0,0,0,.06);border-radius:10px;box-shadow:0 24px 70px rgba(0,0,0,.30);padding:34px 40px 28px}
+.brand{color:#2a2a2a}
+.brand svg{display:block;width:97px;height:14px}
+.eyebrow{margin-top:26px;font-size:11px;letter-spacing:.4px;color:var(--muted)}
+.headline{margin:9px 0 0;font-family:var(--serif);font-weight:400;font-size:31px;line-height:1.52;letter-spacing:.6px;color:#1e1e1e}
+.sub{margin:13px 0 0;font-size:12.5px;line-height:1.7;color:#666}
+.sub b{font-weight:600;color:#3a3a3a}
+.rule{height:1px;background:var(--line);margin:22px 0 2px}
+.point{display:grid;grid-template-columns:26px 1fr;align-items:start;padding:9px 0;font-size:12.5px;line-height:1.6;color:#2c2c2c}
+.point .n{font-family:var(--mono);font-size:10.5px;letter-spacing:.6px;color:#6f6f6f;padding-top:3px}
+.actions{display:flex;align-items:center;gap:18px;margin-top:20px}
+.primary{background:#232323;color:#fff;border:0;border-radius:6px;padding:9px 18px;font-family:var(--font);font-size:12.5px;font-weight:500;letter-spacing:.2px;cursor:pointer}
+.ghost{background:none;border:0;padding:0;font-family:var(--font);font-size:12px;color:#6b6b6b;text-decoration:underline;text-underline-offset:3px;text-decoration-color:#cfcfcf;cursor:pointer}
+.foot{margin-top:16px;font-size:10.5px;color:#737373}
+</style>
+</head>
+<body>
+
+<div class="window">
+  <div class="sidebar">
+    <div class="side-head">
+      <span class="side-tab"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/><path d="M8 18h.01"/><path d="M12 18h.01"/><path d="M16 18h.01"/></svg></span>
+      <span class="side-tools"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M15 3v18"/></svg></span>
+    </div>
+    <div class="cal">
+      
+    
+  <div class="cal-month">
+    <span class="cal-nav"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></span>
+    <span class="cal-title">2026 年 10 月</span>
+    <span class="cal-nav"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></span>
+  </div>
+  <div class="wx">
+    <div class="wx-top">
+      <span class="wx-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="M20 12h2"/><path d="m19.07 4.93-1.41 1.41"/><path d="M15.947 12.65a4 4 0 0 0-5.925-4.128"/><path d="M13 22H7a5 5 0 1 1 4.9-6H13a3 3 0 0 1 0 6Z"/></svg></span>
+      <span class="wx-now">现在 27°C</span>
+      <span class="wx-refresh"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg></span>
+    </div>
+    <div class="wx-loc">天气位置：Guangzhou, China</div>
+    <div class="wx-detail">体感 30° · 湿度 64%</div>
+  </div>
+  <div class="weekdays"><span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span></div>
+    
+      <div class="grid"><div class="cell" aria-hidden="true" style="background:transparent"></div><div class="cell" aria-hidden="true" style="background:transparent"></div><div class="cell" aria-hidden="true" style="background:transparent"></div><div class="cell" aria-hidden="true" style="background:transparent"></div><div class="cell" role="button" aria-label="10 月 1 日"><span class="wxb" style="color:#FBBF24"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg></span><span class="num">1</span><span class="mood m0" title="心情"></span></div><div class="cell" role="button" aria-label="10 月 2 日"><span class="wxb" style="color:#FBBF24"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg></span><span class="num">2</span></div><div class="cell has-img" role="button" aria-label="10 月 3 日，1 篇日记"><span class="img" style="background-image:url(assets/p1.jpg)"></span><span class="veil"></span><span class="wxb" style="color:#FBBF24"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg></span><span class="num">3</span><span class="mood m1" title="心情"></span></div><div class="cell" role="button" aria-label="10 月 4 日"><span class="num">4</span></div><div class="cell has-img" role="button" aria-label="10 月 5 日，1 篇日记"><span class="img" style="background-image:url(assets/p2.jpg)"></span><span class="veil"></span><span class="wxb" style="color:#FBBF24"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg></span><span class="num">5</span><span class="mood m0" title="心情"></span></div><div class="cell" role="button" aria-label="10 月 6 日"><span class="wxb" style="color:#FBBF24"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg></span><span class="num">6</span><span class="mood m1" title="心情"></span></div><div class="cell" role="button" aria-label="10 月 7 日"><span class="wxb" style="color:#94A3B8"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="M20 12h2"/><path d="m19.07 4.93-1.41 1.41"/><path d="M15.947 12.65a4 4 0 0 0-5.925-4.128"/><path d="M13 22H7a5 5 0 1 1 4.9-6H13a3 3 0 0 1 0 6Z"/></svg></span><span class="num">7</span></div><div class="cell has-img" role="button" aria-label="10 月 8 日，1 篇日记"><span class="img" style="background-image:url(assets/p5.jpg)"></span><span class="veil"></span><span class="wxb" style="color:#FBBF24"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg></span><span class="num">8</span><span class="mood mn1" title="心情"></span></div><div class="cell" role="button" aria-label="10 月 9 日"><span class="wxb" style="color:#FBBF24"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg></span><span class="num">9</span></div><div class="cell" role="button" aria-label="10 月 10 日"><span class="wxb" style="color:#94A3B8"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="M20 12h2"/><path d="m19.07 4.93-1.41 1.41"/><path d="M15.947 12.65a4 4 0 0 0-5.925-4.128"/><path d="M13 22H7a5 5 0 1 1 4.9-6H13a3 3 0 0 1 0 6Z"/></svg></span><span class="num">10</span><span class="mood m0" title="心情"></span></div><div class="cell" role="button" aria-label="10 月 11 日"><span class="wxb" style="color:#94A3B8"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg></span><span class="num">11</span></div><div class="cell has-img" role="button" aria-label="10 月 12 日，1 篇日记"><span class="img" style="background-image:url(assets/p3.jpg)"></span><span class="veil"></span><span class="num">12</span><span class="mood m2" title="心情"></span></div><div class="cell" role="button" aria-label="10 月 13 日"><span class="num">13</span></div><div class="cell has-img" role="button" aria-label="10 月 14 日，1 篇日记"><span class="img" style="background-image:url(assets/p4.jpg)"></span><span class="veil"></span><span class="num">14</span><span class="mood m1" title="心情"></span></div><div class="cell" role="button" aria-label="10 月 15 日"><span class="num">15</span></div><div class="cell" role="button" aria-label="10 月 16 日"><span class="num">16</span></div><div class="cell" role="button" aria-label="10 月 17 日，2 篇日记"><span class="wxb" style="color:#FBBF24"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg></span><span class="num">17</span><span class="mood m1" title="心情"></span><span class="count">+1</span></div><div class="cell has-img" role="button" aria-label="10 月 18 日，1 篇日记"><span class="img" style="background-image:url(assets/p6.jpg)"></span><span class="veil"></span><span class="wxb" style="color:#FBBF24"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg></span><span class="num">18</span><span class="mood m0" title="心情"></span></div><div class="cell" role="button" aria-label="10 月 19 日"><span class="num">19</span></div><div class="cell" role="button" aria-label="10 月 20 日"><span class="num">20</span></div><div class="cell" role="button" aria-label="10 月 21 日"><span class="wxb" style="color:#94A3B8"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg></span><span class="num">21</span><span class="mood mn1" title="心情"></span></div><div class="cell has-img" role="button" aria-label="10 月 22 日，1 篇日记"><span class="img" style="background-image:url(assets/p1.jpg)"></span><span class="veil"></span><span class="wxb" style="color:#94A3B8"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="M20 12h2"/><path d="m19.07 4.93-1.41 1.41"/><path d="M15.947 12.65a4 4 0 0 0-5.925-4.128"/><path d="M13 22H7a5 5 0 1 1 4.9-6H13a3 3 0 0 1 0 6Z"/></svg></span><span class="num">22</span><span class="mood mn2" title="心情"></span></div><div class="cell" role="button" aria-label="10 月 23 日"><span class="num">23</span></div><div class="cell" role="button" aria-label="10 月 24 日"><span class="wxb" style="color:#94A3B8"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg></span><span class="num">24</span><span class="mood m0" title="心情"></span></div><div class="cell has-img" role="button" aria-label="10 月 25 日，2 篇日记"><span class="img" style="background-image:url(assets/p4.jpg)"></span><span class="veil"></span><span class="wxb" style="color:#94A3B8"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg></span><span class="num">25</span><span class="mood m1" title="心情"></span><span class="count">+1</span></div><div class="cell" role="button" aria-label="10 月 26 日"><span class="wxb" style="color:#94A3B8"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="M20 12h2"/><path d="m19.07 4.93-1.41 1.41"/><path d="M15.947 12.65a4 4 0 0 0-5.925-4.128"/><path d="M13 22H7a5 5 0 1 1 4.9-6H13a3 3 0 0 1 0 6Z"/></svg></span><span class="num">26</span></div><div class="cell" role="button" aria-label="10 月 27 日"><span class="wxb" style="color:#94A3B8"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg></span><span class="num">27</span><span class="mood m1" title="心情"></span></div><div class="cell has-img" role="button" aria-label="10 月 28 日，1 篇日记"><span class="img" style="background-image:url(assets/p2.jpg)"></span><span class="veil"></span><span class="wxb" style="color:#94A3B8"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="M20 12h2"/><path d="m19.07 4.93-1.41 1.41"/><path d="M15.947 12.65a4 4 0 0 0-5.925-4.128"/><path d="M13 22H7a5 5 0 1 1 4.9-6H13a3 3 0 0 1 0 6Z"/></svg></span><span class="num">28</span><span class="mood m0" title="心情"></span></div><div class="cell today" role="button" aria-label="10 月 29 日"><span class="wxb" style="color:#94A3B8"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg></span><span class="num">29</span></div><div class="cell" role="button" aria-label="10 月 30 日"><span class="wxb" style="color:#FBBF24"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg></span><span class="num">30</span></div><div class="cell" role="button" aria-label="10 月 31 日"><span class="num">31</span></div></div>
+      
+      </div>
+    </div>
+  <div class="editor">
+    <div class="note">
+      <h1>2026 年 10 月 29 日</h1>
+      <div class="meta">星期四 · 晴 27°C</div>
+    </div>
+  </div>
+  <div class="scrim"></div>
+  <div class="modal" role="dialog" aria-modal="true" aria-label="新手引导">
+    <div class="brand"><svg xmlns="http://www.w3.org/2000/svg"  viewBox="0 0 250 36" aria-hidden="true">
+  <title id="dayline-compact-title">Dayline</title>
+  <desc id="dayline-compact-desc">Dayline wordmark.</desc>
+  <g fill="currentColor" fill-rule="nonzero">
+    <path d="M 35.232 17.088 Q 35.232 12.624 33.576 9.384 Q 31.920 6.144 29.208 4.056 Q 26.496 1.968 23.088 0.984 Q 19.680 0.000 16.176 0.000 L 3.504 0.000 L 3.504 33.984 L 15.792 33.984 Q 19.392 33.984 22.896 33.144 Q 26.400 32.304 29.136 30.360 Q 31.872 28.416 33.552 25.152 Q 35.232 21.888 35.232 17.088 Z M 26.688 17.088 Q 26.688 19.968 25.752 21.864 Q 24.816 23.760 23.256 24.888 Q 21.696 26.016 19.704 26.496 Q 17.712 26.976 15.600 26.976 L 11.520 26.976 L 11.520 7.104 L 15.408 7.104 Q 17.616 7.104 19.656 7.608 Q 21.696 8.112 23.256 9.264 Q 24.816 10.416 25.752 12.336 Q 26.688 14.256 26.688 17.088 Z" transform="translate(14.5 35) scale(1 -1)" />
+    <path d="M 26.544 0.000 L 23.904 6.672 L 10.752 6.672 L 8.256 0.000 L -0.672 0.000 L 13.584 33.984 L 21.552 33.984 L 35.664 0.000 Z M 17.424 24.912 L 13.104 13.248 L 21.648 13.248 Z" transform="translate(52.552 35) scale(1 -1)" />
+    <path d="M 20.016 14.400 L 20.016 0.000 L 11.808 0.000 L 11.808 14.400 L -0.960 33.984 L 8.976 33.984 L 16.224 21.408 L 23.472 33.984 L 33.072 33.984 Z" transform="translate(88.444 35) scale(1 -1)" />
+    <path d="M 3.504 0.000 L 3.504 33.984 L 11.760 33.984 L 11.760 7.152 L 24.912 7.152 L 24.912 0.000 Z" transform="translate(121.456 35) scale(1 -1)" />
+    <path d="M 3.504 0.000 L 3.504 33.984 L 11.760 33.984 L 11.760 0.000 Z" transform="translate(147.604 35) scale(1 -1)" />
+    <path d="M 25.104 0.000 L 11.424 22.224 L 11.280 22.224 L 11.472 0.000 L 3.504 0.000 L 3.504 33.984 L 12.864 33.984 L 26.496 11.808 L 26.640 11.808 L 26.448 33.984 L 34.416 33.984 L 34.416 0.000 Z" transform="translate(163.768 35) scale(1 -1)" />
+    <path d="M 3.504 0.000 L 3.504 33.984 L 26.352 33.984 L 26.352 27.024 L 11.424 27.024 L 11.424 20.640 L 25.536 20.640 L 25.536 14.064 L 11.424 14.064 L 11.424 7.008 L 27.216 7.008 L 27.216 0.000 Z" transform="translate(202.588 35) scale(1 -1)" />
+  </g>
+</svg>
+</div>
+    <div class="eyebrow">2026 年 10 月 29 日 · 星期四</div>
+    <h1 class="headline">你的十月，<br>已经有 9 天。</h1>
+    <p class="sub">Dayline 已连上 <b>Calendar/Daily</b>，一共找到 214 天。</p>
+    <div class="rule"></div>
+    <div class="points">
+      <div class="point"><span class="n">01</span><span>点任意一天，写下那天的事</span></div>
+      <div class="point"><span class="n">02</span><span>格子左下角的圆点，是那天的心情</span></div>
+      <div class="point"><span class="n">03</span><span>想翻旧日子，就去日记时间线</span></div>
+    </div>
+    <div class="actions">
+      <button class="primary">打开我的日历</button>
+      <button class="ghost">换一个目录</button>
+    </div>
+    <div class="foot">只在第一次打开时出现 · 之后可在设置里重新查看</div>
+  </div>
+</div>
+</body>
+</html>

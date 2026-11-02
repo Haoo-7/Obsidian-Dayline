@@ -187,7 +187,10 @@ describe('nine-language key parity and count plurals', () => {
     // reminder hour dropdown made the window.prompt text obsolete (-1). The
     // month figure became a written-day count: `thisMonth` gave way to a label
     // plus a one/other pair each for the folded line and the card (+4).
-    expect(englishKeys).toHaveLength(342);
+    // The first-run onboarding tour adds the last 28: nine step titles and
+    // bodies, the empty-library folder step, the weather-off variant, the four
+    // navigation labels, the replay command and its settings row.
+    expect(englishKeys).toHaveLength(370);
     expect(englishKeys).not.toContain('reminderHourPrompt');
     expect(englishKeys).not.toContain('thisMonth');
 

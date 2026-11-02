@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import ts from 'typescript';
 import { JSDOM } from 'jsdom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { calendarMoodMarkerClass, isCurrentCalendarMonth, shouldShowCalendarMood, shouldShowCalendarWrittenMarker } from '../src/calendar-display';
+import { calendarEntryAffectsDisplay, calendarMoodMarkerClass, isCurrentCalendarMonth, shouldShowCalendarMood, shouldShowCalendarWrittenMarker } from '../src/calendar-display';
 import { formatDateParts, joinVaultPath } from '../src/date-utils';
 import {
   formatCalendarMonth,
@@ -105,6 +105,7 @@ const CalendarView = loadClass('CalendarView', {
   joinVaultPath,
   shouldShowCalendarMood,
   shouldShowCalendarWrittenMarker,
+  calendarEntryAffectsDisplay,
   calendarMoodMarkerClass,
   calendarMediaAccessibilityLabel: () => '',
   isCurrentCalendarMonth,
@@ -579,3 +580,39 @@ describe('live display language for weather labels (U-08)', () => {
     expect(languages).not.toContain('zh');
   });
 });
+
+/* ------------------------------------------------------------------------ *
+ * A full index refresh must ask the plugin — not the view — to pre-warm the
+ * HEIC thumbnail cache. The call used to be `this._scheduleHeicThumbPrewarm()`
+ * on the view, which has no such method: the refresh logged "Calendar index
+ * refresh failed" and the pre-warm never ran again after startup.
+ * ------------------------------------------------------------------------ */
+
+describe('thumbnail pre-warm after a full index refresh', () => {
+  it('asks the plugin to pre-warm after a non-file index change', async () => {
+    const view = makeView();
+    view.refresh = vi.fn(async () => {});
+    const prewarm = vi.fn();
+    view.plugin._scheduleHeicThumbPrewarm = prewarm;
+
+    await expect(view._onJournalIndexChanged({ type: 'applied' })).resolves.toBeUndefined();
+
+    expect(view.refresh).toHaveBeenCalledTimes(1);
+    expect(prewarm).toHaveBeenCalledTimes(1);
+  });
+
+  it('leaves pre-warming to the file-change path', async () => {
+    const view = makeView();
+    view.refresh = vi.fn(async () => {});
+    const prewarm = vi.fn();
+    view.plugin._scheduleHeicThumbPrewarm = prewarm;
+
+    await view._onJournalIndexChanged({
+      type: 'file',
+      entry: { date: '2026-08-03', path: 'Daily/2026-08-03.md' },
+    });
+
+    expect(prewarm).not.toHaveBeenCalled();
+  });
+});
+

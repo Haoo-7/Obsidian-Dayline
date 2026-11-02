@@ -649,6 +649,17 @@ export class DaylineSettingsTab extends PluginSettingTab {
           this._refreshCalendarView();
         }));
 
+    // Replay entry point for the first-run tour: the command palette has the
+    // same action, but a user looking for it looks here first.
+    this._addActionRow(new Setting(containerEl)
+      .setName(t(this.plugin.settings, 'onboardingAriaLabel'))
+      .setDesc(t(this.plugin.settings, 'onboardingReplayDesc')), 'onboardingReplay')
+      .addButton((button) => button
+        .setButtonText(t(this.plugin.settings, 'onboardingReplay'))
+        .onClick(() => {
+          void this.plugin.startOnboardingTour({ replay: true });
+        }));
+
     this._addSection(containerEl, 'calendar-journal');
 
     // The editor mounts inside this row's own card, full width under the name,
