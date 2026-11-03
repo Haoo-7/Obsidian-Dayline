@@ -3,6 +3,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import ts from 'typescript';
+import moment from 'moment';
 import { JSDOM } from 'jsdom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { calendarEntryAffectsDisplay, calendarMoodMarkerClass, isCurrentCalendarMonth, shouldShowCalendarMood, shouldShowCalendarWrittenMarker } from '../src/calendar-display';
@@ -34,6 +35,7 @@ import { bindNoteMediaLongPress, shouldUseNoteMediaLongPress } from '../src/note
 import { calendarCellTouchRouting, bindOpenOnPointer } from '../src/touch-targets';
 import { usesPhoneLayout } from '../src/platform-capabilities';
 import { cssUrl } from '../src/css-url';
+import * as dailyNote from '../src/daily-note';
 
 // Execute the real CalendarView class with only its host services stubbed, the
 // same way `calendar-navigation-behavior.test.ts` does.
@@ -48,6 +50,7 @@ let document;
 let phoneLayout = false;
 let daylineDate = () => '2026-08-15';
 const noticeMessages: string[] = [];
+const creationRequests: unknown[] = [];
 const localizeSpy = vi.fn((language, key) => `${language}:${key}`);
 const displayLanguageSpy = vi.fn((settings) => (
   settings?.displayLanguage === 'system'
@@ -78,6 +81,7 @@ class TestNotice {
 }
 
 const CalendarView = loadClass('CalendarView', {
+  ...dailyNote,
   ItemView: class {},
   TFile: TestTFile,
   Notice: TestNotice,
@@ -142,7 +146,7 @@ const CalendarView = loadClass('CalendarView', {
   normalizeMediaLink: (value) => String(value ?? ''),
   createMediaAttachment: () => null,
   cssUrl,
-  CreateNoteModal: class { constructor() {} open() {} },
+  CreateNoteModal: class { constructor(...args) { creationRequests.push(args); } open() {} },
   shouldPreserveCalendarSelection: () => false,
   createEl: (tag) => document.createElement(tag),
   createDiv: () => document.createElement('div'),
@@ -168,6 +172,7 @@ beforeEach(() => {
   prototype.createDiv = function (options) { return this.createEl('div', options); };
   prototype.createSpan = function (options) { return this.createEl('span', options); };
   noticeMessages.length = 0;
+  creationRequests.length = 0;
   shownMenus.length = 0;
   phoneLayout = false;
   localizeSpy.mockClear();
@@ -175,6 +180,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  delete window.moment;
   vi.useRealTimers();
   vi.restoreAllMocks();
   daylineDate = () => '2026-08-15';
@@ -428,6 +434,30 @@ describe('weather refresh staleness (P-15)', () => {
  * ------------------------------------------------------------------------ */
 
 describe('calendar render coalescing (P-17)', () => {
+  it('opens the existing official daily note before the index has a path', async () => {
+    window.moment = moment;
+    const file = Object.assign(new TestTFile(), { path: 'Official/2026/10/2026-10-21.md' });
+    const view = makeView();
+    view.plugin.settings.followDailyNotes = true;
+    view.plugin.journalIndex = { isReady: false };
+    view.app = {
+      vault: { getAbstractFileByPath: (path) => path === file.path ? file : null },
+      internalPlugins: { getPluginById: () => ({
+        enabled: true, instance: { options: { folder: 'Official', format: 'YYYY/MM/YYYY-MM-DD' } },
+      }) },
+    };
+    view.plugin.openJournalFile = vi.fn(async () => ({}));
+    view._syncActiveDate = vi.fn();
+    view._scheduleRender = vi.fn();
+    view._triggerWeatherAfterOpen = vi.fn();
+
+    view._openNote('2026-10-21');
+    await flush();
+
+    expect(view.plugin.openJournalFile).toHaveBeenCalledWith(file);
+    expect(creationRequests).toHaveLength(0);
+  });
+
   it('rebuilds the grid once for a click plus its active-leaf-change', async () => {
     const file = new TestTFile();
     Object.assign(file, { path: 'Daily/2026-08-05.md' });

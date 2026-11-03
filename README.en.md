@@ -82,7 +82,8 @@ When the new plugin folder has no `data.json`, Dayline migrates settings from an
 
 | Setting | What it controls |
 | --- | --- |
-| **Journal source directories** | Configure the daily-notes directory (the `Default daily-note folder` field, default `Calendar/Daily`; use `/` when the notes sit directly in the vault root, which reads top-level files only) and optional external import directories. Legacy standalone entry sources are no longer enabled by default. |
+| **Journal source directories** | Set the daily-note folder, date format, and template directly, inspect the new-note path preview, then click Apply. The folder defaults to `Calendar/Daily`; clearing it or entering `/` selects the vault root. The date format defaults to `YYYY-MM-DD`; `YYYY/MM/YYYY-MM-DD` and `YY/MM/YYYY-MM-DD` create year/month subfolders. Select a Markdown template from the vault or clear it for no template. Optional external import directories remain available. |
+| **Follow Daily Notes settings** | An optional shortcut to reuse the core Daily Notes folder, date format, and template after clicking Apply. Off by default. While following, all three fields show the core values and are disabled; switching off restores your custom values. Custom mode works without the core plugin; following a disabled core plugin blocks creation with a notice. Custom formats only index matching paths; the default format retains the existing indexing rules. Older settings without an explicit template retain their legacy core template until first applied, when the displayed template choice is saved explicitly. Existing files and metadata are not moved or migrated. |
 | **Thumbnail filter** | Which embedded images to show as date thumbnails: `All embedded images` (default) or `Only date-prefixed (YYYY-MM-DD_*)`. |
 | **Journal tools** | Open the timeline or inspect external import directories. |
 | **Show timeline mood trend** | Show the recent seven-day mood trajectory at the top of the journal timeline. On by default. |
@@ -162,7 +163,7 @@ Dates are matched from the configured date field, then `date`, `creationDate`, a
 ## Compatibility and limits
 
 - **Obsidian v1.5.0+**, on desktop and mobile.
-- Daily notes default to `YYYY-MM-DD.md`, but the folder, source, and date field are configurable.
+- Daily notes default to `YYYY-MM-DD.md`; the folder, date format, template, source, and date field are configurable. Follow Daily Notes settings can reuse the core configuration. Configuration changes refresh the index without moving or renaming existing files. At the vault root, the default format indexes top-level files only; custom formats can specify year/month subfolders.
 - HEIC/HEIF thumbnail conversion runs on desktop only. Converted thumbnails are written to the **HEIC thumbnail cache folder** (default: the hidden `.dayline/thumbs`), and phones and tablets read that cache directly, so no device has to decode HEIC. The folder can be deleted at any time; the desktop rebuilds it as needed. Video covers, audio artwork, and unsupported or oversized media still fall back to metadata or the original attachment depending on the device.
 - Historical weather is best-effort because it depends on archive coverage. When refresh fails, compatible cached data can remain visible as stale or offline.
 - The timeline opens notes from the folders you configure. It does not replace Obsidian's file browser, Markdown editor, or sync system.

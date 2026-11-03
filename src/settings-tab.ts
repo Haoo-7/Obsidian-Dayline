@@ -670,6 +670,7 @@ export class DaylineSettingsTab extends PluginSettingTab {
     sourcesSetting.settingEl.addClass('dayline-source-setting');
     this.sourceEditor ??= new JournalSourceSettingsEditor(this.plugin, {
       chooseFolder: (onSubmit) => new FolderSuggestModal(this.app, onSubmit).open(),
+      chooseTemplate: (onSubmit) => new TemplateSuggestModal(this.app, onSubmit).open(),
       refreshCalendar: () => this._refreshViews({ resetSource: true, throwOnError: true }),
     });
     this.sourceEditor.mount(sourcesSetting.settingEl);
@@ -1287,5 +1288,25 @@ class FolderSuggestModal extends SuggestModal {
 
   onChooseSuggestion(folder) {
     this.onSubmit(folder.path);
+  }
+}
+
+class TemplateSuggestModal extends SuggestModal {
+  constructor(app, onSubmit) {
+    super(app);
+    this.onSubmit = onSubmit;
+  }
+
+  getSuggestions(query) {
+    return this.app.vault.getMarkdownFiles()
+      .filter(file => file.path.toLowerCase().includes(query.toLowerCase()));
+  }
+
+  renderSuggestion(file, el) {
+    el.createSpan({ text: file.path });
+  }
+
+  onChooseSuggestion(file) {
+    this.onSubmit(file.path);
   }
 }

@@ -20,6 +20,8 @@ import {
 import { buildJournalSearchText, parseJournalTags } from './journal-search';
 import { filterJournalEntries } from './journal-timeline-filters';
 import { parseMoodScore } from './mood';
+import { parseDailyNotePath, resolveDailyNoteConfig } from './daily-note';
+import type { DailyNoteConfig, DailyNoteSettings } from './daily-note';
 
 export const DEFAULT_JOURNAL_SOURCES: JournalSource[] = [
   { id: 'daily', path: 'Calendar/Daily', type: 'daily', label: 'Daily notes' },
@@ -27,10 +29,11 @@ export const DEFAULT_JOURNAL_SOURCES: JournalSource[] = [
 
 const JOURNAL_READ_CONCURRENCY = 4;
 
-export interface JournalIndexSettings {
-  dailyFolder?: string;
+export interface JournalIndexSettings extends DailyNoteSettings {
   journalSources?: JournalSource[];
 }
+
+type IndexedSource = JournalSource & { dailyNoteConfig?: DailyNoteConfig };
 
 export interface JournalIndexChange {
   type: 'full' | 'file';
@@ -118,6 +121,7 @@ export function resolveJournalDate(
   fileName: string,
   frontmatter: Record<string, unknown>,
   configuredDateField?: string,
+  dailyNoteDate?: string | null,
 ): { date: string | null; reason?: JournalDiagnostic['reason'] } {
   if (configuredDateField) {
     const configuredValue = readField(frontmatter, configuredDateField);
@@ -143,7 +147,7 @@ export function resolveJournalDate(
     invalidField = true;
   }
 
-  const filenameDate = parseDateFromFilename(fileName);
+  const filenameDate = dailyNoteDate || parseDateFromFilename(fileName);
   if (filenameDate) return { date: filenameDate };
   if (invalidField) return { date: null, reason: 'invalid-date' };
   return {
@@ -230,13 +234,15 @@ function titleFromContent(
   return { title: heading || fileName.replace(/\.md$/i, ''), explicitTitle: false };
 }
 
-function sourceForPath(path: string, sources: JournalSource[]): JournalSource | undefined {
+function sourceForPath(path: string, sources: IndexedSource[]): IndexedSource | undefined {
   const normalizedPath = normalizeVaultPath(path);
-  let match: JournalSource | undefined;
+  let match: IndexedSource | undefined;
   let matchLength = -1;
   for (const source of sources) {
     if (source.enabled === false) continue;
-    if (!isPathInFolder(normalizedPath, source.path)) continue;
+    if (source.dailyNoteConfig
+      ? !parseDailyNotePath(source.dailyNoteConfig, normalizedPath)
+      : !isPathInFolder(normalizedPath, source.path)) continue;
     // A nested source must win over an ancestor source listing it, so the
     // longest matching folder decides. Sources listed first win ties.
     const length = normalizeVaultPath(source.path).length;
@@ -282,6 +288,8 @@ export class JournalIndex {
   private refreshQueue: Promise<void> = Promise.resolve();
   private initializationPromise: Promise<void> | null = null;
   private initialized = false;
+  private dailyNoteConfigKey = '';
+  private configurationRefresh: Promise<void> | null = null;
   private currentSources: JournalSource[] = [];
 
   constructor(app: any, getMood: (path: string) => MoodRecord | null | undefined = () => undefined) {
@@ -324,7 +332,22 @@ export class JournalIndex {
    * startup refresh. Concurrent open/render requests intentionally share it.
    */
   async ensureReady(settings: JournalIndexSettings): Promise<void> {
-    if (this.initialized) return;
+    if (this.initialized) {
+      const key = JSON.stringify(resolveDailyNoteConfig(this.app, settings));
+      if (this.dailyNoteConfigKey === key) return;
+      if (this.configurationRefresh) {
+        await this.configurationRefresh;
+        if (this.dailyNoteConfigKey === key) return;
+      }
+      const refresh = this.refresh(settings);
+      this.configurationRefresh = refresh;
+      try {
+        await refresh;
+      } finally {
+        if (this.configurationRefresh === refresh) this.configurationRefresh = null;
+      }
+      return;
+    }
     if (!this.initializationPromise) {
       const initialize = async () => {
         // Do not report ready until a complete rebuild has committed.
@@ -421,7 +444,8 @@ export class JournalIndex {
       if (!source) continue;
       const cache = this.app.metadataCache.getFileCache(file);
       const frontmatter = asRecord(cache?.frontmatter);
-      const resolved = resolveJournalDate(file.name, frontmatter, source.dateField);
+      const resolved = resolveJournalDate(file.name, frontmatter, source.dateField,
+        source.dailyNoteConfig && parseDailyNotePath(source.dailyNoteConfig, file.path));
       if (!resolved.date) noDate.push(file.path);
       const used = resolved.date
         ? (source.dateField && readField(frontmatter, source.dateField) !== undefined
@@ -437,7 +461,7 @@ export class JournalIndex {
     return { files: files.filter((file: any) => sourceForPath(file.path, sources)).length, noDate, fields };
   }
 
-  resolveSources(settings: JournalIndexSettings): JournalSource[] {
+  resolveSources(settings: JournalIndexSettings): IndexedSource[] {
     const configured = Array.isArray(settings.journalSources) ? settings.journalSources : [];
     const normalized = configured
       // A row without a path was never a valid source. The vault root is stored
@@ -451,7 +475,14 @@ export class JournalIndex {
       }))
       .filter((source) => source.enabled !== false);
     const explicitDaily = normalized.find((source) => source.type === 'daily');
-    const daily: JournalSource = explicitDaily ?? {
+    const config = resolveDailyNoteConfig(this.app, settings);
+    const formatted = config.followDailyNotes || config.format !== 'YYYY-MM-DD';
+    const daily: IndexedSource = formatted ? {
+      ...DEFAULT_JOURNAL_SOURCES[0],
+      ...explicitDaily,
+      path: config.folder,
+      dailyNoteConfig: config,
+    } : explicitDaily ?? {
       ...DEFAULT_JOURNAL_SOURCES[0],
       // An explicit "/" is the vault root and normalizes to an empty path.
       // An unset folder keeps the default, as it did before.
@@ -459,8 +490,10 @@ export class JournalIndex {
         ? normalizeVaultPath(settings.dailyFolder)
         : DEFAULT_JOURNAL_SOURCES[0].path,
     };
-    const seenPaths = new Set([daily.path]);
-    const result = [daily];
+    const result = config.available ? [daily] : [];
+    // A native source only claims formatted paths. An explicitly configured
+    // external source in that same directory must retain its broader rules.
+    const seenPaths = new Set(formatted ? [] : result.map((source) => source.path));
     for (const source of normalized) {
       if (source.type === 'daily' || seenPaths.has(source.path)) continue;
       seenPaths.add(source.path);
@@ -470,6 +503,7 @@ export class JournalIndex {
   }
 
   private async rebuild(settings: JournalIndexSettings, token: number, mutationToken: number): Promise<boolean> {
+    const configKey = JSON.stringify(resolveDailyNoteConfig(this.app, settings));
     const sources = this.resolveSources(settings);
     const next = new Map<string, JournalEntry>();
     const diagnostics = new Map<string, JournalDiagnostic>();
@@ -489,6 +523,7 @@ export class JournalIndex {
     await Promise.all(Array.from({ length: workerCount }, () => readWorker()));
     if (token !== this.refreshToken || mutationToken !== this.mutationToken) return false;
     this.currentSources = sources;
+    this.dailyNoteConfigKey = configKey;
     this.entries.clear();
     for (const [path, entry] of next) this.entries.set(path, entry);
     // A full snapshot is authoritative for its settings. File reads that
@@ -503,7 +538,7 @@ export class JournalIndex {
 
   private async readEntry(
     file: any,
-    sources: JournalSource[],
+    sources: IndexedSource[],
     diagnostics: Map<string, JournalDiagnostic>,
   ): Promise<JournalEntry | null> {
     const path = normalizeVaultPath(file.path);
@@ -511,7 +546,8 @@ export class JournalIndex {
     if (!source) return null;
     const cache = this.app.metadataCache.getFileCache(file);
     const frontmatter = asRecord(cache?.frontmatter);
-    const resolved = resolveJournalDate(file.name, frontmatter, source.dateField);
+    const resolved = resolveJournalDate(file.name, frontmatter, source.dateField,
+      source.dailyNoteConfig && parseDailyNotePath(source.dailyNoteConfig, path));
     if (!resolved.date) {
       diagnostics.set(path, { path, reason: resolved.reason ?? 'missing-date' });
       return null;

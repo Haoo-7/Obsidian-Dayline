@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { JSDOM } from 'jsdom';
+import moment from 'moment';
 
 vi.mock('obsidian', () => ({ setIcon: (element, name) => { element.dataset.icon = name; } }));
 import { JournalSourceSettingsEditor, validateJournalSources } from '../src/journal-source-settings';
@@ -11,6 +12,7 @@ beforeAll(() => {
     window: dom.window, document: dom.window.document,
     HTMLElement: dom.window.HTMLElement, Event: dom.window.Event,
   });
+  window.moment = moment;
   HTMLElement.prototype.empty = function () { this.replaceChildren(); };
   HTMLElement.prototype.createEl = function (tag, options = {}) {
     const element = document.createElement(tag);
@@ -33,7 +35,7 @@ function setup(sources = [], settings = {}) {
     journalIndex: { refresh: vi.fn().mockResolvedValue(undefined) },
     refreshJournalViews: vi.fn(),
   };
-  const callbacks = { chooseFolder: vi.fn(), refreshCalendar: vi.fn().mockResolvedValue(undefined) };
+  const callbacks = { chooseFolder: vi.fn(), chooseTemplate: vi.fn(), refreshCalendar: vi.fn().mockResolvedValue(undefined) };
   const editor = new JournalSourceSettingsEditor(plugin, callbacks);
   editor.mount(document.body);
   return { editor, plugin, callbacks };
@@ -97,6 +99,88 @@ describe('journal source validation', () => {
 });
 
 describe('journal source form', () => {
+  it('applies following Daily Notes as a draft and restores the preserved custom configuration', async () => {
+    const { editor, plugin } = setup([{ id: 'daily', path: 'Daily', type: 'daily' }], {
+      dailyNoteFormat: 'YY/MM/YYYY-MM-DD', dailyNoteTemplate: 'Templates/Custom',
+    });
+    plugin.app = { internalPlugins: { getPluginById: () => ({
+      enabled: true, instance: { options: { folder: 'Official', format: 'YYYY/MM/YYYY-MM-DD', template: 'Templates/Day' } },
+    }) } };
+    const changeFollow = (value) => {
+      const checkbox = editor.fields.querySelector('.dayline-source-follow input');
+      expect(checkbox).not.toBeNull();
+      checkbox.checked = value;
+      checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+    };
+
+    changeFollow(true);
+    expect(plugin.settings.followDailyNotes).toBeUndefined();
+    expect(plugin.saveSettings).not.toHaveBeenCalled();
+    expect([...editor.fields.querySelectorAll('.dayline-source-daily-fields input')].map(el => el.value))
+      .toEqual(['Official', 'YYYY/MM/YYYY-MM-DD', 'Templates/Day']);
+    expect([...editor.fields.querySelectorAll('.dayline-source-daily-fields input, .dayline-source-daily-fields button')].every(el => el.disabled)).toBe(true);
+    expect(editor.fields.querySelector('.dayline-source-follow input').disabled).toBe(false);
+    expect(editor.fields.querySelector('.dayline-source-daily-fields').hidden).toBe(true);
+    const official = editor.fields.querySelector('.dayline-source-official');
+    expect(official.getAttribute('aria-label')).toBe('Core Daily Notes settings');
+    expect([...official.querySelectorAll('dd')].map(el => el.textContent))
+      .toEqual(['Official', 'YYYY/MM/YYYY-MM-DD', 'Templates/Day']);
+    expect(official.contains(editor.preview)).toBe(true);
+    expect(editor.preview.textContent).toMatch(/Official\/\d{4}\/\d{2}\/\d{4}-\d{2}-\d{2}\.md/);
+    await editor.apply();
+    expect(plugin.settings.followDailyNotes).toBe(true);
+    expect(plugin.settings.dailyFolder).toBe('Daily');
+    expect(plugin.settings.journalSources[0].path).toBe('Daily');
+
+    changeFollow(false);
+    expect([...editor.fields.querySelectorAll('.dayline-source-daily-fields input')].map(el => el.value))
+      .toEqual(['Daily', 'YY/MM/YYYY-MM-DD', 'Templates/Custom']);
+    expect(editor.fields.querySelector('.dayline-source-daily-fields').hidden).toBe(false);
+    expect(editor.fields.querySelector('.dayline-source-official')).toBeNull();
+    await editor.apply();
+    expect(plugin.settings.followDailyNotes).toBe(false);
+    expect(editor.fields.querySelector('input').value).toBe('Daily');
+    expect(plugin.settings.journalSources[0].path).toBe('Daily');
+    expect(plugin.settings.dailyNoteFormat).toBe('YY/MM/YYYY-MM-DD');
+    expect(plugin.settings.dailyNoteTemplate).toBe('Templates/Custom');
+  });
+
+  it('previews and applies independent folder, date format and template as one draft', async () => {
+    const { editor, plugin, callbacks } = setup();
+    input(editor.fields.querySelector('[aria-label="Default daily-note folder"]'), 'Journal');
+    input(editor.fields.querySelector('[aria-label="Date format"]'), 'YY/MM/YYYY-MM-DD');
+    editor.fields.querySelector('button[aria-label="Template"]').click();
+    callbacks.chooseTemplate.mock.calls[0][0]('Templates/Journal.md');
+    expect(plugin.saveSettings).not.toHaveBeenCalled();
+    expect(editor.preview.textContent).toMatch(/Journal\/\d{2}\/\d{2}\/\d{4}-\d{2}-\d{2}\.md/);
+    await editor.apply();
+    expect(plugin.settings).toMatchObject({
+      dailyFolder: 'Journal', dailyNoteFormat: 'YY/MM/YYYY-MM-DD', dailyNoteTemplate: 'Templates/Journal.md',
+    });
+    expect(editor.dirty).toBe(false);
+  });
+
+  it('rejects invalid and ambiguous custom formats before saving the draft', async () => {
+    const { editor, plugin } = setup();
+    for (const format of ['[../]YYYY-MM-DD', 'YYYY/MM']) {
+      input(editor.fields.querySelector('[aria-label="Date format"]'), format);
+      await editor.apply();
+      expect(plugin.saveSettings).not.toHaveBeenCalled();
+      expect(editor.error).toBeTruthy();
+      expect(editor.dirty).toBe(true);
+    }
+  });
+
+  it('discards the custom format and template together without writing settings', () => {
+    const { editor, plugin } = setup([], { dailyNoteTemplate: '' });
+    input(editor.fields.querySelector('[aria-label="Date format"]'), 'YY/MM/YYYY-MM-DD');
+    input(editor.fields.querySelector('[aria-label="Template"]'), 'Templates/Day');
+    editor.resetButton.click();
+    expect(editor.dailyNoteFormat).toBe('YYYY-MM-DD');
+    expect(editor.dailyNoteTemplate).toBe('');
+    expect(plugin.saveSettings).not.toHaveBeenCalled();
+  });
+
   it('does not save typing or folder selection until Apply and preserves custom metadata', async () => {
     const { editor, plugin, callbacks } = setup([{ id: 'import', path: 'Old', type: 'external', extra: 'keep' }]);
     input(editor.fields.querySelector('input'), 'New/Daily');
@@ -124,13 +208,14 @@ describe('journal source form', () => {
     expect(editor.fields.querySelector('input').value).toBe('/');
   });
 
-  it('rejects a blank daily folder so an empty value cannot silently mean the root', async () => {
+  it('lets a cleared folder explicitly select the vault root like core Daily Notes', async () => {
     const { editor, plugin } = setup();
     input(editor.fields.querySelector('input'), '   ');
     await editor.apply();
-    expect(plugin.saveSettings).not.toHaveBeenCalled();
-    expect(editor.status.getAttribute('role')).toBe('alert');
-    expect(editor.status.textContent).toContain('daily-note folder');
+    expect(plugin.settings.dailyFolder).toBe('/');
+    expect(editor.dailyFolder).toBe('/');
+    expect(plugin.saveSettings).toHaveBeenCalledTimes(1);
+    expect(editor.error).toBeNull();
   });
 
   it('shows a legacy empty folder as the default instead of the vault root', () => {
@@ -159,8 +244,13 @@ describe('journal source form', () => {
     const { editor, plugin } = setup();
     plugin.saveSettings.mockRejectedValueOnce(new Error('disk unavailable'));
     input(editor.fields.querySelector('input'), 'New/Daily');
+    const follow = editor.fields.querySelector('.dayline-source-follow input');
+    follow.checked = true;
+    follow.dispatchEvent(new Event('change', { bubbles: true }));
     await editor.apply();
     expect(plugin.settings.dailyFolder).toBe('Daily');
+    expect(plugin.settings.followDailyNotes).toBeUndefined();
+    expect(editor.followDailyNotes).toBe(true);
     expect(editor.dailyFolder).toBe('New/Daily');
     expect(editor.dirty).toBe(true);
     expect(editor.applyButton.disabled).toBe(false);
@@ -168,7 +258,21 @@ describe('journal source form', () => {
     expect(plugin.journalIndex.refresh).not.toHaveBeenCalled();
     await editor.apply();
     expect(plugin.settings.dailyFolder).toBe('New/Daily');
+    expect(plugin.settings.followDailyNotes).toBe(true);
     expect(plugin.saveSettings).toHaveBeenCalledTimes(2);
+  });
+
+  it('discards the follow toggle without saving or refreshing the index', () => {
+    const { editor, plugin } = setup();
+    const follow = editor.fields.querySelector('.dayline-source-follow input');
+    follow.checked = true;
+    follow.dispatchEvent(new Event('change', { bubbles: true }));
+    editor.resetButton.click();
+
+    expect(editor.fields.querySelector('.dayline-source-follow input').checked).toBe(false);
+    expect(editor.fields.querySelector('input').value).toBe('Daily');
+    expect(plugin.saveSettings).not.toHaveBeenCalled();
+    expect(plugin.journalIndex.refresh).not.toHaveBeenCalled();
   });
 
   it('retries an index failure without rolling back persisted settings or saving twice', async () => {

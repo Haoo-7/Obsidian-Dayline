@@ -5,6 +5,7 @@ import ts from 'typescript';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import * as calendarDisplay from '../src/calendar-display';
 import * as dateUtils from '../src/date-utils';
+import * as dailyNote from '../src/daily-note';
 import * as daylineMobile from '../src/dayline-mobile';
 import * as heicThumbStore from '../src/heic-thumb-store';
 import * as noteMediaPress from '../src/note-media-press';
@@ -108,6 +109,7 @@ function loadPluginClass(overrides: PluginOverrides = {}): any {
     if (id === 'obsidian') return obsidianStub;
     if (id === './i18n') return i18nStub;
     if (id === './date-utils') return dateUtils;
+    if (id === './daily-note') return dailyNote;
     if (id === './dayline-mobile') return daylineMobile;
     if (id === './calendar-display') return calendarDisplay;
     if (id === './on-this-day-entry') return onThisDayEntry;
@@ -823,6 +825,7 @@ describe('mobile Dayline routing', () => {
     };
     plugin.journalIndex = { getEntries: () => [], refreshFile: vi.fn(async () => undefined) };
     plugin.refreshJournalViews = vi.fn();
+    plugin.app.vault = { getAbstractFileByPath: () => null };
     plugin.createDailyNoteForDate = vi.fn(async () => ({ path: 'Calendar/Daily/2026-09-29.md' }));
     plugin.ensureJournalFile = vi.fn(async () => ({}));
 

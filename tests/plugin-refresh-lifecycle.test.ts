@@ -3,9 +3,11 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import ts from 'typescript';
+import moment from 'moment';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as calendarDisplay from '../src/calendar-display';
 import * as dateUtils from '../src/date-utils';
+import * as dailyNote from '../src/daily-note';
 import * as heicThumbStore from '../src/heic-thumb-store';
 import * as i18n from '../src/i18n';
 import * as mediaLinks from '../src/media-links';
@@ -70,6 +72,7 @@ function loadPluginClass(overrides: Record<string, unknown> = {}): any {
     if (id === 'obsidian') return obsidianStub;
     if (id === './i18n') return i18n;
     if (id === './date-utils') return dateUtils;
+    if (id === './daily-note') return dailyNote;
     if (id === './media-links') return mediaLinks;
     if (id === './calendar-display') return calendarDisplay;
     if (id === './on-this-day-entry') return onThisDayEntry;
@@ -156,6 +159,51 @@ function installFakeMoment() {
 }
 
 describe('daily-note template tokens (P-13)', () => {
+  it('creates and reuses a custom nested note with its independently selected template', async () => {
+    window.moment = moment;
+    const host = templateHost();
+    const plugin = makePlugin({}, {
+      dailyFolder: 'Custom', dailyNoteFormat: 'YY/MM/DD [entry]', dailyNoteTemplate: 'Templates/Local',
+    });
+    const template = new HarnessTFile('Templates/Local.md');
+    template.content = 'Local {{date}} {{title}}';
+    host.files.set(template.path, template);
+    plugin.app = host.app;
+
+    const file = await plugin.createDailyNoteForDate('2026-11-03');
+
+    expect(file.path).toBe('Custom/26/11/03 entry.md');
+    expect(file.content).toBe('Local 2026-11-03 03 entry');
+    expect(await plugin.createDailyNoteForDate('2026-11-03')).toBe(file);
+    expect(host.created.size).toBe(1);
+    expect(plugin._dailyNoteDateForPath(file.path)).toBe('2026-11-03');
+  });
+
+  it('creates an empty note when the custom template is explicitly cleared', async () => {
+    const host = templateHost();
+    const plugin = makePlugin({}, { dailyNoteTemplate: '' });
+    plugin.app = host.app;
+    const file = await plugin.createDailyNoteForDate('2026-11-03');
+    expect(file.content).toBe('');
+    expect(host.app.vault.read).not.toHaveBeenCalled();
+  });
+
+  it('reuses the official nested daily note instead of creating a duplicate', async () => {
+    window.moment = moment;
+    const host = templateHost();
+    const existing = new HarnessTFile('Official/2026/10/2026-10-21.md');
+    host.files.set(existing.path, existing);
+    host.app.internalPlugins.getPluginById = () => ({
+      enabled: true,
+      instance: { options: { folder: 'Official', format: 'YYYY/MM/YYYY-MM-DD' } },
+    });
+    const plugin = makePlugin({}, { followDailyNotes: true });
+    plugin.app = host.app;
+
+    expect(await plugin.createDailyNoteForDate('2026-10-21')).toBe(existing);
+    expect(host.created.size).toBe(0);
+  });
+
   it('substitutes time and formatted date tokens through window.moment', async () => {
     installFakeMoment();
     const host = templateHost();
@@ -167,6 +215,30 @@ describe('daily-note template tokens (P-13)', () => {
     expect(host.created.get('Daily/2026-08-05.md')).toBe(
       'date=2026-08-05 title=2026-08-05 month=2026/08 time=09:30',
     );
+  });
+
+  it('creates a formatted filename with the selected date and actual title in its template', async () => {
+    window.moment = moment;
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-11-02T09:30:00'));
+    const host = templateHost();
+    host.app.internalPlugins.getPluginById = () => ({
+      enabled: true,
+      instance: { options: { folder: 'Official', format: 'YYYY/MM/DD [entry]', template: 'Templates/Daily' } },
+    });
+    const plugin = makePlugin({}, { followDailyNotes: true });
+    plugin.app = host.app;
+
+    const [first, second] = await Promise.all([
+      plugin.createDailyNoteForDate('2026-10-21'),
+      plugin.createDailyNoteForDate('2026-10-21'),
+    ]);
+
+    expect(first.path).toBe('Official/2026/10/21 entry.md');
+    expect(second).toBe(first);
+    expect(host.created.size).toBe(1);
+    expect(host.app.vault.createFolder).toHaveBeenCalledWith('Official/2026/10');
+    expect(first.content).toBe('date=2026-10-21 title=21 entry month=2026/10 time=09:30');
   });
 
   it('creates one file when two callers request the same date concurrently', async () => {
@@ -181,6 +253,162 @@ describe('daily-note template tokens (P-13)', () => {
     expect(host.app.vault.create).toHaveBeenCalledTimes(1);
     expect(firstFile).toBe(secondFile);
     expect(firstFile).toBeInstanceOf(HarnessTFile);
+  });
+
+  it('passes the actual parent and filename to Templater', async () => {
+    window.moment = moment;
+    const host = templateHost();
+    host.app.internalPlugins.getPluginById = () => ({
+      enabled: true,
+      instance: { options: { folder: '', format: 'YYYY/MM/DD [entry]', template: 'Templates/Daily' } },
+    });
+    const createFromTemplate = vi.fn(async (_template, folder, title) => {
+      return host.app.vault.create(`${folder}/${title}.md`, 'Templater result');
+    });
+    host.app.plugins.getPlugin = () => ({ templater: { create_new_note_from_template: createFromTemplate } });
+    const plugin = makePlugin({}, { followDailyNotes: true });
+    plugin.app = host.app;
+
+    const file = await plugin.createDailyNoteForDate('2026-10-21');
+
+    expect(file.path).toBe('2026/10/21 entry.md');
+    expect(file.content).toBe('Templater result');
+    expect(createFromTemplate).toHaveBeenCalledWith(host.files.get('Templates/Daily.md'), '2026/10', '21 entry', false);
+    expect(host.created.size).toBe(1);
+  });
+
+  it('blocks direct creation when following a disabled core plugin', async () => {
+    const host = templateHost();
+    const plugin = makePlugin({}, { followDailyNotes: true });
+    plugin.app = host.app;
+
+    await expect(plugin.createDailyNoteForDate('2026-10-21')).rejects.toThrow(i18n.t(plugin.settings, 'sourceDailyUnavailable'));
+    expect(host.created.size).toBe(0);
+    expect(host.app.vault.createFolder).not.toHaveBeenCalled();
+  });
+
+  it('keeps the actual file returned by Templater instead of creating another copy', async () => {
+    const host = templateHost();
+    host.app.plugins.getPlugin = () => ({ templater: {
+      create_new_note_from_template: async () => host.app.vault.create('Daily/2026-08-05-renamed.md', 'Templater renamed'),
+    } });
+    const plugin = makePlugin();
+    plugin.app = host.app;
+
+    const file = await plugin.createDailyNoteForDate('2026-08-05');
+
+    expect(file.path).toBe('Daily/2026-08-05-renamed.md');
+    expect(host.created.size).toBe(1);
+  });
+
+  it('does not remind about an existing official note while the ready index still has the previous configuration', () => {
+    window.moment = moment;
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-11-02T21:30:00Z'));
+    const host = templateHost();
+    const path = 'Official/2026/11/02 entry.md';
+    host.files.set(path, new HarnessTFile(path));
+    host.app.internalPlugins.getPluginById = () => ({
+      enabled: true, instance: { options: { folder: 'Official', format: 'YYYY/MM/DD [entry]' } },
+    });
+    const plugin = makePlugin({}, { followDailyNotes: true, weatherTimezone: 'UTC', reminderEnabled: true, reminderHour: 21 });
+    plugin.app = host.app;
+    plugin.journalIndex = { isReady: true, getEntries: () => [] };
+
+    plugin._maybeRemind();
+
+    expect(noticeMessages).toEqual([]);
+  });
+});
+
+describe('official daily-note mood targets', () => {
+  function moodHost() {
+    window.moment = moment;
+    const host = templateHost();
+    const core = {
+      enabled: true,
+      instance: { options: { folder: 'Official', format: 'YYYY/MM/DD [entry]', template: 'Templates/Daily' } },
+    };
+    host.app.internalPlugins.getPluginById = () => core;
+    let options;
+    const plugin = makePlugin({
+      './mood-picker-modal': {
+        MoodPickerModal: class {
+          constructor(_app, value) { options = value; }
+          open() {}
+        },
+      },
+    }, { followDailyNotes: true });
+    plugin.app = host.app;
+    plugin.journalIndex = { getEntries: () => [], refreshFile: vi.fn(async () => undefined) };
+    plugin.moodStore = { get: () => undefined, getCustomLabels: () => [], set: vi.fn(async () => undefined) };
+    return { ...host, plugin, core, picker: () => options };
+  }
+
+  it('shows the selected native date before the note is indexed', async () => {
+    const host = moodHost();
+    await host.plugin.openMoodPicker('Official/2026/10/21 entry.md', { ensureFile: false });
+
+    expect(host.picker().date).toBe('2026-10-21');
+    expect(host.created.size).toBe(0);
+  });
+
+  it('creates the selected custom-format note when saving a mood without core Daily Notes', async () => {
+    const host = moodHost();
+    Object.assign(host.plugin.settings, {
+      followDailyNotes: false, dailyFolder: 'Custom', dailyNoteFormat: 'YY/MM/DD [entry]', dailyNoteTemplate: '',
+    });
+    host.core.enabled = false;
+    await host.plugin.openMoodPicker('Custom/26/11/03 entry.md', { ensureFile: false });
+    expect(host.picker().date).toBe('2026-11-03');
+    const next = await host.picker().onDateChange('2026-11-04');
+    expect(next.filePath).toBe('Custom/26/11/04 entry.md');
+    await host.picker().onSave({ filePath: next.filePath, score: 3, labels: [] });
+    expect(host.created.get(next.filePath)).toBe('');
+    expect(host.plugin.moodStore.set).toHaveBeenCalledWith(next.filePath, 3, [], host.plugin.settings, undefined);
+    expect(host.plugin.journalIndex.refreshFile).toHaveBeenCalledWith(next.filePath, host.plugin.settings);
+  });
+
+  it.each(['disabled', 'changed'])('blocks stale new mood targets after official settings are %s', async (change) => {
+    const host = moodHost();
+    const path = 'Official/2026/10/21 entry.md';
+    await host.plugin.openMoodPicker(path, { ensureFile: false });
+    if (change === 'disabled') host.core.enabled = false;
+    else host.core.instance.options.folder = 'Moved';
+
+    await expect(host.picker().onSave({ filePath: path, score: 3, labels: [] })).rejects.toThrow(
+      i18n.t(host.plugin.settings, change === 'disabled' ? 'sourceDailyUnavailable' : 'sourceDailyInvalidPath'),
+    );
+    expect(host.created.size).toBe(0);
+    expect(host.plugin.moodStore.set).not.toHaveBeenCalled();
+  });
+
+  it('switches the mood date and saves to the same templated native note', async () => {
+    const host = moodHost();
+    await host.plugin.openMoodPicker('Official/2026/10/21 entry.md', { ensureFile: false });
+    const next = await host.picker().onDateChange('2026-10-22');
+    expect(next.filePath).toBe('Official/2026/10/22 entry.md');
+    expect(host.created.size).toBe(0);
+
+    await host.picker().onSave({ filePath: next.filePath, score: 3, labels: ['calm'], note: 'A day' });
+
+    expect(host.created.get(next.filePath)).toContain('date=2026-10-22 title=22 entry');
+    expect(host.created.size).toBe(1);
+    expect(host.plugin.moodStore.set).toHaveBeenCalledWith(next.filePath, 3, ['calm'], host.plugin.settings, 'A day');
+    expect(host.plugin.journalIndex.refreshFile).toHaveBeenCalledWith(next.filePath, host.plugin.settings);
+  });
+
+  it('keeps an existing external note editable when the core plugin is disabled', async () => {
+    const host = moodHost();
+    const file = new HarnessTFile('Imported/old-entry.md');
+    host.files.set(file.path, file);
+    host.core.enabled = false;
+    await host.plugin.openMoodPicker(file.path, { ensureFile: false });
+
+    await host.picker().onSave({ filePath: file.path, score: 2, labels: [] });
+
+    expect(host.created.size).toBe(0);
+    expect(host.plugin.moodStore.set).toHaveBeenCalledWith(file.path, 2, [], host.plugin.settings, undefined);
   });
 });
 

@@ -1,7 +1,8 @@
 // @ts-nocheck
 import { setIcon } from 'obsidian';
-import { normalizeVaultPath } from './date-utils';
+import { getTodayDate, normalizeVaultPath } from './date-utils';
 import { t } from './i18n';
+import { parseDailyNotePath, resolveDailyNoteConfig, resolveDailyNoteTarget } from './daily-note';
 
 const clone = (value) => JSON.parse(JSON.stringify(value));
 
@@ -46,14 +47,16 @@ export function validateJournalSources(value, dailyFolder) {
 }
 
 export class JournalSourceSettingsEditor {
-  constructor(plugin, { chooseFolder, refreshCalendar }) {
+  constructor(plugin, { chooseFolder, chooseTemplate, refreshCalendar }) {
     this.plugin = plugin;
     this.chooseFolder = chooseFolder;
+    this.chooseTemplate = chooseTemplate;
     this.refreshCalendar = refreshCalendar;
     this.reset();
   }
 
   reset() {
+    this.followDailyNotes = this.plugin.settings.followDailyNotes === true;
     const dailyFolder = this.plugin.settings.dailyFolder;
     // The vault root is shown as "/". A missing or empty setting keeps the
     // default folder, which is what older builds stored when the field was
@@ -61,6 +64,9 @@ export class JournalSourceSettingsEditor {
     this.dailyFolder = typeof dailyFolder === 'string' && dailyFolder.trim().length > 0
       ? (normalizeVaultPath(dailyFolder) || '/')
       : 'Calendar/Daily';
+    const custom = resolveDailyNoteConfig(this.plugin.app, { ...this.plugin.settings, followDailyNotes: false });
+    this.dailyNoteFormat = custom.format;
+    this.dailyNoteTemplate = custom.template;
     this.sources = clone(this.plugin.settings.journalSources || []);
     this.jsonOpen = false;
     this.raw = '';
@@ -103,10 +109,10 @@ export class JournalSourceSettingsEditor {
   input(parent, key, value, onChange, options = {}) {
     const label = parent.createEl('label', { cls: 'dayline-source-field' });
     label.createSpan({ text: this.label(key) });
-    const input = label.createEl('input', { attr: { type: 'text', ...options } });
+    const input = label.createEl('input', { attr: { type: 'text', 'aria-label': this.label(key), ...options } });
     input.value = value || '';
     input.addEventListener('input', () => {
-      if (this.busy) return;
+      if (this.busy || input.disabled) return;
       onChange(input.value);
       this.changed();
     });
@@ -127,7 +133,7 @@ export class JournalSourceSettingsEditor {
     const row = parent.createDiv({ cls: 'dayline-source-folder' });
     const input = this.input(row, key, value, onChange);
     this.iconButton(row, 'sourceBrowse', 'folder-search', () => this.chooseFolder(path => {
-      if (this.busy || !input.isConnected) return;
+      if (this.busy || input.disabled || !input.isConnected) return;
       input.value = path;
       onChange(path);
       this.changed();
@@ -138,7 +144,53 @@ export class JournalSourceSettingsEditor {
 
   renderFields() {
     this.fields.empty();
-    this.folderField(this.fields, 'sourceDailyFolder', this.dailyFolder, value => { this.dailyFolder = value; });
+    const config = resolveDailyNoteConfig(this.plugin.app, this.draftSettings());
+    const daily = this.fields.createDiv({ cls: 'dayline-source-daily-fields' });
+    daily.hidden = this.followDailyNotes;
+    this.folderField(daily, 'sourceDailyFolder', this.followDailyNotes ? config.folder : this.dailyFolder,
+      value => { this.dailyFolder = value; }).placeholder = '/';
+    this.input(daily, 'sourceDailyFormat', this.followDailyNotes ? config.format : this.dailyNoteFormat,
+      value => { this.dailyNoteFormat = value; }, { placeholder: 'YYYY/MM/YYYY-MM-DD' });
+    const templateRow = daily.createDiv({ cls: 'dayline-source-folder' });
+    const template = this.input(templateRow, 'sourceDailyTemplate',
+      this.followDailyNotes ? config.template : this.dailyNoteTemplate,
+      value => { this.dailyNoteTemplate = value; }, { placeholder: this.label('sourceDailyNoTemplate') });
+    if (this.chooseTemplate) {
+      this.iconButton(templateRow, 'sourceDailyTemplate', 'file-search', () => this.chooseTemplate(path => {
+        if (this.busy || template.disabled || !template.isConnected) return;
+        template.value = this.dailyNoteTemplate = path;
+        this.changed();
+        template.focus();
+      }));
+    }
+    this.preview = this.fields.createEl('output', { cls: 'dayline-source-preview', attr: { 'aria-live': 'polite' } });
+    const follow = this.fields.createEl('label', { cls: 'dayline-source-follow dayline-source-enabled' });
+    const checkbox = follow.createEl('input', { attr: { type: 'checkbox' } });
+    checkbox.checked = this.followDailyNotes;
+    follow.createSpan({ text: this.label('sourceFollowDailyNotes') });
+    checkbox.addEventListener('change', () => {
+      this.followDailyNotes = checkbox.checked;
+      this.renderFields();
+      this.changed();
+      this.fields.querySelector('.dayline-source-follow input')?.focus();
+    });
+    if (this.followDailyNotes) {
+      const official = this.fields.createDiv({
+        cls: 'dayline-source-official',
+        attr: { role: 'region', 'aria-label': this.label('sourceDailyOfficial') },
+      });
+      official.createEl('p', { cls: 'dayline-source-official-title', text: this.label('sourceDailyOfficial') });
+      const values = official.createEl('dl', { cls: 'dayline-source-official-values' });
+      for (const [key, value] of [
+        ['sourceFolder', config.folder || '/'],
+        ['sourceDailyFormat', config.format],
+        ['sourceDailyTemplate', config.template || this.label('sourceDailyNoTemplate')],
+      ]) {
+        values.createEl('dt', { text: this.label(key) });
+        values.createEl('dd', { text: value });
+      }
+      official.append(this.preview);
+    }
     const list = this.fields.createDiv({ cls: 'dayline-source-list' });
     list.hidden = this.jsonOpen;
     if (!Array.isArray(this.sources)) {
@@ -211,7 +263,7 @@ export class JournalSourceSettingsEditor {
         list.hidden = true;
       } else {
         try {
-          this.sources = validateJournalSources(JSON.parse(this.raw), this.dailyFolder);
+          this.sources = validateJournalSources(JSON.parse(this.raw), this.followDailyNotes ? undefined : this.dailyFolder || '/');
           this.jsonOpen = false;
           this.error = null;
           this.renderFields();
@@ -236,10 +288,28 @@ export class JournalSourceSettingsEditor {
     this.updateState();
   }
 
+  draftSettings() {
+    return {
+      ...this.plugin.settings,
+      followDailyNotes: this.followDailyNotes,
+      dailyFolder: this.dailyFolder.trim() || '/',
+      dailyNoteFormat: this.dailyNoteFormat.trim() || 'YYYY-MM-DD',
+      dailyNoteTemplate: this.dailyNoteTemplate.trim(),
+    };
+  }
+
   updateState() {
     if (!this.root) return;
     this.root.setAttribute('aria-busy', String(Boolean(this.busy)));
-    for (const input of this.fields.querySelectorAll('input, select, textarea, button')) input.disabled = Boolean(this.busy);
+    for (const input of this.fields.querySelectorAll('input, select, textarea, button')) {
+      input.disabled = Boolean(this.busy) || (this.followDailyNotes && Boolean(input.closest('.dayline-source-daily-fields')));
+    }
+    try {
+      const target = resolveDailyNoteTarget(this.plugin.app, this.draftSettings(), getTodayDate());
+      this.preview.textContent = this.label('sourceDailyPreview', { path: target.path });
+    } catch (error) {
+      this.preview.textContent = this.label(error.message);
+    }
     this.applyButton.disabled = Boolean(this.busy) || (!this.dirty && !this.refreshNeeded);
     this.resetButton.disabled = Boolean(this.busy) || !this.dirty;
     this.applyButton.textContent = this.label(this.busy ? 'saving' : this.refreshNeeded ? 'retry' : 'sourceApply');
@@ -257,9 +327,20 @@ export class JournalSourceSettingsEditor {
       // the value that will actually be saved.
       const dailyRaw = this.dailyFolder.trim();
       const normalizedDaily = normalizeVaultPath(dailyRaw);
-      if (!dailyRaw || normalizedDaily.split('/').some(part => part === '.' || part === '..')) throw new Error('sourceDailyRequired');
+      if (normalizedDaily.split('/').some(part => part === '.' || part === '..')) throw new Error('sourceDailyRequired');
       dailyFolder = normalizedDaily || '/';
-      sources = validateJournalSources(this.jsonOpen ? JSON.parse(this.raw) : this.sources, dailyFolder);
+      sources = validateJournalSources(this.jsonOpen ? JSON.parse(this.raw) : this.sources, this.followDailyNotes ? undefined : dailyFolder);
+      if (!this.followDailyNotes) {
+        const draft = this.draftSettings();
+        const target = resolveDailyNoteTarget(this.plugin.app, draft, '2024-02-29');
+        if (parseDailyNotePath(resolveDailyNoteConfig(this.plugin.app, draft), target.path) !== target.date) {
+          throw new Error('sourceDailyInvalidDate');
+        }
+        if (draft.dailyNoteTemplate && (
+          /[\\:\u0000-\u001f]/.test(draft.dailyNoteTemplate)
+          || draft.dailyNoteTemplate.split('/').some(part => part === '.' || part === '..')
+        )) throw new Error('sourceDailyInvalidPath');
+      }
     } catch (error) {
       this.showError(error);
       return;
@@ -268,15 +349,20 @@ export class JournalSourceSettingsEditor {
     this.error = null;
     this.updateState();
     const settings = this.plugin.settings;
-    const previous = { dailyFolder: settings.dailyFolder, journalSources: settings.journalSources };
+    const keys = ['dailyFolder', 'dailyNoteFormat', 'dailyNoteTemplate', 'journalSources', 'followDailyNotes'];
+    const previous = Object.fromEntries(keys.filter(key => Object.hasOwn(settings, key)).map(key => [key, settings[key]]));
     try {
       if (this.dirty) {
         settings.dailyFolder = dailyFolder;
+        settings.followDailyNotes = this.followDailyNotes;
+        settings.dailyNoteFormat = this.dailyNoteFormat.trim() || 'YYYY-MM-DD';
+        settings.dailyNoteTemplate = this.dailyNoteTemplate.trim();
         settings.journalSources = clone(sources);
         try {
           const saved = await this.plugin.saveSettings();
           if (saved === false) throw new Error(this.label('sourceSaveRejected'));
         } catch (error) {
+          for (const key of keys) delete settings[key];
           Object.assign(settings, previous);
           throw error;
         }

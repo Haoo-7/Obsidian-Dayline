@@ -7,6 +7,7 @@ import { isCurrentCalendarMonth } from '../src/calendar-display';
 import { shouldShowHeaderOnThisDayEntry } from '../src/on-this-day-entry';
 import { bindOpenOnPointer, calendarCellTouchRouting } from '../src/touch-targets';
 import { isPathInFolder, joinVaultPath } from '../src/date-utils';
+import * as dailyNote from '../src/daily-note';
 
 // Execute the actual classes without loading the plugin's unrelated host services.
 const source = readFileSync(new URL('../src/plugin.ts', import.meta.url), 'utf8');
@@ -20,6 +21,7 @@ let document;
 const translate = vi.fn((settings, key, values = {}) => `${settings.language}:${key}:${JSON.stringify(values)}`);
 class TestTFile {}
 const CalendarView = loadClass('CalendarView', {
+  ...dailyNote,
   ItemView: class {},
   TFile: TestTFile,
   t: translate,

@@ -1,5 +1,43 @@
 # Changelog
 
+## 2.13.1 (2026-11-03)
+
+Daily notes now open and create at the configured path, including year/month subfolders. Fixes #4.
+
+### Fixed
+- **Calendar paths match the daily-note configuration.** Existing notes such as `2026/11/2026-11-03.md` open without a duplicate creation prompt; new notes create their parent folders. Calendar, timeline indexing, mood records, reminders and weather lookups share the same path rules.
+- **Templates use the selected day and actual filename.** Standard `{{date}}` and `{{title}}` tokens follow the note being created, including custom filenames.
+
+### Changed
+- **Daily-note settings expose folder, date format and template**, with folder/template pickers and a full path preview. Formats such as `YYYY/MM/YYYY-MM-DD` and `YY/MM/YYYY-MM-DD` create year/month subfolders. An empty folder selects the vault root; an empty template selects no template. Changes take effect after Apply.
+- **Optional core Daily Notes following.** Enabling it immediately shows the core folder, date format, template and path preview. Disabling it restores the custom settings. Existing settings and notes are preserved; following stays off by default.
+
+### Verification
+- TypeScript checks, all 1,092 tests across 80 files, build and release archive checks pass.
+- Mac Sandbox checks cover nested-note creation and reopening, template expansion, indexing, Apply and mode switching, and normal/narrow settings layouts. Real-phone and live Templater acceptance remain open.
+
+### Release assets
+- `main.js`, `manifest.json`, `styles.css`, `THIRD_PARTY_NOTICES.md` and `dayline.zip`.
+
+---
+
+日记现在会按配置的完整路径打开和创建，支持年月子目录。修复 #4。
+
+### 修复
+- **日历路径与每日笔记配置一致。** 已有的 `2026/11/2026-11-03.md` 等嵌套日记会直接打开，不再误提示重复创建；新建时自动建立父目录。日历、时间线索引、心情记录、提醒和天气查找共用同一套路径规则。
+- **模板使用所选日期和实际文件名。** 标准 `{{date}}`、`{{title}}` 变量跟随正在创建的日记，自定义文件名也能正确填入。
+
+### 改动
+- **每日笔记设置可直接填写目录、日期格式和模板**，支持目录与模板选择，并预览完整路径。`YYYY/MM/YYYY-MM-DD`、`YY/MM/YYYY-MM-DD` 等格式会自动建立年月子目录。清空目录表示笔记库根目录，清空模板表示不使用模板；点击“应用”后生效。
+- **保留可选的“跟随官方每日笔记”。** 勾选后立即显示官方目录、日期格式、模板和路径预览；取消后恢复自定义设置。保留现有设置和笔记，跟随开关默认关闭。
+
+### 验证
+- 类型检查、80 个测试文件中的全部 1,092 项测试、构建和发布包检查通过。
+- Mac Sandbox 验证了嵌套日记创建与重开、模板填充、索引、应用与模式切换，以及普通和窄窗口设置布局。真机手机和实际 Templater 联动尚未验收。
+
+### 发布资源
+- `main.js`、`manifest.json`、`styles.css`、`THIRD_PARTY_NOTICES.md` 和 `dayline.zip`。
+
 ## 2.13.0 (2026-11-02)
 
 A guided first run that points at the real controls, and a preview cache so reopening a photo-heavy journal no longer decodes every original.

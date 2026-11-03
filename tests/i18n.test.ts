@@ -190,7 +190,10 @@ describe('nine-language key parity and count plurals', () => {
     // The first-run onboarding tour adds the last 28: nine step titles and
     // bodies, the empty-library folder step, the weather-off variant, the four
     // navigation labels, the replay command and its settings row.
-    expect(englishKeys).toHaveLength(370);
+    // Following core Daily Notes adds seven source labels and error messages.
+    // Independent daily-note settings also provide a live path preview.
+    // Following shows the core configuration under its own heading.
+    expect(englishKeys).toHaveLength(379);
     expect(englishKeys).not.toContain('reminderHourPrompt');
     expect(englishKeys).not.toContain('thisMonth');
 

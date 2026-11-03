@@ -1,5 +1,6 @@
 // @ts-nocheck
-import { getClockPartsInTimeZone, getTodayDate, joinVaultPath } from './date-utils';
+import { getClockPartsInTimeZone, getTodayDate } from './date-utils';
+import { resolveDailyNotePath } from './daily-note';
 import { withTimeout } from './media-service';
 import {
   weatherConfigKey,
@@ -282,6 +283,8 @@ export class WeatherService {
       weatherTtlHours: source.weatherTtlHours,
       weatherLocationName: source.weatherLocationName,
       dailyFolder: source.dailyFolder,
+      dailyNoteFormat: source.dailyNoteFormat,
+      followDailyNotes: source.followDailyNotes,
     };
     return {
       settings,
@@ -342,7 +345,7 @@ export class WeatherService {
 
   _readLegacySnapshots(dateStr, sourcePath, settings = this.plugin.settings) {
     const app = this.plugin.app;
-    const candidatePaths = [sourcePath, joinVaultPath(settings.dailyFolder, `${dateStr}.md`)]
+    const candidatePaths = [sourcePath, resolveDailyNotePath(app, settings, dateStr)]
       .filter((path, index, paths) => path && paths.indexOf(path) === index);
     const snapshots = [];
     for (const path of candidatePaths) {

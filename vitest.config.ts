@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 
 export default defineConfig({
   test: {
+    dir: 'tests',
     // Installs the Obsidian `Node`/`HTMLElement` helpers (`createEl`, `createDiv`,
     // `createSpan`, `empty`, …) that JSDOM does not provide. Files that swap in
     // their own JSDOM instance keep working because the shim resolves `document`

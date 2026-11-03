@@ -83,13 +83,15 @@ export function summaryForDate(entries: JournalEntry[], date: string): CalendarD
 export function withWeatherOnlyDays(
   summaries: Map<string, CalendarDaySummary>,
   weatherDates: Iterable<string>,
-  dailyFolder = 'Calendar/Daily',
+  dailyFolder: string | ((date: string) => string | null) = 'Calendar/Daily',
 ): Map<string, CalendarDaySummary> {
   const result = new Map(summaries);
   for (const date of weatherDates) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || result.has(date)) continue;
-    const folder = dailyFolder.replace(/\/+$/, '');
-    const path = folder ? `${folder}/${date}.md` : `${date}.md`;
+    const folder = typeof dailyFolder === 'string' ? dailyFolder.replace(/\/+$/, '') : '';
+    const path = typeof dailyFolder === 'function'
+      ? dailyFolder(date) ?? undefined
+      : folder ? `${folder}/${date}.md` : `${date}.md`;
     result.set(date, {
       date,
       entries: [],

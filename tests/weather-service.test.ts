@@ -1,4 +1,14 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import moment from 'moment';
+import { TFile } from 'obsidian';
+import { readFileSync } from 'node:fs';
+import ts from 'typescript';
+import * as dateUtils from '../src/date-utils';
+import * as dailyNote from '../src/daily-note';
+import * as mediaService from '../src/media-service';
+import * as weatherCache from '../src/weather-cache';
+import * as geolocation from '../src/geolocation';
+import * as weatherManual from '../src/weather-manual';
 
 vi.mock('obsidian', () => ({
   TFile: class TFile {},
@@ -55,6 +65,42 @@ function dailyPayload(date = '2026-08-06') {
 
 describe('weather retry and cache reliability', () => {
   beforeEach(() => vi.restoreAllMocks());
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('reads legacy weather from the same formatted native note used for mood and creation', () => {
+    vi.stubGlobal('window', { moment });
+    const plugin = makePlugin({ followDailyNotes: true });
+    const path = 'Official/2026/10/21 entry.md';
+    const file = Object.assign(new TFile(), { path });
+    plugin.app.internalPlugins = { getPluginById: () => ({
+      enabled: true, instance: { options: { folder: 'Official', format: 'YYYY/MM/DD [entry]' } },
+    }) };
+    plugin.app.vault.getAbstractFileByPath = (candidate: string) => candidate === path ? file : null;
+    plugin.app.metadataCache.getFileCache = () => ({ frontmatter: { _calendar_weather: {
+      date: '2026-10-21', fetchedAt: '2026-10-21T10:00:00.000Z',
+      latitude: 39.9042, longitude: 116.4074, units: 'metric', temperature: 18, weatherCode: 2,
+    } } });
+    const request = vi.fn();
+    // CommonJS require('obsidian') is provided by the app, outside Vite's mocks.
+    const source = ts.transpileModule(readFileSync('src/weather-service.ts', 'utf8'), {
+      compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS },
+    }).outputText;
+    const dependencies: Record<string, unknown> = {
+      obsidian: { TFile }, './date-utils': dateUtils, './daily-note': dailyNote,
+      './media-service': mediaService, './weather-cache': weatherCache,
+      './geolocation': geolocation, './weather-manual': weatherManual,
+    };
+    const module = { exports: {} as { WeatherService?: typeof WeatherService } };
+    new Function('require', 'module', 'exports', source)((id: string) => {
+      if (!(id in dependencies)) throw new Error(`Unexpected dependency: ${id}`);
+      return dependencies[id];
+    }, module, module.exports);
+    const Service = module.exports.WeatherService!;
+    const service = new Service(plugin, { request, now: () => NOW });
+
+    expect(service.getCachedSnapshot('2026-10-21', undefined)).toMatchObject({ date: '2026-10-21', temperature: 18 });
+    expect(request).not.toHaveBeenCalled();
+  });
 
   it('does not refresh a fresh cache entry', async () => {
     const cached = {

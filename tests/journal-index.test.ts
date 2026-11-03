@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import moment from 'moment';
 import { JournalIndex, normalizeLocation, resolveJournalDate, startJournalIndexLoad, waitForJournalIndexStartup } from '../src/journal-index';
 
 function makeApp(files: any[]) {
@@ -21,6 +22,48 @@ function makeApp(files: any[]) {
 }
 
 describe('journal index', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('indexes and refreshes a custom format independently of core Daily Notes', async () => {
+    vi.stubGlobal('window', { moment });
+    const files = [
+      { path: 'Journal/26/11/03 entry.md', name: '03 entry.md', frontmatter: {}, content: 'Custom' },
+      { path: 'Journal/2026-11-04.md', name: '2026-11-04.md', frontmatter: {}, content: 'ISO' },
+      { path: 'Journal/Other.md', name: 'Other.md', frontmatter: { date: '2026-11-05' }, content: 'Unrelated' },
+    ];
+    const index = new JournalIndex(makeApp(files));
+    const settings = { dailyFolder: 'Journal', dailyNoteFormat: 'YY/MM/DD [entry]' };
+    await index.ensureReady(settings);
+    expect(index.getEntries().map(({ path, date }) => ({ path, date }))).toEqual([
+      { path: 'Journal/26/11/03 entry.md', date: '2026-11-03' },
+    ]);
+    settings.dailyNoteFormat = 'YYYY-MM-DD';
+    await index.ensureReady(settings);
+    expect(index.getEntries().some(entry => entry.path === 'Journal/2026-11-04.md')).toBe(true);
+  });
+
+  it.each(['Official', ''])('indexes official formatted paths in folder %j without claiming unrelated folders', async (folder) => {
+    vi.stubGlobal('window', { moment });
+    const prefix = folder ? `${folder}/` : '';
+    const files = [
+      { path: `${prefix}2026/10/21 entry.md`, name: '21 entry.md', frontmatter: {}, content: 'A daily note' },
+      { path: 'Custom/2026-10-22.md', name: '2026-10-22.md', frontmatter: {}, content: 'Custom' },
+      { path: 'Notes/2026-10-23.md', name: '2026-10-23.md', frontmatter: {}, content: 'Unrelated' },
+    ];
+    const app = { ...makeApp(files), internalPlugins: { getPluginById: () => ({
+      enabled: true, instance: { options: { folder, format: 'YYYY/MM/DD [entry]' } },
+    }) } };
+    const index = new JournalIndex(app);
+
+    await index.refresh({ dailyFolder: 'Custom', followDailyNotes: true, journalSources: [
+      { id: 'daily', type: 'daily', path: 'Custom' },
+    ] });
+
+    expect(index.getEntries().map(({ path, date }) => ({ path, date }))).toEqual([
+      { path: `${prefix}2026/10/21 entry.md`, date: '2026-10-21' },
+    ]);
+  });
+
   it('starts the initial rebuild in the background and reports completion later', async () => {
     let resolveLoad: (() => void) | undefined;
     let completed = false;
@@ -36,6 +79,53 @@ describe('journal index', () => {
     await new Promise<void>((resolve) => setTimeout(resolve, 0));
     expect(completed).toBe(true);
     expect(failed).toBe(false);
+  });
+
+  it('preserves external sources that overlap the effective native folder and their date priority', async () => {
+    vi.stubGlobal('window', { moment });
+    const files = [
+      { path: 'Official/2026/10/21 entry.md', name: '21 entry.md', frontmatter: { recorded: '2026-10-20', date: '2020-01-01' }, content: 'Daily' },
+      { path: 'Official/imported.md', name: 'imported.md', frontmatter: { imported: '2026-10-19', date: '2020-01-01' }, content: 'Imported' },
+    ];
+    const app = { ...makeApp(files), internalPlugins: { getPluginById: () => ({
+      enabled: true, instance: { options: { folder: 'Official', format: 'YYYY/MM/DD [entry]' } },
+    }) } };
+    const index = new JournalIndex(app);
+    const settings = { followDailyNotes: true, dailyFolder: 'Custom', journalSources: [
+      { id: 'daily', path: 'Custom', type: 'daily' as const, dateField: 'recorded' },
+      { id: 'import', path: 'Official', type: 'external' as const, dateField: 'imported' },
+    ] };
+
+    await index.refresh(settings);
+
+    expect(index.getEntries().map(({ path, date, sourceId }) => ({ path, date, sourceId }))).toEqual([
+      { path: 'Official/2026/10/21 entry.md', date: '2026-10-20', sourceId: 'daily' },
+      { path: 'Official/imported.md', date: '2026-10-19', sourceId: 'import' },
+    ]);
+    app.internalPlugins.getPluginById = () => ({ enabled: false, instance: { options: { folder: 'Official', format: 'YYYY/MM/DD [entry]' } } });
+    await index.ensureReady(settings);
+    expect(index.getEntries().map(({ path, date, sourceId }) => ({ path, date, sourceId }))).toEqual([
+      { path: 'Official/imported.md', date: '2026-10-19', sourceId: 'import' },
+      { path: 'Official/2026/10/21 entry.md', date: '2020-01-01', sourceId: 'import' },
+    ]);
+  });
+
+  it('refreshes a ready index when core Daily Notes changes its folder and format', async () => {
+    vi.stubGlobal('window', { moment });
+    const files = [
+      { path: 'Old/2026-10-21.md', name: '2026-10-21.md', frontmatter: {}, content: 'Old' },
+      { path: 'New/2026/10/22 entry.md', name: '22 entry.md', frontmatter: {}, content: 'New' },
+    ];
+    const core = { enabled: true, instance: { options: { folder: 'Old', format: 'YYYY-MM-DD' } } };
+    const app = { ...makeApp(files), internalPlugins: { getPluginById: () => core } };
+    const index = new JournalIndex(app);
+    const settings = { followDailyNotes: true };
+    await index.ensureReady(settings);
+    expect(index.getEntries().map((entry) => entry.path)).toEqual(['Old/2026-10-21.md']);
+
+    core.instance.options = { folder: 'New', format: 'YYYY/MM/DD [entry]' };
+    await Promise.all([index.ensureReady(settings), index.ensureReady(settings)]);
+    expect(index.getEntries().map((entry) => entry.path)).toEqual(['New/2026/10/22 entry.md']);
   });
 
   it('overlaps bounded journal reads during a full rebuild', async () => {

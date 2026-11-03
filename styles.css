@@ -2260,6 +2260,14 @@ body.dayline-mobile.dayline-phone .is-compact-viewport .journal-mood-actions {
 .dayline-settings-container .dayline-source-setting > .setting-item-control { display: none; }
 .dayline-source-setting > .dayline-source-editor { flex: 1 1 100%; box-sizing: border-box; width: 100%; padding: 8px 0 0; }
 .dayline-source-editor { container-type: inline-size; min-width: 0; padding: 4px 0 20px; }
+.dayline-source-follow { margin: 8px 0; }
+.dayline-source-daily-fields { display: grid; gap: 12px; min-width: 0; }
+.dayline-source-preview { display: block; margin: 10px 0 4px; color: var(--text-muted); font-size: var(--font-ui-small); overflow-wrap: anywhere; }
+.dayline-source-official { margin: 8px 0 16px; padding-inline-start: 12px; border-inline-start: 2px solid var(--background-modifier-border); min-width: 0; font-size: var(--font-ui-small); }
+.dayline-source-official-title { margin: 0 0 8px; font-weight: var(--font-semibold); }
+.dayline-source-official-values { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 6px 12px; margin: 0; }
+.dayline-source-official-values dt { color: var(--text-muted); }
+.dayline-source-official-values dd { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .dayline-source-editor [hidden] { display: none !important; }
 .dayline-source-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; font-size: var(--font-ui-small); }
 .dayline-source-field > span { color: var(--text-muted); overflow-wrap: anywhere; }

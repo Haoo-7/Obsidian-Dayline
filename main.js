@@ -657,6 +657,70 @@ var init_mood = __esm({
   }
 });
 
+// src/daily-note.ts
+var daily_note_exports = {};
+__export(daily_note_exports, {
+  parseDailyNotePath: () => parseDailyNotePath,
+  resolveDailyNoteConfig: () => resolveDailyNoteConfig,
+  resolveDailyNotePath: () => resolveDailyNotePath,
+  resolveDailyNoteTarget: () => resolveDailyNoteTarget
+});
+function resolveDailyNoteConfig(app, settings) {
+  const core = app?.internalPlugins?.getPluginById?.("daily-notes");
+  const options = core?.instance?.options || {};
+  const followDailyNotes = settings.followDailyNotes === true;
+  return {
+    followDailyNotes,
+    available: !followDailyNotes || core?.enabled === true,
+    folder: normalizeVaultPath(followDailyNotes ? String(options.folder || "") : settings.dailyFolder?.trim() || "Calendar/Daily"),
+    format: String((followDailyNotes ? options.format : settings.dailyNoteFormat) || "YYYY-MM-DD"),
+    // An unset value retains the template used by older versions. Once the
+    // editor saves a selection, an empty string explicitly means no template.
+    template: String(followDailyNotes || settings.dailyNoteTemplate === void 0 ? options.template || "" : settings.dailyNoteTemplate)
+  };
+}
+function resolveDailyNoteTarget(app, settings, date) {
+  const config = resolveDailyNoteConfig(app, settings);
+  if (!config.available) throw new Error("sourceDailyUnavailable");
+  if (!parseDiaryDate(`${date}.md`)) throw new Error("sourceDailyInvalidDate");
+  let relative = date;
+  if (config.format !== "YYYY-MM-DD") {
+    const moment = typeof window === "undefined" ? void 0 : window.moment;
+    if (typeof moment !== "function") throw new Error("sourceDailyInvalidDate");
+    relative = moment(date, "YYYY-MM-DD", true).format(config.format);
+  }
+  const path = joinVaultPath(config.folder, `${relative.trim()}.md`);
+  if (!relative.trim() || /[\\:\u0000-\u001f]/.test(path) || path.split("/").some((part) => !part || part === "." || part === "..")) {
+    throw new Error("sourceDailyInvalidPath");
+  }
+  return { date, path, folder: parentVaultPath(path), title: path.split("/").pop().slice(0, -3) };
+}
+function parseDailyNotePath(config, path) {
+  if (!config.available) return null;
+  const normalized = normalizeVaultPath(path);
+  const prefix = config.folder ? `${config.folder}/` : "";
+  if (!normalized.startsWith(prefix) || !normalized.endsWith(".md")) return null;
+  const relative = normalized.slice(prefix.length, -3);
+  if (config.format === "YYYY-MM-DD") return parseDiaryDate(`${relative}.md`)?.date ?? null;
+  const moment = typeof window === "undefined" ? void 0 : window.moment;
+  if (typeof moment !== "function") return null;
+  const day = moment(relative, config.format, true);
+  return day.isValid() && day.format(config.format) === relative ? day.format("YYYY-MM-DD") : null;
+}
+function resolveDailyNotePath(app, settings, date) {
+  try {
+    return resolveDailyNoteTarget(app, settings, date).path;
+  } catch {
+    return null;
+  }
+}
+var init_daily_note = __esm({
+  "src/daily-note.ts"() {
+    "use strict";
+    init_date_utils();
+  }
+});
+
 // src/journal-index.ts
 var journal_index_exports = {};
 __export(journal_index_exports, {
@@ -718,7 +782,7 @@ function parseConfiguredDate(value) {
   }
   return parseDateValue(value);
 }
-function resolveJournalDate(fileName, frontmatter, configuredDateField) {
+function resolveJournalDate(fileName, frontmatter, configuredDateField, dailyNoteDate) {
   if (configuredDateField) {
     const configuredValue = readField(frontmatter, configuredDateField);
     if (configuredValue !== void 0) {
@@ -734,7 +798,7 @@ function resolveJournalDate(fileName, frontmatter, configuredDateField) {
     if (date) return { date };
     invalidField = true;
   }
-  const filenameDate = parseDateFromFilename(fileName);
+  const filenameDate = dailyNoteDate || parseDateFromFilename(fileName);
   if (filenameDate) return { date: filenameDate };
   if (invalidField) return { date: null, reason: "invalid-date" };
   return {
@@ -794,7 +858,7 @@ function sourceForPath(path, sources) {
   let matchLength = -1;
   for (const source of sources) {
     if (source.enabled === false) continue;
-    if (!isPathInFolder(normalizedPath2, source.path)) continue;
+    if (source.dailyNoteConfig ? !parseDailyNotePath(source.dailyNoteConfig, normalizedPath2) : !isPathInFolder(normalizedPath2, source.path)) continue;
     const length = normalizeVaultPath(source.path).length;
     if (length > matchLength) {
       match = source;
@@ -828,6 +892,7 @@ var init_journal_index = __esm({
     init_journal_search();
     init_journal_timeline_filters();
     init_mood();
+    init_daily_note();
     DEFAULT_JOURNAL_SOURCES = [
       { id: "daily", path: "Calendar/Daily", type: "daily", label: "Daily notes" }
     ];
@@ -849,6 +914,8 @@ var init_journal_index = __esm({
         __publicField(this, "refreshQueue", Promise.resolve());
         __publicField(this, "initializationPromise", null);
         __publicField(this, "initialized", false);
+        __publicField(this, "dailyNoteConfigKey", "");
+        __publicField(this, "configurationRefresh", null);
         __publicField(this, "currentSources", []);
         this.app = app;
         this.getMood = getMood;
@@ -882,7 +949,22 @@ var init_journal_index = __esm({
        * startup refresh. Concurrent open/render requests intentionally share it.
        */
       async ensureReady(settings) {
-        if (this.initialized) return;
+        if (this.initialized) {
+          const key = JSON.stringify(resolveDailyNoteConfig(this.app, settings));
+          if (this.dailyNoteConfigKey === key) return;
+          if (this.configurationRefresh) {
+            await this.configurationRefresh;
+            if (this.dailyNoteConfigKey === key) return;
+          }
+          const refresh = this.refresh(settings);
+          this.configurationRefresh = refresh;
+          try {
+            await refresh;
+          } finally {
+            if (this.configurationRefresh === refresh) this.configurationRefresh = null;
+          }
+          return;
+        }
         if (!this.initializationPromise) {
           const initialize = async () => {
             while (!this.initialized) await this.refresh(settings);
@@ -969,7 +1051,12 @@ var init_journal_index = __esm({
           if (!source) continue;
           const cache = this.app.metadataCache.getFileCache(file);
           const frontmatter = asRecord(cache?.frontmatter);
-          const resolved = resolveJournalDate(file.name, frontmatter, source.dateField);
+          const resolved = resolveJournalDate(
+            file.name,
+            frontmatter,
+            source.dateField,
+            source.dailyNoteConfig && parseDailyNotePath(source.dailyNoteConfig, file.path)
+          );
           if (!resolved.date) noDate.push(file.path);
           const used = resolved.date ? source.dateField && readField(frontmatter, source.dateField) !== void 0 ? source.dateField : readField(frontmatter, "date") !== void 0 ? "date" : readField(frontmatter, "creationDate") !== void 0 ? "creationDate" : "filename" : "unrecognized";
           fields[used] = (fields[used] ?? 0) + 1;
@@ -985,14 +1072,21 @@ var init_journal_index = __esm({
           type: String(source.type) === "daily" ? "daily" : "external"
         })).filter((source) => source.enabled !== false);
         const explicitDaily = normalized.find((source) => source.type === "daily");
-        const daily = explicitDaily ?? {
+        const config = resolveDailyNoteConfig(this.app, settings);
+        const formatted = config.followDailyNotes || config.format !== "YYYY-MM-DD";
+        const daily = formatted ? {
+          ...DEFAULT_JOURNAL_SOURCES[0],
+          ...explicitDaily,
+          path: config.folder,
+          dailyNoteConfig: config
+        } : explicitDaily ?? {
           ...DEFAULT_JOURNAL_SOURCES[0],
           // An explicit "/" is the vault root and normalizes to an empty path.
           // An unset folder keeps the default, as it did before.
           path: typeof settings.dailyFolder === "string" && settings.dailyFolder.trim().length > 0 ? normalizeVaultPath(settings.dailyFolder) : DEFAULT_JOURNAL_SOURCES[0].path
         };
-        const seenPaths = /* @__PURE__ */ new Set([daily.path]);
-        const result = [daily];
+        const result = config.available ? [daily] : [];
+        const seenPaths = new Set(formatted ? [] : result.map((source) => source.path));
         for (const source of normalized) {
           if (source.type === "daily" || seenPaths.has(source.path)) continue;
           seenPaths.add(source.path);
@@ -1001,6 +1095,7 @@ var init_journal_index = __esm({
         return result;
       }
       async rebuild(settings, token, mutationToken) {
+        const configKey = JSON.stringify(resolveDailyNoteConfig(this.app, settings));
         const sources = this.resolveSources(settings);
         const next = /* @__PURE__ */ new Map();
         const diagnostics = /* @__PURE__ */ new Map();
@@ -1020,6 +1115,7 @@ var init_journal_index = __esm({
         await Promise.all(Array.from({ length: workerCount }, () => readWorker()));
         if (token !== this.refreshToken || mutationToken !== this.mutationToken) return false;
         this.currentSources = sources;
+        this.dailyNoteConfigKey = configKey;
         this.entries.clear();
         for (const [path, entry] of next) this.entries.set(path, entry);
         this.fileRefreshTokens.clear();
@@ -1035,7 +1131,12 @@ var init_journal_index = __esm({
         if (!source) return null;
         const cache = this.app.metadataCache.getFileCache(file);
         const frontmatter = asRecord(cache?.frontmatter);
-        const resolved = resolveJournalDate(file.name, frontmatter, source.dateField);
+        const resolved = resolveJournalDate(
+          file.name,
+          frontmatter,
+          source.dateField,
+          source.dailyNoteConfig && parseDailyNotePath(source.dailyNoteConfig, path)
+        );
         if (!resolved.date) {
           diagnostics.set(path, { path, reason: resolved.reason ?? "missing-date" });
           return null;
@@ -3397,6 +3498,15 @@ var init_i18n = __esm({
         sourceBrowse: "\u9009\u62E9\u76EE\u5F55",
         sourceDaily: "\u6BCF\u65E5\u7B14\u8BB0",
         sourceDailyFolder: "\u9ED8\u8BA4\u65E5\u8BB0\u76EE\u5F55",
+        sourceFollowDailyNotes: "\u8DDF\u968F\u5B98\u65B9\u6BCF\u65E5\u7B14\u8BB0",
+        sourceDailyOfficial: "\u5B98\u65B9\u6BCF\u65E5\u7B14\u8BB0\u914D\u7F6E",
+        sourceDailyFormat: "\u65E5\u671F\u683C\u5F0F",
+        sourceDailyTemplate: "\u6A21\u677F",
+        sourceDailyNoTemplate: "\u65E0\u6A21\u677F",
+        sourceDailyPreview: "\u65B0\u5EFA\u8DEF\u5F84\uFF1A{path}",
+        sourceDailyUnavailable: "\u5B98\u65B9\u6BCF\u65E5\u7B14\u8BB0\u63D2\u4EF6\u672A\u542F\u7528\u3002\u8BF7\u542F\u7528\u5B83\uFF0C\u6216\u5173\u95ED\u8DDF\u968F\u4EE5\u4F7F\u7528\u81EA\u5B9A\u4E49\u76EE\u5F55\uFF1B\u5F53\u524D\u65E0\u6CD5\u65B0\u5EFA\u65E5\u8BB0\u3002",
+        sourceDailyInvalidDate: "\u65E0\u6CD5\u6309\u6BCF\u65E5\u7B14\u8BB0\u683C\u5F0F\u89E3\u6790\u65E5\u671F\u3002",
+        sourceDailyInvalidPath: "\u6BCF\u65E5\u7B14\u8BB0\u683C\u5F0F\u751F\u6210\u4E86\u65E0\u6548\u8DEF\u5F84\u3002",
         sourceDailyMismatch: "\u6BCF\u65E5\u7B14\u8BB0\u6765\u6E90\u76EE\u5F55\u5FC5\u987B\u4E0E\u9ED8\u8BA4\u65E5\u8BB0\u76EE\u5F55\u4E00\u81F4\u3002",
         sourceDailyRequired: "\u8BF7\u586B\u5199\u7B14\u8BB0\u5E93\u5185\u7684\u9ED8\u8BA4\u65E5\u8BB0\u76EE\u5F55\u3002",
         sourceDateField: "\u65E5\u671F\u5B57\u6BB5\uFF08\u53EF\u9009\uFF09",
@@ -3769,6 +3879,15 @@ var init_i18n = __esm({
         sourceBrowse: "\u9078\u64C7\u76EE\u9304",
         sourceDaily: "\u6BCF\u65E5\u7B46\u8A18",
         sourceDailyFolder: "\u9810\u8A2D\u65E5\u8A18\u76EE\u9304",
+        sourceFollowDailyNotes: "\u8DDF\u96A8\u5B98\u65B9\u6BCF\u65E5\u7B46\u8A18",
+        sourceDailyOfficial: "\u5B98\u65B9\u6BCF\u65E5\u7B46\u8A18\u8A2D\u5B9A",
+        sourceDailyFormat: "\u65E5\u671F\u683C\u5F0F",
+        sourceDailyTemplate: "\u7BC4\u672C",
+        sourceDailyNoTemplate: "\u7121\u7BC4\u672C",
+        sourceDailyPreview: "\u65B0\u589E\u8DEF\u5F91\uFF1A{path}",
+        sourceDailyUnavailable: "\u5B98\u65B9\u6BCF\u65E5\u7B46\u8A18\u5916\u639B\u672A\u555F\u7528\u3002\u8ACB\u555F\u7528\u5B83\uFF0C\u6216\u95DC\u9589\u8DDF\u96A8\u4EE5\u4F7F\u7528\u81EA\u8A02\u76EE\u9304\uFF1B\u76EE\u524D\u7121\u6CD5\u65B0\u589E\u65E5\u8A18\u3002",
+        sourceDailyInvalidDate: "\u7121\u6CD5\u6309\u6BCF\u65E5\u7B46\u8A18\u683C\u5F0F\u89E3\u6790\u65E5\u671F\u3002",
+        sourceDailyInvalidPath: "\u6BCF\u65E5\u7B46\u8A18\u683C\u5F0F\u7522\u751F\u4E86\u7121\u6548\u8DEF\u5F91\u3002",
         sourceDailyMismatch: "\u6BCF\u65E5\u7B46\u8A18\u4F86\u6E90\u76EE\u9304\u5FC5\u9808\u8207\u9810\u8A2D\u65E5\u8A18\u76EE\u9304\u4E00\u81F4\u3002",
         sourceDailyRequired: "\u8ACB\u586B\u5BEB\u7B46\u8A18\u5132\u5B58\u5EAB\u5167\u7684\u9810\u8A2D\u65E5\u8A18\u76EE\u9304\u3002",
         sourceDateField: "\u65E5\u671F\u6B04\u4F4D\uFF08\u9078\u586B\uFF09",
@@ -4141,6 +4260,15 @@ var init_i18n = __esm({
         sourceBrowse: "Choose folder",
         sourceDaily: "Daily notes",
         sourceDailyFolder: "Default daily-note folder",
+        sourceFollowDailyNotes: "Follow core Daily Notes",
+        sourceDailyOfficial: "Core Daily Notes settings",
+        sourceDailyFormat: "Date format",
+        sourceDailyTemplate: "Template",
+        sourceDailyNoTemplate: "No template",
+        sourceDailyPreview: "New note path: {path}",
+        sourceDailyUnavailable: "Core Daily Notes is disabled. Enable it or turn off following to use your custom folder; new daily notes cannot be created.",
+        sourceDailyInvalidDate: "The date could not be resolved using the Daily Notes format.",
+        sourceDailyInvalidPath: "The Daily Notes format produced an invalid path.",
         sourceDailyMismatch: "The daily source folder must match the default daily-note folder.",
         sourceDailyRequired: "Enter a default daily-note folder within the vault.",
         sourceDateField: "Date field (optional)",
@@ -4513,6 +4641,15 @@ var init_i18n = __esm({
         sourceBrowse: "\u30D5\u30A9\u30EB\u30C0\u3092\u9078\u629E",
         sourceDaily: "\u30C7\u30A4\u30EA\u30FC\u30CE\u30FC\u30C8",
         sourceDailyFolder: "\u30C7\u30D5\u30A9\u30EB\u30C8\u306E\u30C7\u30A4\u30EA\u30FC\u30CE\u30FC\u30C8\u30D5\u30A9\u30EB\u30C0",
+        sourceFollowDailyNotes: "\u30B3\u30A2\u306E\u30C7\u30A4\u30EA\u30FC\u30CE\u30FC\u30C8\u306B\u5F93\u3046",
+        sourceDailyOfficial: "\u30B3\u30A2\u306E\u30C7\u30A4\u30EA\u30FC\u30CE\u30FC\u30C8\u8A2D\u5B9A",
+        sourceDailyFormat: "\u65E5\u4ED8\u5F62\u5F0F",
+        sourceDailyTemplate: "\u30C6\u30F3\u30D7\u30EC\u30FC\u30C8",
+        sourceDailyNoTemplate: "\u30C6\u30F3\u30D7\u30EC\u30FC\u30C8\u306A\u3057",
+        sourceDailyPreview: "\u65B0\u898F\u30CE\u30FC\u30C8\u306E\u30D1\u30B9\uFF1A{path}",
+        sourceDailyUnavailable: "\u30B3\u30A2\u306E\u30C7\u30A4\u30EA\u30FC\u30CE\u30FC\u30C8\u304C\u7121\u52B9\u3067\u3059\u3002\u6709\u52B9\u306B\u3059\u308B\u304B\u3001\u9023\u643A\u3092\u89E3\u9664\u3057\u3066\u30AB\u30B9\u30BF\u30E0\u30D5\u30A9\u30EB\u30C0\u3092\u4F7F\u7528\u3057\u3066\u304F\u3060\u3055\u3044\u3002\u73FE\u5728\u3001\u65B0\u3057\u3044\u65E5\u8A18\u306F\u4F5C\u6210\u3067\u304D\u307E\u305B\u3093\u3002",
+        sourceDailyInvalidDate: "\u30C7\u30A4\u30EA\u30FC\u30CE\u30FC\u30C8\u306E\u5F62\u5F0F\u3067\u65E5\u4ED8\u3092\u89E3\u6790\u3067\u304D\u307E\u305B\u3093\u3067\u3057\u305F\u3002",
+        sourceDailyInvalidPath: "\u30C7\u30A4\u30EA\u30FC\u30CE\u30FC\u30C8\u306E\u5F62\u5F0F\u304B\u3089\u7121\u52B9\u306A\u30D1\u30B9\u304C\u751F\u6210\u3055\u308C\u307E\u3057\u305F\u3002",
         sourceDailyMismatch: "\u30C7\u30A4\u30EA\u30FC\u30CE\u30FC\u30C8\u30BD\u30FC\u30B9\u306E\u30D5\u30A9\u30EB\u30C0\u306F\u3001\u30C7\u30D5\u30A9\u30EB\u30C8\u306E\u30C7\u30A4\u30EA\u30FC\u30CE\u30FC\u30C8\u30D5\u30A9\u30EB\u30C0\u3068\u4E00\u81F4\u3059\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059\u3002",
         sourceDailyRequired: "\u4FDD\u7BA1\u5EAB\u5185\u306E\u30C7\u30D5\u30A9\u30EB\u30C8\u30C7\u30A4\u30EA\u30FC\u30CE\u30FC\u30C8\u30D5\u30A9\u30EB\u30C0\u3092\u5165\u529B\u3057\u3066\u304F\u3060\u3055\u3044\u3002",
         sourceDateField: "\u65E5\u4ED8\u30D7\u30ED\u30D1\u30C6\u30A3\uFF08\u4EFB\u610F\uFF09",
@@ -4885,6 +5022,15 @@ var init_i18n = __esm({
         sourceBrowse: "\uD3F4\uB354 \uC120\uD0DD",
         sourceDaily: "\uB370\uC77C\uB9AC \uB178\uD2B8",
         sourceDailyFolder: "\uAE30\uBCF8 \uB370\uC77C\uB9AC \uB178\uD2B8 \uD3F4\uB354",
+        sourceFollowDailyNotes: "\uCF54\uC5B4 \uB370\uC77C\uB9AC \uB178\uD2B8 \uC124\uC815 \uB530\uB974\uAE30",
+        sourceDailyOfficial: "\uCF54\uC5B4 \uB370\uC77C\uB9AC \uB178\uD2B8 \uC124\uC815",
+        sourceDailyFormat: "\uB0A0\uC9DC \uD615\uC2DD",
+        sourceDailyTemplate: "\uD15C\uD50C\uB9BF",
+        sourceDailyNoTemplate: "\uD15C\uD50C\uB9BF \uC5C6\uC74C",
+        sourceDailyPreview: "\uC0C8 \uB178\uD2B8 \uACBD\uB85C: {path}",
+        sourceDailyUnavailable: "\uCF54\uC5B4 \uB370\uC77C\uB9AC \uB178\uD2B8\uAC00 \uBE44\uD65C\uC131\uD654\uB418\uC5B4 \uC788\uC2B5\uB2C8\uB2E4. \uD65C\uC131\uD654\uD558\uAC70\uB098 \uC124\uC815 \uB530\uB974\uAE30\uB97C \uAEBC\uC11C \uC0AC\uC6A9\uC790 \uC9C0\uC815 \uD3F4\uB354\uB97C \uC0AC\uC6A9\uD558\uC138\uC694. \uD604\uC7AC \uC0C8 \uC77C\uAE30\uB97C \uB9CC\uB4E4 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4.",
+        sourceDailyInvalidDate: "\uB370\uC77C\uB9AC \uB178\uD2B8 \uD615\uC2DD\uC73C\uB85C \uB0A0\uC9DC\uB97C \uD574\uC11D\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4.",
+        sourceDailyInvalidPath: "\uB370\uC77C\uB9AC \uB178\uD2B8 \uD615\uC2DD\uC5D0\uC11C \uC798\uBABB\uB41C \uACBD\uB85C\uAC00 \uC0DD\uC131\uB418\uC5C8\uC2B5\uB2C8\uB2E4.",
         sourceDailyMismatch: "\uB370\uC77C\uB9AC \uB178\uD2B8 \uC18C\uC2A4 \uD3F4\uB354\uB294 \uAE30\uBCF8 \uB370\uC77C\uB9AC \uB178\uD2B8 \uD3F4\uB354\uC640 \uC77C\uCE58\uD574\uC57C \uD569\uB2C8\uB2E4.",
         sourceDailyRequired: "\uBCF4\uAD00\uC18C \uB0B4 \uAE30\uBCF8 \uB370\uC77C\uB9AC \uB178\uD2B8 \uD3F4\uB354\uB97C \uC785\uB825\uD558\uC138\uC694.",
         sourceDateField: "\uB0A0\uC9DC \uC18D\uC131 (\uC120\uD0DD \uC0AC\uD56D)",
@@ -5257,6 +5403,15 @@ var init_i18n = __esm({
         sourceBrowse: "Parcourir les dossiers",
         sourceDaily: "Notes quotidiennes",
         sourceDailyFolder: "Dossier des notes quotidiennes par d\xE9faut",
+        sourceFollowDailyNotes: "Suivre les notes quotidiennes natives",
+        sourceDailyOfficial: "Param\xE8tres des notes quotidiennes natives",
+        sourceDailyFormat: "Format de date",
+        sourceDailyTemplate: "Mod\xE8le",
+        sourceDailyNoTemplate: "Aucun mod\xE8le",
+        sourceDailyPreview: "Chemin de la nouvelle note : {path}",
+        sourceDailyUnavailable: "Les notes quotidiennes natives sont d\xE9sactiv\xE9es. Activez-les ou d\xE9sactivez le suivi pour utiliser votre dossier personnalis\xE9 ; aucune nouvelle note ne peut \xEAtre cr\xE9\xE9e.",
+        sourceDailyInvalidDate: "La date ne peut pas \xEAtre interpr\xE9t\xE9e avec le format des notes quotidiennes.",
+        sourceDailyInvalidPath: "Le format des notes quotidiennes a produit un chemin non valide.",
         sourceDailyMismatch: "Le dossier source des notes quotidiennes doit correspondre au dossier par d\xE9faut des notes quotidiennes.",
         sourceDailyRequired: "Veuillez sp\xE9cifier le dossier par d\xE9faut des notes quotidiennes.",
         sourceDateField: "Propri\xE9t\xE9 de date (facultatif)",
@@ -5629,6 +5784,15 @@ var init_i18n = __esm({
         sourceBrowse: "Ordner ausw\xE4hlen",
         sourceDaily: "Tagesnotizen",
         sourceDailyFolder: "Standardordner f\xFCr Tagesnotizen",
+        sourceFollowDailyNotes: "Integrierten t\xE4glichen Notizen folgen",
+        sourceDailyOfficial: "Einstellungen der integrierten t\xE4glichen Notizen",
+        sourceDailyFormat: "Datumsformat",
+        sourceDailyTemplate: "Vorlage",
+        sourceDailyNoTemplate: "Keine Vorlage",
+        sourceDailyPreview: "Pfad der neuen Notiz: {path}",
+        sourceDailyUnavailable: "Die integrierten t\xE4glichen Notizen sind deaktiviert. Aktivieren Sie sie oder deaktivieren Sie die \xDCbernahme, um Ihren eigenen Ordner zu verwenden. Neue Tagesnotizen k\xF6nnen derzeit nicht erstellt werden.",
+        sourceDailyInvalidDate: "Das Datum konnte mit dem Format der t\xE4glichen Notizen nicht gelesen werden.",
+        sourceDailyInvalidPath: "Das Format der t\xE4glichen Notizen hat einen ung\xFCltigen Pfad erzeugt.",
         sourceDailyMismatch: "Der Ordner der Tagesnotizen-Quelle muss mit dem Standardordner f\xFCr Tagesnotizen \xFCbereinstimmen.",
         sourceDailyRequired: "Bitte den Standardordner f\xFCr Tagesnotizen im Tresor angeben.",
         sourceDateField: "Datumseigenschaft (optional)",
@@ -6001,6 +6165,15 @@ var init_i18n = __esm({
         sourceBrowse: "Examinar carpeta",
         sourceDaily: "Notas diarias",
         sourceDailyFolder: "Carpeta predeterminada de notas diarias",
+        sourceFollowDailyNotes: "Seguir las notas diarias nativas",
+        sourceDailyOfficial: "Configuraci\xF3n de notas diarias nativas",
+        sourceDailyFormat: "Formato de fecha",
+        sourceDailyTemplate: "Plantilla",
+        sourceDailyNoTemplate: "Sin plantilla",
+        sourceDailyPreview: "Ruta de la nueva nota: {path}",
+        sourceDailyUnavailable: "Las notas diarias nativas est\xE1n desactivadas. Act\xEDvelas o desactive el seguimiento para usar su carpeta personalizada; no se pueden crear nuevas notas diarias.",
+        sourceDailyInvalidDate: "No se pudo interpretar la fecha con el formato de notas diarias.",
+        sourceDailyInvalidPath: "El formato de notas diarias produjo una ruta no v\xE1lida.",
         sourceDailyMismatch: "La carpeta de origen de notas diarias debe coincidir con la carpeta predeterminada de notas diarias.",
         sourceDailyRequired: "Introduce la carpeta predeterminada de notas diarias dentro de la b\xF3veda.",
         sourceDateField: "Propiedad de fecha (opcional)",
@@ -6373,6 +6546,15 @@ var init_i18n = __esm({
         sourceBrowse: "\u0412\u044B\u0431\u0440\u0430\u0442\u044C \u043F\u0430\u043F\u043A\u0443",
         sourceDaily: "\u0415\u0436\u0435\u0434\u043D\u0435\u0432\u043D\u044B\u0435 \u0437\u0430\u043C\u0435\u0442\u043A\u0438",
         sourceDailyFolder: "\u041E\u0441\u043D\u043E\u0432\u043D\u0430\u044F \u043F\u0430\u043F\u043A\u0430 \u0435\u0436\u0435\u0434\u043D\u0435\u0432\u043D\u044B\u0445 \u0437\u0430\u043C\u0435\u0442\u043E\u043A",
+        sourceFollowDailyNotes: "\u0421\u043B\u0435\u0434\u043E\u0432\u0430\u0442\u044C \u0432\u0441\u0442\u0440\u043E\u0435\u043D\u043D\u044B\u043C \u0435\u0436\u0435\u0434\u043D\u0435\u0432\u043D\u044B\u043C \u0437\u0430\u043C\u0435\u0442\u043A\u0430\u043C",
+        sourceDailyOfficial: "\u041D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438 \u0432\u0441\u0442\u0440\u043E\u0435\u043D\u043D\u044B\u0445 \u0435\u0436\u0435\u0434\u043D\u0435\u0432\u043D\u044B\u0445 \u0437\u0430\u043C\u0435\u0442\u043E\u043A",
+        sourceDailyFormat: "\u0424\u043E\u0440\u043C\u0430\u0442 \u0434\u0430\u0442\u044B",
+        sourceDailyTemplate: "\u0428\u0430\u0431\u043B\u043E\u043D",
+        sourceDailyNoTemplate: "\u0411\u0435\u0437 \u0448\u0430\u0431\u043B\u043E\u043D\u0430",
+        sourceDailyPreview: "\u041F\u0443\u0442\u044C \u043D\u043E\u0432\u043E\u0439 \u0437\u0430\u043C\u0435\u0442\u043A\u0438: {path}",
+        sourceDailyUnavailable: "\u0412\u0441\u0442\u0440\u043E\u0435\u043D\u043D\u044B\u0435 \u0435\u0436\u0435\u0434\u043D\u0435\u0432\u043D\u044B\u0435 \u0437\u0430\u043C\u0435\u0442\u043A\u0438 \u043E\u0442\u043A\u043B\u044E\u0447\u0435\u043D\u044B. \u0412\u043A\u043B\u044E\u0447\u0438\u0442\u0435 \u0438\u0445 \u0438\u043B\u0438 \u043E\u0442\u043A\u043B\u044E\u0447\u0438\u0442\u0435 \u0441\u043B\u0435\u0434\u043E\u0432\u0430\u043D\u0438\u0435, \u0447\u0442\u043E\u0431\u044B \u0438\u0441\u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u044C \u0441\u0432\u043E\u044E \u043F\u0430\u043F\u043A\u0443. \u0421\u0435\u0439\u0447\u0430\u0441 \u043D\u0435\u043B\u044C\u0437\u044F \u0441\u043E\u0437\u0434\u0430\u0432\u0430\u0442\u044C \u043D\u043E\u0432\u044B\u0435 \u0435\u0436\u0435\u0434\u043D\u0435\u0432\u043D\u044B\u0435 \u0437\u0430\u043C\u0435\u0442\u043A\u0438.",
+        sourceDailyInvalidDate: "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043F\u0440\u043E\u0447\u0438\u0442\u0430\u0442\u044C \u0434\u0430\u0442\u0443 \u0432 \u0444\u043E\u0440\u043C\u0430\u0442\u0435 \u0435\u0436\u0435\u0434\u043D\u0435\u0432\u043D\u044B\u0445 \u0437\u0430\u043C\u0435\u0442\u043E\u043A.",
+        sourceDailyInvalidPath: "\u0424\u043E\u0440\u043C\u0430\u0442 \u0435\u0436\u0435\u0434\u043D\u0435\u0432\u043D\u044B\u0445 \u0437\u0430\u043C\u0435\u0442\u043E\u043A \u0441\u043E\u0437\u0434\u0430\u043B \u043D\u0435\u0434\u043E\u043F\u0443\u0441\u0442\u0438\u043C\u044B\u0439 \u043F\u0443\u0442\u044C.",
         sourceDailyMismatch: "\u041F\u0430\u043F\u043A\u0430 \u0438\u0441\u0442\u043E\u0447\u043D\u0438\u043A\u0430 \u0435\u0436\u0435\u0434\u043D\u0435\u0432\u043D\u044B\u0445 \u0437\u0430\u043C\u0435\u0442\u043E\u043A \u0434\u043E\u043B\u0436\u043D\u0430 \u0441\u043E\u0432\u043F\u0430\u0434\u0430\u0442\u044C \u0441 \u043E\u0441\u043D\u043E\u0432\u043D\u043E\u0439 \u043F\u0430\u043F\u043A\u043E\u0439 \u0435\u0436\u0435\u0434\u043D\u0435\u0432\u043D\u044B\u0445 \u0437\u0430\u043C\u0435\u0442\u043E\u043A.",
         sourceDailyRequired: "\u0423\u043A\u0430\u0436\u0438\u0442\u0435 \u043E\u0441\u043D\u043E\u0432\u043D\u0443\u044E \u043F\u0430\u043F\u043A\u0443 \u0435\u0436\u0435\u0434\u043D\u0435\u0432\u043D\u044B\u0445 \u0437\u0430\u043C\u0435\u0442\u043E\u043A \u0432 \u0445\u0440\u0430\u043D\u0438\u043B\u0438\u0449\u0435.",
         sourceDateField: "\u041F\u043E\u043B\u0435 \u0434\u0430\u0442\u044B (\u043D\u0435\u043E\u0431\u044F\u0437\u0430\u0442\u0435\u043B\u044C\u043D\u043E)",
@@ -12142,17 +12324,23 @@ var init_journal_source_settings = __esm({
     import_obsidian4 = require("obsidian");
     init_date_utils();
     init_i18n();
+    init_daily_note();
     clone = (value) => JSON.parse(JSON.stringify(value));
     JournalSourceSettingsEditor = class {
-      constructor(plugin, { chooseFolder, refreshCalendar }) {
+      constructor(plugin, { chooseFolder, chooseTemplate, refreshCalendar }) {
         this.plugin = plugin;
         this.chooseFolder = chooseFolder;
+        this.chooseTemplate = chooseTemplate;
         this.refreshCalendar = refreshCalendar;
         this.reset();
       }
       reset() {
+        this.followDailyNotes = this.plugin.settings.followDailyNotes === true;
         const dailyFolder = this.plugin.settings.dailyFolder;
         this.dailyFolder = typeof dailyFolder === "string" && dailyFolder.trim().length > 0 ? normalizeVaultPath(dailyFolder) || "/" : "Calendar/Daily";
+        const custom = resolveDailyNoteConfig(this.plugin.app, { ...this.plugin.settings, followDailyNotes: false });
+        this.dailyNoteFormat = custom.format;
+        this.dailyNoteTemplate = custom.template;
         this.sources = clone(this.plugin.settings.journalSources || []);
         this.jsonOpen = false;
         this.raw = "";
@@ -12197,10 +12385,10 @@ var init_journal_source_settings = __esm({
       input(parent, key, value, onChange, options = {}) {
         const label = parent.createEl("label", { cls: "dayline-source-field" });
         label.createSpan({ text: this.label(key) });
-        const input = label.createEl("input", { attr: { type: "text", ...options } });
+        const input = label.createEl("input", { attr: { type: "text", "aria-label": this.label(key), ...options } });
         input.value = value || "";
         input.addEventListener("input", () => {
-          if (this.busy) return;
+          if (this.busy || input.disabled) return;
           onChange(input.value);
           this.changed();
         });
@@ -12221,7 +12409,7 @@ var init_journal_source_settings = __esm({
         const row = parent.createDiv({ cls: "dayline-source-folder" });
         const input = this.input(row, key, value, onChange);
         this.iconButton(row, "sourceBrowse", "folder-search", () => this.chooseFolder((path) => {
-          if (this.busy || !input.isConnected) return;
+          if (this.busy || input.disabled || !input.isConnected) return;
           input.value = path;
           onChange(path);
           this.changed();
@@ -12231,9 +12419,72 @@ var init_journal_source_settings = __esm({
       }
       renderFields() {
         this.fields.empty();
-        this.folderField(this.fields, "sourceDailyFolder", this.dailyFolder, (value) => {
-          this.dailyFolder = value;
+        const config = resolveDailyNoteConfig(this.plugin.app, this.draftSettings());
+        const daily = this.fields.createDiv({ cls: "dayline-source-daily-fields" });
+        daily.hidden = this.followDailyNotes;
+        this.folderField(
+          daily,
+          "sourceDailyFolder",
+          this.followDailyNotes ? config.folder : this.dailyFolder,
+          (value) => {
+            this.dailyFolder = value;
+          }
+        ).placeholder = "/";
+        this.input(
+          daily,
+          "sourceDailyFormat",
+          this.followDailyNotes ? config.format : this.dailyNoteFormat,
+          (value) => {
+            this.dailyNoteFormat = value;
+          },
+          { placeholder: "YYYY/MM/YYYY-MM-DD" }
+        );
+        const templateRow = daily.createDiv({ cls: "dayline-source-folder" });
+        const template = this.input(
+          templateRow,
+          "sourceDailyTemplate",
+          this.followDailyNotes ? config.template : this.dailyNoteTemplate,
+          (value) => {
+            this.dailyNoteTemplate = value;
+          },
+          { placeholder: this.label("sourceDailyNoTemplate") }
+        );
+        if (this.chooseTemplate) {
+          this.iconButton(templateRow, "sourceDailyTemplate", "file-search", () => this.chooseTemplate((path) => {
+            if (this.busy || template.disabled || !template.isConnected) return;
+            template.value = this.dailyNoteTemplate = path;
+            this.changed();
+            template.focus();
+          }));
+        }
+        this.preview = this.fields.createEl("output", { cls: "dayline-source-preview", attr: { "aria-live": "polite" } });
+        const follow = this.fields.createEl("label", { cls: "dayline-source-follow dayline-source-enabled" });
+        const checkbox = follow.createEl("input", { attr: { type: "checkbox" } });
+        checkbox.checked = this.followDailyNotes;
+        follow.createSpan({ text: this.label("sourceFollowDailyNotes") });
+        checkbox.addEventListener("change", () => {
+          this.followDailyNotes = checkbox.checked;
+          this.renderFields();
+          this.changed();
+          this.fields.querySelector(".dayline-source-follow input")?.focus();
         });
+        if (this.followDailyNotes) {
+          const official = this.fields.createDiv({
+            cls: "dayline-source-official",
+            attr: { role: "region", "aria-label": this.label("sourceDailyOfficial") }
+          });
+          official.createEl("p", { cls: "dayline-source-official-title", text: this.label("sourceDailyOfficial") });
+          const values = official.createEl("dl", { cls: "dayline-source-official-values" });
+          for (const [key, value] of [
+            ["sourceFolder", config.folder || "/"],
+            ["sourceDailyFormat", config.format],
+            ["sourceDailyTemplate", config.template || this.label("sourceDailyNoTemplate")]
+          ]) {
+            values.createEl("dt", { text: this.label(key) });
+            values.createEl("dd", { text: value });
+          }
+          official.append(this.preview);
+        }
         const list = this.fields.createDiv({ cls: "dayline-source-list" });
         list.hidden = this.jsonOpen;
         if (!Array.isArray(this.sources)) {
@@ -12324,7 +12575,7 @@ var init_journal_source_settings = __esm({
             list.hidden = true;
           } else {
             try {
-              this.sources = validateJournalSources(JSON.parse(this.raw), this.dailyFolder);
+              this.sources = validateJournalSources(JSON.parse(this.raw), this.followDailyNotes ? void 0 : this.dailyFolder || "/");
               this.jsonOpen = false;
               this.error = null;
               this.renderFields();
@@ -12345,10 +12596,27 @@ var init_journal_source_settings = __esm({
         this.error = key.startsWith("source") ? error.row ? this.label("sourceRowError", { row: error.row, error: message }) : message : this.label("settingsSaveFailed", { error: error?.message || String(error) });
         this.updateState();
       }
+      draftSettings() {
+        return {
+          ...this.plugin.settings,
+          followDailyNotes: this.followDailyNotes,
+          dailyFolder: this.dailyFolder.trim() || "/",
+          dailyNoteFormat: this.dailyNoteFormat.trim() || "YYYY-MM-DD",
+          dailyNoteTemplate: this.dailyNoteTemplate.trim()
+        };
+      }
       updateState() {
         if (!this.root) return;
         this.root.setAttribute("aria-busy", String(Boolean(this.busy)));
-        for (const input of this.fields.querySelectorAll("input, select, textarea, button")) input.disabled = Boolean(this.busy);
+        for (const input of this.fields.querySelectorAll("input, select, textarea, button")) {
+          input.disabled = Boolean(this.busy) || this.followDailyNotes && Boolean(input.closest(".dayline-source-daily-fields"));
+        }
+        try {
+          const target = resolveDailyNoteTarget(this.plugin.app, this.draftSettings(), getTodayDate());
+          this.preview.textContent = this.label("sourceDailyPreview", { path: target.path });
+        } catch (error) {
+          this.preview.textContent = this.label(error.message);
+        }
         this.applyButton.disabled = Boolean(this.busy) || !this.dirty && !this.refreshNeeded;
         this.resetButton.disabled = Boolean(this.busy) || !this.dirty;
         this.applyButton.textContent = this.label(this.busy ? "saving" : this.refreshNeeded ? "retry" : "sourceApply");
@@ -12363,9 +12631,17 @@ var init_journal_source_settings = __esm({
         try {
           const dailyRaw = this.dailyFolder.trim();
           const normalizedDaily = normalizeVaultPath(dailyRaw);
-          if (!dailyRaw || normalizedDaily.split("/").some((part) => part === "." || part === "..")) throw new Error("sourceDailyRequired");
+          if (normalizedDaily.split("/").some((part) => part === "." || part === "..")) throw new Error("sourceDailyRequired");
           dailyFolder = normalizedDaily || "/";
-          sources = validateJournalSources(this.jsonOpen ? JSON.parse(this.raw) : this.sources, dailyFolder);
+          sources = validateJournalSources(this.jsonOpen ? JSON.parse(this.raw) : this.sources, this.followDailyNotes ? void 0 : dailyFolder);
+          if (!this.followDailyNotes) {
+            const draft = this.draftSettings();
+            const target = resolveDailyNoteTarget(this.plugin.app, draft, "2024-02-29");
+            if (parseDailyNotePath(resolveDailyNoteConfig(this.plugin.app, draft), target.path) !== target.date) {
+              throw new Error("sourceDailyInvalidDate");
+            }
+            if (draft.dailyNoteTemplate && (/[\\:\u0000-\u001f]/.test(draft.dailyNoteTemplate) || draft.dailyNoteTemplate.split("/").some((part) => part === "." || part === ".."))) throw new Error("sourceDailyInvalidPath");
+          }
         } catch (error) {
           this.showError(error);
           return;
@@ -12374,15 +12650,20 @@ var init_journal_source_settings = __esm({
         this.error = null;
         this.updateState();
         const settings = this.plugin.settings;
-        const previous = { dailyFolder: settings.dailyFolder, journalSources: settings.journalSources };
+        const keys = ["dailyFolder", "dailyNoteFormat", "dailyNoteTemplate", "journalSources", "followDailyNotes"];
+        const previous = Object.fromEntries(keys.filter((key) => Object.hasOwn(settings, key)).map((key) => [key, settings[key]]));
         try {
           if (this.dirty) {
             settings.dailyFolder = dailyFolder;
+            settings.followDailyNotes = this.followDailyNotes;
+            settings.dailyNoteFormat = this.dailyNoteFormat.trim() || "YYYY-MM-DD";
+            settings.dailyNoteTemplate = this.dailyNoteTemplate.trim();
             settings.journalSources = clone(sources);
             try {
               const saved = await this.plugin.saveSettings();
               if (saved === false) throw new Error(this.label("sourceSaveRejected"));
             } catch (error) {
+              for (const key of keys) delete settings[key];
               Object.assign(settings, previous);
               throw error;
             }
@@ -13025,7 +13306,7 @@ function restoreSettingsScroll(host, scrollTop, options = {}) {
   };
   nextFrame(retry);
 }
-var import_obsidian5, VIEW_TYPE, TIMELINE_VIEW_TYPE, SETTINGS_TEXT_COMMIT_DELAY_MS, SCROLL_EPSILON_PX, SCROLL_RESCUE_MAX_FRAMES, DEFAULT_MOOD_METADATA_PATH, COORDINATE_LIMITS, COORDINATE_RANGE_MESSAGE_KEYS, DECIMAL_NUMBER_PATTERN, SETTINGS_SECTION_IDS, SETTINGS_SECTION_LABEL_KEYS, SETTINGS_ADVANCED_GROUP_IDS, SETTINGS_ADVANCED_GROUP_LABEL_KEYS, ADVANCED_BODY_ID, SETTINGS_ACTION_ROWS, DaylineSettingsTab, FolderSuggestModal;
+var import_obsidian5, VIEW_TYPE, TIMELINE_VIEW_TYPE, SETTINGS_TEXT_COMMIT_DELAY_MS, SCROLL_EPSILON_PX, SCROLL_RESCUE_MAX_FRAMES, DEFAULT_MOOD_METADATA_PATH, COORDINATE_LIMITS, COORDINATE_RANGE_MESSAGE_KEYS, DECIMAL_NUMBER_PATTERN, SETTINGS_SECTION_IDS, SETTINGS_SECTION_LABEL_KEYS, SETTINGS_ADVANCED_GROUP_IDS, SETTINGS_ADVANCED_GROUP_LABEL_KEYS, ADVANCED_BODY_ID, SETTINGS_ACTION_ROWS, DaylineSettingsTab, FolderSuggestModal, TemplateSuggestModal;
 var init_settings_tab = __esm({
   "src/settings-tab.ts"() {
     "use strict";
@@ -13387,6 +13668,7 @@ var init_settings_tab = __esm({
         sourcesSetting.settingEl.addClass("dayline-source-setting");
         this.sourceEditor ?? (this.sourceEditor = new JournalSourceSettingsEditor(this.plugin, {
           chooseFolder: (onSubmit) => new FolderSuggestModal(this.app, onSubmit).open(),
+          chooseTemplate: (onSubmit) => new TemplateSuggestModal(this.app, onSubmit).open(),
           refreshCalendar: () => this._refreshViews({ resetSource: true, throwOnError: true })
         }));
         this.sourceEditor.mount(sourcesSetting.settingEl);
@@ -13747,6 +14029,21 @@ var init_settings_tab = __esm({
       }
       onChooseSuggestion(folder) {
         this.onSubmit(folder.path);
+      }
+    };
+    TemplateSuggestModal = class extends import_obsidian5.SuggestModal {
+      constructor(app, onSubmit) {
+        super(app);
+        this.onSubmit = onSubmit;
+      }
+      getSuggestions(query) {
+        return this.app.vault.getMarkdownFiles().filter((file) => file.path.toLowerCase().includes(query.toLowerCase()));
+      }
+      renderSuggestion(file, el) {
+        el.createSpan({ text: file.path });
+      }
+      onChooseSuggestion(file) {
+        this.onSubmit(file.path);
       }
     };
   }
@@ -30133,6 +30430,7 @@ var init_weather_service = __esm({
   "src/weather-service.ts"() {
     "use strict";
     init_date_utils();
+    init_daily_note();
     init_media_service();
     init_weather_cache();
     init_geolocation();
@@ -30213,7 +30511,9 @@ var init_weather_service = __esm({
           weatherTimezone: source.weatherTimezone,
           weatherTtlHours: source.weatherTtlHours,
           weatherLocationName: source.weatherLocationName,
-          dailyFolder: source.dailyFolder
+          dailyFolder: source.dailyFolder,
+          dailyNoteFormat: source.dailyNoteFormat,
+          followDailyNotes: source.followDailyNotes
         };
         return {
           settings,
@@ -30268,7 +30568,7 @@ var init_weather_service = __esm({
       }
       _readLegacySnapshots(dateStr, sourcePath, settings = this.plugin.settings) {
         const app = this.plugin.app;
-        const candidatePaths = [sourcePath, joinVaultPath(settings.dailyFolder, `${dateStr}.md`)].filter((path, index, paths) => path && paths.indexOf(path) === index);
+        const candidatePaths = [sourcePath, resolveDailyNotePath(app, settings, dateStr)].filter((path, index, paths) => path && paths.indexOf(path) === index);
         const snapshots = [];
         for (const path of candidatePaths) {
           const existingFile = app?.vault?.getAbstractFileByPath?.(path);
@@ -31509,8 +31809,8 @@ function withWeatherOnlyDays(summaries, weatherDates, dailyFolder = "Calendar/Da
   const result = new Map(summaries);
   for (const date of weatherDates) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || result.has(date)) continue;
-    const folder = dailyFolder.replace(/\/+$/, "");
-    const path = folder ? `${folder}/${date}.md` : `${date}.md`;
+    const folder = typeof dailyFolder === "string" ? dailyFolder.replace(/\/+$/, "") : "";
+    const path = typeof dailyFolder === "function" ? dailyFolder(date) ?? void 0 : folder ? `${folder}/${date}.md` : `${date}.md`;
     result.set(date, {
       date,
       entries: [],
@@ -34112,7 +34412,7 @@ var init_manifest = __esm({
     manifest_default = {
       id: "dayline-journal",
       name: "Dayline Journal",
-      version: "2.13.0",
+      version: "2.13.1",
       minAppVersion: "1.5.0",
       description: "A visual journal for calendars, timelines, moods, memories, weather, and photos. / \u96C6\u65E5\u5386\u3001\u65F6\u95F4\u7EBF\u3001\u5FC3\u60C5\u3001\u56DE\u987E\u3001\u5929\u6C14\u548C\u7167\u7247\u4E8E\u4E00\u4F53\u7684\u53EF\u89C6\u5316\u65E5\u8BB0\u5DE5\u5177.",
       author: "Haoo",
@@ -35874,7 +36174,8 @@ var {
 var { WeatherTemperatureModal: WeatherTemperatureModal2 } = (init_weather_temperature_modal(), __toCommonJS(weather_temperature_modal_exports));
 var { buildWeatherCardParts: buildWeatherCardParts2, buildWeatherStatus: buildWeatherStatus2, normalizeWeatherDisplayFields: normalizeWeatherDisplayFields2, weatherTemperatureReading: weatherTemperatureReading2 } = (init_weather_display(), __toCommonJS(weather_display_exports));
 var { localize: _l } = (init_locale(), __toCommonJS(locale_exports));
-var { formatDateParts: formatDateParts2, getClockPartsInTimeZone: getClockPartsInTimeZone2, getTodayDate: getTodayDate2, isPathInFolder: isPathInFolder2, joinVaultPath: joinVaultPath2, normalizeVaultPath: normalizeVaultPath2, parentVaultPath: parentVaultPath2 } = (init_date_utils(), __toCommonJS(date_utils_exports));
+var { formatDateParts: formatDateParts2, getClockPartsInTimeZone: getClockPartsInTimeZone2, getTodayDate: getTodayDate2, isPathInFolder: isPathInFolder2, normalizeVaultPath: normalizeVaultPath2, parentVaultPath: parentVaultPath2 } = (init_date_utils(), __toCommonJS(date_utils_exports));
+var { parseDailyNotePath: parseDailyNotePath2, resolveDailyNoteConfig: resolveDailyNoteConfig2, resolveDailyNotePath: resolveDailyNotePath2, resolveDailyNoteTarget: resolveDailyNoteTarget2 } = (init_daily_note(), __toCommonJS(daily_note_exports));
 var { ThumbnailService: ThumbnailService2, collectHeicAttachments: collectHeicAttachments2 } = (init_thumbnail_service(), __toCommonJS(thumbnail_service_exports));
 var { MediaService: MediaService2, formatMediaMetadataForDisplay: formatMediaMetadataForDisplay2 } = (init_media_service(), __toCommonJS(media_service_exports));
 var { aggregateCalendarDays: aggregateCalendarDays2, withWeatherOnlyDays: withWeatherOnlyDays2 } = (init_calendar_summary(), __toCommonJS(calendar_summary_exports));
@@ -35929,6 +36230,8 @@ var HEIC_THUMB_PREWARM_IDLE_TIMEOUT_MS = 2e3;
 var HEIC_THUMB_PREWARM_FALLBACK_DELAY_MS = 250;
 var DEFAULT_SETTINGS = {
   dailyFolder: "Calendar/Daily",
+  dailyNoteFormat: "YYYY-MM-DD",
+  followDailyNotes: false,
   thumbnailFilter: "all",
   // 'all' | 'date-prefixed'
   // --- Weather settings ---
@@ -36181,6 +36484,11 @@ var DaylinePlugin = class extends Plugin {
     );
     this.registerEvent(
       this.app.workspace.on("active-leaf-change", () => {
+        if (this.settings.followDailyNotes && this.journalIndex?.isReady) {
+          this.ensureJournalIndexReady().catch((error) => {
+            console.warn("[Dayline] Daily Notes configuration refresh failed:", error?.message || error);
+          });
+        }
         this._endExifHover();
         for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE2)) {
           leaf.view?._handleActiveLeafChange?.();
@@ -36416,6 +36724,7 @@ var DaylinePlugin = class extends Plugin {
     }
   }
   async activateTimeline() {
+    if (this.journalIndex?.isReady) await this.journalIndex.ensureReady?.(this.settings);
     if (this._usesPhoneDaylineMode()) return this._activateMobileMode("timeline");
     const opened = await this.viewVisibilityController.open("timeline");
     this._syncDaylineRibbon();
@@ -36438,7 +36747,8 @@ var DaylinePlugin = class extends Plugin {
     if (!this._desktopJournalIndexStartup) {
       this._desktopJournalIndexStartup = this._startJournalIndexAfterMetadataResolved();
     }
-    return this._desktopJournalIndexStartup;
+    await this._desktopJournalIndexStartup;
+    if (this.journalIndex?.isReady) await this.journalIndex.ensureReady?.(this.settings);
   }
   _mobileDaylineViewTypes() {
     return [...DAYLINE_VIEW_TYPES2];
@@ -36566,11 +36876,10 @@ var DaylinePlugin = class extends Plugin {
   }
   async createDailyNoteForToday() {
     const date = _daylineDate(this.settings);
-    const path = joinVaultPath2(this.settings.dailyFolder, `${date}.md`);
     try {
       const file = await this.createDailyNoteForDate(date);
       await this.openJournalFile(file);
-      await this.journalIndex.refreshFile(path, this.settings);
+      await this.journalIndex.refreshFile(file.path, this.settings);
     } catch (error) {
       console.warn("[Dayline] Create daily note failed:", error?.message || error);
       new Notice5(t2(this.settings, "createNoteFailed", { error: error?.message || error }));
@@ -36762,7 +37071,7 @@ var DaylinePlugin = class extends Plugin {
       if (entry?.date) dates.add(entry.date);
     }
     return {
-      folder: this.settings.dailyFolder || "Calendar/Daily",
+      folder: resolveDailyNoteConfig2(this.app, this.settings).folder || "/",
       days: dates.size,
       today: _daylineDate(this.settings)
     };
@@ -36802,7 +37111,8 @@ var DaylinePlugin = class extends Plugin {
   }
   async _onboardingMoodAnchor() {
     const date = _daylineDate(this.settings);
-    const path = joinVaultPath2(this.settings.dailyFolder, date + ".md");
+    const path = resolveDailyNotePath2(this.app, this.settings, date);
+    if (!path) return null;
     try {
       this._onboardingMoodModal = await this.openMoodPicker(path, {
         allowDateSelection: true,
@@ -36925,17 +37235,22 @@ var DaylinePlugin = class extends Plugin {
     });
   }
   async recordCurrentMood() {
+    if (this.journalIndex?.isReady) await this.journalIndex.ensureReady?.(this.settings);
     const activeFile = this.app.workspace.activeLeaf?.view?.file;
     const sources = this.journalIndex.resolveSources(this.settings);
-    const activeIsJournal = activeFile?.extension === "md" && sources.some((source) => isPathInFolder2(activeFile.path, source.path));
-    const path = activeIsJournal ? activeFile.path : joinVaultPath2(this.settings.dailyFolder, `${_daylineDate(this.settings)}.md`);
+    const activeIsJournal = activeFile?.extension === "md" && sources.some((source) => source.dailyNoteConfig ? parseDailyNotePath2(source.dailyNoteConfig, activeFile.path) : isPathInFolder2(activeFile.path, source.path));
+    const path = activeIsJournal ? activeFile.path : resolveDailyNotePath2(this.app, this.settings, _daylineDate(this.settings));
+    if (!path) {
+      new Notice5(t2(this.settings, "sourceDailyUnavailable"));
+      return;
+    }
     void this.openMoodPicker(path, { allowDateSelection: true, ensureFile: false });
   }
   async saveJournalTitle(path, title) {
     const file = this.app.vault.getAbstractFileByPath(path);
     if (!(file instanceof TFile3)) throw new Error(`Journal file not found: ${path}`);
     const sources = this.journalIndex.resolveSources(this.settings);
-    const isJournal = sources.some((source) => isPathInFolder2(path, source.path));
+    const isJournal = sources.some((source) => source.dailyNoteConfig ? parseDailyNotePath2(source.dailyNoteConfig, path) : isPathInFolder2(path, source.path));
     if (!isJournal) throw new Error(`Not a journal file: ${path}`);
     await this.app.fileManager.processFrontMatter(file, (frontmatter) => {
       const value = String(title || "").trim();
@@ -36951,16 +37266,19 @@ var DaylinePlugin = class extends Plugin {
    * blank file would later be opened as "today's note" (P-07).
    */
   async _ensureMoodJournalFile(path) {
+    const existing = this.app.vault.getAbstractFileByPath(path);
+    if (existing instanceof TFile3) return existing;
     const date = this._dailyNoteDateForPath(path);
     if (date) return this.createDailyNoteForDate(date);
+    const config = resolveDailyNoteConfig2(this.app, this.settings);
+    if (config.followDailyNotes || config.format !== "YYYY-MM-DD") {
+      throw new Error(t2(this.settings, config.available ? "sourceDailyInvalidPath" : "sourceDailyUnavailable"));
+    }
     return this.ensureJournalFile(path, "");
   }
   /** The date when `path` is exactly the configured daily note for that date. */
   _dailyNoteDateForPath(path) {
-    const folder = normalizeVaultPath2(this.settings?.dailyFolder || "");
-    const name = String(path || "").split("/").pop()?.replace(/\.md$/i, "") || "";
-    if (!folder || !/^\d{4}-\d{2}-\d{2}$/.test(name)) return null;
-    return normalizeVaultPath2(path) === joinVaultPath2(folder, `${name}.md`) ? name : null;
+    return parseDailyNotePath2(resolveDailyNoteConfig2(this.app, this.settings), String(path || ""));
   }
   /** M-01: a future `schemaVersion` puts the store in read-only mode. */
   _moodStoreIsReadOnly() {
@@ -36991,13 +37309,13 @@ var DaylinePlugin = class extends Plugin {
       // date from the file name, and a note such as `2026-07-05-evening.md`
       // fell back to today: the mood still saved to that note, under a date
       // field that claimed today.
-      date: entry?.date,
+      date: entry?.date || this._dailyNoteDateForPath(path),
       initial: this.moodStore.get(path) || entry?.mood,
       customLabels: this.moodStore.getCustomLabels(),
       settings: this.settings,
       allowDateSelection: options.allowDateSelection === true,
       onDateChange: async (date) => {
-        const nextPath = joinVaultPath2(this.settings.dailyFolder, `${date}.md`);
+        const nextPath = this.getDailyNoteTarget(date).path;
         const nextEntry = this.journalIndex.getEntries().find((item) => item.path === nextPath);
         return {
           filePath: nextPath,
@@ -37007,10 +37325,10 @@ var DaylinePlugin = class extends Plugin {
       },
       onSave: async ({ filePath, score, labels, note }) => {
         const targetPath = filePath || path;
-        await this._ensureMoodJournalFile(targetPath);
-        await this.moodStore.set(targetPath, score, labels, this.settings, note);
-        await this.journalIndex.refreshFile(targetPath, this.settings);
-        new Notice5(`${t2(this.settings, "moodSaved")}: ${targetPath}`);
+        const file = await this._ensureMoodJournalFile(targetPath);
+        await this.moodStore.set(file.path, score, labels, this.settings, note);
+        await this.journalIndex.refreshFile(file.path, this.settings);
+        new Notice5(`${t2(this.settings, "moodSaved")}: ${file.path}`);
       }
     });
     modal.open();
@@ -37081,10 +37399,17 @@ ${path}`)) return false;
    */
   _hasJournalEntryForDate(date) {
     if (this.journalIndex?.isReady && typeof this.journalIndex.getEntries === "function") {
-      return this.journalIndex.getEntries().some((entry) => entry.date === date);
+      if (this.journalIndex.getEntries().some((entry) => entry.date === date)) return true;
     }
-    const path = joinVaultPath2(this.settings.dailyFolder, `${date}.md`);
-    return Boolean(this.app?.vault?.getAbstractFileByPath?.(path));
+    const path = resolveDailyNotePath2(this.app, this.settings, date);
+    return Boolean(path && this.app?.vault?.getAbstractFileByPath?.(path));
+  }
+  getDailyNoteTarget(date) {
+    try {
+      return resolveDailyNoteTarget2(this.app, this.settings, date);
+    } catch (error) {
+      throw new Error(t2(this.settings, error.message));
+    }
   }
   /**
    * Create the configured daily note for `dateStr`.
@@ -37095,14 +37420,14 @@ ${path}`)) return false;
    * creation is cached per path (P-13).
    */
   async createDailyNoteForDate(dateStr) {
-    const folder = normalizeVaultPath2(this.settings.dailyFolder);
-    const path = joinVaultPath2(folder, `${dateStr}.md`);
+    if (this.journalIndex?.isReady) await this.journalIndex.ensureReady?.(this.settings);
+    const { folder, path, title } = this.getDailyNoteTarget(dateStr);
     const existing = this.app.vault.getAbstractFileByPath(path);
     if (existing instanceof TFile3) return existing;
     if (!this._dailyNoteCreations) this._dailyNoteCreations = /* @__PURE__ */ new Map();
     const inFlight = this._dailyNoteCreations.get(path);
     if (inFlight) return inFlight;
-    const creation = this._createDailyNoteFile(folder, path, dateStr);
+    const creation = this._createDailyNoteFile(folder, path, dateStr, title);
     this._dailyNoteCreations.set(path, creation);
     try {
       return await creation;
@@ -37110,21 +37435,21 @@ ${path}`)) return false;
       if (this._dailyNoteCreations.get(path) === creation) this._dailyNoteCreations.delete(path);
     }
   }
-  async _createDailyNoteFile(folder, path, dateStr) {
+  async _createDailyNoteFile(folder, path, dateStr, title = dateStr) {
     await this.ensureFolder(folder);
-    const dnPlugin = this.app.internalPlugins?.getPluginById?.("daily-notes");
-    const templatePath = dnPlugin?.instance?.options?.template;
+    const templatePath = resolveDailyNoteConfig2(this.app, this.settings).template;
     if (templatePath) {
       const templateFile = this.app.vault.getAbstractFileByPath(String(templatePath).replace(/\.md$/, "") + ".md");
       if (templateFile instanceof TFile3) {
         const tp = this.app.plugins?.getPlugin?.("templater-obsidian")?.templater;
         if (tp?.create_new_note_from_template) {
-          await tp.create_new_note_from_template(templateFile, folder, dateStr, false);
+          const result = await tp.create_new_note_from_template(templateFile, folder, title, false);
+          if (result instanceof TFile3) return result;
           const created = this.app.vault.getAbstractFileByPath(path);
           if (created instanceof TFile3) return created;
         }
         const content = await this.app.vault.read(templateFile);
-        return this._createVaultFile(path, _resolveDailyNoteTemplate(content, dateStr));
+        return this._createVaultFile(path, _resolveDailyNoteTemplate(content, dateStr, title));
       }
     }
     return this._createVaultFile(path, "");
@@ -37785,6 +38110,7 @@ ${path}`)) return false;
     calendar.openTemperatureEditor(calendar.activeDate || _daylineDate(this.settings));
   }
   async activateView() {
+    if (this.journalIndex?.isReady) await this.journalIndex.ensureReady?.(this.settings);
     if (this._usesPhoneDaylineMode()) return this._activateMobileMode("calendar");
     const opened = await this.viewVisibilityController.open("calendar");
     this._syncDaylineRibbon();
@@ -38160,7 +38486,11 @@ var CalendarView = class extends ItemView2 {
     const recordSummaries = aggregateCalendarDays2(
       (this.plugin.journalIndex?.getEntries?.() || []).filter((entry) => entry.date.startsWith(prefix))
     );
-    const summaries = withWeatherOnlyDays2(recordSummaries, cachedWeatherDates, this.plugin.settings.dailyFolder);
+    const summaries = withWeatherOnlyDays2(
+      recordSummaries,
+      cachedWeatherDates,
+      (date) => resolveDailyNotePath2(this.app, this.plugin.settings, date)
+    );
     for (const [dateStr, summary] of summaries) {
       if (!dateStr.startsWith(prefix)) continue;
       if (this.plugin.settings.thumbnailFilter === "date-prefixed") {
@@ -38416,7 +38746,7 @@ var CalendarView = class extends ItemView2 {
           badge.title = `${condition} \xB7 ${snap.temperature}${this._unitSymbol(snap.units)}`;
         }
       }
-      const dailyPath = joinVaultPath2(this.plugin.settings.dailyFolder, `${dateStr}.md`);
+      const dailyPath = resolveDailyNotePath2(this.app, this.plugin.settings, dateStr);
       const moodPath = dateEntry.primaryEntryPath || dateEntry.path || dailyPath;
       const mood = shouldShowCalendarMood2(this.plugin.settings) ? this.plugin.moodStore?.get(moodPath) || dateEntry.mood : void 0;
       const hasMoodTarget = Boolean(mood) || Boolean(dateEntry.hasRecord);
@@ -38719,7 +39049,7 @@ var CalendarView = class extends ItemView2 {
     const chevron = strip.querySelector(".cal-otd-strip-chevron");
     if (chevron) setIcon6(chevron, "chevron-right");
     if (photo && preview.image) {
-      const notePath = preview.imageNotePath || joinVaultPath2(this.plugin.settings.dailyFolder, `${preview.imageDateStr || dateStr}.md`);
+      const notePath = preview.imageNotePath || resolveDailyNotePath2(this.app, this.plugin.settings, preview.imageDateStr || dateStr);
       this.plugin.thumbnailService?.load(preview.image, notePath).then((result) => {
         if (result && photo.isConnected) photo.style.backgroundImage = cssUrl2(result.url);
       }).catch((error) => console.warn("[Dayline] On This Day thumbnail load failed:", error?.message || error));
@@ -39096,7 +39426,15 @@ var CalendarView = class extends ItemView2 {
   }
   _openNote(dateStr, indexedPath) {
     const indexedFile = indexedPath && this.app.vault.getAbstractFileByPath(indexedPath);
-    const path = indexedFile instanceof TFile3 ? indexedPath : joinVaultPath2(this.plugin.settings.dailyFolder, `${dateStr}.md`);
+    let path = indexedPath;
+    if (!(indexedFile instanceof TFile3)) {
+      try {
+        path = resolveDailyNoteTarget2(this.app, this.plugin.settings, dateStr).path;
+      } catch (error) {
+        new Notice5(t2(this.plugin.settings, error.message));
+        return;
+      }
+    }
     const file = this.app.vault.getAbstractFileByPath(path);
     const openFileInLeaf = (f) => {
       this.plugin.openJournalFile(f).then((leaf) => {
@@ -39719,8 +40057,8 @@ var CalendarView = class extends ItemView2 {
       return;
     }
     const indexedEntry = this.plugin.journalIndex?.getEntries?.().find((entry) => entry.path === file.path);
-    const fallbackMatch = file.name.match(/^(\d{4}-\d{2}-\d{2})\.md$/);
-    const newDate = indexedEntry?.date || (fallbackMatch && isPathInFolder2(file.path, this.plugin.settings.dailyFolder) ? fallbackMatch[1] : null);
+    const fallbackDate = parseDailyNotePath2(resolveDailyNoteConfig2(this.app, this.plugin.settings), file.path);
+    const newDate = indexedEntry?.date || fallbackDate;
     if (newDate) {
       if (newDate !== this.activeDate) {
         this._weatherCardDate = null;
@@ -39827,7 +40165,7 @@ var CreateNoteModal = class extends Modal3 {
 function _daylineDate(settings, date = /* @__PURE__ */ new Date()) {
   return getTodayDate2(settings?.weatherTimezone || "auto", date);
 }
-function _resolveDailyNoteTemplate(content, dateStr) {
+function _resolveDailyNoteTemplate(content, dateStr, noteTitle = dateStr) {
   const source = String(content ?? "");
   const title = String(dateStr ?? "");
   const moment = typeof window !== "undefined" ? window.moment : void 0;
@@ -39836,7 +40174,7 @@ function _resolveDailyNoteTemplate(content, dateStr) {
   const now = supportsMoment ? moment() : null;
   const usable = (value) => Boolean(value && typeof value.format === "function" && value.isValid?.() !== false);
   return source.replace(/\{\{(date|time|title)(?::([^}]*))?\}\}/g, (match, name, format) => {
-    if (name === "title") return title;
+    if (name === "title") return String(noteTitle ?? "");
     if (name === "date") {
       if (usable(day)) return day.format(format || "YYYY-MM-DD");
       return format ? match : title;

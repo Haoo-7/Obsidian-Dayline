@@ -32,6 +32,7 @@ import { bindNoteMediaLongPress, shouldUseNoteMediaLongPress } from '../src/note
 import { calendarCellTouchRouting, bindOpenOnPointer } from '../src/touch-targets';
 import { usesPhoneLayout } from '../src/platform-capabilities';
 import { cssUrl } from '../src/css-url';
+import * as dailyNote from '../src/daily-note';
 
 // Execute the real CalendarView class with only its host services stubbed, the
 // same way `calendar-navigation-behavior.test.ts` does. The free identifiers the
@@ -46,6 +47,7 @@ function loadClass(name, dependencies) {
 let document;
 class TestTFile {}
 const CalendarView = loadClass('CalendarView', {
+  ...dailyNote,
   ItemView: class {},
   TFile: TestTFile,
   Notice: class {},
